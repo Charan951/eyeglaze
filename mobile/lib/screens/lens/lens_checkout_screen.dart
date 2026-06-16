@@ -78,8 +78,8 @@ class _LensCheckoutScreenState extends State<LensCheckoutScreen> {
         'lensPrice': wizard.lensPrice,
         'power': wizard.rightEye != null
             ? {
-                'rightEye': {'sph': wizard.rightEye!.sph, 'cyl': wizard.rightEye!.cyl, 'axis': wizard.rightEye!.axis},
-                'leftEye': {'sph': wizard.leftEye!.sph, 'cyl': wizard.leftEye!.cyl, 'axis': wizard.leftEye!.axis},
+                'RE': {'sph': wizard.rightEye!.sph, 'cyl': wizard.rightEye!.cyl, 'axis': wizard.rightEye!.axis},
+                'LE': {'sph': wizard.leftEye!.sph, 'cyl': wizard.leftEye!.cyl, 'axis': wizard.leftEye!.axis},
                 'pd': wizard.pd,
               }
             : null,
