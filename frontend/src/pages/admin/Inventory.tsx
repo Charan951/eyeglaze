@@ -46,7 +46,7 @@ export default function InventoryPage() {
   };
 
   if (loading) {
-    return <div className="text-center text-[#888] py-10">Loading...</div>;
+    return <div className="text-center text-[#A7A7A7] py-10">Loading...</div>;
   }
 
   return (
@@ -63,11 +63,11 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+      <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#888] text-xs uppercase border-b border-[#2A2A2A]">
+              <tr className="text-[#A7A7A7] text-xs uppercase border-b border-[#2A2A2D]">
                 <th className="text-left px-5 py-3">Product</th>
                 <th className="text-left px-5 py-3">SKU</th>
                 <th className="text-left px-5 py-3">Colors / Stock</th>
@@ -77,14 +77,14 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {items.map(item => (
-                <tr key={item._id} className="border-b border-[#2A2A2A] hover:bg-[#222] transition-colors">
+                <tr key={item._id} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
                   <td className="px-5 py-4 text-white">{item.name}</td>
-                  <td className="px-5 py-4 text-[#C9A84C] font-mono text-xs">{item.sku}</td>
+                  <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs">{item.sku}</td>
                   <td className="px-5 py-4">
                     <div className="space-y-1">
                       {item.colors.map(c => (
                         <div key={c.name} className="flex items-center gap-2 text-xs">
-                          <span className="text-[#888]">{c.name}:</span>
+                          <span className="text-[#A7A7A7]">{c.name}:</span>
                           <span className={
                             c.stock === 0 ? 'text-red-400 font-bold' :
                             c.stock < LOW_STOCK ? 'text-yellow-400 font-bold' :
@@ -100,7 +100,7 @@ export default function InventoryPage() {
                   <td className="px-5 py-4">
                     <button
                       onClick={() => toggleActive(item._id)}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${item.isActive ? 'bg-[#C9A84C]' : 'bg-[#2A2A2A]'}`}
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${item.isActive ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'}`}
                     >
                       <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${item.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>

@@ -10,13 +10,13 @@ export default function StarRating({ rating, reviewCount, size = 'sm' }: StarRat
     <div className="flex items-center gap-1">
       <div className={`flex ${starSize}`}>
         {[1, 2, 3, 4, 5].map(s => (
-          <span key={s} className={s <= Math.round(rating) ? 'text-[#C9A84C]' : 'text-[#2A2A2A]'}>
+          <span key={s} className={s <= Math.round(rating) ? 'text-[#D4A04D]' : 'text-[#2A2A2D]'}>
             ★
           </span>
         ))}
       </div>
       {reviewCount !== undefined && (
-        <span className="text-[#888888] text-xs">({reviewCount})</span>
+        <span className="text-[#A7A7A7] text-xs">({reviewCount})</span>
       )}
     </div>
   );

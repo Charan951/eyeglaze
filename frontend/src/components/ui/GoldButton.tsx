@@ -15,8 +15,8 @@ export default function GoldButton({
 }: GoldButtonProps) {
   const base =
     'py-3 px-6 rounded-xl font-bold uppercase text-sm tracking-wide transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer';
-  const filled = 'bg-[#C9A84C] text-black';
-  const outline = 'border border-[#C9A84C] text-white bg-transparent';
+  const filled = 'bg-[#D4A04D] text-black';
+  const outline = 'border border-[#D4A04D] text-white bg-transparent';
   const width = fullWidth ? 'w-full' : '';
 
   return (

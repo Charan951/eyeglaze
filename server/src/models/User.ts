@@ -18,6 +18,7 @@ export interface IUser extends Document {
   mobile?: string;
   countryCode: string;
   email?: string;
+  password?: string;
   otp?: string;
   otpExpiry?: Date;
   isVerified: boolean;
@@ -52,6 +53,7 @@ const UserSchema = new Schema<IUser>(
     mobile: { type: String, unique: true, sparse: true },
     countryCode: { type: String, default: '+91' },
     email: { type: String, unique: true, sparse: true, lowercase: true },
+    password: { type: String },
     otp: { type: String },
     otpExpiry: { type: Date },
     isVerified: { type: Boolean, default: false },

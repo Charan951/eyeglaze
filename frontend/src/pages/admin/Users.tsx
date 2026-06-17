@@ -37,21 +37,21 @@ export default function AdminUsersPage() {
   }, []);
 
   if (loading) {
-    return <div className="text-center text-[#888] py-10">Loading...</div>;
+    return <div className="text-center text-[#A7A7A7] py-10">Loading...</div>;
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Users</h1>
-        <div className="text-[#888] text-sm">{users.length} total users</div>
+        <div className="text-[#A7A7A7] text-sm">{users.length} total users</div>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+      <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#888] text-xs uppercase border-b border-[#2A2A2A]">
+              <tr className="text-[#A7A7A7] text-xs uppercase border-b border-[#2A2A2D]">
                 <th className="text-left px-5 py-3">Name</th>
                 <th className="text-left px-5 py-3">Phone / Email</th>
                 <th className="text-left px-5 py-3">Joined</th>
@@ -62,10 +62,10 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {users.map(user => (
-                <tr key={user._id} className="border-b border-[#2A2A2A] hover:bg-[#222] transition-colors">
+                <tr key={user._id} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#C9A84C]/20 flex items-center justify-center text-[#C9A84C] text-xs font-bold">
+                      <div className="w-8 h-8 rounded-full bg-[#D4A04D]/20 flex items-center justify-center text-[#D4A04D] text-xs font-bold">
                         {user.name.charAt(0)}
                       </div>
                       <span className="text-white">{user.name}</span>
@@ -73,24 +73,24 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="text-white text-xs">{user.phone && `+91 ${user.phone}`}</div>
-                    <div className="text-[#888] text-xs">{user.email}</div>
+                    <div className="text-[#A7A7A7] text-xs">{user.email}</div>
                   </td>
-                  <td className="px-5 py-4 text-[#888]">{user.createdAt}</td>
+                  <td className="px-5 py-4 text-[#A7A7A7]">{user.createdAt}</td>
                   <td className="px-5 py-4 text-white font-semibold">{user.ordersCount}</td>
                   <td className="px-5 py-4">
                     <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
                       user.role === 'admin'
-                        ? 'bg-[#C9A84C]/20 text-[#C9A84C]'
-                        : 'bg-[#2A2A2A] text-[#888]'
+                        ? 'bg-[#D4A04D]/20 text-[#D4A04D]'
+                        : 'bg-[#2A2A2D] text-[#A7A7A7]'
                     }`}>
                       {user.role}
                     </span>
                   </td>
                   <td className="px-5 py-4">
                     {user.membershipActive ? (
-                      <span className="text-[#C9A84C] text-xs font-bold">★ Active</span>
+                      <span className="text-[#D4A04D] text-xs font-bold">★ Active</span>
                     ) : (
-                      <span className="text-[#888] text-xs">—</span>
+                      <span className="text-[#A7A7A7] text-xs">—</span>
                     )}
                   </td>
                 </tr>

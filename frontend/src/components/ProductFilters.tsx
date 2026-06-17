@@ -1,6 +1,12 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-const categories = ['Prescription Glasses', 'Sunglasses', 'Blue Light Glasses', 'Contact Lenses', 'Kids Eyewear'];
+const categories = [
+  { value: 'prescription', label: 'Prescription Glasses' },
+  { value: 'sunglasses', label: 'Sunglasses' },
+  { value: 'blue_light', label: 'Blue Light Glasses' },
+  { value: 'contact', label: 'Contact Lenses' },
+  { value: 'kids', label: 'Kids Eyewear' },
+];
 const frameTypes = ['Square', 'Round', 'Clubmaster', 'Aviator', 'Wayfarer', 'Cat Eye'];
 const sortOptions = [
   { value: 'newest', label: 'Newest First' },
@@ -27,7 +33,7 @@ export default function ProductFilters() {
       <div>
         <h3 className="text-white font-semibold text-sm uppercase tracking-wide mb-3">Sort By</h3>
         <select
-          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:border-[#C9A84C] focus:outline-none"
+          className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
           value={searchParams.get('sort') || ''}
           onChange={e => update('sort', e.target.value)}
         >
@@ -43,21 +49,21 @@ export default function ProductFilters() {
         <h3 className="text-white font-semibold text-sm uppercase tracking-wide mb-3">Category</h3>
         <div className="space-y-2">
           {categories.map(cat => (
-            <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+            <label key={cat.value} className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="radio"
                 name="category"
-                value={cat}
-                checked={searchParams.get('category') === cat}
-                onChange={() => update('category', cat)}
-                className="accent-[#C9A84C]"
+                value={cat.value}
+                checked={searchParams.get('category') === cat.value}
+                onChange={() => update('category', cat.value)}
+                className="accent-[#D4A04D]"
               />
-              <span className="text-[#888] text-sm group-hover:text-white transition-colors">{cat}</span>
+              <span className="text-[#A7A7A7] text-sm group-hover:text-white transition-colors">{cat.label}</span>
             </label>
           ))}
         </div>
         {searchParams.get('category') && (
-          <button onClick={() => update('category', '')} className="text-[#C9A84C] text-xs mt-2 hover:underline">
+          <button onClick={() => update('category', '')} className="text-[#D4A04D] text-xs mt-2 hover:underline">
             Clear
           </button>
         )}
@@ -75,14 +81,14 @@ export default function ProductFilters() {
                 value={ft}
                 checked={searchParams.get('frameType') === ft}
                 onChange={() => update('frameType', ft)}
-                className="accent-[#C9A84C]"
+                className="accent-[#D4A04D]"
               />
-              <span className="text-[#888] text-sm group-hover:text-white transition-colors">{ft}</span>
+              <span className="text-[#A7A7A7] text-sm group-hover:text-white transition-colors">{ft}</span>
             </label>
           ))}
         </div>
         {searchParams.get('frameType') && (
-          <button onClick={() => update('frameType', '')} className="text-[#C9A84C] text-xs mt-2 hover:underline">
+          <button onClick={() => update('frameType', '')} className="text-[#D4A04D] text-xs mt-2 hover:underline">
             Clear
           </button>
         )}

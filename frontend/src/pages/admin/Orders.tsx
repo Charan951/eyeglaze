@@ -67,7 +67,7 @@ export default function AdminOrdersPage() {
             key={s}
             onClick={() => setFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-colors ${
-              filter === s ? 'bg-[#C9A84C] text-black' : 'bg-[#1A1A1A] border border-[#2A2A2A] text-[#888] hover:border-[#C9A84C] hover:text-white'
+              filter === s ? 'bg-[#D4A04D] text-black' : 'bg-[#131314] border border-[#2A2A2D] text-[#A7A7A7] hover:border-[#D4A04D] hover:text-white'
             }`}
           >
             {s}
@@ -75,14 +75,14 @@ export default function AdminOrdersPage() {
         ))}
       </div>
 
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+      <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden">
         {loading ? (
-          <div className="text-center text-[#888] py-10">Loading...</div>
+          <div className="text-center text-[#A7A7A7] py-10">Loading...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[#888] text-xs uppercase border-b border-[#2A2A2A]">
+                <tr className="text-[#A7A7A7] text-xs uppercase border-b border-[#2A2A2D]">
                   <th className="text-left px-5 py-3">Order #</th>
                   <th className="text-left px-5 py-3">Customer</th>
                   <th className="text-left px-5 py-3">Date</th>
@@ -94,10 +94,10 @@ export default function AdminOrdersPage() {
               </thead>
               <tbody>
                 {orders.map(order => (
-                  <tr key={order._id} className="border-b border-[#2A2A2A] hover:bg-[#222] transition-colors">
-                    <td className="px-5 py-4 text-[#C9A84C] font-mono text-xs">{order.orderId || order.orderNumber || order._id}</td>
+                  <tr key={order._id} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
+                    <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs">{order.orderId || order.orderNumber || order._id}</td>
                     <td className="px-5 py-4 text-white">{customerName(order)}</td>
-                    <td className="px-5 py-4 text-[#888]">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
+                    <td className="px-5 py-4 text-[#A7A7A7]">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
                     <td className="px-5 py-4 text-white">{Array.isArray(order.items) ? order.items.length : '-'}</td>
                     <td className="px-5 py-4 text-white font-semibold">₹{order.total}</td>
                     <td className="px-5 py-4"><StatusBadge status={order.status} /></td>
@@ -108,18 +108,18 @@ export default function AdminOrdersPage() {
                             defaultValue={order.status}
                             onChange={e => updateStatus(order, e.target.value)}
                             disabled={savingId === order._id}
-                            className="bg-[#0D0D0D] border border-[#C9A84C] rounded px-2 py-1 text-white text-xs focus:outline-none"
+                            className="bg-[#0B0B0C] border border-[#D4A04D] rounded px-2 py-1 text-white text-xs focus:outline-none"
                           >
                             {ORDER_STATUSES.map(s => (
                               <option key={s} value={s}>{s}</option>
                             ))}
                           </select>
-                          <button onClick={() => setUpdating(null)} className="text-[#888] text-xs">✕</button>
+                          <button onClick={() => setUpdating(null)} className="text-[#A7A7A7] text-xs">✕</button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setUpdating(order._id)}
-                          className="text-[#C9A84C] hover:underline text-xs"
+                          className="text-[#D4A04D] hover:underline text-xs"
                         >
                           {savingId === order._id ? 'Saving...' : 'Update Status'}
                         </button>
@@ -129,7 +129,7 @@ export default function AdminOrdersPage() {
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-[#888] py-10">No orders found</td>
+                    <td colSpan={7} className="text-center text-[#A7A7A7] py-10">No orders found</td>
                   </tr>
                 )}
               </tbody>

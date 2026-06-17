@@ -1,4 +1,5 @@
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
@@ -9,20 +10,27 @@ const navItems = [
 ];
 
 export default function AdminLayout() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   return (
-    <div className="min-h-screen flex bg-[#0D0D0D]">
+    <div className="min-h-screen flex bg-[#0B0B0C]">
       {/* Sidebar */}
-      <aside className="w-56 bg-[#0A0A0A] border-r border-[#2A2A2A] flex flex-col py-6 px-3 gap-1 flex-shrink-0">
+      <aside className="w-56 bg-[#0A0A0A] border-r border-[#2A2A2D] flex flex-col py-6 px-3 gap-1 flex-shrink-0">
         <div className="px-3 mb-6">
-          <div className="text-[#C9A84C] font-serif text-lg tracking-wider uppercase font-bold">EYEGLAZE</div>
-          <div className="text-[#888] text-xs mt-0.5">Admin Panel</div>
+          <div className="text-[#D4A04D] font-serif text-lg tracking-wider uppercase font-bold">EYEGLAZE</div>
+          <div className="text-[#A7A7A7] text-xs mt-0.5">Admin Panel</div>
         </div>
 
         {navItems.map(({ href, label, icon }) => (
           <Link
             key={href}
             to={href}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#888] hover:bg-[#1A1A1A] hover:text-white transition-colors group"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#A7A7A7] hover:bg-[#131314] hover:text-white transition-colors group"
           >
             <span>{icon}</span>
             <span className="group-hover:text-white">{label}</span>
@@ -31,10 +39,13 @@ export default function AdminLayout() {
 
         <div className="flex-1" />
 
-        <div className="border-t border-[#2A2A2A] pt-4 px-3">
-          <Link to="/" className="text-[#888] text-xs hover:text-[#C9A84C] transition-colors">
-            ← Back to Store
-          </Link>
+        <div className="border-t border-[#2A2A2D] pt-4 px-3">
+          <button
+            onClick={handleLogout}
+            className="text-[#A7A7A7] text-xs hover:text-red-500 transition-colors bg-transparent border-none p-0 cursor-pointer flex items-center gap-1.5 focus:outline-none w-full text-left"
+          >
+            🚪 Logout
+          </button>
         </div>
       </aside>
 

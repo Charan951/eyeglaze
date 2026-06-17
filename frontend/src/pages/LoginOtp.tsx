@@ -67,23 +67,23 @@ export default function OtpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex flex-col items-center justify-center px-4">
+    <div className="min-h-[calc(100vh-16rem)] flex flex-col items-center justify-center px-4 py-6">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-[#C9A84C] text-3xl font-serif tracking-[0.3em] uppercase font-bold">EYEGLAZE</div>
+          <div className="text-[#D4A04D] text-3xl font-serif tracking-[0.3em] uppercase font-bold">EYEGLAZE</div>
         </div>
 
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6">
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6">
           <button
             onClick={() => navigate('/login')}
-            className="text-[#888] text-sm mb-5 hover:text-white transition-colors flex items-center gap-1"
+            className="text-[#A7A7A7] text-sm mb-5 hover:text-white transition-colors flex items-center gap-1"
           >
             ← Back
           </button>
 
           <h1 className="text-xl font-bold text-white mb-1">Enter OTP</h1>
-          <p className="text-[#888] text-sm mb-6">
+          <p className="text-[#A7A7A7] text-sm mb-6">
             Sent to{' '}
             <span className="text-white">
               {target?.mode === 'mobile' ? `+91 ${target.value}` : target?.value}
@@ -94,11 +94,11 @@ export default function OtpPage() {
 
           {error && <div className="text-red-400 text-sm text-center mt-3">{error}</div>}
 
-          <div className="text-center mt-4 text-sm text-[#888]">
+          <div className="text-center mt-4 text-sm text-[#A7A7A7]">
             {timer > 0 ? (
               <span>Resend OTP in 0:{String(timer).padStart(2, '0')}</span>
             ) : (
-              <button onClick={resend} className="text-[#C9A84C] hover:underline">
+              <button onClick={resend} className="text-[#D4A04D] hover:underline">
                 Resend OTP
               </button>
             )}
@@ -107,7 +107,7 @@ export default function OtpPage() {
           <button
             onClick={verify}
             disabled={loading || otp.length < 6}
-            className="w-full mt-6 bg-[#C9A84C] text-black font-bold uppercase py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full mt-6 bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'VERIFY'}
           </button>

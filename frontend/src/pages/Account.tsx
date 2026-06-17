@@ -1,135 +1,153 @@
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import StatusBadge from '../components/ui/StatusBadge';
+import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
+interface OrderItemRow {
+  name: string;
+  sku: string;
+  color: string;
+}
+
+interface Order {
+  _id: string;
+  orderId: string;
+  createdAt: string;
+  status: string;
+  total: number;
+  items: OrderItemRow[];
+}
+
+const mockOrders: Order[] = [
+  {
+    _id: 'ord1',
+    orderId: 'EGO-20260616-0001',
+    createdAt: '2026-06-16T10:00:00Z',
+    status: 'processing',
+    total: 1298,
+    items: [{ name: 'Matte Square Frame', sku: 'EG-2041', color: 'Matte Black' }],
+  },
+  {
+    _id: 'ord2',
+    orderId: 'EGO-20260610-0002',
+    createdAt: '2026-06-10T14:30:00Z',
+    status: 'delivered',
+    total: 799,
+    items: [{ name: 'Classic Aviator', sku: 'EG-3012', color: 'Gold' }],
+  },
+];
+
 export default function AccountPage() {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [loading, setLoading] = useState(true);
 
-  const name = user?.name || 'Guest User';
-  const phone = user?.phone || '';
-  const email = user?.email || '';
-  const membershipActive = Boolean(user?.membershipActive);
-  const addresses: unknown[] = (user?.addresses as unknown[]) || [];
+  useEffect(() => {
+    let active = true;
+    api.get('/orders')
+      .then(res => {
+        if (!active) return;
+        const data = res.data?.orders;
+        if (data?.length) setOrders(data);
+      })
+      .catch(() => {})
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, []);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+  const liveOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
+  const completedOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="text-[#A7A7A7] animate-pulse">Loading orders...</div>
+      </div>
+    );
+  }
+
+  const renderOrderList = (orderList: Order[], emptyMsg: string) => {
+    if (orderList.length === 0) {
+      return (
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-8 text-center text-gray-500 text-sm">
+          {emptyMsg}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {orderList.map(order => (
+          <div key={order._id} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 hover:border-[#D4A04D]/50 transition-colors">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="text-white font-bold">{order.orderId}</div>
+                <div className="text-[#A7A7A7] text-xs mt-1">
+                  {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <StatusBadge status={order.status} />
+                <span className="text-[#D4A04D] font-bold">₹{order.total}</span>
+              </div>
+            </div>
+
+            <div className="border-t border-[#2A2A2D] pt-3 space-y-2">
+              {order.items.map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#222] rounded-lg flex items-center justify-center">
+                    <span className="text-lg">👓</span>
+                  </div>
+                  <div>
+                    <div className="text-white text-sm font-semibold">{item.name}</div>
+                    <div className="text-[#A7A7A7] text-xs">{item.sku} · {item.color}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex gap-3">
+              <Link to={`/orders/${order._id}`} className="text-[#D4A04D] text-sm hover:underline font-semibold">View Details</Link>
+              {order.status === 'shipped' && (
+                <Link to={`/track/${order._id}`} className="text-[#D4A04D] text-sm hover:underline font-semibold">Track Order</Link>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-white mb-6">My Account</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-white mb-2">Customer Dashboard</h1>
+        <p className="text-gray-500 text-sm">Welcome back, {user?.name || 'Customer'}. Monitor your live and completed orders below.</p>
+      </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <div className="md:col-span-1">
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 text-center">
-            <div className="w-20 h-20 bg-[#C9A84C]/20 border-2 border-[#C9A84C] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">👤</span>
-            </div>
-            <div className="text-white font-bold text-lg">{name}</div>
-            {phone && <div className="text-[#888] text-sm mt-1">{phone}</div>}
-            {email && <div className="text-[#888] text-sm mt-1">{email}</div>}
+      {/* Live Orders Section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-yellow-500 rounded-full animate-pulse" />
+          <span>Live Orders</span>
+          <span className="text-xs bg-[#131314] border border-[#2A2A2D] text-gray-400 px-2 py-0.5 rounded-full font-normal">
+            {liveOrders.length}
+          </span>
+        </h2>
+        {renderOrderList(liveOrders, 'No live orders currently. Start shopping to place an order!')}
+      </div>
 
-            {membershipActive && (
-              <div className="mt-3 bg-[#C9A84C]/10 border border-[#C9A84C]/30 rounded-lg px-3 py-2 text-[#C9A84C] text-xs font-bold">
-                ★ EYEGLAZE MEMBER
-              </div>
-            )}
-
-            <button
-              onClick={handleLogout}
-              className="mt-4 w-full border border-red-500/50 text-red-400 py-2 rounded-lg text-sm hover:border-red-400 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-
-          {!membershipActive && (
-            <div className="mt-4 bg-[#1A1A1A] border border-[#C9A84C]/30 rounded-xl p-4">
-              <div className="text-[#C9A84C] font-bold text-sm mb-1">★ EYEGLAZE MEMBERSHIP</div>
-              <div className="text-[#888] text-xs mb-3">Free delivery, extended warranty & more</div>
-              <div className="text-white font-bold mb-2">₹99/year</div>
-              <button className="w-full bg-[#C9A84C] text-black font-bold py-2 rounded-lg text-sm hover:opacity-90">
-                Join Now
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Main Content */}
-        <div className="md:col-span-2 space-y-5">
-          {/* Edit Profile */}
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-            <h2 className="text-white font-bold mb-4">Personal Information</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[#888] text-xs uppercase tracking-wide">Full Name</label>
-                <input
-                  type="text"
-                  defaultValue={name}
-                  placeholder="Your name"
-                  className="mt-1 w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:border-[#C9A84C] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#888] text-xs uppercase tracking-wide">Email</label>
-                <input
-                  type="email"
-                  defaultValue={email}
-                  placeholder="your@email.com"
-                  className="mt-1 w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:border-[#C9A84C] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#888] text-xs uppercase tracking-wide">Phone</label>
-                <input
-                  type="tel"
-                  defaultValue={phone}
-                  placeholder="+91 9876543210"
-                  className="mt-1 w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:border-[#C9A84C] focus:outline-none"
-                />
-              </div>
-            </div>
-            <button className="mt-4 bg-[#C9A84C] text-black font-bold py-2 px-6 rounded-lg text-sm hover:opacity-90">
-              Save Changes
-            </button>
-          </div>
-
-          {/* Addresses */}
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white font-bold">Saved Addresses</h2>
-              <button className="text-[#C9A84C] text-sm hover:underline">+ Add Address</button>
-            </div>
-            {addresses.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-[#888] text-sm mb-3">No saved addresses</div>
-                <button className="border border-[#2A2A2A] text-white py-2 px-4 rounded-lg text-sm hover:border-[#C9A84C] transition-colors">
-                  Add New Address
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Quick Links */}
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-            <h2 className="text-white font-bold mb-4">Quick Links</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'My Orders', href: '/orders', icon: '📦' },
-                { label: 'Wishlist', href: '/account', icon: '❤️' },
-                { label: 'Prescriptions', href: '/account', icon: '📋' },
-                { label: 'Track Order', href: '/orders', icon: '🚀' },
-              ].map(({ label, href, icon }) => (
-                <a key={label} href={href} className="flex items-center gap-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg p-3 hover:border-[#C9A84C] transition-colors">
-                  <span>{icon}</span>
-                  <span className="text-white text-sm">{label}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* Completed Orders Section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-green-500 rounded-full" />
+          <span>Completed & Cancelled Orders</span>
+          <span className="text-xs bg-[#131314] border border-[#2A2A2D] text-gray-400 px-2 py-0.5 rounded-full font-normal">
+            {completedOrders.length}
+          </span>
+        </h2>
+        {renderOrderList(completedOrders, 'No completed or cancelled orders found.')}
       </div>
     </div>
   );

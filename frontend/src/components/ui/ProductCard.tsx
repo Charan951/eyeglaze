@@ -22,7 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link to={`/products/${product._id}`} className="block group">
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden hover:border-[#C9A84C] transition-colors">
+      <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors">
         {/* Image */}
         <div className="relative aspect-square bg-[#222] flex items-center justify-center">
           {product.images?.[0] ? (
@@ -34,12 +34,12 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
           {product.isBestseller && (
-            <span className="absolute top-2 left-2 bg-[#C9A84C] text-black text-xs font-bold px-2 py-1 rounded">
+            <span className="absolute top-2 left-2 bg-[#D4A04D] text-black text-xs font-bold px-2 py-1 rounded">
               BESTSELLER
             </span>
           )}
           {discount > 0 && (
-            <span className="absolute top-2 right-2 bg-[#C9A84C]/20 text-[#C9A84C] text-xs font-bold px-2 py-1 rounded border border-[#C9A84C]/30">
+            <span className="absolute top-2 right-2 bg-[#D4A04D]/20 text-[#D4A04D] text-xs font-bold px-2 py-1 rounded border border-[#D4A04D]/30">
               {discount}% OFF
             </span>
           )}
@@ -48,13 +48,13 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Info */}
         <div className="p-3">
           {product.frame?.type && (
-            <div className="text-[#888] text-xs mb-1">{product.frame.type}</div>
+            <div className="text-[#A7A7A7] text-xs mb-1">{product.frame.type}</div>
           )}
           <div className="text-white font-semibold text-sm mb-2 line-clamp-2">{product.name}</div>
 
           <div className="flex items-center gap-2 mb-2">
             <span className="text-white font-bold">₹{product.price.selling}</span>
-            <span className="text-[#888] text-sm line-through">₹{product.price.original}</span>
+            <span className="text-[#A7A7A7] text-sm line-through">₹{product.price.original}</span>
           </div>
 
           {product.rating !== undefined && (

@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 dotenv.config();
-import { connectDB } from '../lib/mongodb';
+import { connectDB } from '../config/mongodb';
+import { startInMemoryMongoDB } from '../config/inMemoryMongo';
 
 // Inline model definitions to avoid module issues in standalone scripts
 const LensOptionSchema = new mongoose.Schema({
@@ -73,6 +75,7 @@ const UserSchema = new mongoose.Schema(
     mobile: { type: String, unique: true, sparse: true },
     countryCode: { type: String, default: '+91' },
     email: { type: String, unique: true, sparse: true, lowercase: true },
+    password: { type: String },
     otp: String,
     otpExpiry: Date,
     isVerified: { type: Boolean, default: false },
@@ -87,6 +90,12 @@ const UserSchema = new mongoose.Schema(
 
 async function main() {
   console.log('Connecting to MongoDB...');
+  
+  if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'development') {
+    const inMemoryUri = await startInMemoryMongoDB();
+    process.env.MONGODB_URI = inMemoryUri;
+  }
+  
   await connectDB();
   console.log('Connected!');
 
@@ -157,6 +166,53 @@ async function main() {
     },
   ];
 
+  const singleVisionTiers = [
+    {
+      kind: 'type',
+      type: 'single_vision',
+      subType: 'basic_single_vision',
+      displayName: 'Standard Single Vision',
+      name: 'Standard Single Vision',
+      description: 'Standard single vision lenses with basic anti-glare.',
+      price: 699,
+      features: ['Anti-Reflective', '100% UV Protection'],
+      sortOrder: 4,
+    },
+    {
+      kind: 'type',
+      type: 'single_vision',
+      subType: 'premium_single_vision',
+      displayName: 'Premium Single Vision',
+      name: 'Premium Single Vision',
+      description: 'Enhanced clarity with premium anti-reflective coating.',
+      price: 1299,
+      features: ['Premium Anti-Reflective', 'Scratch Resistant', '100% UV Protection'],
+      sortOrder: 5,
+    },
+    {
+      kind: 'type',
+      type: 'single_vision',
+      subType: 'advanced_single_vision',
+      displayName: 'Advanced Single Vision',
+      name: 'Advanced Single Vision',
+      description: 'Super hydrophobic coating for scratch & dust resistance.',
+      price: 1599,
+      features: ['Hydrophobic Coating', 'Dust Repellent', 'Premium Optics', '100% UV Protection'],
+      sortOrder: 6,
+    },
+    {
+      kind: 'type',
+      type: 'single_vision',
+      subType: 'elite_single_vision',
+      displayName: 'Elite Single Vision',
+      name: 'Elite Single Vision',
+      description: 'Digital blue cut + anti-reflective premium lenses.',
+      price: 2199,
+      features: ['Blue Cut Coating', 'Premium Anti-Reflective', 'Maximum Clarity', '100% UV Protection'],
+      sortOrder: 7,
+    },
+  ];
+
   const progressiveTiers = [
     {
       kind: 'type',
@@ -164,10 +220,11 @@ async function main() {
       subType: 'hc_progressive',
       displayName: 'HC Progressive',
       name: 'HC Progressive',
-      description: 'Entry-level progressive lenses with hard coat.',
+      description: 'Wide & clear vision with enhanced comfort and less distortion.',
       price: 2499,
-      features: ['Hard Coat', 'Anti-Reflective', '100% UV Protection'],
+      features: ['Wide Vision', 'Less Distortion', 'Easy Adaptation', 'UV Protection'],
       sortOrder: 10,
+      isBestseller: true,
     },
     {
       kind: 'type',
@@ -175,9 +232,9 @@ async function main() {
       subType: 'premium_progressive',
       displayName: 'Premium Progressive',
       name: 'Premium Progressive',
-      description: 'Enhanced progressive lenses with wider vision zones.',
+      description: 'High clarity with advanced lens design for better visual balance.',
       price: 3499,
-      features: ['Hard Coat', 'Anti-Reflective', 'Wider vision zones', '100% UV Protection'],
+      features: ['Clear Vision', 'Better Sharpness', 'Reduced Glare', 'UV Protection'],
       sortOrder: 11,
     },
     {
@@ -186,9 +243,9 @@ async function main() {
       subType: 'advanced_progressive',
       displayName: 'Advanced Progressive',
       name: 'Advanced Progressive',
-      description: 'Advanced progressive lenses with HMC coating.',
+      description: 'Smooth transitions with improved intermediate & near vision.',
       price: 4499,
-      features: ['HMC Coating', 'Anti-Reflective', 'Superior optics', '100% UV Protection'],
+      features: ['Smooth Transition', 'Wider Zones', 'Low Distortion', 'UV Protection'],
       sortOrder: 12,
     },
     {
@@ -197,10 +254,151 @@ async function main() {
       subType: 'elite_progressive',
       displayName: 'Elite Progressive',
       name: 'Elite Progressive',
-      description: 'Top-of-the-line progressive lenses with all premium coatings.',
+      description: 'Best-in-class clarity with personalized comfort for all-day use.',
       price: 5499,
-      features: ['HMC + Blue Cut', 'Maximum UV Protection', 'Widest vision zones', 'Premium optics'],
+      features: ['Personalized Vision', 'Maximum Clarity', 'Fast Adaptation', 'UV Protection'],
       sortOrder: 13,
+    },
+  ];
+
+  const zeroPowerTiers = [
+    {
+      kind: 'type',
+      type: 'zero_power',
+      subType: 'basic_zero_power',
+      displayName: 'Standard Zero Power',
+      name: 'Standard Zero Power',
+      description: 'Standard zero power lenses for fashion and style.',
+      price: 699,
+      features: ['Hard Coat', '100% UV Protection'],
+      sortOrder: 20,
+    },
+    {
+      kind: 'type',
+      type: 'zero_power',
+      subType: 'premium_zero_power',
+      displayName: 'Premium Zero Power',
+      name: 'Premium Zero Power',
+      description: 'Zero power lenses with anti-reflective coating.',
+      price: 999,
+      features: ['Anti-Reflective', 'Scratch Resistant', '100% UV Protection'],
+      sortOrder: 21,
+    },
+    {
+      kind: 'type',
+      type: 'zero_power',
+      subType: 'advanced_zero_power',
+      displayName: 'Advanced Zero Power',
+      name: 'Advanced Zero Power',
+      description: 'Zero power with anti-reflective + blue cut protection.',
+      price: 1299,
+      features: ['Blue Cut Protection', 'Anti-Reflective', '100% UV Protection'],
+      sortOrder: 22,
+    },
+    {
+      kind: 'type',
+      type: 'zero_power',
+      subType: 'elite_zero_power',
+      displayName: 'Elite Zero Power',
+      name: 'Elite Zero Power',
+      description: 'Premium zero power with all-in-one protective coatings.',
+      price: 1699,
+      features: ['HMC + Blue Cut', 'Dust & Water Repellent', 'Maximum UV Protection'],
+      sortOrder: 23,
+    },
+  ];
+
+  const blueCutTiers = [
+    {
+      kind: 'type',
+      type: 'bluecut',
+      subType: 'basic_bluecut',
+      displayName: 'Standard Blue Cut',
+      name: 'Standard Blue Cut',
+      description: 'Standard blue cut lenses to protect from digital screens.',
+      price: 899,
+      features: ['Blue Cut Coating', '100% UV Protection'],
+      sortOrder: 30,
+    },
+    {
+      kind: 'type',
+      type: 'bluecut',
+      subType: 'premium_bluecut',
+      displayName: 'Premium Blue Cut',
+      name: 'Premium Blue Cut',
+      description: 'Premium blue cut lenses with anti-reflective coating.',
+      price: 1299,
+      features: ['Blue Cut Coating', 'Anti-Reflective', 'Scratch Resistant'],
+      sortOrder: 31,
+    },
+    {
+      kind: 'type',
+      type: 'bluecut',
+      subType: 'advanced_bluecut',
+      displayName: 'Advanced Blue Cut',
+      name: 'Advanced Blue Cut',
+      description: 'Hydrophobic anti-reflective blue cut lenses.',
+      price: 1699,
+      features: ['Blue Cut Coating', 'Hydrophobic Coating', 'Superior Clarity', 'Anti-Reflective'],
+      sortOrder: 32,
+    },
+    {
+      kind: 'type',
+      type: 'bluecut',
+      subType: 'elite_bluecut',
+      displayName: 'Elite Blue Cut',
+      name: 'Elite Blue Cut',
+      description: 'Top-of-the-line blue cut lenses with maximum protection.',
+      price: 2199,
+      features: ['Ultimate Blue Cut', 'HMC Coating', 'Dust & Smudge Resistant', '1 Year Warranty'],
+      sortOrder: 33,
+    },
+  ];
+
+  const photochromicTiers = [
+    {
+      kind: 'type',
+      type: 'photochromic',
+      subType: 'basic_photochromic',
+      displayName: 'Standard Photochromic',
+      name: 'Standard Photochromic',
+      description: 'Transitions from clear to dark in outdoor sunlight.',
+      price: 1499,
+      features: ['Auto-darkening', '100% UV Protection'],
+      sortOrder: 40,
+    },
+    {
+      kind: 'type',
+      type: 'photochromic',
+      subType: 'premium_photochromic',
+      displayName: 'Premium Photochromic',
+      name: 'Premium Photochromic',
+      description: 'Fast-transitioning lenses with anti-reflective coating.',
+      price: 1999,
+      features: ['Fast Transitions', 'Anti-Reflective', 'Scratch Resistant'],
+      sortOrder: 41,
+    },
+    {
+      kind: 'type',
+      type: 'photochromic',
+      subType: 'advanced_photochromic',
+      displayName: 'Advanced Photochromic',
+      name: 'Advanced Photochromic',
+      description: 'Transition lenses with blue cut protection.',
+      price: 2499,
+      features: ['Fast Transitions', 'Blue Cut Protection', 'Anti-Reflective', 'UV Protection'],
+      sortOrder: 42,
+    },
+    {
+      kind: 'type',
+      type: 'photochromic',
+      subType: 'elite_photochromic',
+      displayName: 'Elite Photochromic',
+      name: 'Elite Photochromic',
+      description: 'Premium transition lenses with all-in-one protection.',
+      price: 2999,
+      features: ['Ultra-Fast Transitions', 'HMC + Blue Cut', 'Water & Dust Repellent', '1 Year Warranty'],
+      sortOrder: 43,
     },
   ];
 
@@ -256,7 +454,7 @@ async function main() {
   ];
 
   // Idempotent upsert by displayName + kind
-  for (const opt of [...lensTypes, ...progressiveTiers, ...qualityTiers]) {
+  for (const opt of [...lensTypes, ...singleVisionTiers, ...progressiveTiers, ...zeroPowerTiers, ...blueCutTiers, ...photochromicTiers, ...qualityTiers]) {
     await LensOption.findOneAndUpdate(
       { displayName: opt.displayName, kind: opt.kind },
       opt,
@@ -291,7 +489,7 @@ async function main() {
         { name: 'Navy Blue', hex: '#1E3A5F', stock: 25 },
         { name: 'Dark Red', hex: '#8B0000', stock: 15 },
       ],
-      images: ['/images/products/eg-2041/1.jpg'],
+      images: ['/images/cat_prescription.png'],
       price: { original: 999, selling: 1 },
       category: 'prescription',
       compatible: { prescription: true, bluecut: true, zeropower: true, progressive: true },
@@ -326,7 +524,7 @@ async function main() {
         { name: 'Brown Silver', hex: '#5C4033', stock: 25 },
         { name: 'Crystal Clear', hex: '#E8E8E8', stock: 20 },
       ],
-      images: ['/images/products/eg-1067/1.jpg'],
+      images: ['/images/cat_prescription.png'],
       price: { original: 999, selling: 1 },
       category: 'prescription',
       compatible: { prescription: true, bluecut: true, zeropower: true, progressive: false },
@@ -360,7 +558,7 @@ async function main() {
         { name: 'Silver', hex: '#C0C0C0', stock: 40 },
         { name: 'Gunmetal', hex: '#2C3539', stock: 25 },
       ],
-      images: ['/images/products/eg-3012/1.jpg'],
+      images: ['/images/cat_sunglasses.png'],
       price: { original: 999, selling: 1 },
       category: 'sunglasses',
       compatible: { prescription: false, bluecut: false, zeropower: true, progressive: false },
@@ -390,7 +588,7 @@ async function main() {
         { name: 'Pink', hex: '#FF69B4', stock: 35 },
         { name: 'Red', hex: '#DC143C', stock: 20 },
       ],
-      images: ['/images/products/eg-4001/1.jpg'],
+      images: ['/images/cat_kids.png'],
       price: { original: 999, selling: 1 },
       category: 'kids',
       compatible: { prescription: true, bluecut: true, zeropower: true, progressive: false },
@@ -420,7 +618,7 @@ async function main() {
         { name: 'Havana Brown', hex: '#6B3A2A', stock: 30 },
         { name: 'Clear', hex: '#F5F5F0', stock: 25 },
       ],
-      images: ['/images/products/eg-5010/1.jpg'],
+      images: ['/images/cat_blue_light.png'],
       price: { original: 999, selling: 1 },
       category: 'blue_light',
       compatible: { prescription: false, bluecut: true, zeropower: true, progressive: false },
@@ -450,7 +648,7 @@ async function main() {
         { name: 'Gunmetal', hex: '#2C3539', stock: 25 },
         { name: 'Dark Brown', hex: '#3D2314', stock: 20 },
       ],
-      images: ['/images/products/eg-6003/1.jpg'],
+      images: ['/images/cat_prescription.png'],
       price: { original: 999, selling: 1 },
       category: 'prescription',
       compatible: { prescription: true, bluecut: true, zeropower: true, progressive: true },
@@ -464,28 +662,151 @@ async function main() {
         seoDescription: 'Wide frame designed for progressive lenses at ₹1.',
       },
     },
+    {
+      _id: new mongoose.Types.ObjectId('6a30f027dc02afc2e5588f6e'),
+      sku: 'EG-2021',
+      name: 'Matte Square Frame',
+      description: 'Lightweight TR90 premium square frames with a modern matte finish.',
+      frame: {
+        type: 'Square',
+        material: 'TR90 Premium',
+        width: 140,
+        lensWidth: 54,
+        bridgeWidth: 18,
+        templeLength: 145,
+        featureTags: ['Lightweight', 'Flexible', 'Skin Friendly', 'Durable'],
+      },
+      frameType: 'Square',
+      material: 'TR90 Premium',
+      colors: [
+        { 
+          name: 'Matte Black', 
+          hex: '#131314', 
+          stock: 50,
+          images: [
+            '/images/cat_prescription.png',
+            '/images/cat_prescription.png',
+            '/images/cat_prescription.png',
+            '/images/cat_prescription.png',
+            '/images/hero_model.png'
+          ]
+        },
+        { 
+          name: 'Black Gold', 
+          hex: '#D4A04D', 
+          stock: 30,
+          images: [
+            '/images/cat_blue_light.png',
+            '/images/cat_blue_light.png',
+            '/images/cat_blue_light.png',
+            '/images/cat_blue_light.png',
+            '/images/hero_model.png'
+          ]
+        },
+        { 
+          name: 'Dark Brown', 
+          hex: '#5C3D2E', 
+          stock: 20,
+          images: [
+            '/images/cat_sunglasses.png',
+            '/images/cat_sunglasses.png',
+            '/images/cat_sunglasses.png',
+            '/images/cat_sunglasses.png',
+            '/images/hero_model.png'
+          ]
+        },
+      ],
+      images: ['/images/cat_prescription.png'],
+      price: { original: 999, selling: 1 },
+      category: 'prescription',
+      compatible: { prescription: true, bluecut: true, zeropower: true, progressive: true },
+      tags: ['square', 'matte', 'tr90', 'lightweight', 'prescription'],
+      isBestseller: true,
+      rating: 4.7,
+      reviewCount: 198,
+      soldCount: 500,
+      meta: {
+        seoTitle: 'EG-2021 Matte Square Frame - EyeGlaze',
+        seoDescription: 'Premium TR90 matte square eyeglasses frame at ₹1. Available in 3 colors.',
+      },
+    },
   ];
 
   for (const prod of products) {
-    await Product.findOneAndUpdate({ sku: prod.sku }, prod, { upsert: true, new: true });
+    const query = (prod as any)._id ? { _id: (prod as any)._id } : { sku: prod.sku };
+    await Product.findOneAndUpdate(query, prod, { upsert: true, new: true });
   }
   console.log('Products seeded.');
 
   // ---- Seed Admin User ----
   console.log('Seeding admin user...');
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@eyeglaze.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
   await User.findOneAndUpdate(
-    { mobile: '9999999999' },
+    { role: 'admin' },
     {
       mobile: '9999999999',
       phone: '9999999999',
       countryCode: '+91',
+      email: adminEmail.toLowerCase(),
+      password: adminPasswordHash,
       role: 'admin',
       name: 'EyeGlaze Admin',
       isVerified: true,
     },
     { upsert: true, new: true }
   );
-  console.log('Admin user seeded (mobile: 9999999999).');
+  console.log(`Admin user seeded (email: ${adminEmail}).`);
+
+  // ---- Seed Customer Users ----
+  console.log('Seeding customer/user accounts...');
+  const userPasswordHash = await bcrypt.hash('user123', 10);
+  const customerSeeds = [
+    {
+      name: 'Rahul Sharma',
+      mobile: '9876543210',
+      phone: '9876543210',
+      countryCode: '+91',
+      email: 'rahul@email.com',
+      password: userPasswordHash,
+      role: 'user',
+      membershipActive: true,
+      isVerified: true,
+    },
+    {
+      name: 'Priya Patel',
+      mobile: '9123456780',
+      phone: '9123456780',
+      countryCode: '+91',
+      email: 'priya@email.com',
+      password: userPasswordHash,
+      role: 'user',
+      membershipActive: false,
+      isVerified: true,
+    },
+    {
+      name: 'Amit Kumar',
+      mobile: '',
+      phone: '',
+      countryCode: '+91',
+      email: 'amit@company.com',
+      password: userPasswordHash,
+      role: 'user',
+      membershipActive: true,
+      isVerified: true,
+    },
+  ];
+
+  for (const customer of customerSeeds) {
+    const query = customer.email ? { email: customer.email } : { name: customer.name };
+    await User.findOneAndUpdate(
+      query,
+      customer,
+      { upsert: true, new: true }
+    );
+  }
+  console.log('Customer/user accounts seeded.');
 
   console.log('\nSeed completed successfully!');
   await mongoose.disconnect();

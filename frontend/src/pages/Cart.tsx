@@ -13,6 +13,7 @@ interface CartItem {
   lensPrice: number;
   fittingCharge: number;
   qty: number;
+  image?: string;
 }
 
 const mockItems: CartItem[] = [
@@ -26,6 +27,7 @@ const mockItems: CartItem[] = [
     lensPrice: 999,
     fittingCharge: 199,
     qty: 1,
+    image: '/images/cat_prescription.png'
   },
 ];
 
@@ -41,7 +43,22 @@ export default function CartPage() {
       .then(res => {
         if (!active) return;
         const cartItems = res.data?.items || res.data?.cart?.items || [];
-        setItems(cartItems.length ? cartItems : mockItems);
+        const mapped = cartItems.map((item: any) => ({
+          id: item._id || item.id,
+          _id: item._id,
+          name: item.product?.name || item.name || 'Frame',
+          sku: item.product?.sku || item.sku || '',
+          color: item.color || '',
+          lens: item.lensType 
+            ? `${item.lensType.replace('_', ' ').toUpperCase()}${item.lensSubType ? ` (${item.lensSubType.replace('_', ' ').toUpperCase()})` : ` (${item.lensQuality})`}`
+            : item.lens || '',
+          framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
+          lensPrice: item.lensPrice ?? 0,
+          fittingCharge: item.fittingCharge ?? 0,
+          qty: item.qty,
+          image: item.product?.images?.[0] || item.image || '',
+        }));
+        setItems(mapped);
       })
       .catch(() => {
         if (active) setItems(mockItems);
@@ -84,7 +101,7 @@ export default function CartPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-24 text-[#888]">Loading...</div>;
+    return <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>;
   }
 
   if (items.length === 0) {
@@ -92,8 +109,8 @@ export default function CartPage() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
         <div className="text-6xl mb-4">🛒</div>
         <h2 className="text-xl font-bold text-white mb-2">Your cart is empty</h2>
-        <p className="text-[#888] mb-6">Add some frames to get started</p>
-        <Link to="/products" className="bg-[#C9A84C] text-black font-bold uppercase py-3 px-8 rounded-xl hover:opacity-90 transition-opacity">
+        <p className="text-[#A7A7A7] mb-6">Add some frames to get started</p>
+        <Link to="/products" className="bg-[#D4A04D] text-black font-bold uppercase py-3 px-8 rounded-xl hover:opacity-90 transition-opacity">
           Shop Now
         </Link>
       </div>
@@ -108,28 +125,32 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           {items.map(item => (
-            <div key={item.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 flex gap-4">
-              {/* Image placeholder */}
-              <div className="w-20 h-20 bg-[#222] rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-3xl">👓</span>
+            <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 flex gap-4">
+              {/* Product Image */}
+              <div className="w-20 h-20 bg-[#222] border border-[#2A2A2D] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                {item.image ? (
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl">👓</span>
+                )}
               </div>
 
               <div className="flex-1">
                 <div className="text-white font-semibold">{item.name}</div>
-                <div className="text-[#888] text-sm mt-1">{item.sku} · {item.color}</div>
+                <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
                 {item.lens && (
-                  <div className="text-[#888] text-xs mt-1">Lens: {item.lens}</div>
+                  <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
                 )}
                 <div className="flex items-center gap-4 mt-3">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQty(item, Math.max(1, item.qty - 1))}
-                      className="w-7 h-7 bg-[#2A2A2A] rounded text-white hover:bg-[#C9A84C] hover:text-black transition-colors text-sm"
+                      className="w-7 h-7 bg-[#2A2A2D] rounded text-white hover:bg-[#D4A04D] hover:text-black transition-colors text-sm"
                     >−</button>
                     <span className="text-white w-6 text-center">{item.qty}</span>
                     <button
                       onClick={() => updateQty(item, item.qty + 1)}
-                      className="w-7 h-7 bg-[#2A2A2A] rounded text-white hover:bg-[#C9A84C] hover:text-black transition-colors text-sm"
+                      className="w-7 h-7 bg-[#2A2A2D] rounded text-white hover:bg-[#D4A04D] hover:text-black transition-colors text-sm"
                     >+</button>
                   </div>
                   <button onClick={() => remove(item)} className="text-red-400 text-xs hover:underline">Remove</button>
@@ -138,9 +159,9 @@ export default function CartPage() {
 
               <div className="text-right">
                 <div className="text-white font-bold">₹{(item.framePrice + item.lensPrice + item.fittingCharge) * item.qty}</div>
-                <div className="text-[#888] text-xs mt-1">Frame: ₹{item.framePrice}</div>
-                {item.lensPrice > 0 && <div className="text-[#888] text-xs">Lens: ₹{item.lensPrice}</div>}
-                {item.fittingCharge > 0 && <div className="text-[#888] text-xs">Fitting: ₹{item.fittingCharge}</div>}
+                <div className="text-[#A7A7A7] text-xs mt-1">Frame: ₹{item.framePrice}</div>
+                {item.lensPrice > 0 && <div className="text-[#A7A7A7] text-xs">Lens: ₹{item.lensPrice}</div>}
+                {item.fittingCharge > 0 && <div className="text-[#A7A7A7] text-xs">Fitting: ₹{item.fittingCharge}</div>}
               </div>
             </div>
           ))}
@@ -148,16 +169,16 @@ export default function CartPage() {
 
         {/* Order Summary */}
         <div>
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5 sticky top-28">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 sticky top-28">
             <h2 className="text-white font-bold text-lg mb-4">Order Summary</h2>
 
             <div className="space-y-3 text-sm mb-4">
               <div className="flex justify-between">
-                <span className="text-[#888]">Subtotal</span>
+                <span className="text-[#A7A7A7]">Subtotal</span>
                 <span className="text-white">₹{subtotal}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#888]">Delivery Charge</span>
+                <span className="text-[#A7A7A7]">Delivery Charge</span>
                 <span className="text-white">₹{delivery}</span>
               </div>
               {couponApplied && (
@@ -166,9 +187,9 @@ export default function CartPage() {
                   <span>-₹{discount}</span>
                 </div>
               )}
-              <div className="border-t border-[#2A2A2A] pt-3 flex justify-between font-bold">
+              <div className="border-t border-[#2A2A2D] pt-3 flex justify-between font-bold">
                 <span className="text-white">Total</span>
-                <span className="text-[#C9A84C] text-lg">₹{total}</span>
+                <span className="text-[#D4A04D] text-lg">₹{total}</span>
               </div>
             </div>
 
@@ -181,25 +202,25 @@ export default function CartPage() {
                   value={coupon}
                   onChange={e => setCoupon(e.target.value.toUpperCase())}
                   placeholder="Enter code"
-                  className="flex-1 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:border-[#C9A84C] focus:outline-none"
+                  className="flex-1 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                 />
                 <button
                   onClick={applyCoupon}
-                  className="bg-[#C9A84C] text-black font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90"
+                  className="bg-[#D4A04D] text-black font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90"
                 >
                   Apply
                 </button>
               </div>
             </div>
 
-            <a
-              href="/checkout"
-              className="block bg-[#C9A84C] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full"
+            <Link
+              to="/checkout"
+              className="block bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full"
             >
               Proceed to Checkout →
-            </a>
+            </Link>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#888] text-center">
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#A7A7A7] text-center">
               <div>100% Secure</div>
               <div>1 Year Warranty</div>
               <div>Easy Returns</div>

@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 @theme {
-  --color-eyeglaze-gold: #C9A84C;
-  --color-eyeglaze-bg: #0D0D0D;
-  --color-eyeglaze-card: #1A1A1A;
-  --color-eyeglaze-border: #2A2A2A;
-  --color-eyeglaze-muted: #888888;
+  --color-eyeglaze-gold: #D4A04D;
+  --color-eyeglaze-gold-hover: #C8923E;
+  --color-eyeglaze-bg: #0B0B0C;
+  --color-eyeglaze-card: #131314;
+  --color-eyeglaze-border: #2A2A2D;
+  --color-eyeglaze-muted: #A7A7A7;
+  --color-eyeglaze-white: #F2F2F2;
   --color-eyeglaze-error: #FF4444;
   --color-eyeglaze-success: #4CAF50;
+
+  --animate-slide-in: slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-scale-up: scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes scale-up {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
 }
 
 :root {
-  --gold: #C9A84C;
-  --bg: #0D0D0D;
-  --card: #1A1A1A;
-  --border: #2A2A2A;
-  --muted: #888888;
+  --gold: #D4A04D;
+  --gold-hover: #C8923E;
+  --bg: #0B0B0C;
+  --card: #131314;
+  --border: #2A2A2D;
+  --muted: #A7A7A7;
+  --white: #F2F2F2;
 }
 
 body {
-  background-color: #0D0D0D;
-  color: #FFFFFF;
+  background-color: #0B0B0C;
+  color: #F2F2F2;
   font-family: system-ui, -apple-system, sans-serif;
   margin: 0;
 }
@@ -30,11 +65,22 @@ body {
 }
 
 input, textarea, select {
-  background-color: #1A1A1A;
-  border-color: #2A2A2A;
-  color: #FFFFFF;
+  background-color: #131314;
+  border-color: #2A2A2D;
+  color: #F2F2F2;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #888888;
+  color: #A7A7A7;
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
