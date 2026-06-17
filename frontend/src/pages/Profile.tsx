@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface Address {
   id: string;
@@ -117,6 +118,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO robots="noindex, nofollow" title="My Profile" />
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">My Profile</h1>
         <p className="text-gray-500 text-sm">Manage your personal settings, addresses, payment cards, and EyeGlaze wallet.</p>

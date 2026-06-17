@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SEO from '../components/SEO';
 
 export default function Offers() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -42,6 +43,11 @@ export default function Offers() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-8">
+      <SEO 
+        title="Eyewear Coupon Codes & Active Offers"
+        description="Save on premium designer frames and custom lenses with current EyeGlaze promo codes, first order discounts, and free anti-glare lens coating offers."
+        keywords="eyeglaze coupon codes, luxury eyewear discount, free lens coating promo, free shipping glasses"
+      />
       
       {/* Header Info */}
       <div className="flex flex-col gap-2 max-w-2xl">

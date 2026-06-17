@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
 export default function CategoriesPage() {
   const categories = [
@@ -41,6 +42,11 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-8">
+      <SEO 
+        title="Eyewear Categories | Prescription, Sunglasses, Blue Cut"
+        description="Browse our prescription eyeglasses, designer sunglasses, screen-ready blue light glasses, contact lenses, and kids collections at EyeGlaze."
+        keywords="eyeglasses categories, designer sunglasses collection, blue cut lenses, contacts online"
+      />
       
       {/* Header Info */}
       <div className="flex flex-col gap-2 max-w-2xl">

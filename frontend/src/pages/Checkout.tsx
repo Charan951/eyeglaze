@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
+import SEO from '../components/SEO';
 
 interface CartItem {
   id: string;
@@ -125,6 +126,7 @@ export default function CheckoutPage() {
   if (orderSuccess && successDetails) {
     return (
       <div className="max-w-xl mx-auto py-16 px-4 md:px-0">
+        <SEO robots="noindex, nofollow" title="Order Placed Successfully" />
         <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-8 text-center space-y-6">
           <div className="w-16 h-16 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full flex items-center justify-center text-3xl mx-auto">
             ✓
@@ -166,6 +168,7 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-md mx-auto text-center py-16 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6">
+        <SEO robots="noindex, nofollow" title="Checkout Unavailable" />
         <div className="text-6xl mb-4">🛒</div>
         <h2 className="text-xl font-bold text-white mb-2">Checkout is unavailable</h2>
         <p className="text-[#A7A7A7] mb-6">Your shopping cart is currently empty.</p>
@@ -178,6 +181,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-0">
+      <SEO robots="noindex, nofollow" title="Secure Checkout" />
       <h1 className="text-2xl font-bold text-white mb-8">Checkout</h1>
 
       <form onSubmit={handlePlaceOrder} className="grid lg:grid-cols-3 gap-8 items-start">

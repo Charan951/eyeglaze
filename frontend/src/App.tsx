@@ -42,14 +42,7 @@ export default function App() {
             <Route path="/login/otp" element={<LoginOtp />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
-            <Route
-              path="/lens"
-              element={
-                <ProtectedRoute>
-                  <LensSelection />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/lens" element={<LensSelection />} />
             <Route path="/categories" element={<Products />} />
             <Route path="/offers" element={<Offers />} />
             <Route path="/about" element={<About />} />
@@ -63,14 +56,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/cart"
-              element={
-                <ProtectedRoute>
-                  <Cart />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/cart" element={<Cart />} />
             <Route
               path="/checkout"
               element={

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SEO from '../components/SEO';
 
 export default function Contact() {
   const [formState, setFormState] = useState({ name: '', email: '', subject: '', message: '' });
@@ -19,6 +20,11 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-10">
+      <SEO 
+        title="Contact Us | Optical Labs & Customer Care"
+        description="Get in touch with EyeGlaze support. Contact our central optics laboratory, optometrist panel, or check out our toll-free phone number and locations."
+        keywords="eyeglaze contact, customer care helpline, central laboratory gurugram, optical queries support"
+      />
       
       {/* Intro Header */}
       <div className="flex flex-col gap-2 max-w-2xl">

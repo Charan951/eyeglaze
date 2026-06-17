@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface LensOption {
   _id: string;
@@ -40,6 +42,7 @@ interface Product {
 export default function LensSelection() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, fetchCartCount } = useAuth();
   const productId = searchParams.get('product');
   const color = searchParams.get('color') || '';
 
@@ -210,13 +213,24 @@ export default function LensSelection() {
   };
 
   const compressAndUploadPrescription = async (file: File): Promise<string> => {
-    if (file.type === 'application/pdf') {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/prescriptions', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data.prescription?.uploadedFile || res.data.prescription?.imageUrl || '';
+    if (!user) {
+      if (file.type === 'application/pdf') {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (err) => reject(err);
+        });
+      }
+    } else {
+      if (file.type === 'application/pdf') {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/prescriptions', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.prescription?.uploadedFile || res.data.prescription?.imageUrl || '';
+      }
     }
 
     return new Promise<string>((resolve, reject) => {
@@ -248,6 +262,11 @@ export default function LensSelection() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
+
+          if (!user) {
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+            return;
+          }
 
           canvas.toBlob(
             async (blob) => {
@@ -346,21 +365,53 @@ export default function LensSelection() {
           }
         : { uploadLater: true, uploadedFileUrl };
 
+      const lensPayload = {
+        lensType: selectedType?.displayName || selectedType?.name,
+        lensSubType: selectedSubType?.displayName || selectedSubType?.name || undefined,
+        lensQuality: selectedQuality?.displayName || 'Standard Coating',
+        lensPrice: basePrice,
+        fittingCharge: 199,
+        power: powerObj
+      };
+
+      if (!user) {
+        // Guest user local cart flow
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+        
+        const newItem = {
+          id: `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          productId: product._id,
+          qty: 1,
+          color: color || 'Matte Black',
+          name: product.name,
+          sku: product.sku,
+          lens: `${selectedType?.displayName || selectedType?.name}${
+            selectedSubType ? ` (${selectedSubType.displayName})` : ` (${selectedQuality?.displayName || 'Standard Coating'})`
+          }`,
+          framePrice: product.price?.selling ?? 1,
+          lensPrice: basePrice,
+          fittingCharge: 199,
+          image: product.images?.[0] || '',
+          lensPayload
+        };
+
+        cart.push(newItem);
+        localStorage.setItem('guest_cart', JSON.stringify(cart));
+        await fetchCartCount();
+        navigate('/cart');
+        return;
+      }
+
       const payload = {
         productId: product._id,
         color: color,
         qty: 1,
-        lens: {
-          lensType: selectedType?.displayName || selectedType?.name,
-          lensSubType: selectedSubType?.displayName || selectedSubType?.name || undefined,
-          lensQuality: selectedQuality?.displayName || 'Standard Coating',
-          lensPrice: basePrice,
-          fittingCharge: 199,
-          power: powerObj
-        }
+        lens: lensPayload
       };
 
       await api.post('/cart', payload);
+      await fetchCartCount();
       navigate('/cart');
     } catch (err) {
       console.error('Failed to add product with lens config:', err);
@@ -499,6 +550,7 @@ export default function LensSelection() {
 
   return (
     <div className="min-h-screen bg-[#0E0E0F]">
+      <SEO robots="noindex, nofollow" title="Configure Lenses" />
       
       {/* Sticky Custom Header */}
       <header className="sticky top-0 bg-[#0E0E0F]/90 backdrop-blur-md border-b border-[#2A2A2D] z-50 py-3 px-4 sm:px-6">

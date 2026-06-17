@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /checkout
+Disallow: /orders
+Disallow: /cart
+Disallow: /account
+Disallow: /profile
+Disallow: /wishlist
+
+Sitemap: https://eyeglaze.com/sitemap.xml

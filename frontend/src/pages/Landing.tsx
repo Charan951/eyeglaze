@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -254,6 +255,11 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white flex flex-col font-sans pb-16 md:pb-0 w-full overflow-x-hidden">
+      <SEO 
+        title="Premium Eyewear & Custom Lenses"
+        description="Experience luxury designer frames, custom prescription lenses, and blue light blocking glasses at EyeGlaze. Book a free home eye test today."
+        keywords="eyeglaze, eye glaze, luxury glasses, home eye test, prescription eyeglasses, custom lenses, sunglasses"
+      />
       
       {/* Top Header */}
       <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-40 w-full transition-colors duration-300">

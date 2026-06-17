@@ -1,21 +1,58 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 interface AddToCartButtonProps {
   productId: string;
   color?: string;
+  product?: {
+    name: string;
+    sku: string;
+    price: { original: number; selling: number };
+    images?: string[];
+  };
 }
 
-export default function AddToCartButton({ productId, color }: AddToCartButtonProps) {
+export default function AddToCartButton({ productId, color, product }: AddToCartButtonProps) {
   const [added, setAdded] = useState(false);
   const { user, fetchCartCount } = useAuth();
-  const navigate = useNavigate();
 
   const handleAdd = async () => {
     if (!user) {
-      navigate('/login');
+      // Guest User Cart Flow
+      try {
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+        
+        const existingIdx = cart.findIndex(
+          (item: any) => item.productId === productId && item.color === color && !item.lens
+        );
+
+        if (existingIdx >= 0) {
+          cart[existingIdx].qty += 1;
+        } else {
+          const newItem = {
+            id: `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            productId,
+            qty: 1,
+            color: color || 'Matte Black',
+            name: product?.name || 'Frame',
+            sku: product?.sku || '',
+            framePrice: product?.price?.selling ?? 1,
+            lensPrice: 0,
+            fittingCharge: 0,
+            image: product?.images?.[0] || '',
+          };
+          cart.push(newItem);
+        }
+
+        localStorage.setItem('guest_cart', JSON.stringify(cart));
+        await fetchCartCount();
+        setAdded(true);
+        setTimeout(() => setAdded(false), 2000);
+      } catch (error) {
+        console.error('Failed to add to guest cart:', error);
+      }
       return;
     }
 

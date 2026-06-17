@@ -3,22 +3,15 @@ import path from 'path';
 import fs from 'fs/promises';
 import { connectDB } from '../config/mongodb';
 import { Prescription } from '../models/Prescription';
-import { v2 as cloudinary } from 'cloudinary';
 import sharp from 'sharp';
+import { uploadToS3 } from '../lib/s3';
 
-// Configure Cloudinary
-const isCloudinaryConfigured =
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloudinary_cloud_name' &&
-  process.env.CLOUDINARY_CLOUD_NAME !== 'placeholder';
-
-if (isCloudinaryConfigured) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
+// Configure S3 check
+const isS3Configured = !!(
+  process.env.AWS_ACCESS_KEY_ID &&
+  process.env.AWS_SECRET_ACCESS_KEY &&
+  process.env.AWS_BUCKET_NAME
+);
 
 export async function savePrescription(req: Request, res: Response) {
   try {
@@ -35,6 +28,7 @@ export async function savePrescription(req: Request, res: Response) {
     if (file) {
       let finalBuffer = file.buffer;
       const isImage = file.mimetype.startsWith('image/');
+      let contentType = file.mimetype;
 
       if (isImage) {
         try {
@@ -42,41 +36,26 @@ export async function savePrescription(req: Request, res: Response) {
             .resize({ width: 800, withoutEnlargement: true })
             .jpeg({ quality: 80 })
             .toBuffer();
+          contentType = 'image/jpeg';
         } catch (err) {
           console.error('Image compression error:', err);
           // Fall back to original file buffer if compression fails
         }
       }
 
-      if (isCloudinaryConfigured) {
-        // Upload to Cloudinary using upload_stream wrapped in a Promise
-        const uploadToCloudinary = (buffer: Buffer, folder: string): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-              {
-                folder,
-                resource_type: 'auto',
-              },
-              (error, result) => {
-                if (error || !result) {
-                  reject(error || new Error('Cloudinary upload failed'));
-                } else {
-                  resolve(result.secure_url);
-                }
-              }
-            );
-            uploadStream.end(buffer);
-          });
-        };
-
+      if (isS3Configured) {
+        const fileExt = isImage ? '.jpg' : path.extname(file.originalname);
+        const filename = `${req.user!.userId}_${Date.now()}${fileExt}`;
+        const s3Key = `eyeglaze_prescriptions/${filename}`;
+        
         try {
-          uploadedFile = await uploadToCloudinary(finalBuffer, 'eyeglaze_prescriptions');
+          uploadedFile = await uploadToS3(finalBuffer, s3Key, contentType);
         } catch (error) {
-          console.error('Cloudinary prescription upload error:', error);
-          return res.status(500).json({ error: 'Cloudinary upload failed' });
+          console.error('AWS S3 prescription upload error:', error);
+          return res.status(500).json({ error: 'AWS S3 upload failed' });
         }
       } else {
-        console.warn('Cloudinary not configured. Falling back to local upload storage.');
+        console.warn('AWS S3 not configured. Falling back to local upload storage.');
         const uploadDir = path.join(process.cwd(), 'public', 'images', 'prescriptions');
         await fs.mkdir(uploadDir, { recursive: true });
         
@@ -115,3 +94,4 @@ export async function getPrescriptions(req: Request, res: Response) {
     return res.status(500).json({ error: 'Failed to fetch prescriptions' });
   }
 }
+

@@ -4,6 +4,7 @@ import ProductCard from '../components/ui/ProductCard';
 import ProductFilters from '../components/ProductFilters';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
+import SEO from '../components/SEO';
 
 interface Product {
   _id: string;
@@ -68,6 +69,11 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen">
+      <SEO 
+        title="Shop Luxury Designer Eyeglasses & Sunglasses"
+        description="Explore our curated collection of premium designer frames, eyeglasses, and prescription sunglasses. Find the perfect shape and fit for your face."
+        keywords="designer glasses, luxury eyewear, shop eyeglasses, prescription sunglasses, round frames, square frames, wayfarer"
+      />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">All Frames</h1>

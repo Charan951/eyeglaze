@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
+import SEO from '../components/SEO';
 
 interface IOrderItem {
   product: {
@@ -85,6 +86,7 @@ export default function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="max-w-md mx-auto text-center py-16 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6">
+        <SEO robots="noindex, nofollow" title="Order Error" />
         <div className="text-red-400 text-4xl mb-4">⚠️</div>
         <h2 className="text-xl font-bold text-white mb-2">Error</h2>
         <p className="text-[#A7A7A7] mb-6">{error || 'Could not load page'}</p>
@@ -113,6 +115,7 @@ export default function OrderDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-0 space-y-6">
+      <SEO robots="noindex, nofollow" title={`Order ${order.orderId}`} />
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -1,3 +1,5 @@
+import SEO from '../components/SEO';
+
 export default function About() {
   const brandPillars = [
     {
@@ -19,6 +21,11 @@ export default function About() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-10">
+      <SEO 
+        title="About Us | Our Story & Vision"
+        description="Learn about EyeGlaze. We redefine eyewear by providing high-quality designer frames and custom prescription lenses without middleman markups."
+        keywords="eyeglaze story, premium frames quality, prescription lens laboratory, optical precision"
+      />
       
       {/* Brand Intro Block */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">

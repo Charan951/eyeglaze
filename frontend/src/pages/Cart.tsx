@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface CartItem {
   id: string;
   _id?: string;
+  productId?: string;
   name: string;
   sku: string;
   color: string;
@@ -14,6 +17,7 @@ interface CartItem {
   fittingCharge: number;
   qty: number;
   image?: string;
+  lensPayload?: any;
 }
 
 const mockItems: CartItem[] = [
@@ -36,9 +40,21 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
+  const { user, fetchCartCount } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
+
+    if (!user) {
+      // Load guest cart from localStorage
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+      setItems(cartItems);
+      setLoading(false);
+      return;
+    }
+
     api.get('/cart')
       .then(res => {
         if (!active) return;
@@ -46,6 +62,7 @@ export default function CartPage() {
         const mapped = cartItems.map((item: any) => ({
           id: item._id || item.id,
           _id: item._id,
+          productId: item.product?._id || item.product,
           name: item.product?.name || item.name || 'Frame',
           sku: item.product?.sku || item.sku || '',
           color: item.color || '',
@@ -65,7 +82,7 @@ export default function CartPage() {
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, []);
+  }, [user]);
 
   const subtotal = items.reduce((s, i) => s + (i.framePrice + i.lensPrice + i.fittingCharge) * i.qty, 0);
   const delivery = 99;
@@ -74,6 +91,19 @@ export default function CartPage() {
 
   const updateQty = async (item: CartItem, qty: number) => {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, qty } : i));
+    
+    if (!user) {
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+      const idx = cart.findIndex((i: any) => i.id === item.id);
+      if (idx >= 0) {
+        cart[idx].qty = qty;
+        localStorage.setItem('guest_cart', JSON.stringify(cart));
+      }
+      await fetchCartCount();
+      return;
+    }
+
     try {
       await api.put(`/cart/${item._id || item.id}`, { qty });
     } catch {
@@ -83,6 +113,16 @@ export default function CartPage() {
 
   const remove = async (item: CartItem) => {
     setItems(prev => prev.filter(i => i.id !== item.id));
+
+    if (!user) {
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+      const updated = cart.filter((i: any) => i.id !== item.id);
+      localStorage.setItem('guest_cart', JSON.stringify(updated));
+      await fetchCartCount();
+      return;
+    }
+
     try {
       await api.delete(`/cart/${item._id || item.id}`);
     } catch {
@@ -100,6 +140,14 @@ export default function CartPage() {
     }
   };
 
+  const handleCheckout = () => {
+    if (!user) {
+      navigate('/login', { state: { from: { pathname: '/checkout', search: '' } } });
+    } else {
+      navigate('/checkout');
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>;
   }
@@ -107,6 +155,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <SEO robots="noindex, nofollow" title="Shopping Cart" />
         <div className="text-6xl mb-4">🛒</div>
         <h2 className="text-xl font-bold text-white mb-2">Your cart is empty</h2>
         <p className="text-[#A7A7A7] mb-6">Add some frames to get started</p>
@@ -119,6 +168,7 @@ export default function CartPage() {
 
   return (
     <div>
+      <SEO robots="noindex, nofollow" title="Shopping Cart" />
       <h1 className="text-2xl font-bold text-white mb-6">Your Cart ({items.length} item{items.length !== 1 ? 's' : ''})</h1>
 
       <div className="grid lg:grid-cols-3 gap-8">
@@ -213,12 +263,12 @@ export default function CartPage() {
               </div>
             </div>
 
-            <Link
-              to="/checkout"
-              className="block bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full"
+            <button
+              onClick={handleCheckout}
+              className="block bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full border-none cursor-pointer"
             >
               Proceed to Checkout →
-            </Link>
+            </button>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#A7A7A7] text-center">
               <div>100% Secure</div>

@@ -5,6 +5,7 @@ import AddToCartButton from '../components/AddToCartButton';
 import ProductCard from '../components/ui/ProductCard';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface ColorOption {
   name: string;
@@ -305,17 +306,46 @@ export default function ProductDetailPage() {
         product.images?.[2] || '/images/cat_blue_light.png',
         product.images?.[3] || '/images/cat_contacts.png',
         '/images/hero_model.png' // 5th image: model photo
-      ];
-
-  const nextImage = () => {
+      ];  const nextImage = () => {
     setActiveImageIndex((prev) => (prev + 1) % productImages.length);
   };
   const prevImage = () => {
     setActiveImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
 
+  const productSchema = product ? {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": productImages[0] ? (productImages[0].startsWith('http') ? productImages[0] : `${window.location.origin}${productImages[0]}`) : '',
+    "description": `Premium ${product.name} (${product.sku}) designer eyeglasses by EyeGlaze. Frame material: ${product.frame?.material || 'TR90 Premium'}. Frame shape: ${product.frame?.type || 'Square'}.`,
+    "sku": product.sku,
+    "offers": {
+      "@type": "Offer",
+      "url": window.location.href,
+      "priceCurrency": "INR",
+      "price": product.price.selling,
+      "availability": "https://schema.org/InStock",
+      "priceValidUntil": "2027-12-31"
+    },
+    ...(product.reviewCount > 0 ? {
+      "aggregateRating": {
+         "@type": "AggregateRating",
+         "ratingValue": product.rating,
+         "reviewCount": product.reviewCount
+      }
+    } : {})
+  } : undefined;
+
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-0">
+      <SEO 
+        title={`${product.name} (${product.sku})`}
+        description={`Buy the premium ${product.name} (${product.sku}) online at EyeGlaze. Made with high-quality ${product.frame?.material || 'TR90'}. Compatible with prescription, progressive, and blue-cut lenses.`}
+        keywords={`eyeglaze, ${product.name}, ${product.sku}, ${product.frame?.type || ''} eyeglasses, prescription glasses, premium frames`}
+        image={productImages[0]}
+        schema={productSchema}
+      />
       <div className="grid md:grid-cols-2 gap-10">
         
         {/* Image Gallery */}
@@ -381,7 +411,7 @@ export default function ProductDetailPage() {
                     isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
                   }`}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover rounded-lg" />
+                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
                 </div>
               );
             })}
@@ -596,7 +626,7 @@ export default function ProductDetailPage() {
 
           {/* Desktop Call to Actions (visible on medium screens and up) */}
           <div className="hidden md:flex items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
-            <AddToCartButton productId={product._id} color={selectedColor?.name} />
+            <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
             <Link
               to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}`}
               className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center gap-2 cursor-pointer shadow-md select-none text-center"
@@ -811,7 +841,7 @@ export default function ProductDetailPage() {
 
           {/* Middle: ADD TO CART */}
           <div className="flex-1 max-w-[140px]">
-            <AddToCartButton productId={product._id} color={selectedColor?.name} />
+            <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
           </div>
 
           {/* Right: BUY WITH LENS */}

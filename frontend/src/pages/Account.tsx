@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface OrderItemRow {
   name: string;
@@ -62,6 +63,7 @@ export default function AccountPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
+        <SEO robots="noindex, nofollow" title="Account Dashboard" />
         <div className="text-[#A7A7A7] animate-pulse">Loading orders...</div>
       </div>
     );
@@ -121,6 +123,7 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-8">
+      <SEO robots="noindex, nofollow" title="Account Dashboard" />
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">Customer Dashboard</h1>
         <p className="text-gray-500 text-sm">Welcome back, {user?.name || 'Customer'}. Monitor your live and completed orders below.</p>

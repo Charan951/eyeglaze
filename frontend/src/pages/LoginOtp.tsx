@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import OtpInput from '../components/ui/OtpInput';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 export default function OtpPage() {
   const navigate = useNavigate();
@@ -68,6 +69,7 @@ export default function OtpPage() {
 
   return (
     <div className="min-h-[calc(100vh-16rem)] flex flex-col items-center justify-center px-4 py-6">
+      <SEO robots="noindex, nofollow" title="Verify OTP" />
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">

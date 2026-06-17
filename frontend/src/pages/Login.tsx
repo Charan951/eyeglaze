@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -82,6 +83,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-16rem)] flex flex-col items-center justify-center px-4 py-6">
+      <SEO robots="noindex, nofollow" title={activeTab === 'login' ? "Sign In" : "Sign Up"} />
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">

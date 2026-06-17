@@ -1,3 +1,5 @@
+import SEO from '../components/SEO';
+
 export default function Blogs() {
   const articles = [
     {
@@ -28,6 +30,11 @@ export default function Blogs() {
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-8">
+      <SEO 
+        title="Eyewear Trends & Eye Health Insights | Blogs"
+        description="Stay updated with the latest trends in designer eyewear, optical technologies, lens indexing, and expert tips on vision health from EyeGlaze."
+        keywords="eyeglaze blog, eyewear trends, blue light lenses health, lens index guide, face shape frame style"
+      />
       
       {/* Header Info */}
       <div className="flex flex-col gap-2 max-w-2xl">

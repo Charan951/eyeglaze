@@ -1,22 +1,15 @@
 import { Request, Response } from 'express';
-import { v2 as cloudinary } from 'cloudinary';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
+import { uploadToS3 } from '../../lib/s3';
 
-// Configure Cloudinary
-const isCloudinaryConfigured =
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloudinary_cloud_name' &&
-  process.env.CLOUDINARY_CLOUD_NAME !== 'placeholder';
-
-if (isCloudinaryConfigured) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
+// Configure S3 check
+const isS3Configured = !!(
+  process.env.AWS_ACCESS_KEY_ID &&
+  process.env.AWS_SECRET_ACCESS_KEY &&
+  process.env.AWS_BUCKET_NAME
+);
 
 export async function uploadImage(req: Request, res: Response) {
   try {
@@ -32,8 +25,8 @@ export async function uploadImage(req: Request, res: Response) {
       .jpeg({ quality: 80 })
       .toBuffer();
 
-    if (!isCloudinaryConfigured) {
-      console.warn('Cloudinary not configured. Falling back to local upload storage.');
+    if (!isS3Configured) {
+      console.warn('AWS S3 not configured. Falling back to local upload storage.');
       const uploadsDir = path.join(process.cwd(), 'uploads');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
@@ -49,24 +42,15 @@ export async function uploadImage(req: Request, res: Response) {
       return res.status(200).json({ url: fileUrl });
     }
 
-    // Upload to Cloudinary using upload_stream
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'eyeglaze_products',
-        resource_type: 'image',
-      },
-      (error, result) => {
-        if (error || !result) {
-          console.error('Cloudinary upload error:', error);
-          return res.status(500).json({ error: 'Cloudinary upload failed' });
-        }
-        return res.status(200).json({ url: result.secure_url });
-      }
-    );
+    // Upload to S3
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.jpg`;
+    const s3Key = `eyeglaze_products/${filename}`;
+    const fileUrl = await uploadToS3(compressedBuffer, s3Key, 'image/jpeg');
 
-    uploadStream.end(compressedBuffer);
+    return res.status(200).json({ url: fileUrl });
   } catch (error) {
     console.error('Image upload/compression error:', error);
     return res.status(500).json({ error: 'Image processing failed' });
   }
 }
+

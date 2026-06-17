@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
+import SEO from '../components/SEO';
 
 interface OrderItemRow {
   name: string;
@@ -60,6 +61,7 @@ export default function OrdersPage() {
 
   return (
     <div>
+      <SEO robots="noindex, nofollow" title="My Orders" />
       <h1 className="text-2xl font-bold text-white mb-6">My Orders</h1>
 
       {orders.length === 0 ? (

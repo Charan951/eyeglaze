@@ -31,12 +31,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
 
   const fetchCartCount = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      try {
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+        setCartCount(cartItems.length);
+      } catch {
+        setCartCount(0);
+      }
+      return;
+    }
+
     try {
       const res = await api.get('/cart');
       const cartItems = res.data?.items || res.data?.cart?.items || [];
       setCartCount(cartItems.length);
     } catch {
       setCartCount(0);
+    }
+  }, []);
+
+  const syncLocalCart = useCallback(async () => {
+    const guestCartStr = localStorage.getItem('guest_cart');
+    if (!guestCartStr) return;
+    try {
+      const items = JSON.parse(guestCartStr);
+      if (items.length === 0) return;
+
+      for (const item of items) {
+        let uploadedFileUrl = item.lensPayload?.power?.uploadedFileUrl || '';
+        if (uploadedFileUrl && uploadedFileUrl.startsWith('data:')) {
+          try {
+            const resBlob = await fetch(uploadedFileUrl);
+            const blob = await resBlob.blob();
+            const file = new File([blob], 'prescription.jpg', { type: 'image/jpeg' });
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            const uploadRes = await api.post('/prescriptions', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            uploadedFileUrl = uploadRes.data.prescription?.uploadedFile || uploadRes.data.prescription?.imageUrl || '';
+          } catch (uploadErr) {
+            console.error('Failed to upload guest prescription:', uploadErr);
+          }
+        }
+
+        const payload = {
+          productId: item.productId,
+          color: item.color,
+          qty: item.qty,
+          ...(item.lensPayload ? {
+            lens: {
+              ...item.lensPayload,
+              power: {
+                ...item.lensPayload.power,
+                uploadedFileUrl
+              }
+            }
+          } : {})
+        };
+        await api.post('/cart', payload);
+      }
+      localStorage.removeItem('guest_cart');
+    } catch (err) {
+      console.error('Failed to sync guest cart:', err);
     }
   }, []);
 
@@ -64,35 +124,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         setWishlist(initialWishlist);
         
+        await syncLocalCart();
+        
         // Fetch cart count
         const cartRes = await api.get('/cart');
         const cartItems = cartRes.data?.items || cartRes.data?.cart?.items || [];
         setCartCount(cartItems.length);
       } else {
         setWishlist([]);
-        setCartCount(0);
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+        setCartCount(cartItems.length);
       }
     } catch {
       setUser(null);
       setWishlist([]);
-      setCartCount(0);
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+      setCartCount(cartItems.length);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncLocalCart]);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  const login = (u: AuthUser) => {
+  const login = async (u: AuthUser) => {
     setUser(u);
     if (u) {
       const initialWishlist = (u.wishlist as any[] || []).map((w: any) => 
         typeof w === 'object' && w?._id ? w._id.toString() : w.toString()
       );
       setWishlist(initialWishlist);
-      fetchCartCount();
+      await syncLocalCart();
+      await fetchCartCount();
     }
   };
 

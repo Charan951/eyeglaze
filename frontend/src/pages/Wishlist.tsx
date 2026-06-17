@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import AddToCartButton from '../components/AddToCartButton';
 import { useAuth } from '../context/AuthContext';
+import SEO from '../components/SEO';
 
 interface WishlistItem {
   _id: string;
@@ -44,6 +45,7 @@ export default function WishlistPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
+        <SEO robots="noindex, nofollow" title="My Wishlist" />
         <div className="text-[#A7A7A7] animate-pulse">Loading your wishlist...</div>
       </div>
     );
@@ -52,6 +54,7 @@ export default function WishlistPage() {
   if (wishlistItems.length === 0) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+        <SEO robots="noindex, nofollow" title="My Wishlist" />
         <div className="text-6xl mb-4 text-[#D4A04D] animate-bounce">❤️</div>
         <h2 className="text-xl font-bold text-white mb-2">Your wishlist is empty</h2>
         <p className="text-gray-500 text-sm mb-6 max-w-xs">Save frames you love here to easily find them later and add them to your collection.</p>
@@ -64,6 +67,7 @@ export default function WishlistPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      <SEO robots="noindex, nofollow" title="My Wishlist" />
       <div>
         <h1 className="text-2xl font-bold text-white mb-2 uppercase tracking-wide">My Wishlist</h1>
         <p className="text-gray-500 text-sm">You have saved {wishlistItems.length} frame{wishlistItems.length !== 1 ? 's' : ''}.</p>
