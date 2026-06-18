@@ -36,7 +36,6 @@ export default function LandingPage() {
 
   // Modal States
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
-  const [isTryOnOpen, setIsTryOnOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -82,9 +81,6 @@ export default function LandingPage() {
       setMessages((prev) => [...prev, { sender: 'bot', text: botResponse }]);
     }, 1200);
   };
-
-  // Try On States
-  const [selectedTryOnFrame, setSelectedTryOnFrame] = useState<'none' | 'square' | 'clubmaster' | 'aviator'>('none');
 
   // Prescription Upload States
   const [prescFile, setPrescFile] = useState<File | null>(null);
@@ -894,14 +890,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Split Section: Book Free Home Eye Test & Virtual Try-On */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full py-4 border-t border-[#1C1C1E]">
+        {/* Split Section: Book Free Home Eye Test */}
+        <section className="w-full py-4 border-t border-[#1C1C1E] flex justify-center">
           {/* Left Column: Home Eye Test Form */}
-          <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col gap-5 justify-between relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors">
+          <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col gap-5 justify-between relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors w-full max-w-2xl shadow-xl">
             <div className="flex flex-col gap-2">
               <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">EYEGLAZE CLINIC @ HOME</span>
               <h3 className="text-white text-lg md:text-xl font-extrabold uppercase tracking-wide">Book Free Home Eye Test</h3>
-              <p className="text-gray-400 text-xs leading-relaxed max-w-md">
+              <p className="text-gray-400 text-xs leading-relaxed">
                 Why step out? Get your eyes tested by a certified optometrist in the comfort of your home. Includes advanced digital refraction and a collection of 150+ frames to try on!
               </p>
             </div>
@@ -969,34 +965,6 @@ export default function LandingPage() {
                 </button>
               </div>
             </form>
-          </div>
-
-          {/* Right Column: AI Try-On Promo */}
-          <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col justify-between items-start gap-4 relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors">
-            <div className="flex flex-col gap-2">
-              <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">TRY BEFORE YOU BUY</span>
-              <h3 className="text-white text-lg md:text-xl font-extrabold uppercase tracking-wide">3D Augmented Reality Try-On</h3>
-              <p className="text-gray-400 text-xs leading-relaxed max-w-md">
-                Want to see how you look instantly? Activate our interactive webcam simulated try-on overlay. Toggle between high-definition frames including Matte Squares, Clubmasters, and Luxury Aviators.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-4 w-full bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 mt-2">
-              <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 font-bold border border-red-500/20 animate-pulse text-xl">
-                📷
-              </div>
-              <div className="flex flex-col">
-                <span className="text-white text-xs font-bold">Try 100+ Frames Instantly</span>
-                <span className="text-gray-500 text-[10px] font-semibold">Webcam overlay calibration ready</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsTryOnOpen(true)}
-              className="mt-4 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold text-[10px] uppercase py-3 px-6 rounded-lg tracking-wider transition-all duration-300 cursor-pointer"
-            >
-              LAUNCH VIRTUAL CAMERA
-            </button>
           </div>
         </section>
 
@@ -1316,120 +1284,7 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* 2. Virtual Try-On Modal */}
-      {isTryOnOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div onClick={() => setIsTryOnOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
-          <div className="relative bg-[#0E0E0E] border border-[#2A2A2D] w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col z-10 animate-fade-in">
-            {/* Header */}
-            <div className="p-4 border-b border-[#2A2A2D] flex justify-between items-center bg-[#151515]">
-              <div>
-                <h3 className="text-white text-sm font-bold flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-red-600 rounded-full animate-ping" />
-                  Virtual Try-On Cam
-                </h3>
-                <span className="text-[10px] text-gray-500">Overlay luxury frames in real-time</span>
-              </div>
-              <button onClick={() => setIsTryOnOpen(false)} className="text-gray-400 hover:text-white p-1">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
-                </svg>
-              </button>
-            </div>
 
-            {/* Webcam simulation view */}
-            <div className="aspect-[4/3] bg-[#000] relative flex items-center justify-center overflow-hidden border-b border-[#2A2A2D]">
-              
-              {/* Webcam Simulated Feed (using our model image) */}
-              <img 
-                src="/images/hero_model.png" 
-                alt="Try On Face" 
-                className="w-full h-full object-cover filter brightness-95 contrast-105" 
-              />
-
-              {/* Dynamic Frame Overlay */}
-              {selectedTryOnFrame === 'square' && (
-                <svg className="absolute w-[44%] h-auto top-[28%] left-[28.5%] text-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)] transition-all duration-300" viewBox="0 0 100 30" fill="none">
-                  {/* Square Frame */}
-                  <rect x="15" y="5" width="28" height="20" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
-                  <rect x="57" y="5" width="28" height="20" rx="3" stroke="currentColor" strokeWidth="2.5" fill="none" />
-                  <path d="M43 15h14M15 12C10 12 5 10 2 10M85 12C90 12 95 10 98 10" stroke="currentColor" strokeWidth="2" />
-                </svg>
-              )}
-
-              {selectedTryOnFrame === 'clubmaster' && (
-                <svg className="absolute w-[45%] h-auto top-[27.5%] left-[28%] text-black drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)] transition-all duration-300" viewBox="0 0 100 30" fill="none">
-                  {/* Clubmaster style */}
-                  <path d="M15 5h28v6c0 6-5 11-14 11s-14-5-14-11V5z" stroke="#D4A04D" strokeWidth="1.5" />
-                  <path d="M15 5c0 0 8-1.5 28 0v4H15V5z" fill="currentColor" />
-                  <path d="M57 5h28v6c0 6-5 11-14 11s-14-5-14-11V5z" stroke="#D4A04D" strokeWidth="1.5" />
-                  <path d="M57 5c0 0 8-1.5 28 0v4H57V5z" fill="currentColor" />
-                  <path d="M43 9h14M15 8c-5-2-10-1-13-1M85 8c5-2 10-1 13-1" stroke="currentColor" strokeWidth="2" />
-                </svg>
-              )}
-
-              {selectedTryOnFrame === 'aviator' && (
-                <svg className="absolute w-[46%] h-auto top-[28%] left-[27.5%] text-[#D4A04D] drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)] transition-all duration-300" viewBox="0 0 100 30" fill="none">
-                  {/* Aviator shape */}
-                  <path d="M12 5c12-1 28-1 30 10 0 8-8 12-15 12s-15-4-15-12c0-8 12-9 0-10z" stroke="currentColor" strokeWidth="1.5" fill="black" fillOpacity="0.4" />
-                  <path d="M88 5c-12-1-28-1-30 10 0 8 8 12 15 12s-15-4-15-12c0-8-12-9 0-10z" stroke="currentColor" strokeWidth="1.5" fill="black" fillOpacity="0.4" />
-                  <path d="M42 8h16M41 12h18M12 7c-4 0-8-1-10-1M88 7c4 0 8-1 10-1" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              )}
-
-              {/* Try on watermark / helper */}
-              <div className="absolute bottom-4 left-4 bg-black/70 border border-[#2A2A2D] px-3 py-1.5 rounded text-[10px] text-gray-300 flex items-center gap-1.5 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                Webcam active
-              </div>
-            </div>
-
-            {/* Selection bar */}
-            <div className="p-4 bg-[#111]">
-              <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider block mb-2 text-center">Select Frame Styles</span>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 'none', name: 'Original face' },
-                  { id: 'square', name: 'EG-2041 Matte' },
-                  { id: 'clubmaster', name: 'EG-1067 Club' },
-                  { id: 'aviator', name: 'Luxury Aviator' }
-                ].map((frame) => (
-                  <button 
-                    key={frame.id}
-                    onClick={() => setSelectedTryOnFrame(frame.id as any)}
-                    className={`text-[10px] font-semibold p-2 border rounded-lg transition-all duration-300 ${
-                      selectedTryOnFrame === frame.id 
-                        ? 'border-[#D4A04D] text-[#D4A04D] bg-[#1e1a14]' 
-                        : 'border-[#2A2A2D] text-gray-400 hover:text-white bg-[#151515]'
-                    }`}
-                  >
-                    {frame.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Bottom bar */}
-            <div className="p-4 bg-[#151515] border-t border-[#2A2A2D] flex justify-end gap-3">
-              <button 
-                onClick={() => setIsTryOnOpen(false)} 
-                className="px-4 py-2 border border-[#2A2A2D] text-gray-400 hover:text-white rounded-lg text-xs font-semibold uppercase transition-colors"
-              >
-                Close
-              </button>
-              <button 
-                onClick={() => {
-                  setIsTryOnOpen(false);
-                  navigate('/products');
-                }} 
-                className="px-4 py-2 bg-[#D4A04D] text-black font-semibold rounded-lg text-xs uppercase hover:bg-[#C8923E] transition-colors"
-              >
-                View Catalog
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 3. Find Your Perfect Fit (Size Guide) Modal */}
       {isSizeGuideOpen && (

@@ -17,7 +17,6 @@ interface ProductCardProps {
     frameType?: string;
     weight?: string;
     isPremium?: boolean;
-    tryIn3D?: boolean;
     images?: string[];
     frame?: { type?: string };
     colors?: Array<{
@@ -74,12 +73,6 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </span>
           )}
 
-          {/* 3D Try-On Overlay */}
-          {product.tryIn3D && (
-            <span className="absolute bottom-2 left-2 bg-blue-600/90 text-white text-[8px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 border border-blue-500/20 tracking-wider">
-              🎥 3D TRY-ON
-            </span>
-          )}
         </div>
 
         {/* Info */}

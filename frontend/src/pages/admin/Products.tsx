@@ -19,7 +19,6 @@ interface Product {
   weight?: string;
   faceShapes?: string[];
   isPremium?: boolean;
-  tryIn3D?: boolean;
   description?: string;
   frame?: {
     type?: string;
@@ -66,7 +65,6 @@ const emptyForm = {
   weight: 'Lightweight',
   faceShapes: [] as string[],
   isPremium: false,
-  tryIn3D: false,
   isActive: true,
   isBestseller: false,
   priceOriginal: 999,
@@ -154,7 +152,6 @@ export default function AdminProductsPage() {
       weight: p.weight || 'Lightweight',
       faceShapes: p.faceShapes || [],
       isPremium: p.isPremium ?? false,
-      tryIn3D: p.tryIn3D ?? false,
       priceOriginal: p.price?.original ?? 999,
       priceSelling: p.price?.selling ?? 999,
       frameWidth: p.frame?.width ? String(p.frame.width) : '',
@@ -401,7 +398,6 @@ export default function AdminProductsPage() {
         weight: form.weight,
         faceShapes: form.faceShapes,
         isPremium: form.isPremium,
-        tryIn3D: form.tryIn3D,
         frame: {
           type: form.shape,
           material: form.material,
@@ -702,16 +698,6 @@ export default function AdminProductsPage() {
                         className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
                       />
                       <span>Premium</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={form.tryIn3D}
-                        onChange={e => setForm({ ...form, tryIn3D: e.target.checked })}
-                        className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
-                      />
-                      <span>Try in 3D</span>
                     </label>
                   </div>
                 </div>

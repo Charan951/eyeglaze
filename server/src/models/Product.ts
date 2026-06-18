@@ -30,7 +30,6 @@ export interface IProduct extends Document {
   weight?: string;
   faceShapes?: string[];
   isPremium?: boolean;
-  tryIn3D?: boolean;
   colors: IProductColor[];
   defaultColor?: string;
   images: string[];
@@ -101,7 +100,6 @@ const ProductSchema = new Schema<IProduct>(
     weight: { type: String },
     faceShapes: [{ type: String }],
     isPremium: { type: Boolean, default: false },
-    tryIn3D: { type: Boolean, default: false },
     colors: [ProductColorSchema],
     defaultColor: { type: String },
     images: [String],
@@ -159,7 +157,6 @@ ProductSchema.index({ weight: 1 });
 ProductSchema.index({ faceShapes: 1 });
 ProductSchema.index({ rating: 1 });
 ProductSchema.index({ isPremium: 1 });
-ProductSchema.index({ tryIn3D: 1 });
 ProductSchema.index({ gender: 1 });
 
 export const Product = mongoose.models.Product || mongoose.model<IProduct>('Product', ProductSchema);

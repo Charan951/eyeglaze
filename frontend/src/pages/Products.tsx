@@ -21,7 +21,6 @@ interface Product {
   frameType?: string;
   weight?: string;
   isPremium?: boolean;
-  tryIn3D?: boolean;
   images?: string[];
   frame?: { type?: string };
   colors?: Array<{
@@ -153,8 +152,14 @@ export default function ProductsPage() {
     navigate(`/products?${params.toString()}`);
   };
 
-  const filterKeys = ['category', 'gender', 'shape', 'frameSize', 'frameColor', 'frameType', 'material', 'weight', 'faceShape', 'maxPrice', 'rating', 'isPremium', 'tryIn3D'];
-  const activeFilterCount = Array.from(searchParams.keys()).filter(key => filterKeys.includes(key)).length;
+  const filterKeys = ['category', 'gender', 'shape', 'frameSize', 'frameColor', 'frameType', 'material', 'weight', 'faceShape', 'maxPrice', 'rating', 'isPremium'];
+  const activeKeys: string[] = [];
+  searchParams.forEach((_, key) => {
+    if (!activeKeys.includes(key)) {
+      activeKeys.push(key);
+    }
+  });
+  const activeFilterCount = activeKeys.filter(key => filterKeys.includes(key)).length;
 
   const filterTabs = [
     { id: 'price', label: 'Price' },
@@ -424,7 +429,7 @@ export default function ProductsPage() {
                 if (tab.id === 'weight' && searchParams.has('weight')) hasActiveValues = true;
                 if (tab.id === 'faceShape' && searchParams.has('faceShape')) hasActiveValues = true;
                 if (tab.id === 'rating' && searchParams.has('rating')) hasActiveValues = true;
-                if (tab.id === 'toggles' && (searchParams.has('isPremium') || searchParams.has('tryIn3D'))) hasActiveValues = true;
+                if (tab.id === 'toggles' && searchParams.has('isPremium')) hasActiveValues = true;
 
                 return (
                   <button
@@ -767,17 +772,7 @@ export default function ProductsPage() {
                     </button>
                   </div>
 
-                  {/* Try In 3D Toggle */}
-                  <div className="flex items-center justify-between py-1 bg-[#131314] px-3.5 py-2.5 rounded-xl border border-[#2A2A2D]/60">
-                    <span className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">3D Try-On</span>
-                    <button
-                      onClick={() => updateSingleFilter('tryIn3D', searchParams.get('tryIn3D') !== 'true')}
-                      className={`w-9 h-5 rounded-full transition-colors relative border border-[#2A2A2D] cursor-pointer ${searchParams.get('tryIn3D') === 'true' ? 'bg-[#D4A04D]' : 'bg-[#1C1C1E]'}`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded-full absolute top-[2px] transition-all ${searchParams.get('tryIn3D') === 'true' ? 'left-[18px] bg-black' : 'left-[3px] bg-[#A7A7A7]'}`} />
-                    </button>
                   </div>
-                </div>
               )}
 
             </div>

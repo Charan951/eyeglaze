@@ -137,10 +137,6 @@ export async function getProducts(req: Request, res: Response) {
       andConditions.push({ isPremium: true });
     }
 
-    const tryIn3D = req.query.tryIn3D as string | undefined;
-    if (tryIn3D === 'true') {
-      andConditions.push({ tryIn3D: true });
-    }
 
     if (andConditions.length > 0) {
       query.$and = andConditions;

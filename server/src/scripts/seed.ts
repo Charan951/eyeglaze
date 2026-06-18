@@ -54,7 +54,6 @@ const ProductSchema = new mongoose.Schema(
     weight: String,
     faceShapes: [String],
     isPremium: { type: Boolean, default: false },
-    tryIn3D: { type: Boolean, default: false },
     colors: [ProductColorSchema],
     images: [String],
     price: { original: { type: Number, default: 999 }, selling: { type: Number, default: 1 } },
@@ -498,7 +497,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Round', 'Oval'],
       isPremium: false,
-      tryIn3D: true,
       colors: [
         { name: 'Matte Black', hex: '#1A1A1A', stock: 50 },
         { name: 'Black Gold', hex: '#2A2214', stock: 35 },
@@ -543,7 +541,6 @@ async function main() {
       weight: 'Medium',
       faceShapes: ['Square', 'Oval'],
       isPremium: true,
-      tryIn3D: false,
       colors: [
         { name: 'Black Silver', hex: '#2A2A2A', stock: 40 },
         { name: 'Tortoise Gold', hex: '#8B6914', stock: 30 },
@@ -587,7 +584,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Round', 'Oval', 'Square'],
       isPremium: false,
-      tryIn3D: true,
       colors: [
         { name: 'Gold', hex: '#D4922A', stock: 35 },
         { name: 'Silver', hex: '#C0C0C0', stock: 40 },
@@ -626,7 +622,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Oval', 'Heart', 'Round'],
       isPremium: true,
-      tryIn3D: true,
       colors: [
         { name: 'Black Polarized', hex: '#1C1C1D', stock: 30 },
         { name: 'Pink Tint', hex: '#FFB6C1', stock: 20 },
@@ -664,7 +659,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Square', 'Diamond'],
       isPremium: false,
-      tryIn3D: false,
       colors: [
         { name: 'Blue', hex: '#4169E1', stock: 30 },
         { name: 'Pink', hex: '#FF69B4', stock: 35 },
@@ -703,7 +697,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Oval', 'Round'],
       isPremium: false,
-      tryIn3D: false,
       colors: [
         { name: 'Blue Black', hex: '#1E3A8A', stock: 40 },
         { name: 'Orange Black', hex: '#EA580C', stock: 30 },
@@ -741,7 +734,6 @@ async function main() {
       weight: 'Medium',
       faceShapes: ['Round', 'Oval'],
       isPremium: true,
-      tryIn3D: true,
       colors: [
         { name: 'Crystal Black', hex: '#1C1C1C', stock: 45 },
         { name: 'Havana Brown', hex: '#6B3A2A', stock: 30 },
@@ -780,7 +772,6 @@ async function main() {
       weight: 'Heavy',
       faceShapes: ['Square', 'Round'],
       isPremium: true,
-      tryIn3D: true,
       colors: [
         { name: 'Matte Black', hex: '#1A1A1A', stock: 30 },
         { name: 'Gunmetal', hex: '#2C3539', stock: 25 },
@@ -824,7 +815,6 @@ async function main() {
       weight: 'Lightweight',
       faceShapes: ['Round', 'Oval', 'Square', 'Diamond'],
       isPremium: false,
-      tryIn3D: true,
       colors: [
         { 
           name: 'Matte Black', 

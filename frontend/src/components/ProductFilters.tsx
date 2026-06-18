@@ -58,9 +58,12 @@ export default function ProductFilters() {
   };
 
   // Check if any filter is active
-  const hasActiveFilters = Array.from(searchParams.keys()).some(
-    k => k !== 'sort' && k !== 'page' && k !== 'search'
-  );
+  let hasActiveFilters = false;
+  searchParams.forEach((_, key) => {
+    if (key !== 'sort' && key !== 'page' && key !== 'search') {
+      hasActiveFilters = true;
+    }
+  });
 
   const clearAll = () => {
     // Keep search and sort query parameters if present
@@ -154,16 +157,6 @@ export default function ProductFilters() {
           </button>
         </div>
 
-        {/* Try In 3D Toggle */}
-        <div className="flex items-center justify-between py-0.5">
-          <span className="text-[#A7A7A7] text-[11px] font-bold uppercase tracking-wider">3D Try-On</span>
-          <button
-            onClick={() => updateSingleFilter('tryIn3D', searchParams.get('tryIn3D') !== 'true')}
-            className={`w-9 h-5 rounded-full transition-colors relative border border-[#2A2A2D] cursor-pointer ${searchParams.get('tryIn3D') === 'true' ? 'bg-[#D4A04D]' : 'bg-[#1C1C1E]'}`}
-          >
-            <div className={`w-3.5 h-3.5 rounded-full absolute top-[2px] transition-all ${searchParams.get('tryIn3D') === 'true' ? 'left-[18px] bg-black' : 'left-[3px] bg-[#A7A7A7]'}`} />
-          </button>
-        </div>
       </div>
 
       {/* Categories Section */}
