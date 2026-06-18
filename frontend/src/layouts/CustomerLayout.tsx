@@ -7,7 +7,7 @@ const customerNavItems = [
   { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
   { href: '/profile', label: 'My Profile', icon: '👤' },
 ];
-
+//jgo
 export default function CustomerLayout() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
