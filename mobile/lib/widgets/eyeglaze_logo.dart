@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
 
 class EyeGlazeLogo extends StatelessWidget {
   final double size;
@@ -7,18 +6,14 @@ class EyeGlazeLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'EYEGLAZE',
-          style: AppTextStyles.logo.copyWith(fontSize: 22 * size),
-        ),
-        Text(
-          'E Y E W E A R',
-          style: AppTextStyles.logoSub.copyWith(fontSize: 10 * size),
-        ),
-      ],
+    return Hero(
+      tag: 'eyeglaze_logo',
+      child: Image.asset(
+        'assets/images/logo.png',
+        height: 48 * size,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }
+

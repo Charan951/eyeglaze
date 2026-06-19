@@ -5,6 +5,7 @@ import '../../models/cart_item.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/gold_button.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -111,7 +112,15 @@ class _CartScreenState extends State<CartScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          GoldButton(label: 'PROCEED TO CHECKOUT', onPressed: () {}),
+                          GoldButton(
+                            label: 'PROCEED TO CHECKOUT',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),

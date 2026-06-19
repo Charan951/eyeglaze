@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
+import '../orders/orders_screen.dart';
+import '../products/wishlist_screen.dart';
 import '../../widgets/responsive_container.dart';
 import '../../services/api_service.dart';
 import '../../models/user.dart';
@@ -68,8 +70,26 @@ class AccountScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               // Menu items
-              _MenuItem(icon: Icons.shopping_bag_outlined, label: 'My Orders', onTap: () {}),
-              _MenuItem(icon: Icons.favorite_outline, label: 'Wishlist', onTap: () {}),
+              _MenuItem(
+                icon: Icons.shopping_bag_outlined,
+                label: 'My Orders',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                  );
+                },
+              ),
+              _MenuItem(
+                icon: Icons.favorite_outline,
+                label: 'Wishlist',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WishlistScreen(isStandalonePage: true)),
+                  );
+                },
+              ),
               _MenuItem(icon: Icons.location_on_outlined, label: 'Saved Addresses', onTap: () {}),
               _MenuItem(icon: Icons.description_outlined, label: 'My Prescriptions', onTap: () {}),
               _MenuItem(icon: Icons.workspace_premium_outlined, label: 'EyeGlaze Membership', onTap: () {}),

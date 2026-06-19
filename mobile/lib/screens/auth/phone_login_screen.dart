@@ -71,7 +71,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     icon: const Icon(Icons.arrow_back, color: AppColors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Expanded(child: Center(child: EyeGlazeLogo())),
+                  const Expanded(child: Center(child: EyeGlazeLogo(size: 1.3))),
                   IconButton(
                     icon: const Icon(Icons.close, color: AppColors.white),
                     onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),

@@ -38,7 +38,7 @@ const allowedOrigins = process.env.CLIENT_URL
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: true,
     credentials: true,
   })
 );
@@ -47,6 +47,7 @@ app.use(express.json());
 
 // Serve local upload storage in dev/test environment
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/images', express.static(path.join(process.cwd(), 'public/images')));
 
 // Dynamic Sitemap endpoint for Search Engines
 app.get('/sitemap.xml', async (req, res, next) => {

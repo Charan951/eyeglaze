@@ -116,7 +116,11 @@ class Product {
               ?.map((c) => ProductColor.fromJson(c))
               .toList() ??
           [],
-      images: List<String>.from(json['images'] ?? []),
+      images: List<String>.from(json['images'] ?? []).isNotEmpty
+          ? List<String>.from(json['images'] ?? [])
+          : (json['thumbnail'] != null
+              ? [json['thumbnail'] as String]
+              : (json['frontView'] != null ? [json['frontView'] as String] : [])),
       originalPrice: (price?['original'] as num?)?.toDouble() ?? 999,
       sellingPrice: (price?['selling'] as num?)?.toDouble() ?? 1,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,

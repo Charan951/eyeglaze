@@ -136,8 +136,12 @@ class ApiService {
 
   // Profile
   Future<Map<String, dynamic>> getProfile() async {
-    final res = await _client.get(Uri.parse(_url('/profile')), headers: await _getHeaders());
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    final res = await _client.get(Uri.parse(_url('/auth/me')), headers: await _getHeaders());
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode == 200 && data['user'] != null) {
+      data['success'] = true;
+    }
+    return data;
   }
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
@@ -145,6 +149,60 @@ class ApiService {
       Uri.parse(_url('/auth/profile')),
       headers: await _getHeaders(),
       body: jsonEncode(data),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> login({required String email, required String password}) async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/login')),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/register')),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> activateMembership() async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/membership/activate')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> addWalletMoney(double amount) async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/wallet/add')),
+      headers: await _getHeaders(),
+      body: jsonEncode({'amount': amount, 'method': 'upi'}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  // Wishlist
+  Future<Map<String, dynamic>> getWishlist() async {
+    final res = await _client.get(Uri.parse(_url('/wishlist')), headers: await _getHeaders());
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> toggleWishlist(String productId) async {
+    final res = await _client.post(
+      Uri.parse(_url('/wishlist/toggle')),
+      headers: await _getHeaders(),
+      body: jsonEncode({'productId': productId}),
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }

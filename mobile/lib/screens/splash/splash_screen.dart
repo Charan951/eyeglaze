@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
+import '../../models/user.dart';
 import '../home/home_screen.dart';
 import '../auth/login_screen.dart';
 
@@ -13,7 +15,7 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _controller;
 
   // Selection of premium network image URLs focusing strictly on eyes and spectacles
@@ -44,21 +46,104 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     ],
   ];
 
+  // Cached widget lists to eliminate lag from rebuilding during scroll animation
+  List<List<Widget>>? _cachedImageLists1;
+  List<List<Widget>>? _cachedImageLists2;
+
+  // Authentication State
+  bool _authChecked = false;
+  bool _isLoggedIn = false;
+
   @override
   void initState() {
     super.initState();
+    _initImageCaches();
+    
     // Continuous animation driving the infinite scroll
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 25),
+      duration: const Duration(seconds: 60),
     )..repeat();
 
     _initAuth();
   }
 
+  void _initImageCaches() {
+    if (_cachedImageLists1 != null) return;
+    _cachedImageLists1 = [];
+    _cachedImageLists2 = [];
+
+    for (int i = 0; i < 4; i++) {
+      final images = _columnImages[i];
+      final List<String> repeatedImages = [];
+      while (repeatedImages.length * 160.0 < 2400.0) {
+        repeatedImages.addAll(images);
+      }
+      final double itemHeight = 160.0;
+      
+      // Build separate lists to prevent duplicate elements in Stack child widgets
+      _cachedImageLists1!.add(_buildImageList(repeatedImages, itemHeight));
+      _cachedImageLists2!.add(_buildImageList(repeatedImages, itemHeight));
+    }
+  }
+
   Future<void> _initAuth() async {
     final authService = context.read<AuthService>();
+    final apiService = ApiService(authService);
+
+    // Initial check of local token
     await authService.init();
+
+    // Verify token validity with backend if a token was found locally
+    if (authService.isLoggedIn) {
+      try {
+        final profileRes = await apiService.getProfile();
+        if (profileRes['success'] == true && profileRes['user'] != null) {
+          authService.setUser(User.fromJson(profileRes['user']));
+          _isLoggedIn = true;
+        } else {
+          // Expired or invalid token, clear it
+          await authService.clearToken();
+          _isLoggedIn = false;
+        }
+      } catch (_) {
+        // Connection error or backend down; clear token to force re-auth
+        await authService.clearToken();
+        _isLoggedIn = false;
+      }
+    } else {
+      _isLoggedIn = false;
+    }
+
+    // Delay briefly to allow the user to see the initial screen layout
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (mounted) {
+      setState(() {
+        _authChecked = true;
+      });
+
+      if (_isLoggedIn) {
+        // Wait for the logo slide & shrink transition to complete, then fade into HomeScreen
+        await Future.delayed(const Duration(milliseconds: 1100));
+        if (mounted) {
+          _navigateToHome();
+        }
+      }
+    }
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
   }
 
   @override
@@ -80,25 +165,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           Row(
             children: [
               _buildScrollingColumn(
-                images: _columnImages[0],
+                columnIndex: 0,
                 speedMultiplier: 1.0,
                 startShift: 0.0,
                 width: columnWidth,
               ),
               _buildScrollingColumn(
-                images: _columnImages[1],
+                columnIndex: 1,
                 speedMultiplier: 0.7,
                 startShift: 0.25,
                 width: columnWidth,
               ),
               _buildScrollingColumn(
-                images: _columnImages[2],
+                columnIndex: 2,
                 speedMultiplier: 1.2,
                 startShift: 0.5,
                 width: columnWidth,
               ),
               _buildScrollingColumn(
-                images: _columnImages[3],
+                columnIndex: 3,
                 speedMultiplier: 0.9,
                 startShift: 0.75,
                 width: columnWidth,
@@ -121,60 +206,81 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           ),
           // Clean layout: Gold brand logo floating directly in center, GET STARTED button below it
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                children: [
-                  const Spacer(flex: 3),
-                  // The gold EyeGlaze logo image uploaded by the user
-                  Image.asset(
-                    'assets/images/logo.png',
-                    height: 100,
-                    fit: BoxFit.contain,
-                  ),
-                  const Spacer(flex: 2),
-                  // Capsule GET STARTED button directly below
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final authService = context.read<AuthService>();
-                        Navigator.pushReplacement(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                authService.isLoggedIn ? const HomeScreen() : const LoginScreen(),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              return FadeTransition(opacity: animation, child: child);
-                            },
-                            transitionDuration: const Duration(milliseconds: 800),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 5,
-                        shadowColor: AppColors.gold.withValues(alpha: 0.3),
+            child: Stack(
+              children: [
+                // Animated brand logo
+                AnimatedAlign(
+                  alignment: _isLoggedIn && _authChecked
+                      ? const Alignment(0.0, -0.9) // Moves to top center to align with app bar
+                      : const Alignment(0.0, -0.15), // Visually centered position
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeInOutCubic,
+                  child: Hero(
+                    tag: 'eyeglaze_logo',
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 1000),
+                      curve: Curves.easeInOutCubic,
+                      height: _isLoggedIn && _authChecked ? 48 : 260,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
                       ),
-                      child: const Text(
-                        'GET STARTED',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                // Capsule GET STARTED button directly below (fades in for unauthenticated user)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 48.0, left: 24.0, right: 24.0),
+                    child: AnimatedOpacity(
+                      opacity: !_isLoggedIn && _authChecked ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      child: IgnorePointer(
+                        ignoring: !(!_isLoggedIn && _authChecked),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation, secondaryAnimation) =>
+                                      const LoginScreen(),
+                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                    return FadeTransition(opacity: animation, child: child);
+                                  },
+                                  transitionDuration: const Duration(milliseconds: 800),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.gold,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 5,
+                              shadowColor: AppColors.gold.withValues(alpha: 0.3),
+                            ),
+                            child: const Text(
+                              'GET STARTED',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 48),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -183,13 +289,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Widget _buildScrollingColumn({
-    required List<String> images,
+    required int columnIndex,
     required double speedMultiplier,
     required double startShift,
     required double width,
   }) {
     final double itemHeight = 160.0;
-    final double totalHeight = itemHeight * images.length;
+    final List<String> repeatedImages = [];
+    while (repeatedImages.length * 160.0 < 2400.0) {
+      repeatedImages.addAll(_columnImages[columnIndex]);
+    }
+    final double totalHeight = itemHeight * repeatedImages.length;
+
+    // Use cached Column widgets
+    final Widget col1 = Column(children: _cachedImageLists1![columnIndex]);
+    final Widget col2 = Column(children: _cachedImageLists2![columnIndex]);
 
     return SizedBox(
       width: width,
@@ -208,17 +322,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 top: -totalHeight + yOffset,
                 left: 0,
                 right: 0,
-                child: Column(
-                  children: _buildImageList(images, itemHeight),
-                ),
+                child: col1,
               ),
               Positioned(
                 top: yOffset,
                 left: 0,
                 right: 0,
-                child: Column(
-                  children: _buildImageList(images, itemHeight),
-                ),
+                child: col2,
               ),
             ],
           );
@@ -252,8 +362,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               ),
             ),
             errorWidget: (context, url, error) => Container(
-              color: AppColors.card,
-              child: const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.card,
+                    AppColors.background.withValues(alpha: 0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.visibility_outlined,
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  size: 24,
+                ),
+              ),
             ),
           ),
         ),

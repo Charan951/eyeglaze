@@ -7,6 +7,7 @@ import '../../widgets/lens_step_bar.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
 import '../../widgets/trust_strip.dart';
+import '../cart/checkout_screen.dart';
 
 class LensCheckoutScreen extends StatefulWidget {
   const LensCheckoutScreen({super.key});
@@ -94,9 +95,12 @@ class _LensCheckoutScreenState extends State<LensCheckoutScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to cart — proceeding to payment...'), backgroundColor: AppColors.gold),
+          const SnackBar(content: Text('Added to cart — proceeding to checkout...'), backgroundColor: AppColors.gold),
         );
-        // TODO: Navigate to address/payment screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+        );
       }
     } catch (e) {
       if (mounted) {

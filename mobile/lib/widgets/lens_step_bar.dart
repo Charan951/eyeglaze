@@ -8,7 +8,7 @@ class LensStepBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = ['LENS TYPE', 'POWER', 'QUALITY', 'CHECKOUT'];
+    final steps = ['LENS TYPE', 'POWER', 'ADD-ONS', 'REVIEW & CHECKOUT'];
     return Container(
       color: AppColors.card,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),

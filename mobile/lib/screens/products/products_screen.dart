@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/theme.dart';
+import '../../core/app_config.dart';
 import '../../models/product.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import 'product_detail_screen.dart';
 import '../../widgets/responsive_container.dart';
@@ -27,8 +31,64 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedCategory = widget.category ?? 'All';
+    final passedCat = widget.category;
+    if (passedCat == null) {
+      _selectedCategory = 'All';
+    } else {
+      final clean = passedCat.toLowerCase().replaceAll('\n', ' ').trim();
+      if (clean.contains('prescription')) {
+        _selectedCategory = 'Prescription';
+      } else if (clean.contains('sunglass')) {
+        _selectedCategory = 'Sunglasses';
+      } else if (clean.contains('blue')) {
+        _selectedCategory = 'Blue Cut';
+      } else if (clean.contains('contact')) {
+        _selectedCategory = 'Contact Lenses';
+      } else if (clean.contains('kid')) {
+        _selectedCategory = 'Kids';
+      } else {
+        _selectedCategory = passedCat;
+      }
+    }
     _loadProducts();
+    
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final socketService = context.read<SocketService>();
+        socketService.socket?.on('product_changed', _onProductChanged);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('product_changed', _onProductChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onProductChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: product_changed event received: $data');
+    }
+    if (mounted) {
+      _loadProducts();
+    }
+  }
+
+  String? _normalizeCategory(String? label) {
+    if (label == null || label == 'All') return null;
+    final clean = label.toLowerCase().replaceAll('\n', ' ').trim();
+    if (clean.contains('prescription')) return 'prescription';
+    if (clean.contains('sunglass')) return 'sunglasses';
+    if (clean.contains('blue')) return 'blue_light';
+    if (clean.contains('contact')) return 'contact_lenses';
+    if (clean.contains('kid')) return 'kids';
+    return clean;
   }
 
   Future<void> _loadProducts() async {
@@ -37,7 +97,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final authService = context.read<AuthService>();
       final api = ApiService(authService);
       final data = await api.getProducts(
-        category: _selectedCategory == 'All' ? null : _selectedCategory,
+        category: _normalizeCategory(_selectedCategory),
         search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
       );
       final list = (data['products'] ?? data['data'] ?? []) as List;
@@ -193,12 +253,39 @@ class _ProductCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.background,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
                     ),
-                    child: Center(
-                      child: Icon(Icons.visibility_outlined, color: AppColors.muted, size: 60),
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      child: product.images.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: AppConfig.resolveImageUrl(product.images.first),
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.gold,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: AppColors.muted,
+                                size: 40,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.visibility_outlined,
+                              color: AppColors.muted,
+                              size: 60,
+                            ),
                     ),
                   ),
                   if (product.isBestseller)
