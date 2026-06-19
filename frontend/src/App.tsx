@@ -20,7 +20,7 @@ import Account from './pages/Account';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 import Membership from './pages/Membership';
-
+//ejfn
 import Offers from './pages/Offers';
 import About from './pages/About';
 import Blogs from './pages/Blogs';
