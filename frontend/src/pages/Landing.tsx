@@ -52,6 +52,33 @@ export default function LandingPage() {
   const [isGoldModalOpen, setIsGoldModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+  const [isShapeModalOpen, setIsShapeModalOpen] = useState(false);
+  const [shapeModalTitle, setShapeModalTitle] = useState('');
+  const [shapeModalCategory, setShapeModalCategory] = useState('');
+
+  const handleCategoryClick = (e: React.MouseEvent, label: string, category: string) => {
+    if (label === 'Contact Lens' || label === 'Accessories') {
+      return;
+    }
+    e.preventDefault();
+    setShapeModalCategory(category);
+    
+    let title = '';
+    if (category === 'prescription') {
+      title = `${label}'s Eyeglasses`;
+    } else if (category === 'sunglasses') {
+      title = `${label}'s Sunglasses`;
+    } else if (category === 'zero-power') {
+      title = `Zero Power Glasses`;
+    } else if (category === 'reading-glasses') {
+      title = `Reading Glasses`;
+    } else {
+      title = `${label} Glasses`;
+    }
+    
+    setShapeModalTitle(title);
+    setIsShapeModalOpen(true);
+  };
 
   // Gold Membership States & Handlers
   const [isActivatingGold, setIsActivatingGold] = useState(false);
@@ -536,14 +563,15 @@ export default function LandingPage() {
             <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Eyeglasses</h3>
             <div className="grid grid-cols-4 gap-6 w-full">
               {[
-                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
-                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
-                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
-                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses' }
+                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men', category: 'prescription' },
+                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women', category: 'prescription' },
+                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids', category: 'prescription' },
+                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses', category: 'contact-lenses' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
                 >
                   <img 
@@ -569,14 +597,15 @@ export default function LandingPage() {
             <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Sunglasses & Accessories</h3>
             <div className="grid grid-cols-4 gap-6 w-full">
               {[
-                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
-                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
-                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
-                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories' }
+                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men', category: 'sunglasses' },
+                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women', category: 'sunglasses' },
+                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids', category: 'sunglasses' },
+                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories', category: 'accessories' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
                 >
                   <img 
@@ -602,13 +631,14 @@ export default function LandingPage() {
             <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Reading Glasses</h3>
             <div className="grid grid-cols-3 gap-6 w-full">
               {[
-                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power' },
-                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses' },
-                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true' }
+                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power', category: 'zero-power' },
+                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses', category: 'reading-glasses' },
+                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true', category: 'sunglasses' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
                 >
                   <img 
@@ -810,14 +840,15 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-4 gap-2">
               {[
-                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
-                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
-                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
-                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses' }
+                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men', category: 'prescription' },
+                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women', category: 'prescription' },
+                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids', category: 'prescription' },
+                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses', category: 'contact-lenses' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
                 >
                   <img 
@@ -844,14 +875,15 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-4 gap-2">
               {[
-                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
-                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
-                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
-                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories' }
+                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men', category: 'sunglasses' },
+                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women', category: 'sunglasses' },
+                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids', category: 'sunglasses' },
+                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories', category: 'accessories' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
                 >
                   <img 
@@ -878,13 +910,14 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power' },
-                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses' },
-                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true' }
+                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power', category: 'zero-power' },
+                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses', category: 'reading-glasses' },
+                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true', category: 'sunglasses' }
               ].map((item, idx) => (
                 <Link 
                   key={idx} 
                   to={item.to}
+                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
                   className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end"
                 >
                   <img 
@@ -2265,6 +2298,112 @@ export default function LandingPage() {
               className="w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-2.5 rounded-xl transition-all cursor-pointer"
             >
               Mark All as Read
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Responsive Shape Selection Modal / Bottom Sheet */}
+      {isShapeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0">
+          <div 
+            onClick={() => setIsShapeModalOpen(false)} 
+            className="absolute inset-0 bg-black/85 backdrop-blur-sm" 
+          />
+          <div className="relative bg-[#121213] border-t border-zinc-800 w-full md:max-w-md rounded-t-2xl overflow-hidden shadow-2xl z-10 animate-slide-up p-6 flex flex-col gap-5 pb-8">
+            
+            {/* Mobile/Desktop Drag Indicator */}
+            <div className="w-10 h-1 bg-zinc-800 rounded-full mx-auto mb-2" />
+
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
+              <h3 className="text-white text-base font-black uppercase tracking-wider">
+                {shapeModalTitle}
+              </h3>
+              <button 
+                onClick={() => setIsShapeModalOpen(false)} 
+                className="text-gray-400 hover:text-white p-1 bg-transparent border-none cursor-pointer"
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Shape Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                {
+                  name: 'Square',
+                  slug: 'square',
+                  svg: (
+                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="15" y="5" width="24" height="20" rx="4" />
+                      <rect x="61" y="5" width="24" height="20" rx="4" />
+                      <path d="M39,15 L61,15 M15,13 L5,13 M85,13 L95,13" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Rectangle',
+                  slug: 'rectangle',
+                  svg: (
+                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="12" y="7" width="30" height="16" rx="2" />
+                      <rect x="58" y="7" width="30" height="16" rx="2" />
+                      <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Aviator',
+                  slug: 'aviator',
+                  svg: (
+                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
+                      <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
+                      <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Geometric',
+                  slug: 'geometric',
+                  svg: (
+                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <polygon points="12,15 20,6 34,6 42,15 34,24 20,24" />
+                      <polygon points="58,15 66,6 80,6 88,15 80,24 66,24" />
+                      <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
+                    </svg>
+                  )
+                }
+              ].map((shape) => (
+                <div
+                  key={shape.slug}
+                  onClick={() => {
+                    setIsShapeModalOpen(false);
+                    navigate(`/products?category=${shapeModalCategory}&shape=${shape.slug}`);
+                  }}
+                  className="bg-[#18181A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/60 hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300 group cursor-pointer"
+                >
+                  <div className="h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+                    {shape.svg}
+                  </div>
+                  <span className="text-white text-xs font-bold tracking-wider group-hover:text-[#D4A04D] transition-colors">
+                    {shape.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* View All Shapes Button */}
+            <button
+              onClick={() => {
+                setIsShapeModalOpen(false);
+                navigate(`/products?category=${shapeModalCategory}`);
+              }}
+              className="w-full mt-2 bg-transparent border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-all cursor-pointer"
+            >
+              View All Shapes
             </button>
           </div>
         </div>

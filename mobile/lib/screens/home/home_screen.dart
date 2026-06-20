@@ -18,6 +18,8 @@ import '../account/account_screen.dart';
 import '../../widgets/responsive_container.dart';
 
 class HomeScreen extends StatefulWidget {
+  // ignore: library_private_types_in_public_api
+  static _HomeScreenState? state;
   const HomeScreen({super.key});
 
   @override
@@ -26,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
+  int _cartCount = 0;
+  Timer? _cartTimer;
 
   final List<Widget> _tabs = const [
     _HomeBody(),
@@ -36,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    HomeScreen.state = this;
     // Load profile to sync user wallet/membership status
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthService>();
@@ -47,7 +52,42 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }).catchError((_) {});
       }
+      loadCartCount();
     });
+
+    // Periodically sync cart count
+    _cartTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        loadCartCount();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (HomeScreen.state == this) {
+      HomeScreen.state = null;
+    }
+    _cartTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> loadCartCount() async {
+    try {
+      final auth = context.read<AuthService>();
+      if (auth.isLoggedIn) {
+        final api = ApiService(auth);
+        final data = await api.getCart();
+        final items = (data['items'] ?? []) as List;
+        if (mounted) {
+          setState(() {
+            _cartCount = items.length;
+          });
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
   }
 
   void _showGoldMembershipSheet(BuildContext context) {
@@ -114,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 110,
                   height: 48,
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.gold.withOpacity(0.6)),
+                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -168,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               'Unlock Benefits',
                               style: TextStyle(
-                                color: AppColors.white.withOpacity(0.5),
+                                color: AppColors.white.withValues(alpha: 0.5),
                                 fontSize: 5.5,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -232,7 +272,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final isActive = _currentTab == index;
     final color = isActive ? AppColors.gold : AppColors.muted;
     return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
+      onTap: () {
+        setState(() => _currentTab = index);
+        loadCartCount();
+      },
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -292,10 +335,15 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: AppColors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProductsScreen()),
-            ),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProductsScreen()),
+              );
+              if (mounted) {
+                loadCartCount();
+              }
+            },
           ),
           Stack(
             children: [
@@ -310,28 +358,64 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.white),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
-              ),
-              Positioned(
-                right: 8, top: 8,
-                child: Container(
-                  width: 14, height: 14,
-                  decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
-                  child: const Center(child: Text('0', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
       body: ResponsiveContainer(
         maxWidth: 600,
         child: _tabs[_currentTab],
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.card,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+          side: const BorderSide(color: AppColors.gold, width: 1.5),
+        ),
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CartScreen()),
+          );
+          if (mounted) {
+            loadCartCount();
+          }
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 24),
+            if (_cartCount > 0)
+              Positioned(
+                right: -6,
+                top: -6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.gold,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$_cartCount',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _buildCustomBottomBar(),
     );
   }
@@ -448,12 +532,12 @@ class _HeroBannerState extends State<_HeroBanner> {
                             width: cardWidth * 0.5,
                             child: ClipRRect(
                               borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
-                              child: CachedNetworkImage(
-                                imageUrl: AppConfig.resolveImageUrl(slide['image']!),
-                                fit: BoxFit.cover,
-                                alignment: Alignment.center,
-                                errorWidget: (_, __, ___) => Container(color: Colors.transparent),
-                              ),
+                                child: CachedNetworkImage(
+                                  imageUrl: AppConfig.resolveImageUrl(slide['image']!),
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  errorWidget: (context, url, error) => Container(color: Colors.transparent),
+                                ),
                             ),
                           ),
                           // Text Details (Left side)
@@ -502,7 +586,7 @@ class _HeroBannerState extends State<_HeroBanner> {
                                 Text(
                                   slide['description']!,
                                   style: TextStyle(
-                                    color: AppColors.white.withOpacity(0.6),
+                                    color: AppColors.white.withValues(alpha: 0.6),
                                     fontSize: 9,
                                     height: 1.3,
                                   ),
@@ -565,7 +649,7 @@ class _HeroBannerState extends State<_HeroBanner> {
                       width: isActive ? 18 : 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: isActive ? AppColors.gold : Colors.white.withOpacity(0.2),
+                        color: isActive ? AppColors.gold : Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     );
@@ -611,7 +695,7 @@ class _CategoryCard extends StatelessWidget {
                 imageUrl: AppConfig.resolveImageUrl(imagePath),
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
-                errorWidget: (_, __, ___) => const Center(
+                errorWidget: (context, url, error) => const Center(
                   child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 24),
                 ),
               ),
@@ -623,8 +707,8 @@ class _CategoryCard extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.5),
-                      Colors.black.withOpacity(0.85),
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.black.withValues(alpha: 0.85),
                     ],
                     stops: const [0.5, 0.8, 1.0],
                   ),
@@ -683,6 +767,17 @@ class _CategoryCard extends StatelessWidget {
 class _CategoryGrids extends StatelessWidget {
   const _CategoryGrids();
 
+  void _showShapeSelectionSheet(BuildContext context, {required String title, required String category}) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return _ShapeSelectionSheet(title: title, category: category);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -704,17 +799,17 @@ class _CategoryGrids extends StatelessWidget {
               _CategoryCard(
                 label: 'Men',
                 imagePath: '/images/men_eyeglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Prescription'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Men's Eyeglasses", category: 'Prescription'),
               ),
               _CategoryCard(
                 label: 'Women',
                 imagePath: '/images/women_eyeglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Prescription'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Women's Eyeglasses", category: 'Prescription'),
               ),
               _CategoryCard(
                 label: 'Kids',
                 imagePath: '/images/kids_eyeglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Kids'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Kids' Eyeglasses", category: 'Kids'),
               ),
               _CategoryCard(
                 label: 'Contact Lens',
@@ -739,17 +834,17 @@ class _CategoryGrids extends StatelessWidget {
               _CategoryCard(
                 label: 'Men',
                 imagePath: '/images/men_sunglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Sunglasses'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Men's Sunglasses", category: 'Sunglasses'),
               ),
               _CategoryCard(
                 label: 'Women',
                 imagePath: '/images/women_sunglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Sunglasses'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Women's Sunglasses", category: 'Sunglasses'),
               ),
               _CategoryCard(
                 label: 'Kids',
                 imagePath: '/images/kids_sunglasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Kids'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Kids' Sunglasses", category: 'Kids'),
               ),
               _CategoryCard(
                 label: 'Accessories',
@@ -774,17 +869,17 @@ class _CategoryGrids extends StatelessWidget {
               _CategoryCard(
                 label: 'Zero Power',
                 imagePath: '/images/zero_power_glasses.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Zero Power'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Zero Power Glasses", category: 'Zero Power'),
               ),
               _CategoryCard(
                 label: 'Reading',
                 imagePath: '/images/reading_book.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Reading'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Reading Glasses", category: 'Reading'),
               ),
               _CategoryCard(
                 label: 'Power Sun',
                 imagePath: '/images/transition_lens.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Sunglasses'))),
+                onTap: () => _showShapeSelectionSheet(context, title: "Power Sun Glasses", category: 'Sunglasses'),
               ),
             ],
           ),
@@ -975,7 +1070,7 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
                     product: _products[i],
                     onTap: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => ProductDetailScreen(product: _products[i]),
-                    )),
+                    )).then((_) => HomeScreen.state?.loadCartCount()),
                   ),
                 ),
         ),
@@ -1103,7 +1198,7 @@ class _FeaturedProductCard extends StatelessWidget {
                       if (discount > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                          decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
                           child: Text('$discount%', style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
                         ),
                     ],
@@ -1273,7 +1368,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.gold.withOpacity(0.35)),
+                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
                       borderRadius: BorderRadius.circular(16),
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
@@ -1351,7 +1446,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                               const Text('NEED 2 FRAMES?', style: TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                               Text(
                                 'Get another frame for just ₹1 anytime before expiry.',
-                                style: TextStyle(color: AppColors.white.withOpacity(0.5), fontSize: 8),
+                                style: TextStyle(color: AppColors.white.withValues(alpha: 0.5), fontSize: 8),
                               ),
                             ],
                           ),
@@ -1373,8 +1468,8 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.1),
-                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -1462,13 +1557,13 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                           _buildTableRow('Free Eye Test', '₹500', 'At partner store'),
                           _buildTableRow('Contact Lens Solution', '₹500+', 'Solution box free'),
                           TableRow(
-                            decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.08)),
+                            decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.08)),
                             children: [
                               Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), child: Text('TOTAL SAVINGS', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold))),
                               Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), child: Text('₹7,000+', style: const TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                child: Text('Fee: ₹129 only!', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 7, fontWeight: FontWeight.bold), textAlign: TextAlign.right),
+                                child: Text('Fee: ₹129 only!', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7, fontWeight: FontWeight.bold), textAlign: TextAlign.right),
                               ),
                             ],
                           ),
@@ -1506,7 +1601,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                         children: [
                           Text('₹129', style: TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 4),
-                          Text('/ Year', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9, fontWeight: FontWeight.bold)),
+                          Text('/ Year', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],
@@ -1515,8 +1610,8 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        color: Colors.green.withValues(alpha: 0.1),
+                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
@@ -1559,7 +1654,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
         children: [
           const Icon(Icons.check, color: AppColors.gold, size: 12),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 8.5, fontWeight: FontWeight.bold)),
+          Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 8.5, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -1593,7 +1688,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
           const SizedBox(height: 4),
           Text(
             desc,
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 7, height: 1.1),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7, height: 1.1),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1607,7 +1702,7 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
       children: [
         Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 8))),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(save, style: const TextStyle(color: Colors.green, fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(val, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8), textAlign: TextAlign.right)),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(val, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8), textAlign: TextAlign.right)),
       ],
     );
   }
@@ -1644,7 +1739,7 @@ class _WalletSheetState extends State<_WalletSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('EYEGLAZE WALLET', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                      Text('Manage Balance & Cashback', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8)),
+                      Text('Manage Balance & Cashback', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8)),
                     ],
                   ),
                 ],
@@ -1664,7 +1759,7 @@ class _WalletSheetState extends State<_WalletSheet> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gold.withOpacity(0.25)),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.25)),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -1719,7 +1814,7 @@ class _WalletSheetState extends State<_WalletSheet> {
                                   tx['date'] != null
                                       ? DateTime.parse(tx['date']).toLocal().toString().split(' ')[0]
                                       : 'Recent',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8),
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
                                 ),
                               ],
                             ),
@@ -1812,7 +1907,7 @@ class _WalletSheetState extends State<_WalletSheet> {
               children: [
                 Text(title, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 2),
-                Text(date, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8)),
+                Text(date, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
               ],
             ),
             Text(amount, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -1821,4 +1916,324 @@ class _WalletSheetState extends State<_WalletSheet> {
       ),
     );
   }
+}
+
+class _ShapeSelectionSheet extends StatelessWidget {
+  final String title;
+  final String category;
+
+  const _ShapeSelectionSheet({
+    required this.title,
+    required this.category,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 4 shapes to select
+    final shapes = [
+      {'label': 'Square', 'value': 'Square'},
+      {'label': 'Rectangle', 'value': 'Rectangle'},
+      {'label': 'Aviator', 'value': 'Aviator'},
+      {'label': 'Geometric', 'value': 'Geometric'},
+    ];
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top drag handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.muted.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Header Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Grid of 4 shapes
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 1.25,
+                ),
+                itemCount: shapes.length,
+                itemBuilder: (context, idx) {
+                  final shape = shapes[idx];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductsScreen(
+                            category: category,
+                            shape: shape['value'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border, width: 1.2),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Vector illustration using FrameShapePainter
+                          SizedBox(
+                            width: 80,
+                            height: 44,
+                            child: CustomPaint(
+                              painter: FrameShapePainter(
+                                shape: shape['value']!,
+                                strokeColor: AppColors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            shape['label']!,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              // View All Shapes button
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProductsScreen(category: category),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.card,
+                  foregroundColor: AppColors.white,
+                  side: const BorderSide(color: AppColors.border, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text(
+                  'View All Shapes',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+}
+
+class FrameShapePainter extends CustomPainter {
+  final String shape;
+  final Color strokeColor;
+
+  FrameShapePainter({required this.shape, this.strokeColor = Colors.white});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final w = size.width;
+    final h = size.height;
+    
+    final centerX = w / 2;
+    final centerY = h / 2;
+
+    double lensW = 24;
+    double lensH = 18;
+    double gap = 10; 
+
+    if (shape.toLowerCase() == 'square') {
+      lensW = 22;
+      lensH = 20;
+      gap = 10;
+      
+      final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(5)), paint);
+
+      final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(5)), paint);
+
+      final bridgePath = Path()
+        ..moveTo(centerX - gap / 2, centerY - 2)
+        ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
+      canvas.drawPath(bridgePath, paint);
+
+      // Temples
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 4), Offset(centerX - gap / 2 - lensW - 5, centerY - 3), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 3), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 4), Offset(centerX + gap / 2 + lensW + 5, centerY - 3), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 3), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+
+    } else if (shape.toLowerCase() == 'rectangle') {
+      lensW = 26;
+      lensH = 15;
+      gap = 8;
+
+      final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(3)), paint);
+
+      final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(3)), paint);
+
+      final bridgePath = Path()
+        ..moveTo(centerX - gap / 2, centerY - 1)
+        ..quadraticBezierTo(centerX, centerY - 4, centerX + gap / 2, centerY - 1);
+      canvas.drawPath(bridgePath, paint);
+
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 5, centerY - 2), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 2), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 5, centerY - 2), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 2), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+
+    } else if (shape.toLowerCase() == 'aviator') {
+      lensW = 24;
+      lensH = 20;
+      gap = 10;
+
+      // Left teardrop path
+      final Path leftPath = Path();
+      final double lLeft = centerX - gap / 2 - lensW;
+      final double lRight = centerX - gap / 2;
+      final double lTop = centerY - lensH / 2;
+      final double lBottom = centerY + lensH / 2;
+
+      leftPath.moveTo(lLeft + 3, lTop);
+      leftPath.lineTo(lRight - 3, lTop);
+      leftPath.quadraticBezierTo(lRight, lTop, lRight, lTop + 3);
+      leftPath.lineTo(lRight - 1, lTop + 12);
+      leftPath.cubicTo(lRight - 3, lBottom - 2, lLeft + 5, lBottom + 2, lLeft, lBottom - 6);
+      leftPath.lineTo(lLeft, lTop + 3);
+      leftPath.quadraticBezierTo(lLeft, lTop, lLeft + 3, lTop);
+      canvas.drawPath(leftPath, paint);
+
+      // Right teardrop path
+      final Path rightPath = Path();
+      final double rLeft = centerX + gap / 2;
+      final double rRight = centerX + gap / 2 + lensW;
+      final double rTop = centerY - lensH / 2;
+      final double rBottom = centerY + lensH / 2;
+
+      rightPath.moveTo(rRight - 3, rTop);
+      rightPath.lineTo(rLeft + 3, rTop);
+      rightPath.quadraticBezierTo(rLeft, rTop, rLeft, rTop + 3);
+      rightPath.lineTo(rLeft + 1, rTop + 12);
+      rightPath.cubicTo(rLeft + 3, rBottom - 2, rRight - 5, rBottom + 2, rRight, rBottom - 6);
+      rightPath.lineTo(rRight, rTop + 3);
+      rightPath.quadraticBezierTo(rRight, rTop, rRight - 3, rTop);
+      canvas.drawPath(rightPath, paint);
+
+      // Top bridge
+      canvas.drawLine(Offset(lRight - 1, lTop + 1), Offset(rLeft + 1, rTop + 1), paint);
+      // Middle bridge
+      final bridgePath = Path()
+        ..moveTo(lRight, centerY)
+        ..quadraticBezierTo(centerX, centerY - 2, rLeft, centerY);
+      canvas.drawPath(bridgePath, paint);
+
+      canvas.drawLine(Offset(lLeft, centerY - 3), Offset(lLeft - 5, centerY - 2), paint);
+      canvas.drawLine(Offset(lLeft - 5, centerY - 2), Offset(lLeft - 8, centerY + 2), paint);
+
+      canvas.drawLine(Offset(rRight, centerY - 3), Offset(rRight + 5, centerY - 2), paint);
+      canvas.drawLine(Offset(rRight + 5, centerY - 2), Offset(rRight - 8 + 16, centerY + 2), paint);
+
+    } else if (shape.toLowerCase() == 'geometric') {
+      lensW = 24;
+      lensH = 20;
+      gap = 10;
+
+      void drawHexagon(double startX) {
+        final path = Path()
+          ..moveTo(startX + 6, centerY - lensH / 2)
+          ..lineTo(startX + lensW - 6, centerY - lensH / 2)
+          ..lineTo(startX + lensW, centerY - 2)
+          ..lineTo(startX + lensW - 6, centerY + lensH / 2)
+          ..lineTo(startX + 6, centerY + lensH / 2)
+          ..lineTo(startX, centerY - 2)
+          ..close();
+        canvas.drawPath(path, paint);
+      }
+
+      drawHexagon(centerX - gap / 2 - lensW);
+      drawHexagon(centerX + gap / 2);
+
+      final bridgePath = Path()
+        ..moveTo(centerX - gap / 2, centerY - 2)
+        ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
+      canvas.drawPath(bridgePath, paint);
+
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 5, centerY - 2), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 2), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 5, centerY - 2), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 2), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

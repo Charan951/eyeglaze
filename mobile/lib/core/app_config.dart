@@ -12,7 +12,8 @@ class AppConfig {
       return 'http://localhost:5000/api';
     }
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:5000/api';
+      // Since we run 'adb reverse tcp:5000 tcp:5000', physical devices and emulators can access localhost (127.0.0.1) directly.
+      return 'http://127.0.0.1:5000/api';
     }
     return 'http://localhost:5000/api';
   }

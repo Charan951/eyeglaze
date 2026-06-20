@@ -46,11 +46,12 @@ class ApiService {
   }
 
   // Products
-  Future<Map<String, dynamic>> getProducts({String? category, String? search, String? sort, int page = 1}) async {
+  Future<Map<String, dynamic>> getProducts({String? category, String? search, String? sort, String? shape, int page = 1}) async {
     final params = <String, String>{};
     if (category != null) params['category'] = category;
     if (search != null) params['search'] = search;
     if (sort != null) params['sort'] = sort;
+    if (shape != null) params['shape'] = shape;
     params['page'] = page.toString();
     params['limit'] = '20';
 

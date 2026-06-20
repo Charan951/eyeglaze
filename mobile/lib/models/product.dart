@@ -3,19 +3,25 @@ class ProductColor {
   final String hex;
   final String? swatchImage;
   final int stock;
+  final List<String> images;
 
   ProductColor({
     required this.name,
     required this.hex,
     this.swatchImage,
     this.stock = 0,
+    this.images = const [],
   });
 
-  factory ProductColor.fromJson(Map<String, dynamic> json) => ProductColor(
-        name: json['name'] ?? '',
-        hex: json['hex'] ?? '#000000',
-        swatchImage: json['swatchImage'],
-        stock: json['stock'] ?? 0,
+  factory ProductColor.fromJson(Map<dynamic, dynamic> json) => ProductColor(
+        name: json['name']?.toString() ?? '',
+        hex: json['hex']?.toString() ?? '#000000',
+        swatchImage: json['swatchImage']?.toString(),
+        stock: (json['stock'] as num?)?.toInt() ?? 0,
+        images: (json['images'] as List<dynamic>?)
+                ?.map((img) => img.toString())
+                .toList() ??
+            [],
       );
 }
 
@@ -38,14 +44,17 @@ class ProductFrame {
     this.featureTags = const [],
   });
 
-  factory ProductFrame.fromJson(Map<String, dynamic> json) => ProductFrame(
-        type: json['type'],
-        material: json['material'],
+  factory ProductFrame.fromJson(Map<dynamic, dynamic> json) => ProductFrame(
+        type: json['type']?.toString(),
+        material: json['material']?.toString(),
         width: (json['width'] as num?)?.toDouble(),
         lensWidth: (json['lensWidth'] as num?)?.toDouble(),
         bridgeWidth: (json['bridgeWidth'] as num?)?.toDouble(),
         templeLength: (json['templeLength'] as num?)?.toDouble(),
-        featureTags: List<String>.from(json['featureTags'] ?? []),
+        featureTags: (json['featureTags'] as List<dynamic>?)
+                ?.map((tag) => tag.toString())
+                .toList() ??
+            const [],
       );
 }
 
@@ -62,11 +71,11 @@ class ProductCompatible {
     this.progressive = false,
   });
 
-  factory ProductCompatible.fromJson(Map<String, dynamic> json) => ProductCompatible(
-        prescription: json['prescription'] ?? false,
-        bluecut: json['bluecut'] ?? false,
-        zeropower: json['zeropower'] ?? false,
-        progressive: json['progressive'] ?? false,
+  factory ProductCompatible.fromJson(Map<dynamic, dynamic> json) => ProductCompatible(
+        prescription: json['prescription'] == true,
+        bluecut: json['bluecut'] == true,
+        zeropower: json['zeropower'] == true,
+        progressive: json['progressive'] == true,
       );
 }
 
@@ -106,31 +115,40 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    final price = json['price'] as Map<String, dynamic>?;
+    final price = json['price'] as Map<dynamic, dynamic>?;
     return Product(
-      id: json['_id'] ?? json['id'] ?? '',
-      sku: json['sku'] ?? '',
-      name: json['name'] ?? '',
-      frame: json['frame'] != null ? ProductFrame.fromJson(json['frame']) : null,
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      sku: (json['sku'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      frame: json['frame'] != null ? ProductFrame.fromJson(json['frame'] as Map) : null,
       colors: (json['colors'] as List<dynamic>?)
-              ?.map((c) => ProductColor.fromJson(c))
+              ?.map((c) => ProductColor.fromJson(c as Map))
               .toList() ??
           [],
-      images: List<String>.from(json['images'] ?? []).isNotEmpty
-          ? List<String>.from(json['images'] ?? [])
-          : (json['thumbnail'] != null
-              ? [json['thumbnail'] as String]
-              : (json['frontView'] != null ? [json['frontView'] as String] : [])),
+      images: (json['images'] as List<dynamic>?)
+              ?.map((img) => img.toString())
+              .toList() ??
+          [],
       originalPrice: (price?['original'] as num?)?.toDouble() ?? 999,
       sellingPrice: (price?['selling'] as num?)?.toDouble() ?? 1,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
-      reviewCount: json['reviewCount'] ?? 0,
-      soldCount: json['soldCount'] ?? 0,
-      categories: List<String>.from(json['categories'] ?? []),
-      isBestseller: json['isBestseller'] ?? false,
-      isActive: json['isActive'] ?? true,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
+      soldCount: (json['soldCount'] as num?)?.toInt() ?? 0,
+      categories: (() {
+        final list = json['categories'] as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          return list.map((c) => c.toString()).toList();
+        }
+        final single = json['category'];
+        if (single != null && single.toString().isNotEmpty) {
+          return [single.toString()];
+        }
+        return <String>[];
+      })(),
+      isBestseller: json['isBestseller'] == true,
+      isActive: json['isActive'] != false,
       compatible: json['compatible'] != null
-          ? ProductCompatible.fromJson(json['compatible'])
+          ? ProductCompatible.fromJson(json['compatible'] as Map)
           : null,
     );
   }

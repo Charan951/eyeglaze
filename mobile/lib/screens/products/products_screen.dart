@@ -10,11 +10,13 @@ import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import 'product_detail_screen.dart';
+import '../home/home_screen.dart';
 import '../../widgets/responsive_container.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String? category;
-  const ProductsScreen({super.key, this.category});
+  final String? shape;
+  const ProductsScreen({super.key, this.category, this.shape});
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -24,6 +26,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Product> _products = [];
   bool _loading = true;
   String? _selectedCategory;
+  String? _selectedShape;
   final _searchCtrl = TextEditingController();
 
   final _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
@@ -31,6 +34,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedShape = widget.shape;
     final passedCat = widget.category;
     if (passedCat == null) {
       _selectedCategory = 'All';
@@ -99,6 +103,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final data = await api.getProducts(
         category: _normalizeCategory(_selectedCategory),
         search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+        shape: _selectedShape,
       );
       final list = (data['products'] ?? data['data'] ?? []) as List;
       setState(() => _products = list.map((p) => Product.fromJson(p)).toList());
@@ -107,6 +112,43 @@ class _ProductsScreenState extends State<ProductsScreen> {
       setState(() => _products = _demoProducts());
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _addToCart(Product product) async {
+    try {
+      final authService = context.read<AuthService>();
+      if (!authService.isLoggedIn) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please login to add items to cart'),
+          backgroundColor: AppColors.error,
+        ));
+        Navigator.pushNamed(context, '/login');
+        return;
+      }
+      final api = ApiService(authService);
+      final defaultColor = product.colors.isNotEmpty ? product.colors.first.name : 'Matte Black';
+      await api.addToCart({
+        'productId': product.id,
+        'qty': 1,
+        'color': defaultColor,
+        'framePrice': product.sellingPrice,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${product.name} added to cart!'),
+          backgroundColor: AppColors.gold,
+        ));
+        // Refresh cart badge count instantly
+        HomeScreen.state?.loadCartCount();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to add to cart: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
     }
   }
 
@@ -176,7 +218,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
-                      onTap: () { setState(() => _selectedCategory = cat); _loadProducts(); },
+                      onTap: () {
+                        setState(() {
+                          _selectedCategory = cat;
+                          _selectedShape = null; // Clear shape filter on category change
+                        });
+                        _loadProducts();
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
@@ -191,6 +239,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 },
               ),
             ),
+            if (_selectedShape != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Row(
+                  children: [
+                    Chip(
+                      label: Text(
+                        'Shape: $_selectedShape',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      backgroundColor: AppColors.gold,
+                      deleteIcon: const Icon(Icons.close, size: 14, color: Colors.white),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedShape = null;
+                        });
+                        _loadProducts();
+                      },
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 8),
             // Product grid
             Expanded(
@@ -213,9 +283,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               itemCount: _products.length,
                               itemBuilder: (_, i) => _ProductCard(
                                 product: _products[i],
-                                onTap: () => Navigator.push(context, MaterialPageRoute(
-                                  builder: (_) => ProductDetailScreen(product: _products[i]),
-                                )),
+                                onTap: () async {
+                                  await Navigator.push(context, MaterialPageRoute(
+                                    builder: (_) => ProductDetailScreen(product: _products[i]),
+                                  ));
+                                  if (mounted) {
+                                    _loadProducts();
+                                    HomeScreen.state?.loadCartCount();
+                                  }
+                                },
+                                onAddTap: () => _addToCart(_products[i]),
                               ),
                             );
                           },
@@ -231,8 +308,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
 class _ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
+  final VoidCallback onAddTap;
 
-  const _ProductCard({required this.product, required this.onTap});
+  const _ProductCard({
+    required this.product,
+    required this.onTap,
+    required this.onAddTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +382,7 @@ class _ProductCard extends StatelessWidget {
                   Positioned(
                     top: 8, right: 8,
                     child: GestureDetector(
-                      onTap: () {},
+                      onTap: onAddTap,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(6)),

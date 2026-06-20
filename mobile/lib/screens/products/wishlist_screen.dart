@@ -7,6 +7,7 @@ import '../../models/product.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import 'product_detail_screen.dart';
+import '../home/home_screen.dart';
 
 class WishlistScreen extends StatefulWidget {
   final bool isStandalonePage;
@@ -152,7 +153,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
                           MaterialPageRoute(
                             builder: (_) => ProductDetailScreen(product: item),
                           ),
-                        ).then((_) => _loadWishlist());
+                        ).then((_) {
+                          _loadWishlist();
+                          HomeScreen.state?.loadCartCount();
+                        });
                       },
                     );
                   },

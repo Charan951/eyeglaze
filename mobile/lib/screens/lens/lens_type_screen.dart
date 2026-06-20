@@ -231,10 +231,10 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                                             child: CachedNetworkImage(
                                               imageUrl: AppConfig.resolveImageUrl(_getLifestyleImage(typeStr)),
                                               fit: BoxFit.cover,
-                                              placeholder: (_, __) => const Center(
+                                              placeholder: (context, url) => const Center(
                                                 child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.5)),
                                               ),
-                                              errorWidget: (_, __, ___) => const Icon(Icons.image_outlined, color: AppColors.muted),
+                                              errorWidget: (context, url, error) => const Icon(Icons.image_outlined, color: AppColors.muted),
                                             ),
                                           ),
                                         ),

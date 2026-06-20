@@ -117,6 +117,20 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
 
+  // Size Selector, Guide, and Tech Details State
+  const [selectedSize, setSelectedSize] = useState('Medium');
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [showTechDetails, setShowTechDetails] = useState(false);
+
+  const getRecommendedSize = (widthVal?: number) => {
+    const width = widthVal ?? product?.frame?.width;
+    if (!width) return 'Medium';
+    if (width <= 135) return 'Small';
+    if (width >= 143) return 'Large';
+    return 'Medium';
+  };
+  const recommendedSize = product ? getRecommendedSize() : 'Medium';
+
   const isInWishlist = product ? wishlist.includes(product._id) : false;
 
   const handleWishlistToggle = async () => {
@@ -225,6 +239,11 @@ export default function ProductDetailPage() {
           if (prod.colors && prod.colors.length > 0) {
             setSelectedColor(prod.colors[0]);
           }
+          if (prod.frame?.width) {
+            setSelectedSize(getRecommendedSize(prod.frame.width));
+          } else {
+            setSelectedSize('Medium');
+          }
 
           const backendReviews = res.data.reviews || [];
           if (backendReviews.length > 0) {
@@ -243,6 +262,11 @@ export default function ProductDetailPage() {
           }
           if (prod.colors && prod.colors.length > 0) {
             setSelectedColor(prod.colors[0]);
+          }
+          if (prod.frame?.width) {
+            setSelectedSize(getRecommendedSize(prod.frame.width));
+          } else {
+            setSelectedSize('Medium');
           }
           setReviews(getMockReviews(prod.name));
         }
@@ -336,6 +360,44 @@ export default function ProductDetailPage() {
       }
     } : {})
   } : undefined;
+
+  const renderSizeCard = (sizeName: 'Small' | 'Medium' | 'Large', range: string, desc: string) => {
+    const isSelected = selectedSize === sizeName;
+    const isRecommended = recommendedSize === sizeName;
+    return (
+      <button
+        type="button"
+        onClick={() => setSelectedSize(sizeName)}
+        className={`flex-grow-0 flex-shrink-0 w-[30%] bg-[#131314] border-2 rounded-xl p-3 text-center relative flex flex-col items-center justify-between transition-all select-none cursor-pointer ${
+          isSelected ? 'border-[#D4A04D] scale-[1.02]' : 'border-[#2A2A2D] hover:border-[#D4A04D]/60'
+        }`}
+      >
+        {isRecommended && (
+          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#D4A04D] text-black text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-md whitespace-nowrap">
+            Recommended
+          </span>
+        )}
+        {isSelected && (
+          <span className="absolute top-2 right-2 bg-[#D4A04D] text-black w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shadow-md">
+            ✓
+          </span>
+        )}
+        <div className="text-white text-xs font-extrabold mt-1">{sizeName}</div>
+        
+        {/* SVG Glasses Drawing */}
+        <svg className={`w-14 h-8 my-2.5 transition-colors duration-300 ${isSelected ? 'text-[#D4A04D]' : 'text-gray-500'}`} viewBox="0 0 100 40" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="28" cy="20" r="14" />
+          <circle cx="72" cy="20" r="14" />
+          <path d="M42 20 C 48 12, 52 12, 58 20" />
+          <path d="M14 20 C 8 20, 2 14, 2 10" />
+          <path d="M86 20 C 92 20, 98 14, 98 10" />
+        </svg>
+
+        <div className="text-[#A7A7A7] text-[10px] font-bold">{range}</div>
+        <div className="text-[#727275] text-[8px] font-extrabold uppercase tracking-wide mt-0.5">{desc}</div>
+      </button>
+    );
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-0">
@@ -498,8 +560,8 @@ export default function ProductDetailPage() {
           {/* Color Selector */}
           {product.colors?.length > 0 && (
             <div>
-              <div className="text-white text-sm font-semibold mb-2">
-                Select Color: <span className="text-[#D4A04D]">{selectedColor?.name || product.colors[0].name}</span>
+              <div className="text-white text-xs font-bold uppercase tracking-wider mb-2.5 select-none">
+                SELECT COLOR: <span className="text-[#D4A04D]">{selectedColor?.name || product.colors[0].name}</span>
               </div>
               <div className="flex gap-3">
                 {product.colors.map((c, i) => {
@@ -524,10 +586,39 @@ export default function ProductDetailPage() {
             </div>
           )}
 
+          {/* Choose Size Selector */}
+          <div>
+            <div className="flex justify-between items-center mb-2.5 select-none">
+              <span className="text-white text-xs font-bold uppercase tracking-wider">CHOOSE SIZE</span>
+              <button
+                type="button"
+                onClick={() => setShowSizeGuide(true)}
+                className="text-[#D4A04D] text-xs font-extrabold uppercase tracking-wide underline cursor-pointer bg-transparent border-none hover:text-[#C8923E] transition-colors"
+              >
+                What's my size?
+              </button>
+            </div>
+            <div className="flex gap-3">
+              {renderSizeCard('Small', 'Up to 135 mm', 'Best for narrow face')}
+              {renderSizeCard('Medium', '136 – 142 mm', 'Best for standard face')}
+              {renderSizeCard('Large', '143 – 150 mm', 'Best for wide face')}
+            </div>
+          </div>
+
           {/* Frame Dimensions Strip */}
           {product.frame && (
             <div>
-              <div className="text-white text-xs font-bold uppercase tracking-wider mb-2.5">Frame Dimensions</div>
+              <div className="flex justify-between items-center mb-2.5 select-none">
+                <span className="text-white text-xs font-bold uppercase tracking-wider">FRAME DIMENSIONS (in mm)</span>
+                <button
+                  type="button"
+                  onClick={() => setShowTechDetails(true)}
+                  className="text-[#D4A04D] text-xs font-extrabold uppercase tracking-wide cursor-pointer bg-transparent border-none flex items-center gap-1 hover:text-[#C8923E] transition-colors"
+                >
+                  <span>Technical Details</span>
+                  <span className="text-[9px]">&#9650;</span>
+                </button>
+              </div>
               <div className="border border-[#2A2A2D] rounded-xl bg-[#0E0E0E] grid grid-cols-4 divide-x divide-[#2A2A2D] py-3 text-center">
                 {/* 1. Frame Width */}
                 <div className="flex flex-col items-center justify-center px-1">
@@ -602,7 +693,7 @@ export default function ProductDetailPage() {
                 </div>
                 
                 <button 
-                  onClick={() => alert('Detailed specifications: Handcrafted frames, double-reinforced hinges, organic coatings.')}
+                  onClick={() => setShowTechDetails(true)}
                   className="border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black transition-colors font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider shrink-0 cursor-pointer bg-transparent"
                 >
                   VIEW DETAILS
@@ -642,10 +733,10 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Similar Products Section */}
+      {/* Related Products Section */}
       <div className="mt-12 border-t border-[#2A2A2D] pt-10">
-        <h2 className="text-xl font-bold text-white mb-1">Similar Products</h2>
-        <p className="text-[#A7A7A7] text-xs font-medium uppercase tracking-wider mb-6">You might also like these matching frames</p>
+        <h2 className="text-xl font-bold text-white mb-1">Related Products</h2>
+        <p className="text-[#A7A7A7] text-xs font-medium uppercase tracking-wider mb-6">You might also like these related frames</p>
         
         {similarProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -954,6 +1045,85 @@ export default function ProductDetailPage() {
                 </svg>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Size Guide Modal */}
+      {showSizeGuide && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
+            <h3 className="text-white font-extrabold text-lg mb-2 uppercase tracking-wide">Size Guide</h3>
+            <p className="text-gray-400 text-xs mb-5">
+              Measure your face width temple-to-temple to find your ideal fit.
+            </p>
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2">
+                <span className="text-white text-sm font-semibold">Small</span>
+                <span className="text-[#D4A04D] text-sm font-bold">Up to 135 mm (Narrow face)</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2">
+                <span className="text-white text-sm font-semibold">Medium</span>
+                <span className="text-[#D4A04D] text-sm font-bold">136 mm to 142 mm (Standard face)</span>
+              </div>
+              <div className="flex justify-between pb-2">
+                <span className="text-white text-sm font-semibold">Large</span>
+                <span className="text-[#D4A04D] text-sm font-bold">143 mm to 150 mm (Wide face)</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSizeGuide(false)}
+              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer border-none"
+            >
+              CLOSE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Technical Details Modal */}
+      {showTechDetails && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
+            <h3 className="text-white font-extrabold text-lg mb-5 uppercase tracking-wide">Technical Details</h3>
+            <div className="space-y-3.5 mb-6 text-sm text-gray-300">
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>SKU:</span>
+                <span className="text-white font-bold">{product.sku}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>Frame Type:</span>
+                <span className="text-white font-bold">{product.frame?.type || 'Standard'}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>Material:</span>
+                <span className="text-white font-bold">{product.frame?.material || 'Premium TR90'}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>Frame Width:</span>
+                <span className="text-[#D4A04D] font-bold">{product.frame?.width} mm</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>Lens Width:</span>
+                <span className="text-white font-bold">{product.frame?.lensWidth} mm</span>
+              </div>
+              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
+                <span>Bridge:</span>
+                <span className="text-white font-bold">{product.frame?.bridgeWidth} mm</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Temple Length:</span>
+                <span className="text-white font-bold">{product.frame?.templeLength} mm</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTechDetails(false)}
+              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer border-none"
+            >
+              CLOSE
+            </button>
           </div>
         </div>
       )}

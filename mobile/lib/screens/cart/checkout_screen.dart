@@ -74,10 +74,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final user = auth.currentUser;
       if (user != null && user.addresses.isNotEmpty) {
         // Find default or select the first address
-        final defaultAddr = user.addresses.firstWhere(
-          (addr) => addr.isDefault == true,
-          orElse: () => user.addresses.first,
-        );
+        dynamic defaultAddr;
+        for (final addr in user.addresses) {
+          if (addr.isDefault == true) {
+            defaultAddr = addr;
+            break;
+          }
+        }
+        defaultAddr ??= user.addresses.first;
         _fillAddress(defaultAddr);
       }
     } catch (_) {
@@ -146,9 +150,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception(response['error'] ?? 'Order placement failed');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to place order: $e'), backgroundColor: AppColors.error),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to place order: $e'), backgroundColor: AppColors.error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -101,6 +101,17 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
     _loadOptions();
   }
 
+  dynamic _getDefaultOption(List<dynamic> options, bool isProgressive) {
+    if (options.isEmpty) return null;
+    final key = isProgressive ? 'isBestseller' : 'isRecommended';
+    for (final o in options) {
+      if (o is Map && o[key] == true) {
+        return o;
+      }
+    }
+    return options.first;
+  }
+
   Future<void> _loadOptions() async {
     setState(() => _loading = true);
     final wizard = context.read<LensWizardState>();
@@ -116,9 +127,9 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
         if (mounted) {
           setState(() {
             _options = prog.isNotEmpty ? prog : _progressiveOptions;
-            final defaultOpt = _options.firstWhere((o) => o['isBestseller'] == true, orElse: () => _options.first);
-            _selectedSubtype = defaultOpt['subType'] ?? defaultOpt['_id'];
-            _selectedPrice = (defaultOpt['price'] as num).toDouble();
+            final defaultOpt = _getDefaultOption(_options, true);
+            _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
+            _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 2499.0) : 2499.0;
           });
         }
       } else {
@@ -126,9 +137,9 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
         if (mounted) {
           setState(() {
             _options = qual.isNotEmpty ? qual : _qualityOptions;
-            final defaultOpt = _options.firstWhere((o) => o['isRecommended'] == true, orElse: () => _options.first);
-            _selectedSubtype = defaultOpt['subType'] ?? defaultOpt['_id'];
-            _selectedPrice = (defaultOpt['price'] as num).toDouble();
+            final defaultOpt = _getDefaultOption(_options, false);
+            _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
+            _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 699.0) : 699.0;
           });
         }
       }
@@ -136,11 +147,9 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
       if (mounted) {
         setState(() {
           _options = isProgressive ? _progressiveOptions : _qualityOptions;
-          final defaultOpt = isProgressive
-              ? _options.firstWhere((o) => o['isBestseller'] == true, orElse: () => _options.first)
-              : _options.firstWhere((o) => o['isRecommended'] == true, orElse: () => _options.first);
-          _selectedSubtype = defaultOpt['subType'];
-          _selectedPrice = (defaultOpt['price'] as num).toDouble();
+          final defaultOpt = _getDefaultOption(_options, isProgressive);
+          _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
+          _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? (isProgressive ? 2499.0 : 699.0)) : (isProgressive ? 2499.0 : 699.0);
         });
       }
     } finally {
@@ -150,11 +159,12 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
 
   String _getSelectedOptionName() {
     if (_selectedSubtype == null || _options.isEmpty) return 'None';
-    final opt = _options.firstWhere(
-      (o) => (o['subType'] ?? o['_id']) == _selectedSubtype,
-      orElse: () => null,
-    );
-    return opt != null ? (opt['displayName'] ?? opt['name'] ?? '') : 'None';
+    for (final o in _options) {
+      if ((o['subType'] ?? o['_id']) == _selectedSubtype) {
+        return o['displayName'] ?? o['name'] ?? '';
+      }
+    }
+    return 'None';
   }
 
   IconData _getFeatureIcon(String feature) {
