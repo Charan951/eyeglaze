@@ -1,0 +1,40 @@
+# Dependency directories
+node_modules/
+frontend/node_modules/
+server/node_modules/
+
+# Build directories
+frontend/dist/
+server/dist/
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/eyeglaze.iml
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/app/kotlin/
+mobile/android/app/kotlinToolingMetadata/
+mobile/android/app/outputs/
+mobile/android/app/tmp/
+
+# Log files and database local files
+*.log
+server/uploads/
+server/db/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Workspace / Temporary files
+WhatsApp Image*
+IMG_6758.PNG
+image.png
