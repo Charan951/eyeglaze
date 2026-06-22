@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import StarRating from './StarRating';
+import AddToCartButton from '../AddToCartButton';
 
 interface ProductCardProps {
   product: {
@@ -7,6 +8,8 @@ interface ProductCardProps {
     sku: string;
     name: string;
     price: { original: number; selling: number };
+    memberPrice?: number;
+    nonMemberPrice?: number;
     rating?: number;
     reviewCount?: number;
     isBestseller?: boolean;
@@ -18,11 +21,15 @@ interface ProductCardProps {
     weight?: string;
     isPremium?: boolean;
     images?: string[];
+    productVideo?: string;
+    image360?: string;
     frame?: { type?: string };
     colors?: Array<{
       name: string;
       hex: string;
     }>;
+    availableSizes?: Array<string>;
+    offerBadges?: Array<string>;
   };
   layout?: 'grid' | 'horizontal';
 }
@@ -35,10 +42,10 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
   const isRow = layout === 'horizontal';
 
   return (
-    <Link to={`/products/${product._id}`} className="block group">
-      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row min-h-[150px]' : 'flex-col h-full'}`}>
+    <div className="block group">
+      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col h-full'}`}>
         {/* Image wrapper */}
-        <div className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-[4/3] border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
+        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-[4/3] border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
           {product.images?.[0] ? (
             <img 
               src={product.images[0]} 
@@ -64,6 +71,11 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
                 ✦ Premium
               </span>
             )}
+            {product.offerBadges?.map((badge, idx) => (
+              <span key={idx} className="bg-purple-600/20 border border-purple-500/30 text-purple-300 text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md uppercase">
+                {badge}
+              </span>
+            ))}
           </div>
 
           {/* Discount Overlay */}
@@ -73,7 +85,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </span>
           )}
 
-        </div>
+        </Link>
 
         {/* Info */}
         <div className="p-4 flex-1 flex flex-col justify-between">
@@ -84,9 +96,11 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </div>
 
             {/* Product Title */}
-            <div className="text-[#F2F2F2] font-extrabold text-sm mb-2.5 line-clamp-1 group-hover:text-[#D4A04D] transition-colors">
-              {product.name}
-            </div>
+            <Link to={`/products/${product._id}`} className="block">
+              <div className="text-[#F2F2F2] font-extrabold text-sm mb-2.5 line-clamp-1 group-hover:text-[#D4A04D] transition-colors">
+                {product.name}
+              </div>
+            </Link>
 
             {/* Meta Tags (Shape/Type/Size) */}
             <div className="flex gap-1.5 flex-wrap mb-3.5 text-[9px] font-semibold text-[#A7A7A7]">
@@ -127,18 +141,44 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
 
           <div>
             {/* Pricing Section */}
-            <div className="flex items-baseline gap-2 mb-3 border-t border-[#2A2A2D]/30 pt-3">
-              <span className="text-white font-black text-base">₹{product.price.selling}</span>
-              <span className="text-[#A7A7A7] text-xs line-through font-medium">₹{product.price.original}</span>
+            <div className="flex items-baseline gap-2 mb-2 border-t border-[#2A2A2D]/30 pt-3">
+              {product.memberPrice && (
+                <span className="text-[#D4A04D] font-black text-sm">₹{product.memberPrice} <span className="text-[#A7A7A7] text-[8px]">(Member)</span></span>
+              )}
+              {product.nonMemberPrice && (
+                <span className="text-white font-black text-sm">₹{product.nonMemberPrice} <span className="text-[#A7A7A7] text-[8px]">(Non-Member)</span></span>
+              )}
+              {!product.memberPrice && !product.nonMemberPrice && (
+                <>
+                  <span className="text-white font-black text-base">₹{product.price.selling}</span>
+                  <span className="text-[#A7A7A7] text-xs line-through font-medium">₹{product.price.original}</span>
+                </>
+              )}
             </div>
 
             {/* Star Rating */}
             {product.rating !== undefined && (
-              <StarRating rating={product.rating} reviewCount={product.reviewCount} />
+              <div className="mb-3">
+                <StarRating rating={product.rating} reviewCount={product.reviewCount} />
+              </div>
             )}
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-2">
+              <Link to={`/products/${product._id}`} className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:border-[#D4A04D]">
+                View Details
+              </Link>
+              <AddToCartButton productId={product._id} color={product.colors?.[0]?.name} product={product} />
+              <Link to={`/products/${product._id}?buy=frame`} className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:border-[#D4A04D]">
+                Buy Frame Only
+              </Link>
+              <Link to={`/lens?product=${product._id}&color=${product.colors?.[0]?.name || ''}`} className="w-full bg-[#D4A04D] text-black text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:bg-[#C8923E]">
+                Buy With Lens
+              </Link>
+            </div>
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

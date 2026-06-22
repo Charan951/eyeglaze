@@ -1,10 +1,9 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import UserLayout from './layouts/UserLayout';
 import AdminLayout from './layouts/AdminLayout';
-import CustomerLayout from './layouts/CustomerLayout';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -16,7 +15,6 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
-import Account from './pages/Account';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 import Membership from './pages/Membership';
@@ -30,6 +28,7 @@ import Privacy from './pages/Privacy';
 import CategoriesPage from './pages/CategoriesPage';
 
 import Payments from './pages/Payments';
+import Wallet from './pages/Wallet';
 import SupportQuestions from './pages/SupportQuestions';
 import SupportContact from './pages/SupportContact';
 import AboutEyeglaze from './pages/AboutEyeglaze';
@@ -42,6 +41,11 @@ import AdminOrders from './pages/admin/Orders';
 import AdminInventory from './pages/admin/Inventory';
 import AdminUsers from './pages/admin/Users';
 import AdminTickets from './pages/admin/Tickets';
+import AdminCategoriesList from './pages/admin/categories/index';
+import AdminCategoryWizard from './pages/admin/categories/Wizard';
+import AdminCategoryTreeView from './pages/admin/categories/tree';
+import AdminNavigationMenuBuilder from './pages/admin/categories/menu-builder';
+import AdminHomepageVideos from './pages/admin/HomepageVideos';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -89,9 +93,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-          </Route>
 
-          <Route element={<CustomerLayout />}>
+            {/* Customer Routes inside UserLayout (no sidebar) */}
             <Route
               path="/orders"
               element={
@@ -110,11 +113,7 @@ export default function App() {
             />
             <Route
               path="/account"
-              element={
-                <ProtectedRoute>
-                  <Account />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/profile" replace />}
             />
             <Route
               path="/membership"
@@ -137,6 +136,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Payments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wallet"
+              element={
+                <ProtectedRoute>
+                  <Wallet />
                 </ProtectedRoute>
               }
             />
@@ -192,6 +199,46 @@ export default function App() {
               }
             />
             <Route
+              path="/admin/categories"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminCategoriesList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categories/add"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminCategoryWizard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categories/edit/:type/:id"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminCategoryWizard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categories/tree"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminCategoryTreeView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categories/menu-builder"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminNavigationMenuBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/products/add"
               element={
                 <ProtectedRoute adminOnly>
@@ -236,6 +283,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminTickets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/homepage-videos"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminHomepageVideos />
                 </ProtectedRoute>
               }
             />

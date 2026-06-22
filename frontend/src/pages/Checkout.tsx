@@ -35,6 +35,16 @@ export default function CheckoutPage() {
   const [pincode, setPincode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cod'); // cod, card, upi
 
+  // Coupon & Discount
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponMessage, setCouponMessage] = useState('');
+
+  // Wallet
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletDeduction, setWalletDeduction] = useState(0);
+
   // Auto-fill from default saved address if available
   useEffect(() => {
     if (user && user.addresses && user.addresses.length > 0) {
@@ -90,8 +100,35 @@ export default function CheckoutPage() {
   }, []);
 
   const subtotal = items.reduce((s, i) => s + (i.framePrice + i.lensPrice + i.fittingCharge) * i.qty, 0);
-  const delivery = 99;
-  const total = subtotal + delivery;
+  const delivery = user?.membershipActive ? 0 : 99;
+  
+  // Wallet deduction: up to wallet balance, not more than remaining amount
+  let walletAmount = 0;
+  if (useWallet && user?.walletBalance) {
+    const remainingAfterDiscount = Math.max(0, subtotal + delivery - discount);
+    walletAmount = Math.min(user.walletBalance, remainingAfterDiscount);
+  }
+  
+  const total = Math.max(0, subtotal + delivery - discount - walletAmount);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    try {
+      const res = await api.post('/cart/apply-coupon', { code: couponCode, cartTotal: subtotal + delivery });
+      if (res.data.valid) {
+        setDiscount(res.data.discount);
+        setCouponApplied(true);
+        setCouponMessage(res.data.message);
+      } else {
+        setCouponMessage(res.data.message);
+        setCouponApplied(false);
+        setDiscount(0);
+      }
+    } catch (err) {
+      console.error('Failed to apply coupon:', err);
+      setCouponMessage('Failed to apply coupon');
+    }
+  };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,6 +430,28 @@ export default function CheckoutPage() {
 
         {/* Right Column: Order Summary */}
         <div className="space-y-4">
+          {/* Membership Banner */}
+          {!user?.membershipActive && (
+            <div className="bg-gradient-to-r from-[#1E1911] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 border border-[#D4A04D]/40 rounded-lg flex items-center justify-center text-[#D4A04D] font-extrabold text-sm flex-shrink-0 bg-[#0E0E0F]">
+                  EG
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-widest">EYEGLAZE MEMBERSHIP</span>
+                  <span className="text-white text-xs font-bold mt-1">Join & get exclusive benefits</span>
+                  <span className="text-gray-500 text-[9px] mt-0.5">Free delivery, extended warranty & more! · ₹129 / year</span>
+                </div>
+              </div>
+              <Link
+                to="/membership"
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4 py-2.5 rounded-lg transition-colors cursor-pointer border-none shrink-0"
+              >
+                Join Now
+              </Link>
+            </div>
+          )}
+          
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 sticky top-28 space-y-4">
             <h2 className="text-white font-bold text-base uppercase tracking-wider pb-3 border-b border-[#2A2A2D]">Order Items</h2>
             
@@ -419,6 +478,48 @@ export default function CheckoutPage() {
               ))}
             </div>
 
+            {/* Coupon Section */}
+            <div className="border-t border-[#2A2A2D]/60 pt-4">
+              <h3 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Apply Coupon</h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder="Enter coupon code"
+                  className="flex-1 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                />
+                <button
+                  onClick={handleApplyCoupon}
+                  className="bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-bold text-xs uppercase px-4 py-2 rounded-lg transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
+              {couponMessage && (
+                <p className={`text-[10px] mt-2 ${couponApplied ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>
+              )}
+            </div>
+
+            {/* Wallet Section */}
+            {user && user.walletBalance > 0 && (
+              <div className="border-t border-[#2A2A2D]/60 pt-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useWallet}
+                    onChange={(e) => setUseWallet(e.target.checked)}
+                    className="accent-[#D4A04D] w-4 h-4"
+                  />
+                  <div className="flex-1">
+                    <span className="text-white font-bold text-xs">Use Wallet Balance</span>
+                    <p className="text-[#A7A7A7] text-[10px]">Available: ₹{user.walletBalance}</p>
+                  </div>
+                  {useWallet && <span className="text-[#D4A04D] font-bold text-xs">-₹{walletAmount}</span>}
+                </label>
+              </div>
+            )}
+
             {/* Pricing Summary */}
             <div className="space-y-2.5 text-xs pt-4 border-t border-[#2A2A2D]">
               <div className="flex justify-between">
@@ -427,8 +528,20 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#A7A7A7]">Shipping & Delivery</span>
-                <span className="text-white">₹{delivery}</span>
+                <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[#A7A7A7]">Discount</span>
+                  <span className="text-green-400 font-bold">-₹{discount}</span>
+                </div>
+              )}
+              {useWallet && walletAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[#A7A7A7]">Wallet Deduction</span>
+                  <span className="text-[#D4A04D] font-bold">-₹{walletAmount}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-sm pt-2.5 border-t border-[#2A2A2D]">
                 <span className="text-white">Total Amount</span>
                 <span className="text-[#D4A04D] text-base">₹{total}</span>

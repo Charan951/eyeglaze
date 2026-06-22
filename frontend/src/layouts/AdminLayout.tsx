@@ -4,10 +4,12 @@ import { useAuth } from '../context/AuthContext';
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/admin/products', label: 'Products', icon: '👓' },
+  { href: '/admin/categories', label: 'Categories', icon: '📁' },
   { href: '/admin/orders', label: 'Orders', icon: '📦' },
   { href: '/admin/inventory', label: 'Inventory', icon: '🗂️' },
   { href: '/admin/users', label: 'Users', icon: '👥' },
   { href: '/admin/tickets', label: 'Support Tickets', icon: '🎫' },
+  { href: '/admin/homepage-videos', label: 'Home Videos', icon: '🎥' },
 ];
 
 export default function AdminLayout() {

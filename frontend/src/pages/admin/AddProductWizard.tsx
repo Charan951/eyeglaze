@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../../lib/api';
 
+
+
 // ----------------------------------------------------
 // ZOD VALIDATION SCHEMA
 // ----------------------------------------------------
@@ -15,7 +17,9 @@ const wizardSchema = z.object({
   slug: z.string().min(3, 'Slug must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with dashes'),
   brand: z.string().min(1, 'Brand is required'),
   category: z.string().min(1, 'Category is required'),
+  categoryId: z.string().optional(),
   subCategory: z.string().optional(),
+  subCategoryId: z.string().optional(),
   collectionName: z.string().optional(),
   gender: z.enum(['men', 'women', 'kids', 'unisex']),
   shortDescription: z.string().optional(),
@@ -180,9 +184,11 @@ const defaultValues: WizardFormData = {
   barcode: '',
   name: '',
   slug: '',
-  brand: 'Vincent Chase',
-  category: 'prescription',
+  brand: 'eyeglaze',
+  category: 'eyeglasses',
+  categoryId: '',
   subCategory: '',
+  subCategoryId: '',
   collectionName: '',
   gender: 'unisex',
   shortDescription: '',
@@ -300,35 +306,16 @@ const defaultValues: WizardFormData = {
   warehouseInventory: []
 };
 
-const STEPS = [
-  'Basic Info',
-  'Pricing Engine',
-  'Frame Specs',
-  'Measurements',
-  'Lens Config',
-  'Thickness Price',
-  'Coatings Options',
-  'Offers & Promos',
-  'Product Variants',
-  'Inventory Setup',
-  'Media Assets',
-  'SEO & Preview'
-];
+// Removed STEPS array
 
 export default function AddProductWizard() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Database Metadata
-  const [brands, setBrands] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [categoryTree, setCategoryTree] = useState<any[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
-
-  // Search filter states
-  const [brandSearch, setBrandSearch] = useState('');
-  const [catSearch, setCatSearch] = useState('');
   
   // State for uploads and notifications
   const [isSaving, setIsSaving] = useState(false);
@@ -378,6 +365,27 @@ export default function AddProductWizard() {
   // Watch fields for calculations
   const formValues = watch();
 
+  const selectedCategoryNode = categoryTree.find((c: any) => c.slug === formValues.category);
+  const subCategoryOptions = selectedCategoryNode ? selectedCategoryNode.children || [] : [];
+
+  const getCollectionsForCategory = () => {
+    if (!selectedCategoryNode) return [];
+    const collections: any[] = [];
+    const seen = new Set<string>();
+    selectedCategoryNode.children?.forEach((sub: any) => {
+      sub.children?.forEach((child: any) => {
+        child.children?.forEach((col: any) => {
+          if (!seen.has(col.name)) {
+            seen.add(col.name);
+            collections.push(col);
+          }
+        });
+      });
+    });
+    return collections;
+  };
+  const collectionOptions = getCollectionsForCategory();
+
   // Watch for Price Engine
   const mrpValue = watch('mrp') || 0;
   const sellingPriceValue = watch('sellingPrice') || 0;
@@ -391,10 +399,8 @@ export default function AddProductWizard() {
     async function loadData() {
       setLoadingMeta(true);
       try {
-        const metaRes = await api.get('/admin/products/metadata');
-        setBrands(metaRes.data.brands || []);
-        setCategories(metaRes.data.categories || []);
-        setWarehouses(metaRes.data.warehouses || []);
+        const treeRes = await api.get('/admin/categories/tree');
+        setCategoryTree(treeRes.data.tree || []);
 
         if (id) {
           setIsEditMode(true);
@@ -408,9 +414,11 @@ export default function AddProductWizard() {
             barcode: p.barcode || '',
             name: p.name || '',
             slug: p.slug || '',
-            brand: p.brand || '',
+            brand: p.brand || 'eyeglaze',
             category: p.category || '',
+            categoryId: p.categoryId || '',
             subCategory: p.subCategory || '',
+            subCategoryId: p.subCategoryId || '',
             collectionName: p.collectionName || '',
             gender: p.gender || 'unisex',
             shortDescription: p.shortDescription || '',
@@ -532,7 +540,7 @@ export default function AddProductWizard() {
   // Profit Margin calculation
   const profitMargin = sellingPriceValue > 0 ? Math.round(((sellingPriceValue - costPriceValue) / sellingPriceValue) * 100) : 0;
 
-  // Auto slug generation based on product name
+  // Auto slug & SKU generation based on product name
   const nameValue = watch('name');
   useEffect(() => {
     if (nameValue && !isEditMode) {
@@ -541,6 +549,15 @@ export default function AddProductWizard() {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
       setValue('slug', generatedSlug);
+
+      // SKU Auto-generation
+      const namePart = nameValue
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 6);
+      const randomPart = Math.floor(1000 + Math.random() * 9000);
+      const generatedSku = `EG-${namePart}-${randomPart}`;
+      setValue('sku', generatedSku);
     }
   }, [nameValue, setValue, isEditMode]);
 
@@ -566,18 +583,7 @@ export default function AddProductWizard() {
     return () => clearInterval(interval);
   }, [watch, isEditMode]);
 
-  // Handle manual steps jump validation
-  const goToStep = async (stepIdx: number) => {
-    if (stepIdx > currentStep) {
-      // Validate current step fields before going forward
-      const isValid = await trigger();
-      if (!isValid) {
-        showToast('Please fix the validation errors in the current step', 'error');
-        return;
-      }
-    }
-    setCurrentStep(stepIdx);
-  };
+  // Removed goToStep function
 
   // Image Upload handler (S3 Upload)
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, targetField: string, isMultiple = false) => {
@@ -899,7 +905,6 @@ export default function AddProductWizard() {
   const simResult = getSimulatedPayable();
 
   // Desktop, Tablet, Mobile Preview selector
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   if (loadingMeta) {
     return (
@@ -1077,94 +1082,84 @@ export default function AddProductWizard() {
         </div>
       </header>
 
-      {/* STICKY STEPPER & PROGRESS BAR */}
-      <div className="bg-[#101012] border-b border-[#2A2A2D] sticky top-[65px] z-20 py-3.5 px-8 select-none">
-        <div className="max-w-7xl mx-auto space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest">
-            <span>Progress: {Math.round(((currentStep + 1) / STEPS.length) * 100)}%</span>
-            <span className="text-[#D4A04D]">Step {currentStep + 1} of {STEPS.length} : {STEPS[currentStep]}</span>
-          </div>
-
-          {/* Graphical Progress Bar */}
-          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-[#D4A04D] to-[#F5C77E] transition-all duration-300 rounded-full"
-              style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
-            />
-          </div>
-
-          {/* Stepper Steps (Scrollable row) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[9px] font-extrabold uppercase tracking-widest scrollbar-thin scrollbar-thumb-zinc-800">
-            {STEPS.map((stepName, idx) => (
-              <button
-                key={stepName}
-                onClick={() => goToStep(idx)}
-                className={`px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap cursor-pointer ${idx === currentStep ? 'bg-[#D4A04D] text-black border-[#D4A04D]' : idx < currentStep ? 'bg-[#18181B] text-gray-300 border-zinc-700/55' : 'bg-transparent text-gray-500 border-zinc-800/40 hover:text-white'}`}
-              >
-                {idx + 1}. {stepName}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
+      {/* Stepper UI removed */}
       {/* MAIN CONTENT AREA */}
       <main className="max-w-7xl mx-auto px-8 py-8 w-full flex-grow flex gap-8">
         {/* Form Container */}
         <div className="flex-1 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-8 shadow-2xl relative">
           
-          {/* STEP 1: BASIC INFORMATION */}
-          {currentStep === 0 && (
-            <div className="space-y-6">
+          {/* SECTION 1: BASIC INFORMATION */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 1: Basic Information</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* SKU */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">SKU *</label>
-                  <input
-                    type="text"
-                    {...register('sku')}
-                    placeholder="e.g. EG-6001"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                  {errors.sku && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.sku.message}</p>}
-                </div>
+              {/* Hidden Registered Fields */}
+              <input type="hidden" {...register('sku')} />
+              <input type="hidden" {...register('slug')} />
+              <input type="hidden" {...register('brand')} />
+              <input type="hidden" {...register('categoryId')} />
+              <input type="hidden" {...register('subCategoryId')} />
 
-                {/* Product Name */}
-                <div className="md:col-span-2">
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Product Name *</label>
-                  <input
-                    type="text"
-                    {...register('name')}
-                    placeholder="e.g. Vincent Chase Air Rectangular Premium Glasses"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                  {errors.name && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
-                </div>
+              {/* Product Name */}
+              <div>
+                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Product Name *</label>
+                <input
+                  type="text"
+                  {...register('name')}
+                  placeholder="e.g. Vincent Chase Air Rectangular Premium Glasses"
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                />
+                {errors.name && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Slug */}
+                {/* Category Dropdown */}
                 <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Slug URL (Auto-generated) *</label>
-                  <input
-                    type="text"
-                    {...register('slug')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-mono"
-                  />
-                  {errors.slug && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.slug.message}</p>}
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Category *</label>
+                  <select
+                    {...register('category')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setValue('category', val);
+                      setValue('subCategory', '');
+                      setValue('subCategoryId', '');
+                      setValue('collectionName', '');
+                      const matched = categoryTree.find((c: any) => c.slug === val);
+                      setValue('categoryId', matched ? matched.id : '');
+                    }}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                  >
+                    <option value="">-- Choose Category --</option>
+                    {categoryTree.map((c: any) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.category && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.category.message}</p>}
                 </div>
 
-                {/* Barcode */}
+                {/* Sub Category Dropdown */}
                 <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Barcode</label>
-                  <input
-                    type="text"
-                    {...register('barcode')}
-                    placeholder="e.g. 890333201123"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub Category</label>
+                  <select
+                    {...register('subCategory')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setValue('subCategory', val);
+                      setValue('collectionName', '');
+                      const matched = subCategoryOptions.find((s: any) => s.name === val);
+                      setValue('subCategoryId', matched ? matched.id : '');
+                    }}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold disabled:opacity-40"
+                    disabled={!formValues.category}
+                  >
+                    <option value="">-- Choose Sub Category --</option>
+                    {subCategoryOptions.map((sub: any) => (
+                      <option key={sub.id} value={sub.name}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Status */}
@@ -1172,7 +1167,7 @@ export default function AddProductWizard() {
                   <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Status</label>
                   <select
                     {...register('status')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
                   >
                     <option value="Draft">Draft</option>
                     <option value="Active">Active</option>
@@ -1182,95 +1177,22 @@ export default function AddProductWizard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Brand Searchable Select */}
-                <div className="relative">
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Brand *</label>
-                  <input
-                    type="text"
-                    placeholder="Search brand..."
-                    value={brandSearch || formValues.brand}
-                    onChange={(e) => {
-                      setBrandSearch(e.target.value);
-                      setValue('brand', e.target.value);
-                    }}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                  {brandSearch && (
-                    <div className="absolute top-[68px] left-0 w-full bg-[#131314] border border-[#2A2A2D] rounded-xl z-20 shadow-xl max-h-40 overflow-y-auto">
-                      {brands
-                        .filter(b => b.name.toLowerCase().includes(brandSearch.toLowerCase()))
-                        .map(b => (
-                          <div
-                            key={b._id}
-                            onClick={() => {
-                              setValue('brand', b.name);
-                              setBrandSearch('');
-                            }}
-                            className="px-4 py-2 hover:bg-[#2A2A2D] text-xs cursor-pointer text-white"
-                          >
-                            {b.name}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Category Searchable Select */}
-                <div className="relative">
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Category *</label>
-                  <input
-                    type="text"
-                    placeholder="Search category..."
-                    value={catSearch || formValues.category}
-                    onChange={(e) => {
-                      setCatSearch(e.target.value);
-                      setValue('category', e.target.value);
-                    }}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                  {catSearch && (
-                    <div className="absolute top-[68px] left-0 w-full bg-[#131314] border border-[#2A2A2D] rounded-xl z-20 shadow-xl max-h-40 overflow-y-auto">
-                      {categories
-                        .filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase()))
-                        .map(c => (
-                          <div
-                            key={c._id}
-                            onClick={() => {
-                              setValue('category', c.slug);
-                              setCatSearch('');
-                            }}
-                            className="px-4 py-2 hover:bg-[#2A2A2D] text-xs cursor-pointer text-white"
-                          >
-                            {c.name} ({c.slug})
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sub Category */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub Category</label>
-                  <input
-                    type="text"
-                    {...register('subCategory')}
-                    placeholder="e.g. Computer Glasses"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Collection */}
+                {/* Collection Dropdown */}
                 <div>
                   <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Collection</label>
-                  <input
-                    type="text"
+                  <select
                     {...register('collectionName')}
-                    placeholder="e.g. Air Flex"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold disabled:opacity-40"
+                    disabled={!formValues.category}
+                  >
+                    <option value="">-- Choose Collection --</option>
+                    {collectionOptions.map((col: any) => (
+                      <option key={col.id} value={col.name}>
+                        {col.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Gender */}
@@ -1319,32 +1241,13 @@ export default function AddProductWizard() {
                 />
               </div>
 
-              <div>
-                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Long Description</label>
-                <textarea
-                  {...register('longDescription')}
-                  placeholder="Enter deep-dive details about product quality, materials, style features..."
-                  rows={4}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none resize-none"
-                />
-              </div>
+              {/* Long Description removed */}
 
-              {/* Tags */}
-              <div>
-                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tags (Comma-separated)</label>
-                <input
-                  type="text"
-                  {...register('tags')}
-                  placeholder="e.g. lightweight, flexible, computer-glasses, square"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+              {/* Tags removed */}
             </div>
-          )}
 
-          {/* STEP 2: PRICING ENGINE & MEMBERSHIP PRICING */}
-          {currentStep === 1 && (
-            <div className="space-y-6">
+          {/* SECTION 2: PRICING ENGINE & MEMBERSHIP PRICING */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 2: Pricing Configuration</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
@@ -1474,78 +1377,22 @@ export default function AddProductWizard() {
                 </div>
 
                 {enableMemberPricingField && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
+                  <div className="max-w-sm bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
                     <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Gold Member Price (₹)</label>
+                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Gold Member Price (₹) *</label>
                       <input
                         type="number"
                         {...register('memberPrices.goldMemberPrice', { valueAsNumber: true })}
                         className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
                       />
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Platinum Member Price (₹)</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.platinumMemberPrice', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Corporate Member Price (₹)</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.corporateMemberPrice', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Student Member Price (₹)</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.studentMemberPrice', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Employee Price (₹)</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.employeePrice', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Cashback %</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.cashbackPercent', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold text-green-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Reward Points</label>
-                      <input
-                        type="number"
-                        {...register('memberPrices.rewardPoints', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div className="flex items-center pt-5">
-                      <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                        <input type="checkbox" {...register('memberExclusiveProduct')} className="w-4 h-4 accent-[#D4A04D]" />
-                        <span>Member Exclusive Product</span>
-                      </label>
-                    </div>
                   </div>
                 )}
               </div>
             </div>
-          )}
 
-          {/* STEP 3: FRAME SPECIFICATIONS */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
+          {/* SECTION 3: FRAME SPECIFICATIONS */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 3: Frame Specifications</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1664,11 +1511,9 @@ export default function AddProductWizard() {
                 </div>
               </div>
             </div>
-          )}
 
-          {/* STEP 4: MEASUREMENTS */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
+          {/* SECTION 4: MEASUREMENTS */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 4: Measurements & Fit</h2>
               
               <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
@@ -1780,11 +1625,9 @@ export default function AddProductWizard() {
                 </div>
               </div>
             </div>
-          )}
 
-          {/* STEP 5: LENS CONFIGURATION */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
+          {/* SECTION 5: LENS CONFIGURATION */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 5: Compatible Lens Types</h2>
               
               {/* Compatible Lens Checkboxes */}
@@ -1907,11 +1750,21 @@ export default function AddProductWizard() {
                 </div>
               </div>
             </div>
-          )}
 
-          {/* STEP 6: THICKNESS PRICING */}
-          {currentStep === 5 && (
-            <div className="space-y-6">
+          {/* ADVANCED SETTINGS TOGGLE */}
+          <div className="border-t border-[#2A2A2D] pt-8 pb-4 mb-6">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-sm font-extrabold uppercase tracking-wider text-[#D4A04D] flex items-center gap-2 hover:text-[#F5C77E] transition-colors"
+            >
+              {showAdvanced ? '− Hide Advanced Settings' : '+ Show Advanced Settings (Thickness, Coatings, Offers, Variants, Inventory)'}
+            </button>
+          </div>
+          {showAdvanced && (
+            <>
+              {/* SECTION 6: THICKNESS PRICING */}
+              <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 6: Lens Thickness Pricing</h2>
               
               <p className="text-[10px] text-gray-400 leading-relaxed">
@@ -1959,11 +1812,9 @@ export default function AddProductWizard() {
                 ))}
               </div>
             </div>
-          )}
 
-          {/* STEP 7: COATING OPTIONS */}
-          {currentStep === 6 && (
-            <div className="space-y-6">
+          {/* SECTION 7: COATING OPTIONS */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 7: Coating Options</h2>
               
               <div className="space-y-4">
@@ -2009,11 +1860,9 @@ export default function AddProductWizard() {
                 ))}
               </div>
             </div>
-          )}
 
-          {/* STEP 8: MEMBERSHIP & OFFERS */}
-          {currentStep === 7 && (
-            <div className="space-y-6">
+          {/* SECTION 8: MEMBERSHIP & OFFERS */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 8: Memberships & Offers</h2>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 select-none bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
@@ -2100,11 +1949,9 @@ export default function AddProductWizard() {
                 </div>
               )}
             </div>
-          )}
 
-          {/* STEP 9: PRODUCT VARIANTS */}
-          {currentStep === 8 && (
-            <div className="space-y-6">
+          {/* SECTION 9: PRODUCT VARIANTS */}
+          <div className="space-y-6 mb-12">
               <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3">
                 <h2 className="text-white text-base font-extrabold uppercase tracking-wider text-[#D4A04D]">Step 9: Product Variants</h2>
                 <button
@@ -2204,113 +2051,12 @@ export default function AddProductWizard() {
                 )}
               </div>
             </div>
+
+            </>
           )}
 
-          {/* STEP 10: INVENTORY SETUP */}
-          {currentStep === 9 && (
-            <div className="space-y-6">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 10: Warehouse Inventory</h2>
-              
-              <div className="space-y-4">
-                {warehouses.map((wh) => (
-                  <div key={wh._id} className="bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs bg-[#D4A04D]/10 text-[#D4A04D] border border-[#D4A04D]/20 px-2 py-0.5 rounded font-extrabold uppercase tracking-wide">
-                        {wh.code}
-                      </span>
-                      <span className="text-white text-xs font-bold">{wh.name}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Available Stock</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none text-white font-bold"
-                          onChange={(e) => {
-                            const current = formValues.warehouseInventory || [];
-                            const existIdx = current.findIndex((w: any) => String(w.warehouseId) === String(wh._id));
-                            const val = parseInt(e.target.value) || 0;
-                            if (existIdx > -1) {
-                              current[existIdx].availableStock = val;
-                            } else {
-                              current.push({ warehouseId: wh._id, warehouseName: wh.name, availableStock: val, reservedStock: 0, safetyStock: 5, lowStockAlert: 10, reorderLevel: 20 });
-                            }
-                            setValue('warehouseInventory', current);
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Safety Stock</label>
-                        <input
-                          type="number"
-                          placeholder="5"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none text-white"
-                          onChange={(e) => {
-                            const current = formValues.warehouseInventory || [];
-                            const existIdx = current.findIndex((w: any) => String(w.warehouseId) === String(wh._id));
-                            const val = parseInt(e.target.value) || 0;
-                            if (existIdx > -1) {
-                              current[existIdx].safetyStock = val;
-                            } else {
-                              current.push({ warehouseId: wh._id, warehouseName: wh.name, availableStock: 0, reservedStock: 0, safetyStock: val, lowStockAlert: 10, reorderLevel: 20 });
-                            }
-                            setValue('warehouseInventory', current);
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Low Stock Alert</label>
-                        <input
-                          type="number"
-                          placeholder="10"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none text-white"
-                          onChange={(e) => {
-                            const current = formValues.warehouseInventory || [];
-                            const existIdx = current.findIndex((w: any) => String(w.warehouseId) === String(wh._id));
-                            const val = parseInt(e.target.value) || 0;
-                            if (existIdx > -1) {
-                              current[existIdx].lowStockAlert = val;
-                            } else {
-                              current.push({ warehouseId: wh._id, warehouseName: wh.name, availableStock: 0, reservedStock: 0, safetyStock: 5, lowStockAlert: val, reorderLevel: 20 });
-                            }
-                            setValue('warehouseInventory', current);
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Reorder Level</label>
-                        <input
-                          type="number"
-                          placeholder="20"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none text-white font-bold"
-                          onChange={(e) => {
-                            const current = formValues.warehouseInventory || [];
-                            const existIdx = current.findIndex((w: any) => String(w.warehouseId) === String(wh._id));
-                            const val = parseInt(e.target.value) || 0;
-                            if (existIdx > -1) {
-                              current[existIdx].reorderLevel = val;
-                            } else {
-                              current.push({ warehouseId: wh._id, warehouseName: wh.name, availableStock: 0, reservedStock: 0, safetyStock: 5, lowStockAlert: 10, reorderLevel: val });
-                            }
-                            setValue('warehouseInventory', current);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 11: MEDIA ASSETS UPLOAD */}
-          {currentStep === 10 && (
-            <div className="space-y-6">
+          {/* SECTION 11: MEDIA ASSETS UPLOAD */}
+          <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 11: Media Assets</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2417,157 +2163,79 @@ export default function AddProductWizard() {
                 </div>
               </div>
             </div>
-          )}
 
-          {/* STEP 12: SEO & LIVE PREVIEWS */}
-          {currentStep === 11 && (
-            <div className="space-y-8">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 12: SEO & Live Preview</h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* SEO fields */}
-                <div className="space-y-5 bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
-                  <h3 className="text-white text-xs font-bold uppercase tracking-wider text-[#D4A04D]">SEO Keywords & Metadata</h3>
-                  
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Open Graph Title</label>
-                    <input
-                      type="text"
-                      {...register('openGraphTitle')}
-                      placeholder="e.g. Elegant Rectangular Matte Black Frame"
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Open Graph Description</label>
-                    <textarea
-                      {...register('openGraphDescription')}
-                      placeholder="Enter social sharing snippet..."
-                      rows={2}
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Keywords</label>
-                    <input
-                      type="text"
-                      {...register('seoKeywords')}
-                      placeholder="eyewear, square frames, matte black, prescription"
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Canonical URL</label>
-                    <input
-                      type="text"
-                      {...register('canonicalUrl')}
-                      placeholder="https://eyeglaze.in/products/..."
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Previews */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-white text-xs font-bold uppercase tracking-wider">Live Previews</h3>
-                    
-                    {/* Size Selectors */}
-                    <div className="flex gap-2">
-                      {['desktop', 'tablet', 'mobile'].map(mode => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setPreviewMode(mode as any)}
-                          className={`px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase border transition-colors ${previewMode === mode ? 'bg-[#D4A04D] text-black border-[#D4A04D]' : 'bg-transparent text-gray-400 border-zinc-800'}`}
-                        >
-                          {mode}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Rendering viewport mockup */}
-                  <div className={`mx-auto bg-black rounded-3xl border border-zinc-800 p-4 transition-all duration-300 ${previewMode === 'mobile' ? 'w-[320px]' : previewMode === 'tablet' ? 'w-[500px]' : 'w-full'}`}>
-                    <div className="bg-[#101012] aspect-video rounded-2xl flex flex-col p-4 relative overflow-hidden text-xs">
-                      
-                      {/* Product mockup details */}
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase tracking-wide block">{formValues.brand}</span>
-                          <span className="text-white font-extrabold text-sm block truncate max-w-[180px]">{formValues.name || 'Unnamed Product'}</span>
-                          <span className="text-[10px] text-gray-500 block font-mono mt-0.5">{formValues.sku}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-white font-black text-sm block">₹{calculatedPayable}</span>
-                          <span className="text-gray-500 line-through text-[10px] block">₹{mrpValue}</span>
-                        </div>
-                      </div>
-
-                      {/* Mockup image area */}
-                      <div className="flex-1 flex justify-center items-center py-2 relative">
-                        {formValues.thumbnail ? (
-                          <img src={formValues.thumbnail} alt="Preview" className="max-h-full max-w-full object-contain" />
-                        ) : (
-                          <div className="text-gray-600 text-[10px] italic">No thumbnail uploaded</div>
-                        )}
-
-                        {formValues.status === 'Active' && (
-                          <span className="absolute bottom-2 left-2 bg-green-500/10 text-green-400 border border-green-500/20 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">
-                            ★ Active
-                          </span>
-                        )}
-                        {formValues.status === 'Draft' && (
-                          <span className="absolute bottom-2 left-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">
-                            ✎ Draft
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between text-[8px] text-gray-400 border-t border-zinc-900 pt-2 select-none">
-                        <span>Frame: {formValues.frameShape} | {formValues.frameSize}</span>
-                        <span className="font-semibold text-yellow-400">GST {formValues.gstPercent}% Included</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PREVIOUS & NEXT NAV ACTIONS */}
-          <div className="flex justify-between items-center border-t border-[#2A2A2D] pt-6 mt-8">
+          {/* SAVE ACTIONS */}
+          <div className="flex justify-end items-center gap-4 border-t border-[#2A2A2D] pt-6 mt-8">
             <button
               type="button"
-              onClick={() => goToStep(Math.max(0, currentStep - 1))}
-              disabled={currentStep === 0}
-              className="px-6 py-3 rounded-xl text-xs font-bold uppercase bg-[#2A2A2D] text-white hover:bg-zinc-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+              className="px-6 py-3 rounded-xl text-xs font-bold uppercase bg-[#2A2A2D] text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
-              Previous
+              Save Draft
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (currentStep === STEPS.length - 1) {
-                  handleSubmit(onSubmit)();
-                } else {
-                  goToStep(currentStep + 1);
-                }
-              }}
-              className="px-6 py-3 rounded-xl text-xs font-bold uppercase bg-[#D4A04D] text-black hover:bg-[#C8923E] transition-colors"
+              onClick={handlePublish}
+              disabled={isSaving}
+              className="px-6 py-3 rounded-xl text-xs font-bold uppercase bg-[#D4A04D] text-black hover:bg-[#C8923E] transition-colors disabled:opacity-50"
             >
-              {currentStep === STEPS.length - 1 ? 'Publish Product' : 'Next Step'}
+              Publish Product
             </button>
           </div>
         </div>
 
-        {/* SIDEBAR: PRICE ENGINE PREVIEW */}
-        <aside className="w-80 flex-shrink-0 space-y-6">
+        {/* SIDEBAR: LIVE PREVIEW & PRICE ENGINE PREVIEW */}
+        <aside className="w-80 flex-shrink-0 space-y-6 self-start sticky top-28">
+          {/* Live Preview Panel */}
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-4">
+            <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D] border-b border-[#2A2A2D] pb-2">
+              Live Preview Card
+            </h3>
+            <div className="bg-[#101012] aspect-video rounded-2xl flex flex-col p-4 relative overflow-hidden text-xs border border-[#2A2A2D]/40">
+              {/* Product mockup details */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase tracking-wide block">{formValues.brand || 'Brand'}</span>
+                  <span className="text-white font-extrabold text-sm block truncate max-w-[150px]">{formValues.name || 'Unnamed Product'}</span>
+                  <span className="text-[10px] text-gray-500 block font-mono mt-0.5">{formValues.sku || 'SKU'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-white font-black text-sm block">₹{calculatedPayable}</span>
+                  {mrpValue > 0 && <span className="text-gray-500 line-through text-[10px] block">₹{mrpValue}</span>}
+                </div>
+              </div>
+
+              {/* Mockup image area */}
+              <div className="flex-1 flex justify-center items-center py-2 relative min-h-[80px]">
+                {formValues.thumbnail ? (
+                  <img src={formValues.thumbnail} alt="Preview" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <div className="text-gray-600 text-[10px] italic">No thumbnail uploaded</div>
+                )}
+
+                {formValues.status === 'Active' && (
+                  <span className="absolute bottom-1 left-1 bg-green-500/10 text-green-400 border border-green-500/20 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">
+                    ★ Active
+                  </span>
+                )}
+                {formValues.status === 'Draft' && (
+                  <span className="absolute bottom-1 left-1 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">
+                    ✎ Draft
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-[8px] text-gray-400 border-t border-zinc-900/60 pt-2 select-none">
+                <span>Frame: {formValues.frameShape} | {formValues.frameSize}</span>
+                <span className="font-semibold text-yellow-400">GST {formValues.gstPercent}% Included</span>
+              </div>
+            </div>
+          </div>
+
           {/* Price engine calculator panel */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl sticky top-[170px] space-y-5">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-5">
             <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D] border-b border-[#2A2A2D] pb-2">
               Price Engine Simulator
             </h3>

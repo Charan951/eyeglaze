@@ -52,10 +52,11 @@ export default function Footer() {
           <div className="lg:col-span-3 space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">About Brand</h4>
             <ul className="space-y-2 text-xs text-gray-400">
-              <li><Link to="/about" className="hover:text-[#D4A04D] transition-colors">Our Story & Mission</Link></li>
+              <li><Link to="/about" className="hover:text-[#D4A04D] transition-colors">About Us</Link></li>
+              <li><Link to="/offers" className="hover:text-[#D4A04D] transition-colors">Offers</Link></li>
+              <li><Link to="/blogs" className="hover:text-[#D4A04D] transition-colors">Blogs</Link></li>
+              <li><Link to="/contact" className="hover:text-[#D4A04D] transition-colors">Contact Us</Link></li>
               <li><Link to="/about-eyeglaze" className="hover:text-[#D4A04D] transition-colors">About EyeGlaze</Link></li>
-              <li><Link to="/blogs" className="hover:text-[#D4A04D] transition-colors">Latest Blogs & News</Link></li>
-              <li><span className="text-gray-500">Certified Optometrist Panel</span></li>
             </ul>
           </div>
         </div>

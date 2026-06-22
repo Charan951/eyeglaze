@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { User } from '../models/User';
+import { Coupon } from '../models/Coupon';
 import { generateOTP, hashOTP, verifyOTP as verifyOTPHelper, signJWT, setAuthCookie, clearAuthCookie } from '../lib/auth';
 import { sendSMSOTP, sendEmailOTP } from '../lib/otp-sender';
 import bcrypt from 'bcryptjs';
@@ -580,11 +581,28 @@ export async function activateMembership(req: Request, res: Response) {
       description: paymentMethod === 'razorpay' ? 'Gold Membership Activation (1 Year) via Razorpay' : 'Gold Membership Activation (1 Year)'
     });
 
+    // Auto-generate 50% OFF member coupon
+    const couponCode = `MEMBER${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const coupon = new Coupon({
+      code: couponCode,
+      discountType: 'percent',
+      discountValue: 50,
+      name: '50% Off Member Exclusive',
+      description: 'Exclusive 50% off for members',
+      isActive: true,
+      validFrom: new Date(),
+      validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+      usageLimitTotal: 1,
+      userSpecific: user._id,
+    });
+    await coupon.save();
+
     await user.save();
 
     return res.status(200).json({
       success: true,
       message: 'Gold Membership activated successfully!',
+      coupon,
       user: {
         id: user._id,
         name: user.name,

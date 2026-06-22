@@ -4,10 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
 export default function UserLayout() {
-  const { user, cartCount } = useAuth();
+  const { user, cartCount, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
   if (user && ADMIN_ROLES.includes(user.role || '')) {
@@ -109,18 +110,89 @@ export default function UserLayout() {
               )}
             </Link>
 
-            {/* Profile / Login Button */}
+            {/* Profile / Login Button & Dropdown */}
             {user ? (
-              <Link 
-                to="/account" 
-                className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer"
-                title="Account"
-              >
-                <div className="w-4 h-4 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-[8px] uppercase">
-                  {user.name ? user.name[0] : 'U'}
-                </div>
-                <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
-              </Link>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer focus:outline-none"
+                  title="Account"
+                >
+                  <div className="w-4 h-4 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-[8px] uppercase">
+                    {user.name ? user.name[0] : 'U'}
+                  </div>
+                  <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
+                  <svg 
+                    className={`w-2.5 h-2.5 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    strokeWidth="3"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isProfileDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-64 bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in">
+                      {/* Dropdown Header */}
+                      <div className="flex items-center gap-3 pb-3 border-b border-[#2A2A2D] select-none">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-sm uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
+                          {user.name ? user.name[0].toUpperCase() : 'U'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-white text-xs font-black truncate">{user.name || 'Customer'}</div>
+                          <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
+                          {user.membershipActive && (
+                            <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
+                              <span>👑</span> Gold Member
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dropdown Navigation */}
+                      <nav className="mt-3 space-y-1">
+                        {[
+                          { href: '/profile', label: 'My Profile', icon: '👤' },
+                          { href: '/orders', label: 'My Orders', icon: '📦' },
+                          { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+                          { href: '/membership', label: 'Gold Membership', icon: '👑' },
+                          { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                          { href: '/wallet', label: 'My Wallet', icon: '👛' },
+                        ].map(({ href, label, icon }) => (
+                          <Link
+                            key={href}
+                            to={href}
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
+                          >
+                            <span className="text-sm">{icon}</span>
+                            <span>{label}</span>
+                          </Link>
+                        ))}
+                      </nav>
+
+                      {/* Dropdown Footer / Logout */}
+                      <div className="mt-3 pt-3 border-t border-[#2A2A2D]">
+                        <button
+                          onClick={async () => {
+                            setIsProfileDropdownOpen(false);
+                            await logout();
+                            navigate('/');
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
+                        >
+                          <span className="text-sm">🚪</span>
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <Link 
                 to="/login" 
@@ -137,11 +209,7 @@ export default function UserLayout() {
           <nav className="w-full px-4 sm:px-6 md:px-12 lg:px-16 flex justify-center gap-8 h-12 items-center text-xs tracking-[0.15em] uppercase font-bold">
             {[
               { href: '/', label: 'Home' },
-              { href: '/categories', label: 'Categories' },
-              { href: '/offers', label: 'Offers' },
-              { href: '/about', label: 'About Us' },
-              { href: '/blogs', label: 'Blogs' },
-              { href: '/contact', label: 'Contact Us' },
+              { href: '/products', label: 'Products' },
             ].map(({ href, label }) => (
               <Link 
                 key={label} 
@@ -179,11 +247,7 @@ export default function UserLayout() {
             <nav className="flex flex-col gap-6 text-sm tracking-[0.15em] uppercase font-bold">
               {[
                 { href: '/', label: 'Home' },
-                { href: '/categories', label: 'Categories' },
-                { href: '/offers', label: 'Offers' },
-                { href: '/about', label: 'About Us' },
-                { href: '/blogs', label: 'Blogs' },
-                { href: '/contact', label: 'Contact Us' },
+                { href: '/products', label: 'Products' },
               ].map(({ href, label }) => (
                 <Link 
                   key={label} 
@@ -195,18 +259,61 @@ export default function UserLayout() {
                 </Link>
               ))}
             </nav>
+
+            {/* Mobile Drawer "My Space" (if user logged in) */}
+            {user && (
+              <div className="mt-6 space-y-3">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1 select-none">
+                  My Space
+                </div>
+                <nav className="flex flex-col gap-2">
+                  {[
+                    { href: '/profile', label: 'My Profile', icon: '👤' },
+                    { href: '/orders', label: 'My Orders', icon: '📦' },
+                    { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+                    { href: '/membership', label: 'Gold Membership', icon: '👑' },
+                    { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                    { href: '/wallet', label: 'My Wallet', icon: '👛' },
+                  ].map(({ href, label, icon }) => (
+                    <Link
+                      key={href}
+                      to={href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 text-gray-400 hover:text-[#D4A04D] text-xs font-semibold py-1.5 transition-colors px-1"
+                    >
+                      <span className="text-sm">{icon}</span>
+                      <span>{label}</span>
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+            )}
             
             {/* Account info in Drawer */}
             <div className="mt-auto pt-6 border-t border-[#1C1C1E] flex flex-col gap-4">
               {user ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-xs uppercase">
-                    {user.name ? user.name[0] : 'U'}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-extrabold rounded-full flex items-center justify-center text-xs uppercase">
+                      {user.name ? user.name[0] : 'U'}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-white text-xs font-bold truncate max-w-[100px]">{user.name}</span>
+                      {user.membershipActive && (
+                        <span className="text-[8px] text-[#D4A04D] font-extrabold uppercase mt-0.5">👑 Gold</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-white text-xs font-bold truncate max-w-[120px]">{user.name}</span>
-                    <Link to="/account" onClick={() => setIsMobileMenuOpen(false)} className="text-[#D4A04D] text-[10px] font-semibold hover:underline">View Account</Link>
-                  </div>
+                  <button
+                    onClick={async () => {
+                      setIsMobileMenuOpen(false);
+                      await logout();
+                      navigate('/');
+                    }}
+                    className="text-red-400 hover:text-red-300 text-xs font-bold uppercase transition-colors bg-transparent border-none cursor-pointer"
+                  >
+                    Logout
+                  </button>
                 </div>
               ) : (
                 <Link 

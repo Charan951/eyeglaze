@@ -19,6 +19,7 @@ import prescriptionsRoutes from './routes/prescriptions.routes';
 import couponsRoutes from './routes/coupons.routes';
 import wishlistRoutes from './routes/wishlist.routes';
 import ticketsRoutes from './routes/tickets.routes';
+import cashbackCampaignsRoutes from './routes/cashbackCampaigns.routes';
 
 import adminProductsRoutes from './routes/admin/products.routes';
 import adminInventoryRoutes from './routes/admin/inventory.routes';
@@ -27,6 +28,9 @@ import adminOrdersRoutes from './routes/admin/orders.routes';
 import adminStatsRoutes from './routes/admin/stats.routes';
 import adminUploadRoutes from './routes/admin/upload.routes';
 import adminTicketsRoutes from './routes/admin/tickets.routes';
+import adminCategoriesRoutes from './routes/admin/categories.routes';
+import homepageVideosRoutes from './routes/homepageVideos.routes';
+import adminHomepageVideosRoutes from './routes/admin/homepageVideos.routes';
 
 dotenv.config();
 
@@ -138,6 +142,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/lens-options', lensOptionsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/homepage-videos', homepageVideosRoutes);
+app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
 
 // Auth-required routes
 app.use('/api/cart', requireAuth, cartRoutes);
@@ -156,6 +162,8 @@ adminRouter.use('/orders', adminOrdersRoutes);
 adminRouter.use('/stats', adminStatsRoutes);
 adminRouter.use('/upload', adminUploadRoutes);
 adminRouter.use('/tickets', adminTicketsRoutes);
+adminRouter.use('/categories', adminCategoriesRoutes);
+adminRouter.use('/homepage-videos', adminHomepageVideosRoutes);
 
 app.use('/api/admin', requireAdmin(), adminRouter);
 

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { User } from '../models/User';
+import { Coupon } from '../models/Coupon';
 import { getToken } from '../middleware/requireAuth';
 import { verifyJWT } from '../lib/auth';
 

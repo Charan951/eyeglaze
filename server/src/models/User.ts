@@ -61,6 +61,8 @@ export interface IUser extends Document {
   membershipActive: boolean;
   membershipExpiry?: Date;
   termsAcceptedAt?: Date;
+  oneRupeeOfferUsed: boolean;
+  oneRupeeOfferCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -138,6 +140,8 @@ const UserSchema = new Schema<IUser>(
     membershipActive: { type: Boolean, default: false },
     membershipExpiry: { type: Date },
     termsAcceptedAt: { type: Date },
+    oneRupeeOfferUsed: { type: Boolean, default: false },
+    oneRupeeOfferCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

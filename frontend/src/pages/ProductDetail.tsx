@@ -19,10 +19,14 @@ interface Product {
   sku: string;
   name: string;
   price: { original: number; selling: number };
+  memberPrice?: number;
+  nonMemberPrice?: number;
   rating: number;
   reviewCount: number;
   isBestseller: boolean;
   images: string[];
+  productVideo?: string;
+  image360?: string;
   colors: ColorOption[];
   frame: {
     type: string;
@@ -33,9 +37,15 @@ interface Product {
     templeLength: number;
     featureTags: string[];
   };
+  warranty?: string;
   compatible: { prescription?: boolean; bluecut?: boolean; zeropower?: boolean; progressive?: boolean };
   categories: string[];
   category?: string;
+  availableSizes?: Array<'Small' | 'Medium' | 'Large'>;
+  offerBadges?: Array<string>;
+  isPremium?: boolean;
+  buy1Get1?: boolean;
+  oneRupeeFrameOffer?: boolean;
 }
 
 interface ReviewType {
@@ -116,6 +126,7 @@ export default function ProductDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
+  const [quantity, setQuantity] = useState(1);
 
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
@@ -400,7 +411,7 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-0">
+    <div className="max-w-6xl mx-auto">
       <SEO 
         title={`${product.name} (${product.sku})`}
         description={`Buy the premium ${product.name} (${product.sku}) online at EyeGlaze. Made with high-quality ${product.frame?.material || 'TR90'}. Compatible with prescription, progressive, and blue-cut lenses.`}
@@ -416,19 +427,52 @@ export default function ProductDetailPage() {
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl aspect-square flex items-center justify-center mb-4 relative overflow-hidden group">
             <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-cover rounded-xl" />
             
-            {product.isBestseller && (
-              <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase z-20 shadow-md">
-                BESTSELLER
-              </span>
-            )}
+            <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
+              {product.isBestseller && (
+                <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                  BESTSELLER
+                </span>
+              )}
+              {product.isPremium && (
+                <span className="bg-black/75 border border-[#D4A04D] text-[#D4A04D] text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                  PREMIUM
+                </span>
+              )}
+              {product.buy1Get1 && (
+                <span className="bg-pink-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                  BUY 1 GET 1
+                </span>
+              )}
+              {product.oneRupeeFrameOffer && (
+                <span className="bg-green-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                  ₹1 FRAME OFFER
+                </span>
+              )}
+              {product.offerBadges?.map((badge, idx) => (
+                <span key={idx} className="bg-purple-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                  {badge}
+                </span>
+              ))}
+            </div>
             
             {/* 360° overlay */}
-            <div className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
-              <span>360°</span>
-              <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-              </svg>
-            </div>
+            {product.image360 && (
+              <div className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                <span>360°</span>
+                <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                </svg>
+              </div>
+            )}
+            {/* Product Video overlay */}
+            {product.productVideo && (
+              <div className="absolute bottom-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                <span>VIDEO</span>
+                <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            )}
 
             {/* Left/Right Overlaid navigation buttons */}
             <button 
@@ -529,30 +573,95 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Pricing Card */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 flex items-center justify-between gap-4">
-            <div className="flex flex-col">
-              <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Frame Starting</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">₹{product.price.selling}</span>
-                <span className="text-gray-600 text-sm line-through">₹{product.price.original}</span>
-                <span className="bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider ml-1">
-                  {discount}% OFF
-                </span>
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Frame Starting</span>
+                <div className="flex items-baseline gap-2">
+                  {product.memberPrice && (
+                    <span className="text-3xl font-black text-[#D4A04D]">₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span></span>
+                  )}
+                  {product.nonMemberPrice && (
+                    <span className="text-2xl font-black text-white">₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span></span>
+                  )}
+                  {!product.memberPrice && !product.nonMemberPrice && (
+                    <span className="text-3xl font-black text-white">₹{product.price.selling}</span>
+                  )}
+                  <span className="text-gray-600 text-sm line-through">₹{product.price.original}</span>
+                  <span className="bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
+                    {discount}% OFF
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 text-left">
+                <div className="text-[#D4A04D] bg-[#1e1a14] border border-[#D4A04D]/20 p-1.5 rounded-lg">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-white text-[10px] font-bold">Fast Delivery</span>
+                  <span className="text-gray-500 text-[9px] font-semibold uppercase tracking-wider">2-4 Days</span>
+                </div>
               </div>
             </div>
 
-            <div className="w-[1px] h-10 bg-[#2A2A2D]" />
-
-            <div className="flex items-center gap-3 text-left">
-              <div className="text-[#D4A04D] bg-[#1e1a14] border border-[#D4A04D]/20 p-1.5 rounded-lg">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
-                </svg>
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#2A2A2D]">
+              <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Quantity</span>
+              <div className="flex items-center gap-2 bg-[#0E0E0E] border border-[#2A2A2D] rounded-lg">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 flex items-center justify-center text-white hover:text-[#D4A04D] cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="text-white font-bold text-sm w-8 text-center">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 flex items-center justify-center text-white hover:text-[#D4A04D] cursor-pointer"
+                >
+                  +
+                </button>
               </div>
-              <div className="flex flex-col">
-                <span className="text-white text-[10px] font-bold">Fast Delivery</span>
-                <span className="text-gray-500 text-[9px] font-semibold uppercase tracking-wider">2-4 Days | Just ₹99 Delivery</span>
+            </div>
+          </div>
+
+          {/* Warranty Info */}
+          {product.warranty && (
+            <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span className="text-gray-300 text-[10px] font-bold">{product.warranty}</span>
+            </div>
+          )}
+
+          {/* Eligible Offers */}
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-2">
+            <span className="text-white text-xs font-bold uppercase tracking-wider mb-1">Eligible Offers</span>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-green-500 text-sm">✓</span>
+                <span className="text-gray-300"><strong className="text-white">1+1 Offer:</strong> Buy two eligible products, pay for the highest priced one</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-green-500 text-sm">✓</span>
+                <span className="text-gray-300"><strong className="text-white">₹1 Frame:</strong> Members first login offer (max 2 frames)</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-green-500 text-sm">✓</span>
+                <span className="text-gray-300"><strong className="text-white">Cashback Offer:</strong> Get cashback in wallet on eligible purchases</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-green-500 text-sm">✓</span>
+                <span className="text-gray-300"><strong className="text-white">50% OFF:</strong> Member exclusive coupon</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-green-500 text-sm">✓</span>
+                <span className="text-gray-300"><strong className="text-white">Free Lens Offer:</strong> On select products</span>
               </div>
             </div>
           </div>
@@ -715,12 +824,20 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Desktop Call to Actions (visible on medium screens and up) */}
-          <div className="hidden md:flex items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
-            <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
+          {/* Call to Actions */}
+          <div className="flex flex-col md:flex-row items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
             <Link
-              to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}`}
-              className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center gap-2 cursor-pointer shadow-md select-none text-center"
+              to={`/checkout?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
+              className="w-full md:w-auto bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>BUY FRAME ONLY</span>
+            </Link>
+            <Link
+              to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
+              className="w-full md:w-auto bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md select-none"
             >
               <svg className="w-5 h-4" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="27" cy="15" r="10" />
@@ -728,6 +845,15 @@ export default function ProductDetailPage() {
                 <path d="M37,15 L63,15" />
               </svg>
               <span>BUY WITH LENS</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-3 pt-3">
+            <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
+            <Link
+              to="/cart"
+              className="flex-1 text-[#D4A04D] text-xs font-bold uppercase tracking-wider hover:underline cursor-pointer text-center"
+            >
+              View Cart
             </Link>
           </div>
         </div>

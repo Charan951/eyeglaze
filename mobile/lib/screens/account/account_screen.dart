@@ -801,8 +801,9 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
               ),
               keyboardType: TextInputType.phone,
               validator: (val) {
-                if (val == null || val.isEmpty)
+                if (val == null || val.isEmpty) {
                   return 'Phone number is required';
+                }
                 if (val.length < 10) return 'Enter a valid 10-digit number';
                 return null;
               },

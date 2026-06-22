@@ -7,7 +7,8 @@ interface ColorStock {
 }
 
 interface InventoryItem {
-  _id: string;
+  _id?: string;
+  id?: string;
   sku: string;
   name: string;
   soldCount: number;
@@ -41,8 +42,18 @@ export default function InventoryPage() {
     return () => { active = false; };
   }, []);
 
-  const toggleActive = (id: string) => {
-    setItems(items.map(i => i._id === id ? { ...i, isActive: !i.isActive } : i));
+  const toggleActive = async (id: string) => {
+    const item = items.find(i => (i._id || i.id) === id);
+    if (!item) return;
+
+    try {
+      await api.put(`/admin/products/${id}`, { isActive: !item.isActive });
+      setItems(prevItems =>
+        prevItems.map(i => ((i._id || i.id) === id ? { ...i, isActive: !i.isActive } : i))
+      );
+    } catch (err) {
+      console.error('Failed to toggle active status in database:', err);
+    }
   };
 
   if (loading) {
@@ -76,37 +87,40 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map(item => (
-                <tr key={item._id} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
-                  <td className="px-5 py-4 text-white">{item.name}</td>
-                  <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs">{item.sku}</td>
-                  <td className="px-5 py-4">
-                    <div className="space-y-1">
-                      {item.colors.map(c => (
-                        <div key={c.name} className="flex items-center gap-2 text-xs">
-                          <span className="text-[#A7A7A7]">{c.name}:</span>
-                          <span className={
-                            c.stock === 0 ? 'text-red-400 font-bold' :
-                            c.stock < LOW_STOCK ? 'text-yellow-400 font-bold' :
-                            'text-green-400'
-                          }>
-                            {c.stock === 0 ? 'OUT OF STOCK' : `${c.stock} units`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-white font-semibold">{item.soldCount}</td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => toggleActive(item._id)}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${item.isActive ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'}`}
-                    >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${item.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {items.map(item => {
+                const itemId = item.id || item._id || '';
+                return (
+                  <tr key={itemId} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
+                    <td className="px-5 py-4 text-white">{item.name}</td>
+                    <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs">{item.sku}</td>
+                    <td className="px-5 py-4">
+                      <div className="space-y-1">
+                        {item.colors.map(c => (
+                          <div key={c.name} className="flex items-center gap-2 text-xs">
+                            <span className="text-[#A7A7A7]">{c.name}:</span>
+                            <span className={
+                              c.stock === 0 ? 'text-red-400 font-bold' :
+                              c.stock < LOW_STOCK ? 'text-yellow-400 font-bold' :
+                              'text-green-400'
+                            }>
+                              {c.stock === 0 ? 'OUT OF STOCK' : `${c.stock} units`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-white font-semibold">{item.soldCount}</td>
+                    <td className="px-5 py-4">
+                      <button
+                        onClick={() => toggleActive(itemId)}
+                        className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${item.isActive ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'}`}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${item.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

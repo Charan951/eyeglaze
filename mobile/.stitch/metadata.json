@@ -1,0 +1,32 @@
+{
+  "name": "projects/3181050102536854073",
+  "projectId": "3181050102536854073",
+  "title": "EyeGlaze Mobile",
+  "visibility": "PRIVATE",
+  "createTime": "2026-06-20T15:04:39.032574Z",
+  "updateTime": "2026-06-20T15:08:58.000000Z",
+  "projectType": "PROJECT_DESIGN",
+  "origin": "STITCH",
+  "deviceType": "MOBILE",
+  "designTheme": {
+    "colorMode": "DARK",
+    "font": "INTER",
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#c9a84c",
+    "saturation": 2
+  },
+  "designSystem": "assets/5fe0a6db3d074a879affcf640f0f034b",
+  "screens": {
+    "home": {
+      "id": "d263a48993f04b599237cb7852de00ba",
+      "sourceScreen": "projects/3181050102536854073/screens/d263a48993f04b599237cb7852de00ba",
+      "x": 0,
+      "y": 0,
+      "width": 780,
+      "height": 3798
+    }
+  },
+  "metadata": {
+    "userRole": "OWNER"
+  }
+}

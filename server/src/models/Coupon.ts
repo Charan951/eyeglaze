@@ -16,11 +16,16 @@ export interface ICoupon extends Document {
   applicableTo: 'all' | 'categories' | 'skus';
   categories: string[];
   skus: string[];
+  userSpecific?: mongoose.Types.ObjectId;
   isActive: boolean;
+  name?: string;
+  description?: string;
 }
 
 const CouponSchema = new Schema<ICoupon>({
   code: { type: String, unique: true, uppercase: true, required: true },
+  name: String,
+  description: String,
   discountType: { type: String, enum: ['percent', 'flat'], required: true },
   discountValue: { type: Number, required: true },
   minOrderValue: Number,
@@ -35,6 +40,7 @@ const CouponSchema = new Schema<ICoupon>({
   applicableTo: { type: String, enum: ['all', 'categories', 'skus'], default: 'all' },
   categories: [String],
   skus: [String],
+  userSpecific: { type: Schema.Types.ObjectId, ref: 'User' },
   isActive: { type: Boolean, default: true },
 });
 

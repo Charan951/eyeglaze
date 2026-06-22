@@ -34,10 +34,13 @@ export interface IProduct extends Document {
   defaultColor?: string;
   images: string[];
   image360?: string;
+  productVideo?: string;
   price: {
     original: number;
     selling: number;
   };
+  memberPrice?: number;
+  nonMemberPrice?: number;
   mrp?: number;
   sellingPrice?: number;
   discountPercent?: number;
@@ -62,6 +65,8 @@ export interface IProduct extends Document {
     seoTitle?: string;
     seoDescription?: string;
   };
+  availableSizes?: ('Small' | 'Medium' | 'Large')[];
+  offerBadges?: string[];
   
   // NEW WIZARD FIELDS BELOW
   barcode?: string;
@@ -187,7 +192,6 @@ export interface IProduct extends Document {
   topView?: string;
   threeSixtyImages?: string[];
   lifestyleImages?: string[];
-  productVideo?: string;
   threeDModel?: string;
   arModel?: string;
 
@@ -244,10 +248,13 @@ const ProductSchema = new Schema<IProduct>(
     defaultColor: { type: String },
     images: [String],
     image360: { type: String },
+    productVideo: { type: String },
     price: {
       original: { type: Number, default: 999 },
       selling: { type: Number, default: 1 },
     },
+    memberPrice: { type: Number },
+    nonMemberPrice: { type: Number },
     mrp: { type: Number },
     sellingPrice: { type: Number },
     discountPercent: { type: Number },
@@ -279,6 +286,8 @@ const ProductSchema = new Schema<IProduct>(
       seoTitle: String,
       seoDescription: String,
     },
+    availableSizes: [{ type: String, enum: ['Small', 'Medium', 'Large'] }],
+    offerBadges: [{ type: String }],
 
     // NEW WIZARD SCHEMAS
     barcode: { type: String },

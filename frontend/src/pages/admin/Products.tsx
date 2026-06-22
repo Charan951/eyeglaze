@@ -29,22 +29,33 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const params = search ? `?search=${encodeURIComponent(search)}` : '';
-      const res = await api.get(`/admin/products${params}`);
+      const queryParams = new URLSearchParams();
+      if (search) queryParams.set('search', search);
+      queryParams.set('page', String(page));
+      queryParams.set('limit', '10');
+      const res = await api.get(`/admin/products?${queryParams.toString()}`);
       setProducts(res.data.products || []);
+      setTotalPages(res.data.totalPages || 1);
+      setTotal(res.data.total || 0);
     } catch {
       setError('Failed to load products');
     } finally {
       setLoading(false);
     }
+  }, [search, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [search]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts();
   }, [fetchProducts]);
 
@@ -168,6 +179,43 @@ export default function AdminProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between border border-[#2A2A2D] bg-[#131314] px-6 py-4 rounded-xl shadow-lg">
+          <div className="text-xs text-[#A7A7A7]">
+            Showing page <span className="text-white font-bold">{page}</span> of <span className="text-white font-bold">{totalPages}</span> ({total} total products)
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3.5 py-2 rounded-lg bg-[#1C1C1E] border border-[#2A2A2D] text-white text-xs font-bold hover:bg-[#2A2A2D] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${page === pageNum ? 'bg-[#D4A04D] text-black' : 'bg-[#1C1C1E] border border-[#2A2A2D] text-white hover:bg-[#2A2A2D]'}`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3.5 py-2 rounded-lg bg-[#1C1C1E] border border-[#2A2A2D] text-white text-xs font-bold hover:bg-[#2A2A2D] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

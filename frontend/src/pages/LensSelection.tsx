@@ -70,7 +70,7 @@ export default function LensSelection() {
   const [reSph, setReSph] = useState('-1.25');
   const [reCyl, setReCyl] = useState('-0.50');
   const [reAxis, setReAxis] = useState('180');
-  const reAdd = '1.00';
+  const [reAdd, setReAdd] = useState('1.00');
 
   const [leSph, setLeSph] = useState('-1.75');
   const [leCyl, setLeCyl] = useState('-0.75');
@@ -355,15 +355,15 @@ export default function LensSelection() {
         : (selectedQuality?.price || selectedType?.price || 699);
 
       const powerObj = isZeroPower
-        ? { RE: { sph: 0 }, LE: { sph: 0 } }
-        : powerMode === 'enter'
-        ? {
-            RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) },
-            LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) },
-            pd: parseFloat(pd),
-            ...(selectedType?.type === 'progressive' ? { addition: parseFloat(reAdd) } : {})
-          }
-        : { uploadLater: true, uploadedFileUrl };
+                    ? { RE: { sph: 0 }, LE: { sph: 0 } }
+                    : powerMode === 'enter'
+                    ? {
+                        RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) },
+                        LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) },
+                        pd: parseFloat(pd),
+                        addPower: parseFloat(reAdd)
+                      }
+                    : { uploadLater: true, uploadedFileUrl };
 
       const lensPayload = {
         lensType: selectedType?.displayName || selectedType?.name,
@@ -906,6 +906,26 @@ export default function LensSelection() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Add Power (for reading/progressive) */}
+                    {(selectedType?.type === 'progressive' || selectedType?.type === 'reading_power') && (
+                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">Add Power (Reading) <span className="text-gray-600 font-bold ml-0.5 cursor-help" title="Add power is required for near vision">(i)</span></label>
+                          <div className="flex items-center gap-2 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1.5">
+                            <select 
+                              value={reAdd} 
+                              onChange={e => setReAdd(e.target.value)} 
+                              className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer"
+                            >
+                              {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                <option key={power} value={power.replace('+', '')}>{power}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* PD */}
                     <div className="pt-4 border-t border-[#2A2A2D]/55 flex items-center justify-between gap-4 mt-6">

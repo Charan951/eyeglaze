@@ -793,5 +793,41 @@ export async function seedDatabase() {
   }
   console.log('Customer/user accounts seeded.');
 
+  // ---- Seed Homepage Videos ----
+  console.log('Seeding homepage videos...');
+  const HomepageVideo = mongoose.models.HomepageVideo || mongoose.model('HomepageVideo', new mongoose.Schema({
+    title: { type: String, required: true },
+    videoUrl: { type: String, required: true },
+    description: String,
+    displayOrder: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true }
+  }));
+
+  const defaultVideos = [
+    {
+      title: 'Our Journey: Crafting Premium Eyewear',
+      videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      description: 'Take a behind-the-scenes look at how we design, manufacture, and quality-test our premium lenses and frames.',
+      displayOrder: 0,
+      isActive: true,
+    },
+    {
+      title: 'Customer Happiness: Real Stories',
+      videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      description: 'Hear what our customers have to say about their experience with EyeGlaze clinic-at-home and online ordering.',
+      displayOrder: 1,
+      isActive: true,
+    },
+  ];
+
+  for (const video of defaultVideos) {
+    await HomepageVideo.findOneAndUpdate(
+      { title: video.title },
+      video,
+      { upsert: true, returnDocument: 'after' }
+    );
+  }
+  console.log('Homepage videos seeded.');
+
   console.log('\nSeed completed successfully!');
 }

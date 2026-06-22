@@ -299,7 +299,7 @@ class _CreateTicketFormState extends State<_CreateTicketForm> {
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 dropdownColor: AppColors.card,
                 style: const TextStyle(color: AppColors.white, fontSize: 14),
                 decoration: const InputDecoration(

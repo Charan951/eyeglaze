@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { Cart } from '../models/Cart';
 import { Product } from '../models/Product';
+import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
 
 export async function getCart(req: Request, res: Response) {
@@ -9,14 +10,84 @@ export async function getCart(req: Request, res: Response) {
     await connectDB();
     const cart = await Cart.findOne({ user: req.user!.userId }).populate(
       'items.product',
-      'name images price sku frame colors'
+      'name images price sku frame colors memberPrice nonMemberPrice buy1Get1 oneRupeeFrameOffer'
     );
 
     if (!cart) {
       return res.status(200).json({ cart: { items: [], total: 0 } });
     }
 
-    return res.status(200).json({ cart });
+    // Fetch user for eligibility checks
+    const user = await User.findById(req.user!.userId);
+
+    // Process cart items with business logic
+    const processedItems = cart.items.map((item: any) => {
+      let framePrice = item.product?.price?.selling ?? item.framePrice ?? 0;
+      let appliedOffers: string[] = [];
+      let isOneRupeeFrame = false;
+
+      // Check ₹1 Frame eligibility
+      if (item.product?.oneRupeeFrameOffer && user?.membershipActive && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2) {
+        framePrice = 1;
+        isOneRupeeFrame = true;
+        appliedOffers.push('₹1 Frame');
+      } else if (item.product?.memberPrice && user?.membershipActive) {
+        framePrice = item.product.memberPrice;
+        appliedOffers.push('Member Price');
+      } else if (item.product?.nonMemberPrice && !user?.membershipActive) {
+        framePrice = item.product.nonMemberPrice;
+      }
+
+      return {
+        ...item.toObject(),
+        framePrice,
+        memberFramePrice: item.product?.memberPrice,
+        appliedOffers,
+        isOneRupeeFrame
+      };
+    });
+
+    // Check 1+1 Offer
+    let onePlusOneDiscount = 0;
+    const buy1Get1Items = processedItems.filter((item: any) => item.product?.buy1Get1);
+    if (buy1Get1Items.length >= 2) {
+      // Sort by price (descending) to get the highest price first
+      buy1Get1Items.sort((a: any, b: any) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
+      // The second item is free (or get the lowest price item free)
+      const lowestPriceItem = buy1Get1Items.reduce((lowest: any, current: any) => {
+        const currentTotal = current.framePrice + (current.lensPrice || 0);
+        const lowestTotal = lowest.framePrice + (lowest.lensPrice || 0);
+        return currentTotal < lowestTotal ? current : lowest;
+      });
+      onePlusOneDiscount = lowestPriceItem.framePrice + (lowestPriceItem.lensPrice || 0);
+      lowestPriceItem.appliedOffers.push('1+1 Offer');
+    }
+
+    // Calculate totals
+    let subtotal = 0;
+    let totalFittingCharge = 0;
+    let totalDeliveryCharge = 0;
+
+    processedItems.forEach((item: any) => {
+      subtotal += (item.framePrice + (item.lensPrice || 0)) * item.qty;
+      totalFittingCharge += (item.fittingCharge || 0) * item.qty;
+      totalDeliveryCharge += (item.deliveryCharge || (user?.membershipActive ? 0 : 99)) * item.qty;
+    });
+
+    // Delivery charge: members free, non-members 99 (one charge per order, not per item)
+    totalDeliveryCharge = user?.membershipActive ? 0 : 99;
+
+    const cartWithOffers = {
+      ...cart.toObject(),
+      items: processedItems,
+      subtotal,
+      totalFittingCharge,
+      totalDeliveryCharge,
+      onePlusOneDiscount,
+      total: Math.max(0, subtotal + totalFittingCharge + totalDeliveryCharge - onePlusOneDiscount)
+    };
+
+    return res.status(200).json({ cart: cartWithOffers });
   } catch (error) {
     console.error('GET cart error:', error);
     return res.status(500).json({ error: 'Failed to fetch cart' });
@@ -38,6 +109,7 @@ export async function addToCart(req: Request, res: Response) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    const user = await User.findById(req.user!.userId);
     let cart = await Cart.findOne({ user: req.user!.userId });
     if (!cart) {
       cart = new Cart({ user: req.user!.userId, items: [] });
@@ -50,6 +122,30 @@ export async function addToCart(req: Request, res: Response) {
         item.lensType === (lens?.lensType || null)
     );
 
+    // Fitting Charge Engine
+    let fittingCharge = 0;
+    if (lens) {
+      fittingCharge = 99; // Base for any frame with lens
+      const lensType = lens.lensType?.toLowerCase() || '';
+      const lensQuality = lens.lensQuality?.toLowerCase() || '';
+      const lensSubType = lens.lensSubType?.toLowerCase() || '';
+      
+      // Progressive or Non Breakable lens → ₹199
+      if (
+        lensType.includes('progressive') ||
+        lensType.includes('non breakable') ||
+        lensType.includes('non-breakable') ||
+        lensQuality.includes('progressive') ||
+        lensQuality.includes('non breakable') ||
+        lensQuality.includes('non-breakable') ||
+        lensSubType.includes('progressive') ||
+        lensSubType.includes('non breakable') ||
+        lensSubType.includes('non-breakable')
+      ) {
+        fittingCharge = 199;
+      }
+    }
+
     if (existingIdx >= 0) {
       cart.items[existingIdx].qty += qty;
     } else {
@@ -58,8 +154,9 @@ export async function addToCart(req: Request, res: Response) {
         qty,
         color,
         framePrice: product.price?.selling || 1,
-        fittingCharge: lens ? 199 : 0,
-        deliveryCharge: 99,
+        memberFramePrice: product.memberPrice,
+        fittingCharge,
+        deliveryCharge: user?.membershipActive ? 0 : 99,
         ...(lens || {}),
       };
       cart.items.push(newItem);
@@ -134,6 +231,11 @@ export async function applyCoupon(req: Request, res: Response) {
 
     const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
     if (!coupon) return res.status(200).json({ valid: false, message: 'Invalid coupon code' });
+
+    // Check userSpecific
+    if (coupon.userSpecific && coupon.userSpecific.toString() !== req.user?.userId) {
+      return res.status(200).json({ valid: false, message: 'This coupon is not valid for you' });
+    }
 
     const now = new Date();
     if (coupon.validFrom && coupon.validFrom > now) {

@@ -11,14 +11,17 @@ export interface ICartItem {
   product: mongoose.Types.ObjectId;
   qty: number;
   color?: string;
+  frameSize?: 'Small' | 'Medium' | 'Large';
   lensType?: string;
   lensSubType?: string;
   power?: IPower;
   lensQuality?: string;
   lensPrice?: number;
   framePrice: number;
+  memberFramePrice?: number;
   fittingCharge: number;
   deliveryCharge: number;
+  appliedOffers?: string[];
 }
 
 export interface ICart extends Document {
@@ -42,14 +45,17 @@ const CartItemSchema = new Schema<ICartItem>({
   product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
   qty: { type: Number, default: 1 },
   color: { type: String },
+  frameSize: { type: String, enum: ['Small', 'Medium', 'Large'] },
   lensType: { type: String },
   lensSubType: { type: String },
   power: PowerSchema,
   lensQuality: { type: String },
   lensPrice: { type: Number },
   framePrice: { type: Number, default: 1 },
+  memberFramePrice: { type: Number },
   fittingCharge: { type: Number, default: 0 },
   deliveryCharge: { type: Number, default: 99 },
+  appliedOffers: [{ type: String }],
 });
 
 const CartSchema = new Schema<ICart>({

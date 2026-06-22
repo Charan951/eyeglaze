@@ -21,7 +21,7 @@ const LensOptionSchema = new Schema<ILensOption>({
   kind: { type: String, enum: ['type', 'quality'], required: true },
   type: {
     type: String,
-    enum: ['single_vision', 'progressive', 'bluecut', 'zero_power', 'photochromic'],
+    enum: ['single_vision', 'progressive', 'bluecut', 'zero_power', 'photochromic', 'bifocal', 'reading_power', 'color_with_power'],
   },
   subType: { type: String },
   displayName: { type: String, required: true },

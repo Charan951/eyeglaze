@@ -171,7 +171,7 @@ export default function Membership() {
               <span className="px-6 py-2 rounded-full bg-[#D4A04D]/20 text-[#D4A04D] font-bold border border-[#D4A04D]/40 rounded-full">
                 ✓ Active
               </span>
-              <Link to="/account" className="text-gray-400 hover:text-[#D4A04D] transition-colors">
+              <Link to="/profile" className="text-gray-400 hover:text-[#D4A04D] transition-colors">
                 Go to Account →
               </Link>
             </div>

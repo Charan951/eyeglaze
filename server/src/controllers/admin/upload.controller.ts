@@ -54,3 +54,42 @@ export async function uploadImage(req: Request, res: Response) {
   }
 }
 
+export async function uploadVideo(req: Request, res: Response) {
+  try {
+    const file = (req as any).file;
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileExt = path.extname(file.originalname) || '.mp4';
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`;
+
+    if (!isS3Configured) {
+      console.warn('AWS S3 not configured for video. Falling back to local upload storage.');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, file.buffer);
+
+      const host = req.get('host') || 'localhost:5000';
+      const protocol = req.protocol || 'http';
+      const fileUrl = `${protocol}://${host}/uploads/${filename}`;
+      return res.status(200).json({ url: fileUrl });
+    }
+
+    // Upload to S3
+    const s3Key = `eyeglaze_videos/${filename}`;
+    const contentType = file.mimetype || 'video/mp4';
+    const fileUrl = await uploadToS3(file.buffer, s3Key, contentType);
+
+    return res.status(200).json({ url: fileUrl });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    return res.status(500).json({ error: 'Video upload failed' });
+  }
+}
+
+

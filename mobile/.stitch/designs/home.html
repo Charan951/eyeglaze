@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, initial-scale=1.0" name="viewport"/>
+<title>EyeGlaze - Premium Eyewear</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            background-color: #0D0D0D;
+            color: #E5E2E1;
+            font-family: 'Inter', sans-serif;
+        }
+        .bento-gradient {
+            background: linear-gradient(180deg, rgba(13,13,13,0) 0%, rgba(13,13,13,0.8) 100%);
+        }
+        .gold-gradient {
+            background: linear-gradient(135deg, #C9A84C 0%, #FFE08F 100%);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#313030",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#584400",
+                        "primary-fixed-dim": "#e6c364",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "on-tertiary": "#303030",
+                        "on-secondary-fixed-variant": "#474746",
+                        "surface": "#131313",
+                        "surface-container": "#201f1f",
+                        "on-surface-variant": "#d0c5b2",
+                        "primary": "#e6c364",
+                        "on-secondary-container": "#b7b5b4",
+                        "on-primary": "#3d2e00",
+                        "secondary": "#c8c6c5",
+                        "on-tertiary-container": "#404040",
+                        "inverse-on-surface": "#313030",
+                        "tertiary-fixed": "#e4e2e1",
+                        "secondary-fixed": "#e5e2e1",
+                        "surface-tint": "#e6c364",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary": "#c8c6c6",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "surface-container-lowest": "#0e0e0e",
+                        "error": "#ffb4ab",
+                        "inverse-primary": "#755b00",
+                        "primary-container": "#c9a84c",
+                        "on-error": "#690005",
+                        "outline-variant": "#4d4637",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "on-surface": "#e5e2e1",
+                        "surface-container-highest": "#353534",
+                        "outline": "#99907e",
+                        "surface-dim": "#131313",
+                        "tertiary-container": "#adabab",
+                        "on-primary-fixed": "#241a00",
+                        "on-background": "#e5e2e1",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-bright": "#3a3939",
+                        "inverse-surface": "#e5e2e1",
+                        "error-container": "#93000a",
+                        "primary-fixed": "#ffe08f",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "secondary-container": "#474746",
+                        "background": "#131313",
+                        "on-primary-container": "#503d00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-md": "16px",
+                        "stack-xs": "4px",
+                        "margin-mobile": "20px",
+                        "stack-sm": "8px",
+                        "gutter-mobile": "12px",
+                        "stack-lg": "32px",
+                        "stack-xl": "64px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "section-heading": ["Inter"],
+                        "label-md": ["Inter"],
+                        "button-text": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-sm-mobile": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-md-mobile": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "section-heading": ["12px", {"lineHeight": "16px", "letterSpacing": "0.2em", "fontWeight": "800"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "button-text": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-surface-variant h-16 flex items-center justify-between px-margin-mobile">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional studio portrait of a sophisticated person in a high-end fashion setting, softly lit with golden rim light against a charcoal background, representing a luxury user profile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvif7l8qqcP5qFURaZeSsmOq3ONnmqSSYo-FQg_W4mr-issYRmtkrH-OyHdaB05eMfjRQTmnBbRwOdB8x_TDpRAwEAUrvtRVNpTGD2WFbtDHXZtjF_mj3oHPR-bz4UgwA64Ns2hrslSOO3NLuxTG3hBlSKs-SgeeTOyIIR6QeLuk0DboK2pfl2NDgozDbHVqWy-dDzMCUcjJOr9UCqgfkrG5Y2HEf-b-8A-Iehy5CpKHYjdt2fIDyYlYlubNeFaX21lYH8P3fJ-G8"/>
+</div>
+</div>
+<div class="flex flex-col items-center">
+<h1 class="font-headline-md-mobile text-headline-md-mobile tracking-tighter text-primary">EyeGlaze</h1>
+<span class="text-[10px] tracking-[0.3em] font-extrabold text-on-surface-variant uppercase">Premium Eyewear</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary cursor-pointer">search</span>
+<div class="relative cursor-pointer">
+<span class="material-symbols-outlined text-primary">notifications</span>
+<span class="absolute -top-1 -right-1 w-4 h-4 bg-primary text-on-primary text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-28 px-margin-mobile flex flex-col gap-stack-lg">
+<!-- Hero Carousel -->
+<section class="relative w-full h-[220px] bg-surface-container rounded-xl border border-surface-variant overflow-hidden flex">
+<div class="w-1/2 p-5 flex flex-col justify-center gap-2 z-10">
+<h3 class="font-section-heading text-primary">SEE THE WORLD</h3>
+<h2 class="font-headline-sm-mobile text-on-surface leading-tight">CLEARER.<br/>SHARPER. YOU.</h2>
+<p class="text-[11px] text-on-surface-variant">Premium Eyewear for Every Version of You</p>
+<button class="mt-2 w-max px-4 py-2 border border-primary text-primary font-button-text text-[12px] flex items-center gap-2 hover:bg-primary hover:text-on-primary transition-all duration-300">
+                    SHOP NOW <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+<div class="absolute bottom-4 left-5 flex gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+</div>
+</div>
+<div class="w-1/2 relative">
+<img class="w-full h-full object-cover" data-alt="A high-fashion close-up of a model wearing minimalist, sleek golden-framed glasses, posed against a dark, moody studio backdrop with sharp editorial lighting and deep shadows. The aesthetic is luxurious and ultra-modern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3KgEBtnxhJBaf9d7BlVQsYL0PZ6AGTSe12FKyu3DiBYqTCUHmDNmGaiItS94e12-rZPBucZYx55TqPnF_JCQXrzy0xKT1JR0jgwqA4SWK4xj1-zURyo65EM5cIc7GIAr5vuxC0_DYfCJo9CO6yt-9i6HcaZjeLqkEHwaxEheDWWiJaQumZk31FPV0_0b6qqAAh6Wtrs4g_V0ZzbuiC1hwMXYe1igXdNIL9IJ2wCYDrKo4dUF70_Z47iUyvyKpDkPUjF0snS-Tyt8"/>
+<div class="absolute inset-0 bg-gradient-to-r from-surface-container to-transparent"></div>
+</div>
+</section>
+<!-- Eyeglasses Section -->
+<section class="flex flex-col gap-stack-md">
+<div class="flex justify-between items-end">
+<h2 class="font-section-heading text-on-surface">EYEGLASSES</h2>
+<span class="text-primary text-[10px] font-bold">VIEW ALL</span>
+</div>
+<div class="grid grid-cols-2 gap-stack-sm">
+<!-- Category Cards -->
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Sophisticated man wearing premium matte black optical frames, soft focus architectural background, ink-black color palette with gold highlights." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdESY3-EMGX1xfXrFTzr7lptp_4Lcw50CsyLbWGVbrqXaAalgrj29Quga17pgEjeqU88QqcrXEOqYeX4JFuqUBA2IXIPpY_yTXgBC0CZqLXhf7d16Nq-Ae4BRIYSJkNxR1dSuc0hUloN-_ATwunFmDm2rsW6oYNuBocDO0lL5aGQjDaubCIC2wQezbiJk0A9EkIt7jnkKQaaRlIh_8qwRoEi2nv1xHeO8RbUwTQ_WzdpwuvJRfLJiPoHr0n6QkdMcmFgQtiuNqolg"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Men</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Chic woman in elegant rose-gold cat-eye glasses, minimalist luxury vibe, deep shadows, high-end fashion photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDrbeyaJHcvASWanIHTsbaWHrf_55qJA9zaJyZaSpoG9YYhgmhPsXW6bmYZWwLiIX7V4NnvJuiQ-oZAvieB5tlGg8i-4tykjJ6zm_4eMVb6w9s-buH40oXUcu_6AOF69vqugNJsnBw1jkz2fh7MQ0aKEvJku-mmQdoeg3k0uR7Y3vEXOj2HKC7I6B4OB45RaSV-uLOm_4cC1858BAJTtecJNRXRW59yscSeAnp2a4sW6D0bzx8XKu1uaWCbkEqCXcbpFAGaRrHeDg"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Women</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Cool kid wearing stylish durable glasses, bright but professional lighting, luxury kids eyewear boutique concept." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpjWu1eE3MfanjxAK4pUx_u25pgg1MfYI4ZUVin7SJcRMXdoTQcaCrpdqgcvkOc2G8LQqmyBi4hZTStizjS7SGfcpjMgj1Z6dBzkYBMLI2JoSy3nHvZo7ELtKp_knBKsZPVuczKwCrosUaHZ9pOxNbjIqtfH6GMqJrfyvvuzXQye5x9gKAcU-CZKg1QgZMXPvjzuThIArcHgAffVqyz8jVoxCxIIcmAasZTb2oxAlmVTqYbjn9w_udrg6KpgqMKMYaR7QKY6v8ITM"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Kids</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Close up detail of high-end rimless titanium spectacles on a reflective obsidian surface, technical and precise, glowing golden accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKkr6XvEum8k5-Ub-gn0uRqeZjhSSGqkU7tQsl8XtiViTxctEDpBIC1sluWM2fXaZVlCeGNDbNz8Ikatzn6e017cML5FUBdBeqZg-w0PTCjljBPtejp4hArEp3ilflQWCiO2RKfhANyVNr-cUeVxvoixnrE-LdA961tYEEhWVQ6CaR2hZ2DdPLAAndbp5TnrskHReQFfEjr8VkdWcc0gBByihV1ONFiRUdW13oQdEB6hATuQMQteJ8nGpsgCyXN-AFkYDCF5N1MCs"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Rimless</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+</div>
+</section>
+<!-- Sunglasses Section -->
+<section class="flex flex-col gap-stack-md">
+<div class="flex justify-between items-end">
+<h2 class="font-section-heading text-on-surface">SUNGLASSES</h2>
+<span class="text-primary text-[10px] font-bold">VIEW ALL</span>
+</div>
+<div class="grid grid-cols-2 gap-stack-sm">
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Male model in dark polarized designer sunglasses, beach luxury evening setting, high contrast lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAE7uK2P4L4GLc97Fwpk_ehEYfpmFuD2m7kvIwpy3PZ0mWip6eXdqwWeJwg-wh-qsifDnbu2rxGpkRBPoeMsNe30QP8Mp6BjO3Xaox4gJA_D1asbbjTelNURoh-wZpjzohWawmhZsTcfgX9_YfkjevKPAX76B8N41QfhrWaxN_WuB8shWEHzAegQTwA89i-i-mbf8tokU3lCD6IM-7xCoH5IMcYcCSytW0d4QbemRo5eRhJjMOJmhhchiDV7e6vxEYuwyaUlLe9d5E"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Men</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+<div class="relative aspect-[3/4.2] rounded-xl border border-surface-variant overflow-hidden bg-surface-container group">
+<img class="w-full h-full object-cover grayscale-[0.3] group-hover:scale-105 transition-transform duration-500" data-alt="Female model in oversized luxury sunglasses, poolside sunset aesthetic, golden hour lighting, premium vibes." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_2-W1vDu1yNANWOL3HC2KbxtWrW5p0y3LRba8XwbCnNjhlJjS-jwsZOz9Rv6u-MJD_eN_csuYObRXtkYDkWqW42Fu_3p6hozG-QWndzQ4q4Vse2r5xj7jOf6rhriMMdl_TrUyyR42cjRvvVlUjXE5PHcdmNbEu0oMl4CF8mfy6FtUgdJGzUQEwgj2f87edbR7zD9NOSQxKkob0vZmtocC1Bv96Id1WNdW2ExTt7wdCL6mHN-lNf4Y_kepDlSc_6FB25I5L5UBkIQ"/>
+<div class="absolute inset-0 bento-gradient flex flex-col justify-end p-3">
+<span class="text-on-surface font-bold text-sm">Women</span>
+<span class="text-primary text-[10px] flex items-center gap-1">Shop Now <span class="material-symbols-outlined text-[10px]">arrow_forward</span></span>
+</div>
+</div>
+</div>
+</section>
+<!-- Promo Banner 1 -->
+<section class="relative h-32 rounded-xl overflow-hidden bg-surface-container border border-surface-variant flex items-center px-6">
+<div class="absolute inset-0 opacity-20">
+
+</div>
+<div class="relative z-10 flex flex-col gap-1">
+<span class="font-section-heading text-primary text-[10px]">EXCLUSIVES</span>
+<h2 class="font-headline-sm-mobile text-on-surface">New Arrivals</h2>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-full font-button-text text-[11px] w-max mt-1">Explore</button>
+</div>
+<div class="ml-auto relative w-24 h-full flex items-center">
+<img class="w-full h-2/3 object-contain" data-alt="Minimalist abstract representation of new eyewear designs, glowing lines on a dark void, futuristic luxury vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQDsAnTJisj50QECYKwUhCUmFFjUJrQfUVw2aRBLptw5zSBQjzbUdgCEHjbfnHtEnzASWT2ZX4vU72a-x1mBbADu6pfF_Zm4AzQeF72T3IFsfAESEqpswYj2YKnbIBrMrL4qxQhiYC1RQngak6_a-29MR19CvJvGjg4UcJL5mYwLCYLNQFh57XH_PQnW7GqotjvIdhyUGCv4sDXmfYxvMiFYx8Y44SaaOLZh0ZaOc7LfnpAzMtmajUO6UjhroEITiUN-4xAtei4RA"/>
+</div>
+</section>
+<!-- Featured Section -->
+<section class="flex flex-col gap-stack-md">
+<h2 class="font-section-heading text-on-surface">FEATURED</h2>
+<div class="flex overflow-x-auto gap-4 -mx-margin-mobile px-margin-mobile snap-x scroll-smooth">
+<!-- Product Card 1 -->
+<div class="min-w-[160px] snap-start bg-surface-container rounded-xl border border-surface-variant p-2 flex flex-col gap-2">
+<div class="relative aspect-square bg-surface rounded-lg overflow-hidden flex items-center justify-center">
+<img class="w-4/5 h-4/5 object-contain" data-alt="A pair of premium aviator glasses with gold frames and dark lenses, shot on a black marble surface with sharp top-down lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAzCGeVnhjr5Akiu4GTIUvL9RvKVhd29JBrfLxTQ7xBQnr73Rs0-uTXYoV1ZE0i47V1jMybpwCD7PmIjZJYGSE32PDHDIx_gJ7qlb00Jpp1qjE89iMJqwP0BufGpv6QWVTQBQTm6HbRHng_xEvx2y-kqGPujU_rYV9ACvIvolEKkmRzBsYHxZm8MNLeAiURKso9528IoCffZYgsOFtEI5YqL1Vck0PbqcqoVURESl99LI-YFp_rrujyflXpVZVFmioJJ1MeeiVEhE"/>
+<span class="absolute top-1 left-1 bg-primary text-on-primary text-[9px] px-1.5 py-0.5 font-bold rounded">20% OFF</span>
+</div>
+<div class="px-1 flex flex-col">
+<span class="text-on-surface text-[12px] font-bold truncate">Gold Aviator X</span>
+<span class="text-on-surface-variant text-[10px] mb-1">SKU: EG-7721</span>
+<div class="flex items-center gap-2">
+<span class="text-primary text-[13px] font-bold">$299</span>
+<span class="text-on-surface-variant text-[10px] line-through">$375</span>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="min-w-[160px] snap-start bg-surface-container rounded-xl border border-surface-variant p-2 flex flex-col gap-2">
+<div class="relative aspect-square bg-surface rounded-lg overflow-hidden flex items-center justify-center">
+<img class="w-4/5 h-4/5 object-contain" data-alt="Modern rectangular optical frames in obsidian finish, minimalist design, floating in a dark studio setting with soft glowing edge light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVkHdz7iP3YsRGFkLoAsdL5RCCxRr5ZdAI7GPtcrsySzkUDF6uttPnAB71TG4kOK5Hn21HCIIfmEZ9IlgC-746meTrLtoKOn0hOtwkbqRJn0-3wf2BREeP_F0v6lqiwPjonU2YKnvrJLQ8JicDKuXoqRWrecZ5lIoH1sD0tFrAJWkveZ0uoGqUBI5cvwvlhMXKvLq1EFL0az6mgWDnoJiPDQ_DUINmNaj1Mf-CyTEF83NwHFafP1AwaDOPT64wz8_3uV1erO_ZUKE"/>
+<span class="absolute top-1 left-1 bg-primary text-on-primary text-[9px] px-1.5 py-0.5 font-bold rounded">HOT</span>
+</div>
+<div class="px-1 flex flex-col">
+<span class="text-on-surface text-[12px] font-bold truncate">Noir Series II</span>
+<span class="text-on-surface-variant text-[10px] mb-1">SKU: EG-1044</span>
+<div class="flex items-center gap-2">
+<span class="text-primary text-[13px] font-bold">$185</span>
+<span class="text-on-surface-variant text-[10px] line-through">$220</span>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="min-w-[160px] snap-start bg-surface-container rounded-xl border border-surface-variant p-2 flex flex-col gap-2">
+<div class="relative aspect-square bg-surface rounded-lg overflow-hidden flex items-center justify-center">
+<img class="w-4/5 h-4/5 object-contain" data-alt="Boutique tortoiseshell eyewear frames, high-resolution detail of the pattern, professional commercial lighting on dark base." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAc34MbqrTm-kt9IUQcm1Fc9CP5f-hnmT9ryqLuj58jiX50hXyojNmBfTVqfwAIwnxOGW5oIbtIN3uiQT_sDqxSzMR3F0U077CWN7mN2KkfMvUkeFATnTp3a2wyNXvhGKbYR_HJeXs89btKz__YjTufXLvFpyD1BJvYQwSsS0Vjdg3KNC7f8LSBXC7iaL1Jaczvi8rEdtNqoPV8_pTtGE-ZVT-VBQMkSQQTG2S8J0CtSiYvA7DK0YD-utoRwt0-FbieOrJjqDOGAhc"/>
+</div>
+<div class="px-1 flex flex-col">
+<span class="text-on-surface text-[12px] font-bold truncate">Amber Shell</span>
+<span class="text-on-surface-variant text-[10px] mb-1">SKU: EG-8890</span>
+<div class="flex items-center gap-2">
+<span class="text-primary text-[13px] font-bold">$310</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Promo Banner 2 -->
+<section class="relative h-32 rounded-xl overflow-hidden bg-surface-container border border-surface-variant flex flex-row-reverse items-center px-6">
+<div class="absolute inset-0 bg-primary/5 pointer-events-none"></div>
+<div class="relative z-10 flex flex-col gap-1 items-end text-right">
+<span class="font-section-heading text-primary text-[10px]">DIGITAL PROTECTION</span>
+<h2 class="font-headline-sm-mobile text-on-surface">Blue Light Collection</h2>
+<button class="border border-primary text-primary px-4 py-1.5 rounded-full font-button-text text-[11px] w-max mt-1 hover:bg-primary hover:text-on-primary transition-colors">Shop Collection</button>
+</div>
+<div class="mr-auto relative w-24 h-full flex items-center">
+<span class="material-symbols-outlined text-primary text-6xl opacity-30">visibility</span>
+</div>
+</section>
+</main>
+<!-- Floating Cart Button -->
+<button class="fixed bottom-24 right-5 w-14 h-14 gold-gradient rounded-full flex items-center justify-center border-[3px] border-[#2A2A2A] z-50 active:scale-95 transition-transform shadow-2xl">
+<span class="material-symbols-outlined text-on-primary text-2xl">shopping_bag</span>
+<span class="absolute -top-1 -right-1 w-6 h-6 bg-surface-container-highest text-primary border border-primary text-[10px] font-bold rounded-full flex items-center justify-center">2</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface-container border-t border-surface-variant flex justify-around items-center h-20 pb-safe px-2">
+<!-- Home (Active) -->
+<div class="flex flex-col items-center justify-center text-primary font-bold transition-transform active:scale-95">
+<span class="material-symbols-outlined fill-icon" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-md text-label-md mt-1">Home</span>
+</div>
+<!-- Wishlist -->
+<div class="flex flex-col items-center justify-center text-secondary opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined">favorite</span>
+<span class="font-label-md text-label-md mt-1">Wishlist</span>
+</div>
+<!-- GET GOLD (Center CTA) -->
+<div class="flex flex-col items-center justify-center -mt-8">
+<div class="w-16 h-16 gold-gradient rounded-full flex items-center justify-center border-4 border-[#0D0D0D] shadow-lg">
+<span class="material-symbols-outlined text-on-primary text-3xl fill-icon" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<span class="font-label-md text-label-md mt-1 text-primary font-bold">GET GOLD</span>
+</div>
+<!-- Orders -->
+<div class="flex flex-col items-center justify-center text-secondary opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-md text-label-md mt-1">Orders</span>
+</div>
+<!-- Wallet -->
+<div class="flex flex-col items-center justify-center text-secondary opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-md text-label-md mt-1">Wallet</span>
+</div>
+</nav>
+<script>
+        // Simple scroll reveal or micro-interactions can go here
+        document.querySelectorAll('.active\\:scale-95').forEach(el => {
+            el.addEventListener('click', () => {
+                // Mimic haptic feedback or active states
+            });
+        });
+    </script>
+</body></html>

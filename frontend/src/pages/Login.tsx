@@ -76,7 +76,7 @@ export default function LoginPage() {
     } else {
       const from = location.state?.from 
         ? (location.state.from.pathname + (location.state.from.search || '')) 
-        : '/account';
+        : '/profile';
       navigate(from, { replace: true });
     }
   };

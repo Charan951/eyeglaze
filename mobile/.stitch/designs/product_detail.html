@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EyeGlaze | EG-2024 Aviator Classic</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#131313",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-bright": "#3a3939",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "on-surface": "#e5e2e1",
+                        "on-primary-fixed": "#241a00",
+                        "outline-variant": "#4d4637",
+                        "background": "#131313",
+                        "surface-variant": "#353534",
+                        "on-tertiary": "#303030",
+                        "inverse-on-surface": "#313030",
+                        "secondary-fixed": "#e5e2e1",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#404040",
+                        "on-surface-variant": "#d0c5b2",
+                        "secondary": "#c8c6c5",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "tertiary-container": "#adabab",
+                        "surface-container": "#201f1f",
+                        "primary-fixed": "#ffe08f",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "on-primary-container": "#503d00",
+                        "error-container": "#93000a",
+                        "primary-container": "#c9a84c",
+                        "inverse-surface": "#e5e2e1",
+                        "primary": "#e6c364",
+                        "surface-container-highest": "#353534",
+                        "surface-tint": "#e6c364",
+                        "inverse-primary": "#755b00",
+                        "surface-container-low": "#1c1b1b",
+                        "on-background": "#e5e2e1",
+                        "on-secondary-container": "#b7b5b4",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#c8c6c6",
+                        "primary-fixed-dim": "#e6c364",
+                        "on-secondary-fixed-variant": "#474746",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "outline": "#99907e",
+                        "on-primary-fixed-variant": "#584400",
+                        "on-error": "#690005",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "secondary-container": "#474746",
+                        "surface-dim": "#131313",
+                        "on-primary": "#3d2e00",
+                        "surface-container-high": "#2a2a2a",
+                        "on-secondary": "#313030",
+                        "tertiary-fixed": "#e4e2e1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "8px",
+                        "stack-xl": "64px",
+                        "margin-mobile": "20px",
+                        "stack-lg": "32px",
+                        "gutter-mobile": "12px",
+                        "stack-md": "16px",
+                        "stack-xs": "4px"
+                    },
+                    "fontFamily": {
+                        "section-heading": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "button-text": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "section-heading": ["12px", {"lineHeight": "16px", "letterSpacing": "0.2em", "fontWeight": "800"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "button-text": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #0D0D0D; color: #e5e2e1; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="font-body-md text-body-md pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface flex items-center justify-between px-margin-mobile h-16 border-b border-outline-variant">
+<button class="hover:opacity-80 transition-opacity active:scale-95 transition-transform text-primary">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold tracking-tighter text-primary">EyeGlaze</h1>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined">share</span>
+</button>
+<button class="text-on-surface-variant hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined">favorite</span>
+</button>
+<div class="relative text-on-surface-variant hover:opacity-80 transition-opacity active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="absolute -top-1 -right-1 bg-primary text-on-primary text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">3</span>
+</div>
+</div>
+</header>
+<main class="mt-16 space-y-stack-lg">
+<!-- Hero Gallery -->
+<section class="px-margin-mobile pt-stack-md">
+<div class="relative w-full h-[180px] bg-surface-container-high rounded-xl overflow-hidden border border-outline-variant">
+<img alt="Gold aviator glasses" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBg2oozRPWdEEvukm6WYTzDW9e5YKi7MPAAbeUPwwrMe5WC3xn1b8bThU3yfz9nEnfBDMfT-aMt9KM3fkAIxD8kBsRjgqa-gDSLA-FlZuvckpuT-JZsaU0YKce4T9U19hicIx5f_aPugvS-8hgu1YFd7UZbqThNRD1-FIfoslDJEKJ675eLi4TulENj27rN6_8dz7iCBd-PDewFtsXd0zaJvFhzb9-7mNrLeYI7WzN32NgUA30NBKpZaLNHpzrh2pn7f3rgsqkcBDc"/>
+<div class="absolute top-3 left-3 bg-primary text-on-primary px-2 py-1 rounded text-[10px] font-bold tracking-widest">BESTSELLER</div>
+</div>
+<div class="flex justify-center gap-2 mt-stack-md">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+</div>
+</section>
+<!-- Info Section -->
+<section class="px-margin-mobile grid grid-cols-12 gap-gutter-mobile">
+<div class="col-span-4 aspect-square bg-surface-container-high rounded-lg border border-outline-variant overflow-hidden p-2 flex items-center justify-center">
+<img class="w-full h-auto object-contain" data-alt="A clean, studio-lit close-up shot of the gold aviator hinges and temple, emphasizing precision engineering and luxurious metallic textures against a deep ink-black background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvEPLNBUzjYGZ7VdP_rJpVleQl9ULmCH6HNMj-wtB7CtVztYIMtz7vkhtIsCby9Q1kXIInk8ErbHps2cZpDK4LmC3aaEaRn6mOovbAuG-BD2efEh_A7FuaxkBql0UU__lBXBJ-xX5Gs5n_jlD1sgpz4UQ5bpCmBcv7PF8-ZzTKac4RqAYcoY2kV44dUTgrkYqYBz9QxjAvpx-J4-LpGgW_kXQrIOWFL2x3Mt4fHeVRTXwkh4c9AmbuSHbuCkRk2L5QZRt4JpMZelM"/>
+</div>
+<div class="col-span-8 space-y-2">
+<h2 class="font-headline-sm text-headline-sm text-on-surface leading-tight">EG-2024 | AVIATOR CLASSIC</h2>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-on-surface font-bold text-sm">4.8</span>
+<span class="text-on-surface-variant text-sm ml-1">(1.2k Reviews)</span>
+</div>
+<div class="flex items-baseline gap-3">
+<span class="text-headline-sm font-bold text-on-surface">₹2,499</span>
+<span class="text-on-surface-variant line-through text-sm">₹4,999</span>
+<span class="text-primary font-bold text-sm">50% OFF</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant text-xs">
+<span class="material-symbols-outlined text-sm">local_shipping</span>
+<span>Free express delivery available</span>
+</div>
+</div>
+</section>
+<!-- Selectors -->
+<section class="px-margin-mobile space-y-stack-lg">
+<div class="space-y-stack-sm">
+<h3 class="font-section-heading text-section-heading text-on-surface-variant uppercase">Select Color: Black</h3>
+<div class="flex gap-4">
+<button class="w-8 h-8 rounded-full bg-black border-2 border-primary ring-2 ring-surface"></button>
+<button class="w-8 h-8 rounded-full bg-[#3D2B1F] border border-outline-variant"></button>
+<button class="w-8 h-8 rounded-full bg-[#C0C0C0] border border-outline-variant"></button>
+<button class="w-8 h-8 rounded-full bg-primary-container border border-outline-variant"></button>
+</div>
+</div>
+<div class="space-y-stack-sm">
+<div class="flex justify-between items-center">
+<h3 class="font-section-heading text-section-heading text-on-surface-variant uppercase">Choose Size</h3>
+<button class="text-primary font-bold text-xs border-b border-primary">What's my size?</button>
+</div>
+<div class="grid grid-cols-3 gap-stack-md">
+<button class="bg-surface-container-high border border-outline-variant rounded-lg p-3 text-center transition-colors hover:border-primary">
+<p class="text-xs text-on-surface-variant mb-1">Small</p>
+<p class="font-bold text-on-surface">49 mm</p>
+</button>
+<button class="bg-primary border border-primary rounded-lg p-3 text-center">
+<p class="text-xs text-on-primary mb-1">Medium</p>
+<p class="font-bold text-on-primary">52 mm</p>
+</button>
+<button class="bg-surface-container-high border border-outline-variant rounded-lg p-3 text-center transition-colors hover:border-primary">
+<p class="text-xs text-on-surface-variant mb-1">Large</p>
+<p class="font-bold text-on-surface">55 mm</p>
+</button>
+</div>
+</div>
+</section>
+<!-- Visuals (Dimensions) -->
+<section class="px-margin-mobile">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-stack-lg overflow-hidden">
+<h3 class="font-section-heading text-section-heading text-on-surface-variant uppercase mb-stack-lg">Frame Dimensions</h3>
+<div class="relative flex justify-center py-4">
+<img class="w-full opacity-80" data-alt="A clean architectural line drawing of aviator glasses showing precise measurements like bridge width, lens diameter, and temple length in a technical drafting style, with thin gold lines against a dark charcoal background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdW7QSz4wm97dhdamsPznmJ_jx7qXkJcJ4uV9vbGBKz9XRe1jk4PZJg52XjrXR-ExMNtPD0pfZPu6sUtIekL0nUZ1qLkvWySsn5awW3HTNNe7kOePpYjEhDqfMNWJNCpsyGrHptR4eIlgVSGdDd1rKxNY7P_jfi2e4wB9FgISgvDr_FJkZJ32qR5IBqRGwGDd91MFF7Suwu5ibhngckVvCQOPmoPHT06TrxFk0SIRqlWbyLg0zwq0e3wXyvJFiltMTvbnYqhKh_y4"/>
+</div>
+<div class="grid grid-cols-4 gap-2 pt-stack-md border-t border-outline-variant">
+<div class="text-center">
+<p class="text-[10px] text-on-surface-variant uppercase">Lens</p>
+<p class="text-xs font-bold text-on-surface">52mm</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] text-on-surface-variant uppercase">Bridge</p>
+<p class="text-xs font-bold text-on-surface">18mm</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] text-on-surface-variant uppercase">Temple</p>
+<p class="text-xs font-bold text-on-surface">145mm</p>
+</div>
+<div class="text-center">
+<p class="text-[10px] text-on-surface-variant uppercase">Height</p>
+<p class="text-xs font-bold text-on-surface">48mm</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Details Accordion -->
+<section class="px-margin-mobile space-y-px bg-outline-variant">
+<button class="w-full py-4 px-1 bg-surface flex justify-between items-center group">
+<span class="font-button-text text-on-surface">Product Description</span>
+<span class="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform">expand_more</span>
+</button>
+<button class="w-full py-4 px-1 bg-surface flex justify-between items-center group">
+<span class="font-button-text text-on-surface">Technical Specifications</span>
+<span class="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform">expand_more</span>
+</button>
+<button class="w-full py-4 px-1 bg-surface flex justify-between items-center group">
+<span class="font-button-text text-on-surface">Materials &amp; Care</span>
+<span class="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform">expand_more</span>
+</button>
+</section>
+<!-- Trust Strip -->
+<section class="grid grid-cols-4 gap-2 px-margin-mobile py-stack-lg border-y border-outline-variant">
+<div class="flex flex-col items-center text-center gap-2">
+<span class="material-symbols-outlined text-primary">verified</span>
+<p class="text-[10px] font-bold text-on-surface leading-tight">100% Authentic</p>
+</div>
+<div class="flex flex-col items-center text-center gap-2">
+<span class="material-symbols-outlined text-primary">payments</span>
+<p class="text-[10px] font-bold text-on-surface leading-tight">₹99 Delivery</p>
+</div>
+<div class="flex flex-col items-center text-center gap-2">
+<span class="material-symbols-outlined text-primary">speed</span>
+<p class="text-[10px] font-bold text-on-surface leading-tight">Fast 2-4 Days</p>
+</div>
+<div class="flex flex-col items-center text-center gap-2">
+<span class="material-symbols-outlined text-primary">support_agent</span>
+<p class="text-[10px] font-bold text-on-surface leading-tight">24/7 Support</p>
+</div>
+</section>
+<!-- Reviews -->
+<section class="px-margin-mobile space-y-stack-md">
+<div class="flex justify-between items-end">
+<h3 class="font-section-heading text-section-heading text-on-surface-variant uppercase">Customer Reviews</h3>
+<span class="text-primary font-bold text-xs">View All</span>
+</div>
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-margin-mobile">
+<div class="flex items-center gap-4 mb-4">
+<span class="text-display-lg font-display-lg text-on-surface">4.8</span>
+<div>
+<div class="flex text-primary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm">star_half</span>
+</div>
+<p class="text-xs text-on-surface-variant">Based on 1,248 reviews</p>
+</div>
+</div>
+<!-- Single Review Card -->
+<div class="space-y-stack-sm pt-4 border-t border-outline-variant">
+<div class="flex justify-between items-center">
+<p class="font-bold text-on-surface text-sm">Arjun M.</p>
+<div class="flex items-center gap-1 text-[10px] text-green-500 font-bold uppercase">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                            Verified
+                        </div>
+</div>
+<div class="flex text-primary">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-sm text-on-surface-variant italic">"The build quality is exceptional. The gold finish has a very premium antique look, not too flashy but definitely expensive."</p>
+</div>
+</div>
+</section>
+<!-- Similar Products -->
+<section class="space-y-stack-md">
+<h3 class="px-margin-mobile font-section-heading text-section-heading text-on-surface-variant uppercase">You May Also Like</h3>
+<div class="flex overflow-x-auto gap-4 px-margin-mobile hide-scrollbar">
+<div class="min-w-[160px] bg-surface-container border border-outline-variant rounded-xl p-3 space-y-2">
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-center justify-center p-2">
+<img class="w-full h-auto object-contain" data-alt="Minimalist luxury eyewear, silver frame rectangular glasses on a dark reflective surface, high contrast lighting, premium boutique style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCG5EvI4TTzBdw8Ze1Lmin6WYBT0_xtWR2si6S9b7nhkYBS39_fjePluF-eS_VjgwX_uiaAJZB2slxQzwbWZsbOe8gL-73p8jnISOt9C5syu3R3WHSfkfAHpCP-DLjnTlhiR8hVume1LMLkxhT-xGKLWJbb-U-cMFQtLZqnemyvrnj_hgAZ5pWQsetcGgjYdoDoF5jjn1hLirh2RUHiLGR2r8jgM31ue7lZZ2gmyTzwIC3ZJZnRhqwEJ_yNY6Alr6-HOAxYb04lsc"/>
+</div>
+<p class="text-xs font-bold text-on-surface truncate">EG-4001 RECTANGLE</p>
+<p class="text-xs text-primary font-bold">₹1,999</p>
+</div>
+<div class="min-w-[160px] bg-surface-container border border-outline-variant rounded-xl p-3 space-y-2">
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-center justify-center p-2">
+<img class="w-full h-auto object-contain" data-alt="Classic tortoiseshell round glasses, boutique presentation, soft spotlight on dark textured background, elegant fashion accessory." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMPChZjV5ph1U6cOymhTOTdvS6xfWtZk3ZNkYgwooOeQF5Y_6yW_S7xYAmhAUD_ovWJD-nV7qULG95GxEADPqaDlY7RluP_85g9Anzc-gCTg8TPeG3_ElNS55pkewPc9OkhWmzJYKJssRS-kigOzhoH46CMw9vnR3exLpaSLhCXaPVYToofWkN39bLJ45xGV3_mp1Zm1AtWOZi-cFIY8D6_eLyQ3EVdbmIyWUHG-cXhHd7Mrs7XV9ut4ykryxWkjMf61qnuRY8VqE"/>
+</div>
+<p class="text-xs font-bold text-on-surface truncate">EG-3302 ROUND</p>
+<p class="text-xs text-primary font-bold">₹2,299</p>
+</div>
+<div class="min-w-[160px] bg-surface-container border border-outline-variant rounded-xl p-3 space-y-2">
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-center justify-center p-2">
+<img class="w-full h-auto object-contain" data-alt="Modern geometric black frame eyeglasses, sleek futuristic design, high-end optical store aesthetic, dark theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADzZFhERvsNR9_1hlHlohR4gU7mVqkWAVJ6Fw_ZlHZZcQB5QcvvJ_o-QJIecVSDhNf8jioqF7BJMLJlyRsHjMe4J_YS8fokpiWCFdI16UzLhFGkzgIO0gRCXSLVHgyVq4uqV0BKxItlh_S_NReMbZN5WT8Z42cH5irK1YtxUQe7H0n3kKgf-MxBmJp4qxx1Ic5dQ-PtiUuKPzBZcYqjoWhiSb8MmXbS7nURU57J5OXL94_gzaPbAOXYyvoc5XKXenUF9AhgQKefUo"/>
+</div>
+<p class="text-xs font-bold text-on-surface truncate">EG-1090 HEXAGON</p>
+<p class="text-xs text-primary font-bold">₹2,899</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Sticky CTAs -->
+<div class="fixed bottom-0 left-0 w-full bg-surface flex flex-col gap-stack-sm p-margin-mobile border-t border-outline-variant z-50">
+<button class="bg-primary text-on-primary w-full py-4 rounded-lg flex items-center justify-center gap-2 font-button-text text-button-text hover:brightness-110 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined">visibility</span>
+            SELECT LENSES
+        </button>
+<button class="bg-transparent border border-outline-variant text-on-surface w-full py-4 rounded-lg flex items-center justify-center gap-2 font-button-text text-button-text hover:brightness-110 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined">frame_inspect</span>
+            BUY FRAME ONLY
+        </button>
+</div>
+<script>
+        // Simple logic for micro-interactions
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const icon = this.querySelector('.material-symbols-outlined');
+                if (icon && icon.innerText === 'favorite') {
+                    icon.style.fontVariationSettings = icon.style.fontVariationSettings.includes("'FILL' 1") 
+                        ? "'FILL' 0" 
+                        : "'FILL' 1";
+                    this.classList.toggle('text-primary');
+                }
+            });
+        });
+    </script>
+</body></html>

@@ -7,7 +7,8 @@ import Footer from '../components/Footer';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user, cartCount, checkAuth } = useAuth();
+  const { user, cartCount, checkAuth, logout } = useAuth();
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
@@ -43,6 +44,95 @@ export default function LandingPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  // Videos States
+  const [videos, setVideos] = useState<any[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<any>(null);
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string>('');
+
+  // Fetch homepage videos on mount
+  useEffect(() => {
+    let active = true;
+    api.get('/homepage-videos')
+      .then((res) => {
+        if (!active) return;
+        setVideos(res.data);
+        if (res.data && res.data.length > 0) {
+          setSelectedVideo(res.data[0]);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching homepage videos:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Convert S3 video stream into a Blob URL to hide the source URL in inspect element
+  useEffect(() => {
+    if (!selectedVideo) return;
+
+    if (isDirectVideo(selectedVideo.videoUrl)) {
+      let active = true;
+      // Fetch as blob
+      api.get(selectedVideo.videoUrl, { responseType: 'blob' })
+        .then((res) => {
+          if (!active) return;
+          const url = URL.createObjectURL(res.data);
+          setVideoBlobUrl(url);
+        })
+        .catch((err) => {
+          console.error('Error creating video blob:', err);
+          if (active) {
+            setVideoBlobUrl(selectedVideo.videoUrl); // Fallback to raw URL
+          }
+        });
+
+      return () => {
+        active = false;
+      };
+    } else {
+      setVideoBlobUrl('');
+    }
+  }, [selectedVideo]);
+
+  // Clean up blob URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (videoBlobUrl && videoBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(videoBlobUrl);
+      }
+    };
+  }, [videoBlobUrl]);
+
+  const getEmbedUrl = (url: string) => {
+    if (!url) return '';
+    const ytMatch = url.match(
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+    );
+    if (ytMatch && ytMatch[2].length === 11) {
+      return `https://www.youtube.com/embed/${ytMatch[2]}`;
+    }
+    const vimeoMatch = url.match(
+      /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|video\/|)(\d+)(?:$|\/|\?)/
+    );
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+    return url;
+  };
+
+  const isDirectVideo = (url: string) => {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com')) {
+      return false;
+    }
+    const ext = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
+    const cleanUrl = lower.split('?')[0];
+    return ext.some(e => cleanUrl.endsWith(e)) || lower.includes('/uploads/') || lower.includes('/stream/');
+  };
 
   // Modal States
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
@@ -404,18 +494,89 @@ export default function LandingPage() {
               )}
             </Link>
 
-            {/* Profile / Login Button */}
+            {/* Profile / Login Button & Dropdown */}
             {user ? (
-              <Link 
-                to="/account" 
-                className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer"
-                title="Account"
-              >
-                <div className="w-4 h-4 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-[8px] uppercase">
-                  {user.name ? user.name[0] : 'U'}
-                </div>
-                <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
-              </Link>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer focus:outline-none"
+                  title="Account"
+                >
+                  <div className="w-4 h-4 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-[8px] uppercase">
+                    {user.name ? user.name[0] : 'U'}
+                  </div>
+                  <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
+                  <svg 
+                    className={`w-2.5 h-2.5 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    strokeWidth="3"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isProfileDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-64 bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left">
+                      {/* Dropdown Header */}
+                      <div className="flex items-center gap-3 pb-3 border-b border-[#2A2A2D] select-none">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-sm uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
+                          {user.name ? user.name[0].toUpperCase() : 'U'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-white text-xs font-black truncate">{user.name || 'Customer'}</div>
+                          <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
+                          {user.membershipActive && (
+                            <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
+                              <span>👑</span> Gold Member
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dropdown Navigation */}
+                      <nav className="mt-3 space-y-1">
+                        {[
+                          { href: '/profile', label: 'My Profile', icon: '👤' },
+                          { href: '/orders', label: 'My Orders', icon: '📦' },
+                          { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+                          { href: '/membership', label: 'Gold Membership', icon: '👑' },
+                          { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                          { href: '/wallet', label: 'My Wallet', icon: '👛' },
+                        ].map(({ href, label, icon }) => (
+                          <Link
+                            key={href}
+                            to={href}
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
+                          >
+                            <span className="text-sm">{icon}</span>
+                            <span>{label}</span>
+                          </Link>
+                        ))}
+                      </nav>
+
+                      {/* Dropdown Footer / Logout */}
+                      <div className="mt-3 pt-3 border-t border-[#2A2A2D]">
+                        <button
+                          onClick={async () => {
+                            setIsProfileDropdownOpen(false);
+                            await logout();
+                            navigate('/');
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
+                        >
+                          <span className="text-sm">🚪</span>
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <Link 
                 to="/login" 
@@ -432,11 +593,7 @@ export default function LandingPage() {
           <nav className="w-full px-4 sm:px-6 md:px-12 lg:px-16 flex justify-center gap-8 h-12 items-center text-xs tracking-[0.15em] uppercase font-bold">
             {[
               { href: '/', label: 'Home' },
-              { href: '/categories', label: 'Categories' },
-              { href: '/offers', label: 'Offers' },
-              { href: '/about', label: 'About Us' },
-              { href: '/blogs', label: 'Blogs' },
-              { href: '/contact', label: 'Contact Us' },
+              { href: '/products', label: 'Products' },
             ].map(({ href, label }) => (
               <Link 
                 key={label} 
@@ -661,7 +818,6 @@ export default function LandingPage() {
 
         </section>
         </main>
-        <Footer />
       </div> {/* END DESKTOP LAYOUT */}
 
 
@@ -672,7 +828,7 @@ export default function LandingPage() {
           {/* Left: Profile or Hamburger Menu */}
           {user ? (
             <Link 
-              to="/account" 
+              to="/profile" 
               className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
               title="Profile"
             >
@@ -1369,69 +1525,117 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Curated Premium Brands */}
-        <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white">Our Premium House Brands</h2>
-            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Handpicked luxury houses & smart aesthetics</span>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { name: 'VINCENT CHASE', tag: 'Trendsetting Acetates' },
-              { name: 'JOHN JACOBS', tag: 'Italian Handcraft' },
-              { name: 'EYEGLAZE AIR', tag: 'Ultralight Titanium' },
-              { name: 'HOOPER KIDS', tag: 'Flexible & Resilient' },
-              { name: 'CLUBMASTER LUXE', tag: 'Professional Prestige' }
-            ].map((brand, idx) => (
-              <div
-                key={idx}
-                className="bg-[#121212] border border-[#2A2A2D] rounded-xl p-4 flex flex-col items-center justify-center text-center hover:border-[#D4A04D]/30 transition-all duration-300 group cursor-default"
-              >
-                <span className="text-white text-xs md:text-sm font-serif font-bold tracking-[0.2em] group-hover:text-[#D4A04D] transition-colors">
-                  {brand.name}
-                </span>
-                <span className="text-gray-600 text-[8px] tracking-wider uppercase font-semibold mt-1">
-                  {brand.tag}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Collapsible FAQ & Videos Section */}
+        <section className="w-full py-8 border-t border-[#1C1C1E] grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* Left Column: FAQ */}
+          <div className="flex flex-col gap-6 w-full">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Everything you need to know about buying glasses online</span>
+            </div>
 
-        {/* Collapsible FAQ Section */}
-        <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h2>
-            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Everything you need to know about buying glasses online</span>
-          </div>
-
-          <div className="flex flex-col gap-3 max-w-3xl w-full">
-            {faqData.map((faq, idx) => {
-              const isOpen = expandedFaq === idx;
-              return (
-                <div
-                  key={idx}
-                  className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden transition-all duration-300"
-                >
-                  <button
-                    onClick={() => setExpandedFaq(isOpen ? null : idx)}
-                    className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-[#131314] transition-colors cursor-pointer"
+            <div className="flex flex-col gap-3 w-full">
+              {faqData.map((faq, idx) => {
+                const isOpen = expandedFaq === idx;
+                return (
+                  <div
+                    key={idx}
+                    className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden transition-all duration-300"
                   >
-                    <span className="text-white text-xs md:text-sm font-bold uppercase tracking-wide">{faq.q}</span>
-                    <span className={`text-[#D4A04D] font-bold text-xs transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                      ▼
-                    </span>
-                  </button>
-                  {isOpen && (
-                    <div className="px-5 pb-4 text-xs md:text-sm text-gray-400 leading-relaxed border-t border-[#2A2A2D]/40 pt-3 animate-fade-in font-medium">
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    <button
+                      onClick={() => setExpandedFaq(isOpen ? null : idx)}
+                      className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-[#131314] transition-colors cursor-pointer"
+                    >
+                      <span className="text-white text-xs md:text-sm font-bold uppercase tracking-wide">{faq.q}</span>
+                      <span className={`text-[#D4A04D] font-bold text-xs transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                        ▼
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-4 text-xs md:text-sm text-gray-400 leading-relaxed border-t border-[#2A2A2D]/40 pt-3 animate-fade-in font-medium">
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Right Column: Videos Showcase */}
+          {videos && videos.length > 0 ? (
+            <div className="flex flex-col gap-6 w-full">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
+              </div>
+
+              <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-4 flex flex-col gap-4 shadow-xl">
+                {/* Active Player */}
+                {selectedVideo && (
+                  <div className="flex flex-col gap-3 animate-fade-in">
+                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                      {isDirectVideo(selectedVideo.videoUrl) ? (
+                        <video
+                          src={videoBlobUrl || selectedVideo.videoUrl}
+                          className="w-full h-full object-cover"
+                          controls
+                          playsInline
+                        />
+                      ) : (
+                        <iframe
+                          title={selectedVideo.title}
+                          className="w-full h-full"
+                          src={getEmbedUrl(selectedVideo.videoUrl)}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 px-1">
+                      <span className="text-white text-xs font-bold uppercase tracking-wide">{selectedVideo.title}</span>
+                      {selectedVideo.description && (
+                        <p className="text-gray-400 text-[10px] leading-relaxed font-semibold">
+                          {selectedVideo.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabs to switch videos */}
+                {videos.length > 1 && (
+                  <div className="flex flex-wrap gap-2 border-t border-[#2A2A2D]/40 pt-3">
+                    {videos.map((vid) => (
+                      <button
+                        key={vid._id}
+                        onClick={() => setSelectedVideo(vid)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-350 cursor-pointer ${
+                          selectedVideo && selectedVideo._id === vid._id
+                            ? 'bg-[#D4A04D] text-black shadow-md font-extrabold'
+                            : 'bg-[#181818] border border-[#2A2A2D] text-[#A7A7A7] hover:text-white'
+                        }`}
+                      >
+                        {vid.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6 w-full opacity-40">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
+              </div>
+              <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-2">
+                <span>🎥</span>
+                <span className="text-xs text-gray-400">Videos will appear here once activated by admin.</span>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Newsletter / VIP Club Section */}
@@ -1471,7 +1675,6 @@ export default function LandingPage() {
             )}
           </div>
         </section>
-        <Footer />
       </main> {/* END SHARED PAGE CONTENT */}
 
         {/* Mobile Bottom Navigation Bar */}
@@ -1554,11 +1757,7 @@ export default function LandingPage() {
             <nav className="flex flex-col gap-6 text-sm tracking-[0.15em] uppercase font-bold">
               {[
                 { href: '/', label: 'Home' },
-                { href: '/categories', label: 'Categories' },
-                { href: '/offers', label: 'Offers' },
-                { href: '/about', label: 'About Us' },
-                { href: '/blogs', label: 'Blogs' },
-                { href: '/contact', label: 'Contact Us' },
+                { href: '/products', label: 'Products' },
               ].map(({ href, label }) => (
                 <Link 
                   key={label} 
@@ -1570,18 +1769,61 @@ export default function LandingPage() {
                 </Link>
               ))}
             </nav>
+
+            {/* Mobile Drawer "My Space" (if user logged in) */}
+            {user && (
+              <div className="mt-6 space-y-3">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1 select-none">
+                  My Space
+                </div>
+                <nav className="flex flex-col gap-2">
+                  {[
+                    { href: '/profile', label: 'My Profile', icon: '👤' },
+                    { href: '/orders', label: 'My Orders', icon: '📦' },
+                    { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+                    { href: '/membership', label: 'Gold Membership', icon: '👑' },
+                    { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                    { href: '/wallet', label: 'My Wallet', icon: '👛' },
+                  ].map(({ href, label, icon }) => (
+                    <Link
+                      key={href}
+                      to={href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 text-gray-400 hover:text-[#D4A04D] text-xs font-semibold py-1.5 transition-colors px-1"
+                    >
+                      <span className="text-sm">{icon}</span>
+                      <span>{label}</span>
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+            )}
             
             {/* Account info in Drawer */}
             <div className="mt-auto pt-6 border-t border-[#1C1C1E] flex flex-col gap-4">
               {user ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-xs uppercase">
-                    {user.name ? user.name[0] : 'U'}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-extrabold rounded-full flex items-center justify-center text-xs uppercase">
+                      {user.name ? user.name[0] : 'U'}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-white text-xs font-bold truncate max-w-[100px]">{user.name}</span>
+                      {user.membershipActive && (
+                        <span className="text-[8px] text-[#D4A04D] font-extrabold uppercase mt-0.5">👑 Gold</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-white text-xs font-bold truncate max-w-[120px]">{user.name}</span>
-                    <Link to="/account" onClick={() => setIsMobileMenuOpen(false)} className="text-[#D4A04D] text-[10px] font-semibold hover:underline">View Account</Link>
-                  </div>
+                  <button
+                    onClick={async () => {
+                      setIsMobileMenuOpen(false);
+                      await logout();
+                      navigate('/');
+                    }}
+                    className="text-red-400 hover:text-red-300 text-xs font-bold uppercase transition-colors bg-transparent border-none cursor-pointer"
+                  >
+                    Logout
+                  </button>
                 </div>
               ) : (
                 <Link 
@@ -2409,6 +2651,7 @@ export default function LandingPage() {
         </div>
       )}
 
+      <Footer />
     </div>
   );
 }
