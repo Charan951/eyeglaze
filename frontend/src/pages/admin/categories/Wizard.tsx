@@ -64,7 +64,6 @@ export default function CategoryWizard() {
 
   // References list for Hierarchy selection
   const [parentCats, setParentCats] = useState<any[]>([]);
-  const [parentSubcats, setParentSubcats] = useState<any[]>([]);
   const [loadingParents, setLoadingParents] = useState(false);
 
   // Accordion active sections state
@@ -116,12 +115,8 @@ export default function CategoryWizard() {
     async function loadParents() {
       setLoadingParents(true);
       try {
-        const [catsRes, subsRes] = await Promise.all([
-          api.get('/admin/categories?type=Category'),
-          api.get('/admin/categories?type=SubCategory')
-        ]);
+        const catsRes = await api.get('/admin/categories?type=Category');
         setParentCats(catsRes.data.items || []);
-        setParentSubcats(subsRes.data.items || []);
       } catch (err) {
         console.error('Failed to load parent reference dropdown lists', err);
       } finally {
@@ -166,7 +161,6 @@ export default function CategoryWizard() {
             status: category.status || 'Active',
             categoryId: category.categoryId || '',
             subCategoryId: category.subCategoryId || '',
-            childCategoryId: category.childCategoryId || '',
             genders: attributes?.genders || [],
             ageGroups: attributes?.ageGroups || [],
             usageTypes: attributes?.usageTypes || [],

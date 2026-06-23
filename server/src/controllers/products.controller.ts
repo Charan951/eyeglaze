@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
 import { Product } from '../models/Product';
 import { Review } from '../models/Review';
+import { Lens } from '../models/Lens';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -213,7 +214,28 @@ export async function getProductById(req: Request, res: Response) {
       .limit(10)
       .populate('user', 'name');
 
-    return res.status(200).json({ product, reviews });
+    // Fetch active lenses associated with the product's lens types
+    const lensTypeIds = product.lensTypes || [];
+    const lenses = await Lens.find({ lensType: { $in: lensTypeIds }, status: 'Active' }).populate('lensType');
+
+    // Apply product-specific price overrides if present in dynamicLensPricing
+    const overriddenLenses = lenses.map(lensDoc => {
+      const lensObj = lensDoc.toObject();
+      if (product.dynamicLensPricing && Array.isArray(product.dynamicLensPricing)) {
+        const override = product.dynamicLensPricing.find(
+          (o: any) => o.lensName === lensObj.name && o.status === 'Active'
+        );
+        if (override) {
+          lensObj.basePrice = override.regularPrice;
+          if (override.goldPrice !== undefined) {
+            lensObj.memberPrice = override.goldPrice;
+          }
+        }
+      }
+      return lensObj;
+    });
+
+    return res.status(200).json({ product, reviews, lenses: overriddenLenses });
   } catch (error) {
     console.error('GET product error:', error);
     return res.status(500).json({ error: 'Failed to fetch product' });

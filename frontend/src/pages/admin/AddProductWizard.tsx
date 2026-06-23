@@ -356,6 +356,7 @@ export default function AddProductWizard() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [versionHistory, setVersionHistory] = useState<number>(1);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [activeLensTypeTab, setActiveLensTypeTab] = useState<string | null>(null);
 
   // Autosave tracking
   const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
@@ -382,6 +383,17 @@ export default function AddProductWizard() {
     defaultValues
   });
 
+  // Register custom fields manually so react-hook-form/zod includes them in handleSubmit payload
+  useEffect(() => {
+    register('availableSizes');
+    register('faceShapeCompatibility');
+    register('lensTypes');
+    register('compatibleLensTypes');
+    register('dynamicLensPricing');
+    register('thicknessPricing');
+    register('coatingPricing');
+  }, [register]);
+
 
 
 
@@ -391,6 +403,18 @@ export default function AddProductWizard() {
 
   const selectedCategoryNode = categoryTree.find((c: any) => c.slug === formValues.category);
   const subCategoryOptions = selectedCategoryNode ? selectedCategoryNode.children || [] : [];
+
+  // Sync active lens type tab when selected types change
+  const watchedLensTypes = formValues.lensTypes || [];
+  useEffect(() => {
+    if (watchedLensTypes.length > 0) {
+      if (!activeLensTypeTab || !watchedLensTypes.includes(activeLensTypeTab)) {
+        setActiveLensTypeTab(watchedLensTypes[0]);
+      }
+    } else {
+      setActiveLensTypeTab(null);
+    }
+  }, [watchedLensTypes, activeLensTypeTab]);
 
 
 
@@ -837,8 +861,24 @@ export default function AddProductWizard() {
 
       const primaryMeasurements = (data.sizeMeasurements as any)?.[data.frameSize] || {};
 
+      const compLensTypes: string[] = [];
+      const selectedLensTypeNames = (data.lensTypes || []).map(typeId => {
+        const typeDetails = availableLensTypes.find(t => t._id === typeId);
+        return typeDetails ? typeDetails.name : '';
+      });
+
+      selectedLensTypeNames.forEach(name => {
+        if (name === 'With Power') {
+          if (!compLensTypes.includes('Single Vision')) compLensTypes.push('Single Vision');
+          if (!compLensTypes.includes('Progressive')) compLensTypes.push('Progressive');
+        } else {
+          if (!compLensTypes.includes(name)) compLensTypes.push(name);
+        }
+      });
+
       const payload = {
         ...data,
+        compatibleLensTypes: compLensTypes,
         sizeMeasurements: sizeMeasurementsArray,
         lensWidth: primaryMeasurements.lensWidth ?? data.lensWidth,
         bridgeWidth: primaryMeasurements.bridgeWidth ?? data.bridgeWidth,
@@ -859,10 +899,10 @@ export default function AddProductWizard() {
           featureTags: tagsArray
         },
         compatible: {
-          prescription: data.compatibleLensTypes.includes('Single Vision') || data.compatibleLensTypes.includes('Progressive'),
-          bluecut: data.coatingPricing.some(c => c.coatingName === 'Blue Cut' && c.isActive),
-          zeropower: data.compatibleLensTypes.includes('Zero Power'),
-          progressive: data.compatibleLensTypes.includes('Progressive')
+          prescription: compLensTypes.includes('Single Vision') || compLensTypes.includes('Progressive'),
+          bluecut: compLensTypes.includes('Blue Cut') || data.coatingPricing.some(c => c.coatingName === 'Blue Cut' && c.isActive),
+          zeropower: compLensTypes.includes('Zero Power'),
+          progressive: compLensTypes.includes('Progressive')
         }
       };
 
@@ -985,6 +1025,21 @@ export default function AddProductWizard() {
       total: Math.max(0, payableAmount)
     };
   };
+
+  // Derive compatibleLensTypes from selected lensTypes in real-time
+  const selectedLensTypeNames = (formValues.lensTypes || []).map(typeId => {
+    const typeDetails = availableLensTypes.find(t => t._id === typeId);
+    return typeDetails ? typeDetails.name : '';
+  });
+  const derivedCompatibleLensTypes: string[] = [];
+  selectedLensTypeNames.forEach(name => {
+    if (name === 'With Power') {
+      if (!derivedCompatibleLensTypes.includes('Single Vision')) derivedCompatibleLensTypes.push('Single Vision');
+      if (!derivedCompatibleLensTypes.includes('Progressive')) derivedCompatibleLensTypes.push('Progressive');
+    } else {
+      if (!derivedCompatibleLensTypes.includes(name)) derivedCompatibleLensTypes.push(name);
+    }
+  });
 
   const simResult = getSimulatedPayable();
 
@@ -1827,89 +1882,166 @@ export default function AddProductWizard() {
                   </div>
                 </div>
 
-                {/* Storefront Compatibility Checklist */}
-                <div className="pt-6 border-t border-[#2A2A2D]/40">
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-3">Compatible Lenses (Storefront Displays) *</label>
-                  <div className="flex flex-wrap gap-4 select-none">
-                    {['Zero Power', 'Single Vision', 'Progressive'].map((type) => {
-                      const currentCompTypes = formValues.compatibleLensTypes || [];
-                      const isChecked = currentCompTypes.includes(type);
-                      return (
-                        <label 
-                          key={type}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setValue('compatibleLensTypes', [...currentCompTypes, type]);
-                              } else {
-                                setValue('compatibleLensTypes', currentCompTypes.filter(t => t !== type));
-                              }
-                            }}
-                            className="hidden"
-                          />
-                          <span>{type}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
+                {/* Active Lenses Tab View */}
+                {watchedLensTypes.length > 0 && (
+                  <div className="space-y-4 pt-4">
+                    {/* Tab Navigation */}
+                    <div className="flex border-b border-[#2A2A2D] overflow-x-auto no-scrollbar scroll-smooth">
+                      {watchedLensTypes.map((typeId) => {
+                        const typeDetails = availableLensTypes.find(t => t._id === typeId);
+                        if (!typeDetails) return null;
+                        const lenses = lensesMap[typeId] || [];
+                        const count = lenses.length;
+                        const isActive = activeLensTypeTab === typeId;
 
-                {(formValues.lensTypes || []).map((typeId) => {
-                  const typeDetails = availableLensTypes.find(t => t._id === typeId);
-                  if (!typeDetails) return null;
-                  const lenses = lensesMap[typeId] || [];
-                  const isLoading = loadingLensesMap[typeId];
-
-                  return (
-                    <div key={typeId} className="bg-[#18181A] border border-[#2A2A2D] rounded-xl p-6 space-y-4">
-                      <div className="flex justify-between items-center pb-3 border-b border-[#2A2A2D]">
-                        <div>
-                          <h3 className="text-white text-sm font-extrabold uppercase tracking-wider text-[#D4A04D]">{typeDetails.name} Lenses</h3>
-                          <p className="text-[10px] text-gray-400">All active/configured lenses under this type</p>
-                        </div>
-                      </div>
-                      
-                      {isLoading ? (
-                        <div className="py-6 text-center text-gray-500 text-xs italic animate-pulse">Loading associated lenses...</div>
-                      ) : lenses.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs text-left">
-                            <thead>
-                              <tr className="text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D] pb-2">
-                                <th className="py-3 px-4">Lens Name</th>
-                                <th className="py-3 px-4">Base Price</th>
-                                <th className="py-3 px-4">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#2A2A2D]/40 text-gray-300">
-                              {lenses.map((lens) => (
-                                <tr key={lens._id} className="hover:bg-zinc-900/30 transition-colors">
-                                  <td className="py-3 px-4 font-semibold text-white">{lens.name}</td>
-                                  <td className="py-3 px-4 font-bold text-[#D4A04D]">₹{lens.basePrice}</td>
-                                  <td className="py-3 px-4">
-                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
-                                      lens.status === 'Active' 
-                                        ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                                        : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                    }`}>
-                                      {lens.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center text-gray-500 text-xs italic">No lenses configured under this lens type yet. Go to Lens Management to add them.</div>
-                      )}
+                        return (
+                          <button
+                            key={typeId}
+                            type="button"
+                            onClick={() => setActiveLensTypeTab(typeId)}
+                            className={`flex items-center whitespace-nowrap px-5 py-3 border-b-2 font-bold text-xs uppercase tracking-wider transition-all duration-200 group ${
+                              isActive
+                                ? 'border-[#D4A04D] text-[#D4A04D] bg-[#D4A04D]/5'
+                                : 'border-transparent text-gray-400 hover:text-white hover:border-zinc-700'
+                            }`}
+                          >
+                            <span>{typeDetails.name}</span>
+                            <span className={`ml-2 px-1.5 py-0.5 text-[9px] rounded font-extrabold transition-colors ${
+                              isActive
+                                ? 'bg-[#D4A04D]/20 text-[#D4A04D]'
+                                : 'bg-[#2A2A2D] text-gray-400 group-hover:bg-zinc-800 group-hover:text-white'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+
+                    {/* Active Tab Panel */}
+                    {(() => {
+                      if (!activeLensTypeTab) return null;
+                      const typeDetails = availableLensTypes.find(t => t._id === activeLensTypeTab);
+                      if (!typeDetails) return null;
+                      const lenses = lensesMap[activeLensTypeTab] || [];
+                      const isLoading = loadingLensesMap[activeLensTypeTab];
+
+                      return (
+                        <div className="bg-[#18181A] border border-[#2A2A2D] rounded-xl p-6 space-y-4 transition-all duration-300">
+                          <div className="flex justify-between items-center pb-3 border-b border-[#2A2A2D]/60">
+                            <div>
+                              <h3 className="text-white text-sm font-extrabold uppercase tracking-wider text-[#D4A04D]">{typeDetails.name} Lenses</h3>
+                              <p className="text-[10px] text-gray-400">Currently configured lenses under this category</p>
+                            </div>
+                            <div className="text-[10px] bg-zinc-900 border border-zinc-800 text-gray-400 px-3 py-1 rounded-lg">
+                              Total Lenses: <span className="text-white font-bold">{lenses.length}</span>
+                            </div>
+                          </div>
+
+                          {isLoading ? (
+                            <div className="py-8 text-center text-gray-500 text-xs italic animate-pulse">Loading associated lenses...</div>
+                          ) : lenses.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left">
+                                <thead>
+                                  <tr className="text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D]/40 pb-2">
+                                    <th className="py-3 px-4">Lens Name</th>
+                                    <th className="py-3 px-4">Base Price</th>
+                                    <th className="py-3 px-4">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#2A2A2D]/30 text-gray-300">
+                                  {lenses.map((lens) => {
+                                    const override = (formValues.dynamicLensPricing || []).find(
+                                      (o: any) => o.lensName === lens.name
+                                    );
+                                    const isOverridden = !!override;
+
+                                    return (
+                                      <tr key={lens._id} className="hover:bg-zinc-900/30 transition-colors">
+                                        <td className="py-3 px-4 font-semibold text-white">
+                                          <div className="flex items-center gap-2">
+                                            <span>{lens.name}</span>
+                                            {isOverridden && (
+                                              <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                Overridden
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="py-3 px-4 font-bold">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-gray-500 text-xs">₹</span>
+                                            <input
+                                              type="number"
+                                              value={isOverridden ? override.regularPrice : ''}
+                                              placeholder={String(lens.basePrice)}
+                                              onChange={(e) => {
+                                                const valStr = e.target.value;
+                                                const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                                const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+
+                                                if (valStr.trim() === '') {
+                                                  if (idx >= 0) {
+                                                    currentPricing.splice(idx, 1);
+                                                    setValue('dynamicLensPricing', currentPricing);
+                                                  }
+                                                } else {
+                                                  const newPrice = parseFloat(valStr);
+                                                  if (!isNaN(newPrice)) {
+                                                    const updatedItem = {
+                                                      lensName: lens.name,
+                                                      lensCategory: typeDetails.name,
+                                                      regularPrice: newPrice,
+                                                      goldPrice: Math.round(newPrice * 0.9),
+                                                      platinumPrice: Math.round(newPrice * 0.8),
+                                                      priority: 0,
+                                                      status: 'Active' as const
+                                                    };
+                                                    if (idx >= 0) {
+                                                      currentPricing[idx] = updatedItem;
+                                                    } else {
+                                                      currentPricing.push(updatedItem);
+                                                    }
+                                                    setValue('dynamicLensPricing', currentPricing);
+                                                  }
+                                                }
+                                              }}
+                                              className="w-24 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                            />
+                                            {!isOverridden && (
+                                              <span className="text-[9px] text-gray-500 font-normal italic">
+                                                (Global: ₹{lens.basePrice})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                                            lens.status === 'Active' 
+                                              ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                                              : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                          }`}>
+                                            {lens.status}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="py-8 flex flex-col items-center justify-center space-y-2 text-center text-gray-500 bg-[#0B0B0C]/40 rounded-lg p-6 border border-dashed border-[#2A2A2D]/60">
+                              <span className="text-xs italic">No lenses configured under this lens type yet.</span>
+                              <span className="text-[10px] text-gray-600">Go to Lens Management to add them.</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
 
           {/* SECTION 8: MEMBERSHIP & OFFERS */}
@@ -2199,10 +2331,10 @@ export default function AddProductWizard() {
                   onChange={(e) => setEngineLens(e.target.value)}
                   className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none"
                 >
-                  {formValues.compatibleLensTypes?.map(l => (
+                  {derivedCompatibleLensTypes.map(l => (
                     <option key={l} value={l}>{l}</option>
                   ))}
-                  {formValues.compatibleLensTypes?.length === 0 && <option>None Compatible</option>}
+                  {derivedCompatibleLensTypes.length === 0 && <option>None Compatible</option>}
                 </select>
               </div>
 

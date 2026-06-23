@@ -5,6 +5,7 @@ import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
 import Footer from '../components/Footer';
+import BrandIcon from '../components/BrandIcon';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -565,7 +566,7 @@ export default function LandingPage() {
                           <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
                           {user.membershipActive && (
                             <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
-                              <span>👑</span> Gold Member
+                              <BrandIcon name="👑" className="w-3 h-3 text-[#D4A04D]" /> Gold Member
                             </div>
                           )}
                         </div>
@@ -588,7 +589,7 @@ export default function LandingPage() {
                             onClick={() => setIsProfileDropdownOpen(false)}
                             className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
                           >
-                            <span className="text-sm">{icon}</span>
+                            <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
                             <span>{label}</span>
                           </Link>
                         ))}
@@ -604,7 +605,7 @@ export default function LandingPage() {
                           }}
                           className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
                         >
-                          <span className="text-sm">🚪</span>
+                          <BrandIcon name="🚪" className="w-4 h-4 text-[#D4A04D]" />
                           <span>Logout</span>
                         </button>
                       </div>
@@ -1839,7 +1840,7 @@ export default function LandingPage() {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="flex items-center gap-3 text-gray-400 hover:text-[#D4A04D] text-xs font-semibold py-1.5 transition-colors px-1"
                     >
-                      <span className="text-sm">{icon}</span>
+                      <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
                       <span>{label}</span>
                     </Link>
                   ))}
@@ -1858,7 +1859,9 @@ export default function LandingPage() {
                     <div className="flex flex-col">
                       <span className="text-white text-xs font-bold truncate max-w-[100px]">{user.name}</span>
                       {user.membershipActive && (
-                        <span className="text-[8px] text-[#D4A04D] font-extrabold uppercase mt-0.5">👑 Gold</span>
+                        <span className="inline-flex items-center gap-0.5 text-[8px] text-[#D4A04D] font-extrabold uppercase mt-0.5">
+                          <BrandIcon name="👑" className="w-2.5 h-2.5 text-[#D4A04D]" /> Gold
+                        </span>
                       )}
                     </div>
                   </div>

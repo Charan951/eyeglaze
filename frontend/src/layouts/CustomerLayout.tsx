@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import BrandIcon from '../components/BrandIcon';
 
 const customerNavSections = [
   {
@@ -133,7 +134,7 @@ export default function CustomerLayout() {
                           : 'text-gray-400 hover:bg-[#131314] hover:text-white border-transparent'
                       }`}
                     >
-                      <span className="text-sm">{icon}</span>
+                      <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
                       <span>{label}</span>
                     </Link>
                   );
@@ -148,7 +149,7 @@ export default function CustomerLayout() {
             to="/" 
             className="flex items-center gap-2 text-gray-400 text-xs hover:text-[#D4A04D] transition-colors font-semibold"
           >
-            <span>🛍️</span>
+            <BrandIcon name="🛍️" className="w-4 h-4 text-[#D4A04D]" />
             <span>Back to Store</span>
           </Link>
 
@@ -156,7 +157,7 @@ export default function CustomerLayout() {
             onClick={handleLogout}
             className="flex items-center gap-2 text-red-400 text-xs hover:text-red-300 transition-colors font-semibold w-full text-left bg-transparent border-none cursor-pointer"
           >
-            <span>🚪</span>
+            <BrandIcon name="🚪" className="w-4 h-4 text-[#D4A04D]" />
             <span>Logout</span>
           </button>
         </div>
@@ -213,7 +214,7 @@ export default function CustomerLayout() {
                               : 'text-gray-400 hover:bg-[#131314] hover:text-white border-transparent'
                           }`}
                         >
-                          <span className="text-sm">{icon}</span>
+                          <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
                           <span>{label}</span>
                         </Link>
                       );
@@ -229,7 +230,7 @@ export default function CustomerLayout() {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center gap-2 text-gray-400 text-xs hover:text-[#D4A04D] transition-colors font-semibold"
               >
-                <span>🛍️</span>
+                <BrandIcon name="🛍️" className="w-4 h-4 text-[#D4A04D]" />
                 <span>Back to Store</span>
               </Link>
 
@@ -240,7 +241,7 @@ export default function CustomerLayout() {
                 }}
                 className="flex items-center gap-2 text-red-400 text-xs hover:text-red-300 transition-colors font-semibold w-full text-left bg-transparent border-none cursor-pointer"
               >
-                <span>🚪</span>
+                <BrandIcon name="🚪" className="w-4 h-4 text-[#D4A04D]" />
                 <span>Logout</span>
               </button>
             </div>

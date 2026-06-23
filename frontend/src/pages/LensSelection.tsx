@@ -49,8 +49,64 @@ export default function LensSelection() {
   const [product, setProduct] = useState<Product | null>(null);
   const [lensTypes, setLensTypes] = useState<LensOption[]>([]);
   const [lensQualities, setLensQualities] = useState<LensOption[]>([]);
+  const [customLenses, setCustomLenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const getMappedLensTypesFromProduct = (prod: any, lensesList: any[]): LensOption[] => {
+    if (!prod || !prod.lensTypes) return [];
+    
+    // Group custom lenses by their type ID or name to find the minimum/starting price
+    const minPrices: Record<string, number> = {};
+    lensesList.forEach((lens: any) => {
+      const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+      if (typeId) {
+        if (minPrices[typeId] === undefined || lens.basePrice < minPrices[typeId]) {
+          minPrices[typeId] = lens.basePrice;
+        }
+      }
+    });
+
+    return prod.lensTypes.map((t: any) => {
+      const id = typeof t === 'object' ? t._id : t;
+      const name = typeof t === 'object' ? t.name : '';
+      
+      const lowercaseName = name.toLowerCase();
+      let type = 'zero_power';
+      let description = 'Clear lenses for everyday wear with no prescription.';
+      let displayName = name;
+      
+      if (lowercaseName.includes('single vision')) {
+        type = 'single_vision';
+        description = 'Single vision lenses corrected for distance or reading.';
+      } else if (lowercaseName.includes('progressive')) {
+        type = 'progressive';
+        description = 'Multifocal lenses for clear vision at all distances.';
+      } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+        type = 'bluecut';
+        description = 'Protects eyes from harmful blue light emitted by digital screens.';
+      } else if (lowercaseName.includes('photochromic')) {
+        type = 'photochromic';
+        description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
+      } else if (lowercaseName.includes('with power')) {
+        type = 'single_vision';
+        description = 'Prescription lenses tailored to your power requirements.';
+      }
+
+      return {
+        _id: id,
+        kind: 'type',
+        type,
+        displayName,
+        name,
+        description,
+        price: minPrices[id] || 999,
+        startingPrice: minPrices[id] || 999,
+        features: [],
+        isBestseller: lowercaseName.includes('with power') || lowercaseName.includes('zero power')
+      };
+    }).filter((t: any) => t.name);
+  };
 
   // Stepper State (1: LENS TYPE, 2: POWER, 3: QUALITY, 4: CHECKOUT)
   const [currentStep, setCurrentStep] = useState(1);
@@ -178,16 +234,41 @@ export default function LensSelection() {
         setLensTypes(types);
         setLensQualities(qualities);
 
-        // Auto-select Single Vision as default type
-        if (types.length > 0) {
-          const sv = types.find((t: LensOption) => t.type === 'single_vision') || types[0];
-          setSelectedType(sv);
-        }
+        const customLensesList = prodRes.data.lenses || [];
+        setCustomLenses(customLensesList);
 
-        // Auto-select first recommended quality as default
-        if (qualities.length > 0) {
-          const rec = qualities.find((q: LensOption) => q.isRecommended) || qualities[0];
-          setSelectedQuality(rec);
+        const mappedTypes = getMappedLensTypesFromProduct(prod, customLensesList);
+        if (customLensesList.length > 0 && mappedTypes.length > 0) {
+          // Auto-select first compatible lens type as default
+          const defaultType = mappedTypes.find((t: LensOption) => t.type === 'single_vision') || mappedTypes[0];
+          setSelectedType(defaultType);
+          
+          // Auto-select first lens under this default type
+          const lensesForDefault = customLensesList.filter((lens: any) => {
+            const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+            return typeId === defaultType._id;
+          });
+          if (lensesForDefault.length > 0) {
+            const firstLens = lensesForDefault[0];
+            setSelectedQuality({
+              _id: firstLens._id,
+              kind: 'quality',
+              name: firstLens.name,
+              displayName: firstLens.name,
+              price: firstLens.basePrice,
+              features: ['UV Protection', 'Scratch Resistant']
+            } as any);
+          }
+        } else {
+          // Fallback legacy behavior
+          if (types.length > 0) {
+            const sv = types.find((t: LensOption) => t.type === 'single_vision') || types[0];
+            setSelectedType(sv);
+          }
+          if (qualities.length > 0) {
+            const rec = qualities.find((q: LensOption) => q.isRecommended) || qualities[0];
+            setSelectedQuality(rec);
+          }
         }
       })
       .catch((err) => {
@@ -199,7 +280,7 @@ export default function LensSelection() {
 
   // Handle progressive sub-type defaults
   useEffect(() => {
-    if (selectedType) {
+    if (selectedType && customLenses.length === 0) {
       const subTypes = lensTypes.filter(t => t.type === selectedType.type && t.subType);
       if (subTypes.length > 0) {
         const best = subTypes.find(t => t.isBestseller) || subTypes[0];
@@ -208,7 +289,30 @@ export default function LensSelection() {
         setSelectedSubType(null);
       }
     }
-  }, [selectedType, lensTypes]);
+  }, [selectedType, lensTypes, customLenses]);
+
+  // Auto-select first custom lens when selected type changes (for custom mode)
+  useEffect(() => {
+    if (selectedType && customLenses.length > 0) {
+      const lensesForType = customLenses.filter((lens: any) => {
+        const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+        return typeId === selectedType._id;
+      });
+      if (lensesForType.length > 0) {
+        const firstLens = lensesForType[0];
+        setSelectedQuality({
+          _id: firstLens._id,
+          kind: 'quality',
+          name: firstLens.name,
+          displayName: firstLens.name,
+          price: firstLens.basePrice,
+          features: ['UV Protection', 'Scratch Resistant']
+        } as any);
+      } else {
+        setSelectedQuality(null);
+      }
+    }
+  }, [selectedType, customLenses]);
 
   if (loading) {
     return <div className="text-center py-24 text-[#A7A7A7]">Loading Lens Configuration...</div>;
@@ -241,7 +345,9 @@ export default function LensSelection() {
     return true;
   });
 
-  const mainLensTypes = compatibleTypes.filter(t => !t.subType);
+  const mainLensTypes = customLenses.length > 0 
+    ? getMappedLensTypesFromProduct(product, customLenses)
+    : compatibleTypes.filter(t => !t.subType);
   const currentSubTypes = compatibleTypes.filter(t => t.type === selectedType?.type && t.subType);
 
   const isZeroPower = selectedType?.type === 'zero_power';
@@ -834,7 +940,93 @@ export default function LensSelection() {
               <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose the quality and features for your lenses</p>
             </div>
 
-            {selectedType.type === 'progressive' ? (
+            {customLenses.length > 0 ? (
+              <div className="space-y-4.5">
+                {(() => {
+                  const activeLenses = customLenses.filter((lens: any) => {
+                    const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+                    return typeId === selectedType?._id;
+                  });
+
+                  if (activeLenses.length === 0) {
+                    return (
+                      <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-6 text-center text-gray-500 text-xs">
+                        No lenses configured under this lens type yet. Please go to Lens Management to add them.
+                      </div>
+                    );
+                  }
+
+                  return activeLenses.map((lens) => {
+                    const isSelected = selectedQuality?._id === lens._id;
+                    
+                    // Map description and features dynamically
+                    let desc = 'Premium quality lens with multi-coat protection.';
+                    let features = ['UV Protection', 'Scratch Resistant'];
+                    const lowerLensName = lens.name.toLowerCase();
+                    
+                    if (lowerLensName.includes('blu') || lowerLensName.includes('blue cut')) {
+                      desc = 'Blocks harmful blue light from screens. Great for computer use.';
+                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant', 'UV Protection'];
+                    } else if (lowerLensName.includes('anti-glare') || lowerLensName.includes('anti reflective')) {
+                      desc = 'Reduces glare and reflections. Clear vision in all lighting.';
+                      features = ['Anti Reflective', 'Scratch Resistant', 'UV Protection', 'Water Repellent'];
+                    } else if (lowerLensName.includes('computer')) {
+                      desc = 'Specifically designed for digital screen usage to reduce eye strain.';
+                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant'];
+                    } else if (lowerLensName.includes('essential')) {
+                      desc = 'Essential clear lens offering reliable daily protection.';
+                      features = ['Scratch Resistant', 'UV Protection'];
+                    } else if (lowerLensName.includes('zero power')) {
+                      desc = 'Standard cosmetic clear lens for daily wear.';
+                      features = ['Scratch Resistant', 'UV Protection'];
+                    }
+
+                    return (
+                      <div
+                        key={lens._id}
+                        onClick={() => setSelectedQuality({
+                          _id: lens._id,
+                          kind: 'quality',
+                          name: lens.name,
+                          displayName: lens.name,
+                          price: lens.basePrice,
+                          features: features
+                        } as any)}
+                        className={`relative bg-[#131314] border rounded-xl p-5 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
+                          isSelected ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4 text-left">
+                          <div className="flex-1 space-y-2">
+                            <h3 className="text-white font-bold text-sm leading-none pt-0.5">{lens.name}</h3>
+                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{desc}</p>
+                            
+                            {/* Feature icons with names */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
+                              {features.map((feat, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider">
+                                  {renderQualityFeatureIcon(feat)}
+                                  <span>{feat}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 self-stretch sm:justify-start gap-4">
+                            <span className="text-white font-black text-sm">₹{lens.basePrice} / pair</span>
+                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
+                            }`}>
+                              {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            ) : selectedType.type === 'progressive' ? (
               <div className="space-y-4 pt-1">
                 <h2 className="text-white font-extrabold text-xs uppercase tracking-wider">Choose Your Progressive Lens</h2>
                 <div className="space-y-3.5">
