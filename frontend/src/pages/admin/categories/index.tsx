@@ -7,7 +7,7 @@ interface CategoryItem {
   name: string;
   code: string;
   slug: string;
-  type: 'Category' | 'SubCategory' | 'ChildCategory' | 'Collection';
+  type: 'Category' | 'SubCategory';
   displayOrder: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Archived';
   isDeleted: boolean;
@@ -158,9 +158,7 @@ export default function CategoriesList() {
           {[
             { value: '', label: 'All Tiers' },
             { value: 'Category', label: 'Main Category' },
-            { value: 'SubCategory', label: 'Sub Category' },
-            { value: 'ChildCategory', label: 'Child Category' },
-            { value: 'Collection', label: 'Collections' }
+            { value: 'SubCategory', label: 'Sub Category' }
           ].map(t => (
             <button
               key={t.value}
@@ -227,9 +225,7 @@ export default function CategoriesList() {
                     <td className="px-5 py-4 text-xs">
                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                         item.type === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-                        item.type === 'SubCategory' ? 'bg-purple-500/10 text-purple-400' :
-                        item.type === 'ChildCategory' ? 'bg-green-500/10 text-green-400' :
-                        'bg-yellow-500/10 text-yellow-400'
+                        'bg-purple-500/10 text-purple-400'
                       }`}>
                         {item.type}
                       </span>

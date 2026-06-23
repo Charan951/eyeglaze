@@ -5,8 +5,6 @@ dotenv.config();
 import { connectDB } from '../config/mongodb';
 import { Category } from '../models/Category';
 import { SubCategory } from '../models/SubCategory';
-import { ChildCategory } from '../models/ChildCategory';
-import { Collection } from '../models/Collection';
 import { Product } from '../models/Product';
 import { Brand } from '../models/Brand';
 import { Warehouse } from '../models/Warehouse';
@@ -22,8 +20,6 @@ async function main() {
   await Promise.all([
     Category.deleteMany({}),
     SubCategory.deleteMany({}),
-    ChildCategory.deleteMany({}),
-    Collection.deleteMany({}),
     Product.deleteMany({}),
     ProductVariant.deleteMany({}),
     AuditLog.deleteMany({})
@@ -108,41 +104,7 @@ async function main() {
   await createSubs(eyeglassesSubs, 'eyeglasses');
   await createSubs(sunglassesSubs, 'sunglasses');
 
-  // 4. Seed Child Categories and Collections
-  console.log('Seeding Child Categories and Collections...');
-  // Collections list
-  const collectionsList = [
-    { name: 'Air Flex', code: 'COL-AIR-FLEX', slug: 'air-flex' },
-    { name: 'Classic', code: 'COL-CLASSIC', slug: 'classic' },
-    { name: 'Carbon Fiber', code: 'COL-CARBON-FIBER', slug: 'carbon-fiber' },
-    { name: 'Metal Sleek', code: 'COL-METAL-SLEEK', slug: 'metal-sleek' },
-    { name: 'Titanium', code: 'COL-TITANIUM', slug: 'titanium' },
-    { name: 'Acetate Signature', code: 'COL-ACETATE-SIGNATURE', slug: 'acetate-signature' },
-  ];
-
-  // We will seed a 'Unisex' ChildCategory for each subcategory, and associate our collections
-  for (const subSlug in subCategoryMap) {
-    const subDoc = subCategoryMap[subSlug];
-    const childDoc = await ChildCategory.create({
-      name: 'Unisex',
-      code: `CHILD-UNISEX-${subDoc.code}`,
-      slug: `${subSlug}-unisex`,
-      subCategoryId: subDoc._id,
-      status: 'Active',
-      isDeleted: false
-    });
-
-    for (const col of collectionsList) {
-      await Collection.create({
-        name: col.name,
-        code: `${col.code}-${subDoc.code}`,
-        slug: `${col.slug}-${subDoc.slug}`,
-        childCategoryId: childDoc._id,
-        status: 'Active',
-        isDeleted: false
-      });
-    }
-  }
+  // 4. Seed Child Categories and Collections (Removed)
 
   // 5. Seed Warehouses
   console.log('Checking Warehouses...');
@@ -171,7 +133,6 @@ async function main() {
       categoryId: categoryMap['eyeglasses']._id,
       subCategory: 'Rectangle',
       subCategoryId: subCategoryMap['eyeglasses-rectangle']._id,
-      collectionName: 'Air Flex',
       gender: 'unisex',
       price: { original: 1499, selling: 999 },
       mrp: 1499,
@@ -225,7 +186,6 @@ async function main() {
       categoryId: categoryMap['eyeglasses']._id,
       subCategory: 'Cat Eye',
       subCategoryId: subCategoryMap['eyeglasses-cat-eye']._id,
-      collectionName: 'Acetate Signature',
       gender: 'women',
       price: { original: 2999, selling: 1999 },
       mrp: 2999,
@@ -279,7 +239,6 @@ async function main() {
       categoryId: categoryMap['eyeglasses']._id,
       subCategory: 'Round',
       subCategoryId: subCategoryMap['eyeglasses-round']._id,
-      collectionName: 'Titanium',
       gender: 'unisex',
       price: { original: 3499, selling: 2499 },
       mrp: 3499,
@@ -333,7 +292,6 @@ async function main() {
       categoryId: categoryMap['sunglasses']._id,
       subCategory: 'Aviator',
       subCategoryId: subCategoryMap['sunglasses-aviator']._id,
-      collectionName: 'Metal Sleek',
       gender: 'men',
       price: { original: 1999, selling: 1499 },
       mrp: 1999,
@@ -387,7 +345,6 @@ async function main() {
       categoryId: categoryMap['sunglasses']._id,
       subCategory: 'Wayfarer',
       subCategoryId: subCategoryMap['sunglasses-wayfarer']._id,
-      collectionName: 'Classic',
       gender: 'unisex',
       price: { original: 2499, selling: 1799 },
       mrp: 2499,

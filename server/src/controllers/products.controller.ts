@@ -197,9 +197,9 @@ export async function getProductById(req: Request, res: Response) {
 
     let product;
     if (id.startsWith('EG-')) {
-      product = await Product.findOne({ sku: id });
+      product = await Product.findOne({ sku: id }).populate('lensTypes');
     } else if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findById(id);
+      product = await Product.findById(id).populate('lensTypes');
     } else {
       return res.status(400).json({ error: 'Invalid product ID' });
     }

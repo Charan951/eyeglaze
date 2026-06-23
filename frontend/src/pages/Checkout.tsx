@@ -277,7 +277,7 @@ export default function CheckoutPage() {
                         }}
                         className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
                           isSelected 
-                            ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-white' 
+                            ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-white shadow-[0_0_10px_rgba(212,160,77,0.1)]' 
                             : 'border-[#2A2A2D] bg-[#131314] text-gray-400 hover:border-gray-700'
                         }`}
                       >
@@ -299,6 +299,36 @@ export default function CheckoutPage() {
                       </button>
                     );
                   })}
+
+                  {/* New Address Card Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFullName('');
+                      setMobile('');
+                      setLine1('');
+                      setLine2('');
+                      setCity('');
+                      setState('');
+                      setPincode('');
+                    }}
+                    className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-center items-center h-full min-h-[96px] ${
+                      !user.addresses.some((addr: any) => 
+                        fullName === addr.fullName && 
+                        mobile === addr.mobile && 
+                        line1 === addr.line1 && 
+                        line2 === (addr.line2 || '') && 
+                        city === addr.city && 
+                        state === addr.state && 
+                        pincode === addr.pincode
+                      )
+                        ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-[#D4A04D] shadow-[0_0_10px_rgba(212,160,77,0.1)]' 
+                        : 'border-[#2A2A2D] bg-[#131314] text-gray-400 hover:border-gray-700'
+                    }`}
+                  >
+                    <span className="text-lg mb-1">➕</span>
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-center">New Address</span>
+                  </button>
                 </div>
               </div>
             )}

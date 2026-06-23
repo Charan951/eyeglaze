@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
+import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
 import Footer from '../components/Footer';
 
@@ -368,7 +369,7 @@ export default function LandingPage() {
   };
 
   // Featured Products Data
-  const featuredProducts = [
+  const defaultFeaturedProducts = [
     {
       id: 'eg-2041',
       name: 'EG-2041 | Matte Square Frame',
@@ -414,6 +415,39 @@ export default function LandingPage() {
       badge: 'NEW'
     }
   ];
+
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>(defaultFeaturedProducts);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchFeatured = () => {
+      api.get('/products?limit=4')
+        .then((res) => {
+          if (!active) return;
+          const fetched = res.data.products || res.data || [];
+          if (fetched && fetched.length > 0) {
+            setFeaturedProducts(fetched);
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching featured products:', err);
+        });
+    };
+
+    fetchFeatured();
+
+    const handleProductChange = () => {
+      fetchFeatured();
+    };
+
+    socket.on('product_changed', handleProductChange);
+
+    return () => {
+      active = false;
+      socket.off('product_changed', handleProductChange);
+    };
+  }, []);
 
   const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
   if (user && ADMIN_ROLES.includes(user.role || '')) {
@@ -541,6 +575,7 @@ export default function LandingPage() {
                       <nav className="mt-3 space-y-1">
                         {[
                           { href: '/profile', label: 'My Profile', icon: '👤' },
+                          { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                           { href: '/orders', label: 'My Orders', icon: '📦' },
                           { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                           { href: '/membership', label: 'Gold Membership', icon: '👑' },
@@ -1112,57 +1147,69 @@ export default function LandingPage() {
 
           {/* Products Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-            {featuredProducts.map((product) => (
-              <div 
-                key={product.id}
-                onClick={() => navigate('/products')}
-                className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between cursor-pointer"
-              >
-                
-                {/* Image & Badge Container */}
-                <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
-                  <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase">
-                    {product.badge}
-                  </span>
+            {featuredProducts.map((product) => {
+              const productId = product._id || product.id;
+              const salePrice = product.price?.selling ?? product.salePrice ?? 0;
+              const originalPrice = product.price?.original ?? product.originalPrice ?? 0;
+              const imageUrl = product.images?.[0] || product.image || '/images/cat_prescription.png';
+              const name = product.name;
+              const categoryName = product.category || 'Eyewear';
+              const rating = product.rating || 5.0;
+              const reviews = product.reviewCount ?? product.reviews ?? 0;
+              const badge = product.isBestseller ? 'BESTSELLER' : (product.badge || 'NEW');
+
+              return (
+                <div 
+                  key={productId}
+                  onClick={() => navigate(`/products/${productId}`)}
+                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between cursor-pointer"
+                >
                   
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
-                  />
-
-                  {/* Hover Quick View Overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <span className="border border-[#D4A04D] text-[#D4A04D] bg-black/80 font-bold text-[10px] tracking-wider uppercase py-2 px-4 rounded-lg">
-                      Quick View
+                  {/* Image & Badge Container */}
+                  <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
+                    <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase">
+                      {badge}
                     </span>
-                  </div>
-                </div>
+                    
+                    <img 
+                      src={imageUrl} 
+                      alt={name} 
+                      className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
+                    />
 
-                {/* Details Container */}
-                <div className="p-4 flex flex-col gap-2 flex-1 justify-between">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[#D4A04D] font-bold uppercase tracking-wider">{product.category}</span>
-                    <h3 className="text-white text-xs font-semibold group-hover:text-[#D4A04D] transition-colors line-clamp-1">{product.name}</h3>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2A2A2D]/40">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[#D4A04D] text-sm font-bold">₹{product.salePrice}</span>
-                      <span className="text-gray-600 text-[10px] line-through">₹{product.originalPrice}</span>
-                    </div>
-
-                    {/* Ratings */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500 text-xs">★</span>
-                      <span className="text-white text-[10px] font-semibold">{product.rating}</span>
-                      <span className="text-gray-600 text-[9px]">({product.reviews})</span>
+                    {/* Hover Quick View Overlay */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <span className="border border-[#D4A04D] text-[#D4A04D] bg-black/80 font-bold text-[10px] tracking-wider uppercase py-2 px-4 rounded-lg">
+                        Quick View
+                      </span>
                     </div>
                   </div>
-                </div>
 
-              </div>
-            ))}
+                  {/* Details Container */}
+                  <div className="p-4 flex flex-col gap-2 flex-1 justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#D4A04D] font-bold uppercase tracking-wider">{categoryName.replace('_', ' ')}</span>
+                      <h3 className="text-white text-xs font-semibold group-hover:text-[#D4A04D] transition-colors line-clamp-1">{name}</h3>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2A2A2D]/40">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#D4A04D] text-sm font-bold">₹{salePrice}</span>
+                        <span className="text-gray-600 text-[10px] line-through">₹{originalPrice}</span>
+                      </div>
+
+                      {/* Ratings */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-yellow-500 text-xs">★</span>
+                        <span className="text-white text-[10px] font-semibold">{rating}</span>
+                        <span className="text-gray-600 text-[9px]">({reviews})</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -1779,6 +1826,7 @@ export default function LandingPage() {
                 <nav className="flex flex-col gap-2">
                   {[
                     { href: '/profile', label: 'My Profile', icon: '👤' },
+                    { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                     { href: '/orders', label: 'My Orders', icon: '📦' },
                     { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                     { href: '/membership', label: 'Gold Membership', icon: '👑' },

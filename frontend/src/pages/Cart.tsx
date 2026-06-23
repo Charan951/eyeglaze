@@ -106,6 +106,7 @@ export default function CartPage() {
 
     try {
       await api.put(`/cart/${item._id || item.id}`, { qty });
+      await fetchCartCount();
     } catch {
       // ignore
     }
@@ -125,6 +126,7 @@ export default function CartPage() {
 
     try {
       await api.delete(`/cart/${item._id || item.id}`);
+      await fetchCartCount();
     } catch {
       // ignore
     }

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import UserLayout from './layouts/UserLayout';
+import CustomerLayout from './layouts/CustomerLayout';
 import AdminLayout from './layouts/AdminLayout';
 
 import Landing from './pages/Landing';
@@ -16,6 +17,7 @@ import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Profile from './pages/Profile';
+import SavedPowers from './pages/SavedPowers';
 import Wishlist from './pages/Wishlist';
 import Membership from './pages/Membership';
 //ejfn
@@ -41,6 +43,7 @@ import AdminOrders from './pages/admin/Orders';
 import AdminInventory from './pages/admin/Inventory';
 import AdminUsers from './pages/admin/Users';
 import AdminTickets from './pages/admin/Tickets';
+import AdminLenses from './pages/admin/Lenses';
 import AdminCategoriesList from './pages/admin/categories/index';
 import AdminCategoryWizard from './pages/admin/categories/Wizard';
 import AdminCategoryTreeView from './pages/admin/categories/tree';
@@ -94,91 +97,101 @@ export default function App() {
               }
             />
 
-            {/* Customer Routes inside UserLayout (no sidebar) */}
-            <Route
-              path="/orders"
-              element={
-                <ProtectedRoute>
-                  <Orders />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/orders/:id"
-              element={
-                <ProtectedRoute>
-                  <OrderDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/account"
-              element={<Navigate to="/profile" replace />}
-            />
-            <Route
-              path="/membership"
-              element={
-                <ProtectedRoute>
-                  <Membership />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payments"
-              element={
-                <ProtectedRoute>
-                  <Payments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/wallet"
-              element={
-                <ProtectedRoute>
-                  <Wallet />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/support/questions"
-              element={
-                <ProtectedRoute>
-                  <SupportQuestions />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/support/contact"
-              element={
-                <ProtectedRoute>
-                  <SupportContact />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/about-eyeglaze"
-              element={
-                <ProtectedRoute>
-                  <AboutEyeglaze />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/rate-us"
-              element={
-                <ProtectedRoute>
-                  <RateUs />
-                </ProtectedRoute>
-              }
-            />
+            {/* Customer Routes with Sidebar */}
+            <Route element={<CustomerLayout />}>
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <Orders />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orders/:id"
+                element={
+                  <ProtectedRoute>
+                    <OrderDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account"
+                element={<Navigate to="/profile" replace />}
+              />
+              <Route
+                path="/membership"
+                element={
+                  <ProtectedRoute>
+                    <Membership />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/saved-powers"
+                element={
+                  <ProtectedRoute>
+                    <SavedPowers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute>
+                    <Payments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/wallet"
+                element={
+                  <ProtectedRoute>
+                    <Wallet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/support/questions"
+                element={
+                  <ProtectedRoute>
+                    <SupportQuestions />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/support/contact"
+                element={
+                  <ProtectedRoute>
+                    <SupportContact />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/about-eyeglaze"
+                element={
+                  <ProtectedRoute>
+                    <AboutEyeglaze />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/rate-us"
+                element={
+                  <ProtectedRoute>
+                    <RateUs />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
           </Route>
 
           <Route element={<AdminLayout />}>
@@ -251,6 +264,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminAddProductWizard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/lenses"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminLenses />
                 </ProtectedRoute>
               }
             />

@@ -95,3 +95,19 @@ export async function getPrescriptions(req: Request, res: Response) {
   }
 }
 
+export async function deletePrescription(req: Request, res: Response) {
+  try {
+    await connectDB();
+    const { id } = req.params;
+    const deleted = await Prescription.findOneAndDelete({ _id: id, user: req.user!.userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Prescription not found or unauthorized' });
+    }
+    return res.status(200).json({ message: 'Prescription deleted successfully' });
+  } catch (error) {
+    console.error('DELETE prescription error:', error);
+    return res.status(500).json({ error: 'Failed to delete prescription' });
+  }
+}
+
+

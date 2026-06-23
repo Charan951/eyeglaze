@@ -212,13 +212,19 @@ export async function createOrder(req: Request, res: Response) {
     // Apply cashback campaigns
     const activeCampaigns = await CashbackCampaign.find({
       isActive: true,
-      $or: [
-        { validFrom: { $lte: new Date() } },
-        { validFrom: null }
-      ],
-      $or: [
-        { validTo: { $gte: new Date() } },
-        { validTo: null }
+      $and: [
+        {
+          $or: [
+            { validFrom: { $lte: new Date() } },
+            { validFrom: null }
+          ]
+        },
+        {
+          $or: [
+            { validTo: { $gte: new Date() } },
+            { validTo: null }
+          ]
+        }
       ]
     }).sort({ sortOrder: 1 });
 

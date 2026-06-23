@@ -95,6 +95,8 @@ class Product {
   final bool isBestseller;
   final bool isActive;
   final ProductCompatible? compatible;
+  final List<String> availableSizes;
+  final List<SizeMeasurement> sizeMeasurements;
 
   Product({
     required this.id,
@@ -112,6 +114,8 @@ class Product {
     this.isBestseller = false,
     this.isActive = true,
     this.compatible,
+    this.availableSizes = const ['Small', 'Medium', 'Large'],
+    this.sizeMeasurements = const [],
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -150,6 +154,14 @@ class Product {
       compatible: json['compatible'] != null
           ? ProductCompatible.fromJson(json['compatible'] as Map)
           : null,
+      availableSizes: (json['availableSizes'] as List<dynamic>?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          const ['Small', 'Medium', 'Large'],
+      sizeMeasurements: (json['sizeMeasurements'] as List<dynamic>?)
+              ?.map((m) => SizeMeasurement.fromJson(m as Map))
+              .toList() ??
+          const [],
     );
   }
 
@@ -162,4 +174,31 @@ class Product {
         'reviewCount': reviewCount,
         'isBestseller': isBestseller,
       };
+}
+
+class SizeMeasurement {
+  final String size;
+  final double? lensWidth;
+  final double? bridgeWidth;
+  final double? templeLength;
+  final double? frameWidth;
+  final double? frameHeight;
+
+  SizeMeasurement({
+    required this.size,
+    this.lensWidth,
+    this.bridgeWidth,
+    this.templeLength,
+    this.frameWidth,
+    this.frameHeight,
+  });
+
+  factory SizeMeasurement.fromJson(Map<dynamic, dynamic> json) => SizeMeasurement(
+        size: json['size']?.toString() ?? '',
+        lensWidth: (json['lensWidth'] as num?)?.toDouble(),
+        bridgeWidth: (json['bridgeWidth'] as num?)?.toDouble(),
+        templeLength: (json['templeLength'] as num?)?.toDouble(),
+        frameWidth: (json['frameWidth'] as num?)?.toDouble(),
+        frameHeight: (json['frameHeight'] as num?)?.toDouble(),
+      );
 }

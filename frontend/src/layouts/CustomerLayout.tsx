@@ -10,6 +10,7 @@ const customerNavSections = [
       { href: '/membership', label: 'Gold Membership', icon: '👑' },
       { href: '/orders', label: 'My Orders', icon: '📦' },
       { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+      { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
       { href: '/profile', label: 'My Profile', icon: '👤' },
     ],
   },

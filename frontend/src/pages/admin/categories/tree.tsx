@@ -7,7 +7,7 @@ interface TreeNode {
   name: string;
   code: string;
   slug: string;
-  type: 'Category' | 'SubCategory' | 'ChildCategory' | 'Collection';
+  type: 'Category' | 'SubCategory';
   children?: TreeNode[];
 }
 
@@ -59,9 +59,7 @@ export default function CategoryTreeView() {
           {/* Level Tag */}
           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
             node.type === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-            node.type === 'SubCategory' ? 'bg-purple-500/10 text-purple-400' :
-            node.type === 'ChildCategory' ? 'bg-green-500/10 text-green-400' :
-            'bg-yellow-500/10 text-yellow-400'
+            'bg-purple-500/10 text-purple-400'
           }`}>
             {node.type}
           </span>

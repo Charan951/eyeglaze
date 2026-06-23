@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../../lib/api';
@@ -20,7 +20,6 @@ const wizardSchema = z.object({
   categoryId: z.string().optional(),
   subCategory: z.string().optional(),
   subCategoryId: z.string().optional(),
-  collectionName: z.string().optional(),
   gender: z.enum(['men', 'women', 'kids', 'unisex']),
   shortDescription: z.string().optional(),
   longDescription: z.string().optional(),
@@ -72,9 +71,34 @@ const wizardSchema = z.object({
   frameHeight: z.number().optional(),
   pdCompatibility: z.string().optional(),
   frameSize: z.enum(['Small', 'Medium', 'Large']).default('Medium'),
+  availableSizes: z.array(z.enum(['Small', 'Medium', 'Large'])).default(['Small', 'Medium', 'Large']),
+  sizeMeasurements: z.object({
+    Small: z.object({
+      lensWidth: z.number().optional(),
+      bridgeWidth: z.number().optional(),
+      templeLength: z.number().optional(),
+      frameWidth: z.number().optional(),
+      frameHeight: z.number().optional(),
+    }).optional(),
+    Medium: z.object({
+      lensWidth: z.number().optional(),
+      bridgeWidth: z.number().optional(),
+      templeLength: z.number().optional(),
+      frameWidth: z.number().optional(),
+      frameHeight: z.number().optional(),
+    }).optional(),
+    Large: z.object({
+      lensWidth: z.number().optional(),
+      bridgeWidth: z.number().optional(),
+      templeLength: z.number().optional(),
+      frameWidth: z.number().optional(),
+      frameHeight: z.number().optional(),
+    }).optional(),
+  }).optional(),
   faceShapeCompatibility: z.array(z.string()).default([]),
 
   // Lenses compatibility
+  lensTypes: z.array(z.string()).default([]),
   compatibleLensTypes: z.array(z.string()).default([]),
   dynamicLensPricing: z.array(z.object({
     lensName: z.string(),
@@ -189,7 +213,6 @@ const defaultValues: WizardFormData = {
   categoryId: '',
   subCategory: '',
   subCategoryId: '',
-  collectionName: '',
   gender: 'unisex',
   shortDescription: '',
   longDescription: '',
@@ -234,11 +257,16 @@ const defaultValues: WizardFormData = {
   bridgeWidth: 18,
   templeLength: 140,
   frameWidth: 138,
-  frameHeight: 40,
-  pdCompatibility: '60-68mm',
   frameSize: 'Medium',
+  availableSizes: ['Small', 'Medium', 'Large'],
+  sizeMeasurements: {
+    Small: { lensWidth: 48, bridgeWidth: 17, templeLength: 135, frameWidth: 132 },
+    Medium: { lensWidth: 50, bridgeWidth: 18, templeLength: 140, frameWidth: 138 },
+    Large: { lensWidth: 52, bridgeWidth: 19, templeLength: 145, frameWidth: 144 },
+  },
   faceShapeCompatibility: ['Oval', 'Round'],
 
+  lensTypes: [],
   compatibleLensTypes: ['Zero Power', 'Single Vision', 'Progressive'],
   dynamicLensPricing: [
     { lensName: 'Premium Clear Lens', lensCategory: 'Single Vision', regularPrice: 1500, goldPrice: 1200, platinumPrice: 1000, priority: 1, status: 'Active' },
@@ -311,11 +339,14 @@ const defaultValues: WizardFormData = {
 export default function AddProductWizard() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [showAdvanced, setShowAdvanced] = useState(false);
+
   
   // Database Metadata
   const [categoryTree, setCategoryTree] = useState<any[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
+  const [availableLensTypes, setAvailableLensTypes] = useState<any[]>([]);
+  const [lensesMap, setLensesMap] = useState<Record<string, any[]>>({});
+  const [loadingLensesMap, setLoadingLensesMap] = useState<Record<string, boolean>>({});
   
   // State for uploads and notifications
   const [isSaving, setIsSaving] = useState(false);
@@ -343,7 +374,6 @@ export default function AddProductWizard() {
     handleSubmit,
     setValue,
     watch,
-    control,
     reset,
     trigger,
     formState: { errors }
@@ -352,15 +382,9 @@ export default function AddProductWizard() {
     defaultValues
   });
 
-  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
-    control,
-    name: 'variants'
-  });
 
-  const { fields: lensPricingFields, append: appendLens, remove: removeLens } = useFieldArray({
-    control,
-    name: 'dynamicLensPricing'
-  });
+
+
 
   // Watch fields for calculations
   const formValues = watch();
@@ -368,23 +392,7 @@ export default function AddProductWizard() {
   const selectedCategoryNode = categoryTree.find((c: any) => c.slug === formValues.category);
   const subCategoryOptions = selectedCategoryNode ? selectedCategoryNode.children || [] : [];
 
-  const getCollectionsForCategory = () => {
-    if (!selectedCategoryNode) return [];
-    const collections: any[] = [];
-    const seen = new Set<string>();
-    selectedCategoryNode.children?.forEach((sub: any) => {
-      sub.children?.forEach((child: any) => {
-        child.children?.forEach((col: any) => {
-          if (!seen.has(col.name)) {
-            seen.add(col.name);
-            collections.push(col);
-          }
-        });
-      });
-    });
-    return collections;
-  };
-  const collectionOptions = getCollectionsForCategory();
+
 
   // Watch for Price Engine
   const mrpValue = watch('mrp') || 0;
@@ -401,6 +409,9 @@ export default function AddProductWizard() {
       try {
         const treeRes = await api.get('/admin/categories/tree');
         setCategoryTree(treeRes.data.tree || []);
+
+        const lensTypesRes = await api.get('/admin/lens-types');
+        setAvailableLensTypes(lensTypesRes.data.lensTypes || []);
 
         if (id) {
           setIsEditMode(true);
@@ -419,7 +430,6 @@ export default function AddProductWizard() {
             categoryId: p.categoryId || '',
             subCategory: p.subCategory || '',
             subCategoryId: p.subCategoryId || '',
-            collectionName: p.collectionName || '',
             gender: p.gender || 'unisex',
             shortDescription: p.shortDescription || '',
             longDescription: p.longDescription || '',
@@ -455,11 +465,31 @@ export default function AddProductWizard() {
             bridgeWidth: p.bridgeWidth || p.frame?.bridgeWidth || 18,
             templeLength: p.templeLength || p.frame?.templeLength || 140,
             frameWidth: p.frameWidth || p.frame?.width || 138,
-            frameHeight: p.frameHeight || 40,
-            pdCompatibility: p.pdCompatibility || '60-68mm',
             frameSize: p.frameSize || 'Medium',
+            availableSizes: p.availableSizes || ['Small', 'Medium', 'Large'],
+            sizeMeasurements: (() => {
+              const map: any = {
+                Small: { lensWidth: 48, bridgeWidth: 17, templeLength: 135, frameWidth: 132 },
+                Medium: { lensWidth: 50, bridgeWidth: 18, templeLength: 140, frameWidth: 138 },
+                Large: { lensWidth: 52, bridgeWidth: 19, templeLength: 145, frameWidth: 144 },
+              };
+              if (p.sizeMeasurements && Array.isArray(p.sizeMeasurements)) {
+                p.sizeMeasurements.forEach((item: any) => {
+                  if (item.size) {
+                    map[item.size] = {
+                      lensWidth: item.lensWidth,
+                      bridgeWidth: item.bridgeWidth,
+                      templeLength: item.templeLength,
+                      frameWidth: item.frameWidth,
+                    };
+                  }
+                });
+              }
+              return map;
+            })(),
             faceShapeCompatibility: p.faceShapeCompatibility || p.faceShapes || [],
 
+            lensTypes: (p.lensTypes || []).map((t: any) => typeof t === 'object' && t ? t._id : t),
             compatibleLensTypes: p.compatibleLensTypes || p.lensCompatibility || [],
             dynamicLensPricing: p.dynamicLensPricing || [],
             thicknessPricing: p.thicknessPricing || defaultValues.thicknessPricing,
@@ -530,6 +560,48 @@ export default function AddProductWizard() {
     }
     loadData();
   }, [id, reset]);
+
+  // Watch for selected lens types to fetch lenses
+  useEffect(() => {
+    async function fetchLensesForSelectedTypes() {
+      const selectedIds = formValues.lensTypes || [];
+      const newLensesMap = { ...lensesMap };
+      const newLoadingMap = { ...loadingLensesMap };
+      
+      // Clean up keys no longer selected
+      let changed = false;
+      Object.keys(newLensesMap).forEach(key => {
+        if (!selectedIds.includes(key)) {
+          delete newLensesMap[key];
+          delete newLoadingMap[key];
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        setLensesMap({ ...newLensesMap });
+        setLoadingLensesMap({ ...newLoadingMap });
+      }
+
+      const promises = selectedIds.map(async (typeId) => {
+        if (newLensesMap[typeId]) return; // Already loaded
+        newLoadingMap[typeId] = true;
+        setLoadingLensesMap(prev => ({ ...prev, [typeId]: true }));
+        try {
+          const res = await api.get(`/admin/lenses?typeId=${typeId}`);
+          setLensesMap(prev => ({ ...prev, [typeId]: res.data.lenses || [] }));
+        } catch (err) {
+          console.error(`Error fetching lenses for type ${typeId}:`, err);
+          setLensesMap(prev => ({ ...prev, [typeId]: [] }));
+        } finally {
+          setLoadingLensesMap(prev => ({ ...prev, [typeId]: false }));
+        }
+      });
+
+      await Promise.all(promises);
+    }
+    fetchLensesForSelectedTypes();
+  }, [JSON.stringify(formValues.lensTypes)]);
 
   // ShowToast helper
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -758,8 +830,20 @@ export default function AddProductWizard() {
     try {
       // Map tags into array
       const tagsArray = data.tags ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+      const sizeMeasurementsArray = Object.entries(data.sizeMeasurements || {}).map(([size, measurements]: any) => ({
+        size,
+        ...measurements
+      })).filter((item: any) => data.availableSizes.includes(item.size));
+
+      const primaryMeasurements = (data.sizeMeasurements as any)?.[data.frameSize] || {};
+
       const payload = {
         ...data,
+        sizeMeasurements: sizeMeasurementsArray,
+        lensWidth: primaryMeasurements.lensWidth ?? data.lensWidth,
+        bridgeWidth: primaryMeasurements.bridgeWidth ?? data.bridgeWidth,
+        templeLength: primaryMeasurements.templeLength ?? data.templeLength,
+        frameWidth: primaryMeasurements.frameWidth ?? data.frameWidth,
         tags: tagsArray,
         price: {
           original: data.mrp,
@@ -768,10 +852,10 @@ export default function AddProductWizard() {
         frame: {
           type: data.frameShape,
           material: data.material,
-          width: data.frameWidth,
-          lensWidth: data.lensWidth,
-          bridgeWidth: data.bridgeWidth,
-          templeLength: data.templeLength,
+          width: primaryMeasurements.frameWidth ?? data.frameWidth,
+          lensWidth: primaryMeasurements.lensWidth ?? data.lensWidth,
+          bridgeWidth: primaryMeasurements.bridgeWidth ?? data.bridgeWidth,
+          templeLength: primaryMeasurements.templeLength ?? data.templeLength,
           featureTags: tagsArray
         },
         compatible: {
@@ -1122,7 +1206,6 @@ export default function AddProductWizard() {
                       setValue('category', val);
                       setValue('subCategory', '');
                       setValue('subCategoryId', '');
-                      setValue('collectionName', '');
                       const matched = categoryTree.find((c: any) => c.slug === val);
                       setValue('categoryId', matched ? matched.id : '');
                     }}
@@ -1146,7 +1229,6 @@ export default function AddProductWizard() {
                     onChange={(e) => {
                       const val = e.target.value;
                       setValue('subCategory', val);
-                      setValue('collectionName', '');
                       const matched = subCategoryOptions.find((s: any) => s.name === val);
                       setValue('subCategoryId', matched ? matched.id : '');
                     }}
@@ -1177,24 +1259,7 @@ export default function AddProductWizard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Collection Dropdown */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Collection</label>
-                  <select
-                    {...register('collectionName')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold disabled:opacity-40"
-                    disabled={!formValues.category}
-                  >
-                    <option value="">-- Choose Collection --</option>
-                    {collectionOptions.map((col: any) => (
-                      <option key={col.id} value={col.name}>
-                        {col.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Gender */}
                 <div>
                   <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Gender</label>
@@ -1510,13 +1575,56 @@ export default function AddProductWizard() {
                   />
                 </div>
               </div>
+
+              {/* Feature Tags Selector */}
+              <div className="grid grid-cols-1 gap-6 mt-6">
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Feature Tags / Search Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    {...register('tags')}
+                    placeholder="e.g. Lightweight, Flexible, Skin Friendly, Durable"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {['Lightweight', 'Flexible', 'Skin Friendly', 'Durable'].map(tag => {
+                      const currentTagsStr = formValues.tags || '';
+                      const currentTagsList = currentTagsStr.split(',').map((t: string) => t.trim().toLowerCase());
+                      const isPresent = currentTagsList.includes(tag.toLowerCase());
+                      return (
+                        <button
+                          type="button"
+                          key={tag}
+                          onClick={() => {
+                            const list = currentTagsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+                            const idx = list.findIndex(t => t.toLowerCase() === tag.toLowerCase());
+                            if (idx >= 0) {
+                              list.splice(idx, 1);
+                            } else {
+                              list.push(tag);
+                            }
+                            setValue('tags', list.join(', '));
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all select-none cursor-pointer border ${
+                            isPresent 
+                              ? 'bg-[#D4A04D]/15 border-[#D4A04D]/35 text-[#D4A04D]' 
+                              : 'bg-[#0B0B0C] border-zinc-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {isPresent ? '✓ ' : '+ '} {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
           {/* SECTION 4: MEASUREMENTS */}
           <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 4: Measurements & Fit</h2>
               
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {/* Lens Width */}
                 <div>
                   <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Lens Width (mm)</label>
@@ -1556,41 +1664,98 @@ export default function AddProductWizard() {
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
                   />
                 </div>
-
-                {/* Frame Height */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Height (mm)</label>
-                  <input
-                    type="number"
-                    {...register('frameHeight', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* PD Compatibility */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">PD Compatibility</label>
-                  <input
-                    type="text"
-                    {...register('pdCompatibility')}
-                    placeholder="e.g. 58mm-70mm"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Frame Size */}
                 <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Size *</label>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Default/Primary Frame Size *</label>
                   <select
                     {...register('frameSize')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
                   >
                     <option value="Small">Small</option>
                     <option value="Medium">Medium</option>
                     <option value="Large">Large</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Available Sizes Checklist */}
+              <div>
+                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-3">Available Sizes *</label>
+                <div className="flex flex-wrap gap-4 select-none mb-6">
+                  {['Small', 'Medium', 'Large'].map(size => {
+                    const currentSizes = formValues.availableSizes || [];
+                    const isChecked = currentSizes.includes(size as any);
+                    return (
+                      <label 
+                        key={size}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setValue('availableSizes', [...currentSizes, size as any]);
+                            } else {
+                              setValue('availableSizes', currentSizes.filter(s => s !== size));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <span>{size}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Size-Specific Measurements sub-forms */}
+                <div className="space-y-6">
+                  {(formValues.availableSizes || []).map(size => (
+                    <div key={size} className="bg-[#18181A] p-5 rounded-2xl border border-[#2A2A2D]/40 space-y-4">
+                      <h4 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">{size} Size Specific Measurements</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Lens Width (mm)</label>
+                          <input
+                            type="number"
+                            placeholder="e.g. 50"
+                            {...register(`sizeMeasurements.${size}.lensWidth` as any, { valueAsNumber: true })}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Bridge Width (mm)</label>
+                          <input
+                            type="number"
+                            placeholder="e.g. 18"
+                            {...register(`sizeMeasurements.${size}.bridgeWidth` as any, { valueAsNumber: true })}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Temple Length (mm)</label>
+                          <input
+                            type="number"
+                            placeholder="e.g. 140"
+                            {...register(`sizeMeasurements.${size}.templeLength` as any, { valueAsNumber: true })}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Frame Width (mm)</label>
+                          <input
+                            type="number"
+                            placeholder="e.g. 138"
+                            {...register(`sizeMeasurements.${size}.frameWidth` as any, { valueAsNumber: true })}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1626,244 +1791,130 @@ export default function AddProductWizard() {
               </div>
             </div>
 
-          {/* SECTION 5: LENS CONFIGURATION */}
-          <div className="space-y-6 mb-12">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 5: Compatible Lens Types</h2>
-              
-              {/* Compatible Lens Checkboxes */}
-              <div className="space-y-2">
-                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-2">Select Compatible Lens Options</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 select-none">
-                  {['Zero Power', 'Single Vision', 'Reading', 'Progressive', 'Bifocal', 'Computer', 'Transition', 'Sunglasses'].map(lens => {
-                    const activeLenses = formValues.compatibleLensTypes || [];
-                    const isChecked = activeLenses.includes(lens);
-                    return (
-                      <label 
-                        key={lens} 
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-extrabold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setValue('compatibleLensTypes', [...activeLenses, lens]);
-                            } else {
-                              setValue('compatibleLensTypes', activeLenses.filter(l => l !== lens));
-                            }
-                          }}
-                          className="w-4 h-4 accent-[#D4A04D]"
-                        />
-                        <span>{lens}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
 
-              {/* Dynamic Lens Pricing Grid */}
-              <div className="border-t border-[#2A2A2D]/60 pt-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">Dynamic Lens Pricing</h3>
-                    <p className="text-[10px] text-gray-400">Add custom lens products and their membership tiers pricing</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => appendLens({ lensName: 'New Lens', lensCategory: 'Single Vision', regularPrice: 999, goldPrice: 899, platinumPrice: 799, priority: 0, status: 'Active' })}
-                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-[#2A2A2D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black transition-colors"
-                  >
-                    + Add Lens
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {lensPricingFields.map((field, index) => (
-                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 bg-[#18181A] p-4 rounded-xl border border-[#2A2A2D]/40 items-center">
-                      <div className="md:col-span-2">
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Lens Name</label>
-                        <input
-                          type="text"
-                          {...register(`dynamicLensPricing.${index}.lensName`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Category</label>
-                        <select
-                          {...register(`dynamicLensPricing.${index}.lensCategory`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none"
-                        >
-                          <option value="Zero Power">Zero Power</option>
-                          <option value="Single Vision">Single Vision</option>
-                          <option value="Reading">Reading</option>
-                          <option value="Progressive">Progressive</option>
-                          <option value="Bifocal">Bifocal</option>
-                          <option value="Computer">Computer</option>
-                          <option value="Transition">Transition</option>
-                          <option value="Sunglasses">Sunglasses</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Regular Price</label>
-                        <input
-                          type="number"
-                          {...register(`dynamicLensPricing.${index}.regularPrice`, { valueAsNumber: true })}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Gold Price</label>
-                        <input
-                          type="number"
-                          {...register(`dynamicLensPricing.${index}.goldPrice`, { valueAsNumber: true })}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Platinum Price</label>
-                        <input
-                          type="number"
-                          {...register(`dynamicLensPricing.${index}.platinumPrice`, { valueAsNumber: true })}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-4">
-                        <button
-                          type="button"
-                          onClick={() => removeLens(index)}
-                          className="text-red-400 hover:text-red-500 text-xs font-bold uppercase"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {lensPricingFields.length === 0 && (
-                    <p className="text-center text-gray-500 py-6 text-xs italic bg-[#18181A] rounded-xl border border-dashed border-zinc-800">No custom lenses configured</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          {/* ADVANCED SETTINGS TOGGLE */}
-          <div className="border-t border-[#2A2A2D] pt-8 pb-4 mb-6">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm font-extrabold uppercase tracking-wider text-[#D4A04D] flex items-center gap-2 hover:text-[#F5C77E] transition-colors"
-            >
-              {showAdvanced ? '− Hide Advanced Settings' : '+ Show Advanced Settings (Thickness, Coatings, Offers, Variants, Inventory)'}
-            </button>
-          </div>
-          {showAdvanced && (
             <>
-              {/* SECTION 6: THICKNESS PRICING */}
+              {/* SECTION 6 & 7: LENS CONFIGURATION */}
               <div className="space-y-6 mb-12">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 6: Lens Thickness Pricing</h2>
-              
-              <p className="text-[10px] text-gray-400 leading-relaxed">
-                Define the surcharges and prices of different glass thickness indexes. Gold and Platinum fields offer tiered discounts.
-              </p>
-
-              <div className="space-y-4">
-                {formValues.thicknessPricing?.map((field, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-[#18181A] p-4 rounded-xl border border-[#2A2A2D]/40 items-center">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#D4A04D] font-extrabold text-sm font-mono">{idx + 1}</span>
-                      <div>
-                        <span className="text-white text-xs font-bold block">Refractive Index {field.thickness}</span>
-                        <span className="text-[10px] text-gray-500">Lens Thickness Level</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Regular Price surcharge (₹)</label>
-                      <input
-                        type="number"
-                        {...register(`thicknessPricing.${idx}.regularPrice`, { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Gold Price surcharge (₹)</label>
-                      <input
-                        type="number"
-                        {...register(`thicknessPricing.${idx}.goldPrice`, { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Platinum Price surcharge (₹)</label>
-                      <input
-                        type="number"
-                        {...register(`thicknessPricing.${idx}.platinumPrice`, { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                      />
-                    </div>
+                <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 5: Lens Type & Lenses</h2>
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-3">Select Compatible Lens Types *</label>
+                  <div className="flex flex-wrap gap-4 select-none">
+                    {availableLensTypes.map((type) => {
+                      const currentTypes = formValues.lensTypes || [];
+                      const isChecked = currentTypes.includes(type._id);
+                      return (
+                        <label 
+                          key={type._id}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setValue('lensTypes', [...currentTypes, type._id]);
+                              } else {
+                                setValue('lensTypes', currentTypes.filter(id => id !== type._id));
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <span>{type.name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-          {/* SECTION 7: COATING OPTIONS */}
-          <div className="space-y-6 mb-12">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 7: Coating Options</h2>
-              
-              <div className="space-y-4">
-                {formValues.coatingPricing?.map((field, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-[#18181A] p-4 rounded-xl border border-[#2A2A2D]/40 items-center">
-                    <div>
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          {...register(`coatingPricing.${idx}.isActive`)}
-                          className="w-4 h-4 accent-[#D4A04D]"
-                        />
+                {/* Storefront Compatibility Checklist */}
+                <div className="pt-6 border-t border-[#2A2A2D]/40">
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-3">Compatible Lenses (Storefront Displays) *</label>
+                  <div className="flex flex-wrap gap-4 select-none">
+                    {['Zero Power', 'Single Vision', 'Progressive'].map((type) => {
+                      const currentCompTypes = formValues.compatibleLensTypes || [];
+                      const isChecked = currentCompTypes.includes(type);
+                      return (
+                        <label 
+                          key={type}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setValue('compatibleLensTypes', [...currentCompTypes, type]);
+                              } else {
+                                setValue('compatibleLensTypes', currentCompTypes.filter(t => t !== type));
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <span>{type}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {(formValues.lensTypes || []).map((typeId) => {
+                  const typeDetails = availableLensTypes.find(t => t._id === typeId);
+                  if (!typeDetails) return null;
+                  const lenses = lensesMap[typeId] || [];
+                  const isLoading = loadingLensesMap[typeId];
+
+                  return (
+                    <div key={typeId} className="bg-[#18181A] border border-[#2A2A2D] rounded-xl p-6 space-y-4">
+                      <div className="flex justify-between items-center pb-3 border-b border-[#2A2A2D]">
                         <div>
-                          <span className="text-white text-xs font-bold block">{field.coatingName}</span>
+                          <h3 className="text-white text-sm font-extrabold uppercase tracking-wider text-[#D4A04D]">{typeDetails.name} Lenses</h3>
+                          <p className="text-[10px] text-gray-400">All active/configured lenses under this type</p>
                         </div>
-                      </label>
-                      <input
-                        type="text"
-                        {...register(`coatingPricing.${idx}.description`)}
-                        placeholder="Description..."
-                        className="w-full bg-transparent border-b border-zinc-800 text-[10px] text-gray-500 focus:outline-none pt-1"
-                      />
+                      </div>
+                      
+                      {isLoading ? (
+                        <div className="py-6 text-center text-gray-500 text-xs italic animate-pulse">Loading associated lenses...</div>
+                      ) : lenses.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D] pb-2">
+                                <th className="py-3 px-4">Lens Name</th>
+                                <th className="py-3 px-4">Base Price</th>
+                                <th className="py-3 px-4">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#2A2A2D]/40 text-gray-300">
+                              {lenses.map((lens) => (
+                                <tr key={lens._id} className="hover:bg-zinc-900/30 transition-colors">
+                                  <td className="py-3 px-4 font-semibold text-white">{lens.name}</td>
+                                  <td className="py-3 px-4 font-bold text-[#D4A04D]">₹{lens.basePrice}</td>
+                                  <td className="py-3 px-4">
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                                      lens.status === 'Active' 
+                                        ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                                        : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                    }`}>
+                                      {lens.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-gray-500 text-xs italic">No lenses configured under this lens type yet. Go to Lens Management to add them.</div>
+                      )}
                     </div>
-
-                    <div>
-                      <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Regular Price surcharge (₹)</label>
-                      <input
-                        type="number"
-                        {...register(`coatingPricing.${idx}.regularPrice`, { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Member Price surcharge (₹)</label>
-                      <input
-                        type="number"
-                        {...register(`coatingPricing.${idx}.memberPrice`, { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none font-bold text-yellow-400"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
 
           {/* SECTION 8: MEMBERSHIP & OFFERS */}
           <div className="space-y-6 mb-12">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 8: Memberships & Offers</h2>
+              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 6: Memberships & Offers</h2>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 select-none bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
@@ -1950,114 +2001,13 @@ export default function AddProductWizard() {
               )}
             </div>
 
-          {/* SECTION 9: PRODUCT VARIANTS */}
-          <div className="space-y-6 mb-12">
-              <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3">
-                <h2 className="text-white text-base font-extrabold uppercase tracking-wider text-[#D4A04D]">Step 9: Product Variants</h2>
-                <button
-                  type="button"
-                  onClick={() => appendVariant({ name: 'Matte Blue Variant', color: 'Blue', sku: `${formValues.sku || 'EG-6001'}-BLU`, stock: 50, priceOverride: 0, status: 'Active', images: [], priority: 1 })}
-                  className="px-4 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider bg-[#2A2A2D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black transition-colors"
-                >
-                  + Create Variant
-                </button>
-              </div>
 
-              <div className="space-y-6">
-                {variantFields.map((field, idx) => (
-                  <div key={field.id} className="bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D] space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-[#D4A04D] uppercase">Variant #{idx + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeVariant(idx)}
-                        className="text-red-400 hover:text-red-500 text-[10px] font-bold uppercase"
-                      >
-                        Delete Variant
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Variant Name</label>
-                        <input
-                          type="text"
-                          {...register(`variants.${idx}.name`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Color</label>
-                        <input
-                          type="text"
-                          {...register(`variants.${idx}.color`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">SKU Override</label>
-                        <input
-                          type="text"
-                          {...register(`variants.${idx}.sku`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Initial Stock</label>
-                        <input
-                          type="number"
-                          {...register(`variants.${idx}.stock`, { valueAsNumber: true })}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none font-bold"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Price Override (₹)</label>
-                        <input
-                          type="number"
-                          {...register(`variants.${idx}.priceOverride`, { valueAsNumber: true })}
-                          placeholder="Uses base price if empty"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Priority Order</label>
-                        <input
-                          type="number"
-                          {...register(`variants.${idx}.priority`, { valueAsNumber: true })}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Status</label>
-                        <select
-                          {...register(`variants.${idx}.status`)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        >
-                          <option value="Active">Active</option>
-                          <option value="Draft">Draft</option>
-                          <option value="Inactive">Inactive</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {variantFields.length === 0 && (
-                  <p className="text-center text-gray-500 py-12 text-xs italic bg-[#18181A] rounded-2xl border border-dashed border-zinc-800">
-                    No variations added. Product will sell under the default base frame settings.
-                  </p>
-                )}
-              </div>
-            </div>
 
             </>
-          )}
 
           {/* SECTION 11: MEDIA ASSETS UPLOAD */}
           <div className="space-y-6 mb-12">
-              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 11: Media Assets</h2>
+              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 7: Media Assets</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Single Image Drag-n-Drops */}

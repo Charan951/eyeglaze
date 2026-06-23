@@ -42,6 +42,14 @@ interface Product {
   categories: string[];
   category?: string;
   availableSizes?: Array<'Small' | 'Medium' | 'Large'>;
+  sizeMeasurements?: Array<{
+    size: 'Small' | 'Medium' | 'Large';
+    lensWidth?: number;
+    bridgeWidth?: number;
+    templeLength?: number;
+    frameWidth?: number;
+    frameHeight?: number;
+  }>;
   offerBadges?: Array<string>;
   isPremium?: boolean;
   buy1Get1?: boolean;
@@ -131,7 +139,30 @@ export default function ProductDetailPage() {
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
-  const [showTechDetails, setShowTechDetails] = useState(false);
+
+  const getActiveDimensions = () => {
+    if (product?.sizeMeasurements && Array.isArray(product.sizeMeasurements)) {
+      const match = product.sizeMeasurements.find((item: any) => item.size === selectedSize);
+      if (match) {
+        return {
+          frameWidth: match.frameWidth ?? product.frame?.width,
+          lensWidth: match.lensWidth ?? product.frame?.lensWidth,
+          bridgeWidth: match.bridgeWidth ?? product.frame?.bridgeWidth,
+          templeLength: match.templeLength ?? product.frame?.templeLength,
+          frameHeight: match.frameHeight ?? 40,
+        };
+      }
+    }
+    return {
+      frameWidth: product?.frame?.width,
+      lensWidth: product?.frame?.lensWidth,
+      bridgeWidth: product?.frame?.bridgeWidth,
+      templeLength: product?.frame?.templeLength,
+      frameHeight: 40,
+    };
+  };
+
+  const activeDimensions = getActiveDimensions();
 
   const getRecommendedSize = (widthVal?: number) => {
     const width = widthVal ?? product?.frame?.width;
@@ -250,11 +281,20 @@ export default function ProductDetailPage() {
           if (prod.colors && prod.colors.length > 0) {
             setSelectedColor(prod.colors[0]);
           }
+          const available = prod.availableSizes && prod.availableSizes.length > 0
+            ? prod.availableSizes
+            : ['Small', 'Medium', 'Large'];
+          let initialSize = 'Medium';
           if (prod.frame?.width) {
-            setSelectedSize(getRecommendedSize(prod.frame.width));
-          } else {
-            setSelectedSize('Medium');
+            const w = prod.frame.width;
+            if (w <= 135) initialSize = 'Small';
+            else if (w >= 143) initialSize = 'Large';
+            else initialSize = 'Medium';
           }
+          if (!available.includes(initialSize as any)) {
+            initialSize = available[0];
+          }
+          setSelectedSize(initialSize);
 
           const backendReviews = res.data.reviews || [];
           if (backendReviews.length > 0) {
@@ -274,11 +314,20 @@ export default function ProductDetailPage() {
           if (prod.colors && prod.colors.length > 0) {
             setSelectedColor(prod.colors[0]);
           }
+          const available = prod.availableSizes && prod.availableSizes.length > 0
+            ? prod.availableSizes
+            : ['Small', 'Medium', 'Large'];
+          let initialSize = 'Medium';
           if (prod.frame?.width) {
-            setSelectedSize(getRecommendedSize(prod.frame.width));
-          } else {
-            setSelectedSize('Medium');
+            const w = prod.frame.width;
+            if (w <= 135) initialSize = 'Small';
+            else if (w >= 143) initialSize = 'Large';
+            else initialSize = 'Medium';
           }
+          if (!available.includes(initialSize as any)) {
+            initialSize = available[0];
+          }
+          setSelectedSize(initialSize);
           setReviews(getMockReviews(prod.name));
         }
       })
@@ -572,23 +621,37 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Pricing Card */}
+           {/* Pricing Card */}
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between gap-4">
+            <div className="hidden md:flex items-center justify-between gap-4">
               <div className="flex flex-col">
                 <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Frame Starting</span>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  {/* Mobile responsive: Show standard selling price */}
+                  <span className="text-3xl font-black text-white md:hidden">
+                    ₹{product.price.selling}
+                  </span>
+
+                  {/* Desktop view: Show member/non-member prices if available */}
                   {product.memberPrice && (
-                    <span className="text-3xl font-black text-[#D4A04D]">₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span></span>
+                    <span className="hidden md:inline text-3xl font-black text-[#D4A04D]">
+                      ₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span>
+                    </span>
                   )}
                   {product.nonMemberPrice && (
-                    <span className="text-2xl font-black text-white">₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span></span>
+                    <span className="hidden md:inline text-2xl font-black text-white">
+                      ₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span>
+                    </span>
                   )}
-                  {!product.memberPrice && !product.nonMemberPrice && (
-                    <span className="text-3xl font-black text-white">₹{product.price.selling}</span>
+                  
+                  {/* Fallback for desktop when member prices are not available */}
+                  {(!product.memberPrice || !product.nonMemberPrice) && (
+                    <span className="hidden md:inline text-3xl font-black text-white">
+                      ₹{product.price.selling}
+                    </span>
                   )}
-                  <span className="text-gray-600 text-sm line-through">₹{product.price.original}</span>
-                  <span className="bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
+                  <span className="hidden md:inline text-gray-600 text-sm line-through">₹{product.price.original}</span>
+                  <span className="hidden md:inline bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
                     {discount}% OFF
                   </span>
                 </div>
@@ -596,7 +659,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Quantity Selector */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#2A2A2D]">
+            <div className="flex items-center justify-between pt-0 md:pt-3 border-none md:border-t md:border-[#2A2A2D]">
               <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Quantity</span>
               <div className="flex items-center gap-2 bg-[#0E0E0E] border border-[#2A2A2D] rounded-lg">
                 <button
@@ -626,32 +689,6 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Eligible Offers */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-2">
-            <span className="text-white text-xs font-bold uppercase tracking-wider mb-1">Eligible Offers</span>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-green-500 text-sm">✓</span>
-                <span className="text-gray-300"><strong className="text-white">1+1 Offer:</strong> Buy two eligible products, pay for the highest priced one</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-green-500 text-sm">✓</span>
-                <span className="text-gray-300"><strong className="text-white">₹1 Frame:</strong> Members first login offer (max 2 frames)</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-green-500 text-sm">✓</span>
-                <span className="text-gray-300"><strong className="text-white">Cashback Offer:</strong> Get cashback in wallet on eligible purchases</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-green-500 text-sm">✓</span>
-                <span className="text-gray-300"><strong className="text-white">50% OFF:</strong> Member exclusive coupon</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-green-500 text-sm">✓</span>
-                <span className="text-gray-300"><strong className="text-white">Free Lens Offer:</strong> On select products</span>
-              </div>
-            </div>
-          </div>
 
           {/* Color Selector */}
           {product.colors?.length > 0 && (
@@ -695,9 +732,9 @@ export default function ProductDetailPage() {
               </button>
             </div>
             <div className="flex gap-3">
-              {renderSizeCard('Small', 'Up to 135 mm', 'Best for narrow face')}
-              {renderSizeCard('Medium', '136 – 142 mm', 'Best for standard face')}
-              {renderSizeCard('Large', '143 – 150 mm', 'Best for wide face')}
+              {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Small')) && renderSizeCard('Small', 'Up to 135 mm', 'Best for narrow face')}
+              {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Medium')) && renderSizeCard('Medium', '136 – 142 mm', 'Best for standard face')}
+              {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Large')) && renderSizeCard('Large', '143 – 150 mm', 'Best for wide face')}
             </div>
           </div>
 
@@ -706,14 +743,6 @@ export default function ProductDetailPage() {
             <div>
               <div className="flex justify-between items-center mb-2.5 select-none">
                 <span className="text-white text-xs font-bold uppercase tracking-wider">FRAME DIMENSIONS (in mm)</span>
-                <button
-                  type="button"
-                  onClick={() => setShowTechDetails(true)}
-                  className="text-[#D4A04D] text-xs font-extrabold uppercase tracking-wide cursor-pointer bg-transparent border-none flex items-center gap-1 hover:text-[#C8923E] transition-colors"
-                >
-                  <span>Technical Details</span>
-                  <span className="text-[9px]">&#9650;</span>
-                </button>
               </div>
               <div className="border border-[#2A2A2D] rounded-xl bg-[#0E0E0E] grid grid-cols-4 divide-x divide-[#2A2A2D] py-3 text-center">
                 {/* 1. Frame Width */}
@@ -726,7 +755,7 @@ export default function ProductDetailPage() {
                     </svg>
                   </span>
                   <span className="text-gray-500 text-[8px] uppercase font-bold tracking-wider">Frame Width</span>
-                  <span className="text-white text-xs font-bold mt-0.5">{product.frame.width} mm</span>
+                  <span className="text-white text-xs font-bold mt-0.5">{activeDimensions.frameWidth} mm</span>
                 </div>
                 
                 {/* 2. Lens Width */}
@@ -737,7 +766,7 @@ export default function ProductDetailPage() {
                     </svg>
                   </span>
                   <span className="text-gray-500 text-[8px] uppercase font-bold tracking-wider">Lens Width</span>
-                  <span className="text-white text-xs font-bold mt-0.5">{product.frame.lensWidth} mm</span>
+                  <span className="text-white text-xs font-bold mt-0.5">{activeDimensions.lensWidth} mm</span>
                 </div>
 
                 {/* 3. Bridge Width */}
@@ -750,7 +779,7 @@ export default function ProductDetailPage() {
                     </svg>
                   </span>
                   <span className="text-gray-500 text-[8px] uppercase font-bold tracking-wider">Bridge</span>
-                  <span className="text-white text-xs font-bold mt-0.5">{product.frame.bridgeWidth} mm</span>
+                  <span className="text-white text-xs font-bold mt-0.5">{activeDimensions.bridgeWidth} mm</span>
                 </div>
 
                 {/* 4. Temple Length */}
@@ -761,7 +790,7 @@ export default function ProductDetailPage() {
                     </svg>
                   </span>
                   <span className="text-gray-500 text-[8px] uppercase font-bold tracking-wider">Temple</span>
-                  <span className="text-white text-xs font-bold mt-0.5">{product.frame.templeLength} mm</span>
+                  <span className="text-white text-xs font-bold mt-0.5">{activeDimensions.templeLength} mm</span>
                 </div>
               </div>
             </div>
@@ -787,13 +816,6 @@ export default function ProductDetailPage() {
                     ))}
                   </div>
                 </div>
-                
-                <button 
-                  onClick={() => setShowTechDetails(true)}
-                  className="border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black transition-colors font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider shrink-0 cursor-pointer bg-transparent"
-                >
-                  VIEW DETAILS
-                </button>
               </div>
 
               <div className="border-t border-[#2A2A2D]/40 pt-3 flex items-center gap-1.5 text-[#A7A7A7] text-[10px] font-medium leading-none">
@@ -1200,51 +1222,7 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {/* Technical Details Modal */}
-      {showTechDetails && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
-            <h3 className="text-white font-extrabold text-lg mb-5 uppercase tracking-wide">Technical Details</h3>
-            <div className="space-y-3.5 mb-6 text-sm text-gray-300">
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>SKU:</span>
-                <span className="text-white font-bold">{product.sku}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>Frame Type:</span>
-                <span className="text-white font-bold">{product.frame?.type || 'Standard'}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>Material:</span>
-                <span className="text-white font-bold">{product.frame?.material || 'Premium TR90'}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>Frame Width:</span>
-                <span className="text-[#D4A04D] font-bold">{product.frame?.width} mm</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>Lens Width:</span>
-                <span className="text-white font-bold">{product.frame?.lensWidth} mm</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2.5">
-                <span>Bridge:</span>
-                <span className="text-white font-bold">{product.frame?.bridgeWidth} mm</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Temple Length:</span>
-                <span className="text-white font-bold">{product.frame?.templeLength} mm</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowTechDetails(false)}
-              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer border-none"
-            >
-              CLOSE
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Padding for sticky bar */}
       <div className="h-32 md:hidden" />

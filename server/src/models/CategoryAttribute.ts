@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ICategoryAttribute extends Document {
   targetId: mongoose.Types.ObjectId;
-  targetType: 'Category' | 'SubCategory' | 'ChildCategory' | 'Collection';
+  targetType: 'Category' | 'SubCategory';
   genders: string[]; // 'Men' | 'Women' | 'Kids' | 'Unisex'
   ageGroups: string[]; // '0-5' | '6-12' | '13-18' | '18-25' | '26-35' | '36-50' | '50+'
   usageTypes: string[]; // 'Daily Wear' | 'Office Wear' | 'Computer Use' | etc.
@@ -18,7 +18,7 @@ const CategoryAttributeSchema = new Schema<ICategoryAttribute>(
     targetType: {
       type: String,
       required: true,
-      enum: ['Category', 'SubCategory', 'ChildCategory', 'Collection'],
+      enum: ['Category', 'SubCategory'],
     },
     genders: [{ type: String }],
     ageGroups: [{ type: String }],

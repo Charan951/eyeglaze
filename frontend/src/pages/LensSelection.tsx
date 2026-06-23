@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
@@ -61,7 +61,7 @@ export default function LensSelection() {
   const [selectedQuality, setSelectedQuality] = useState<LensOption | null>(null); // Quality/Coatings tier (Step 3)
 
   // Power Input State
-  const [powerMode, setPowerMode] = useState<'enter' | 'upload' | 'later'>('upload');
+  const [powerMode, setPowerMode] = useState<'enter' | 'upload' | 'later'>('enter');
   const [prescriptionFileName, setPrescriptionFileName] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [uploadingPrescription, setUploadingPrescription] = useState(false);
@@ -79,13 +79,80 @@ export default function LensSelection() {
   const [pd, setPd] = useState('62.0');
 
   // Checkout States
-  const [couponCode, setCouponCode] = useState('');
-  const [discountApplied, setDiscountApplied] = useState(0);
-  const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
-  const [isMembershipAdded, setIsMembershipAdded] = useState(false);
   const [isPdModalOpen, setIsPdModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Saved Prescriptions State
+  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState('');
+
+  const formatValue = (val?: number) => {
+    if (val === undefined || isNaN(val)) return '0.00';
+    return val > 0 ? `+${val.toFixed(2)}` : val.toFixed(2);
+  };
+
+  const formatOptionLabel = (pr: any) => {
+    if (pr.uploadedFile || pr.imageUrl) {
+      const date = new Date(pr.createdAt).toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      return `📄 Uploaded Prescription Document (Saved on ${date})`;
+    }
+    const reStr = `R: ${formatValue(pr.RE?.sph)} ${formatValue(pr.RE?.cyl)} ${pr.RE?.axis || '0'}°`;
+    const leStr = `L: ${formatValue(pr.LE?.sph)} ${formatValue(pr.LE?.cyl)} ${pr.LE?.axis || '0'}°`;
+    const pdStr = pr.pd ? ` (PD: ${pr.pd}mm)` : '';
+    return `👓 Manual Power - ${reStr} | ${leStr}${pdStr}`;
+  };
+
+  useEffect(() => {
+    if (currentStep === 3 && user) {
+      api.get('/prescriptions')
+        .then(res => {
+          setSavedPrescriptions(res.data.prescriptions || []);
+        })
+        .catch(err => console.error('Failed to fetch saved prescriptions:', err));
+    }
+  }, [currentStep, user]);
+
+  const handleSelectSavedPrescription = (id: string) => {
+    setSelectedPrescriptionId(id);
+    const selected = savedPrescriptions.find(p => p._id === id);
+    if (selected) {
+      if (selected.uploadedFile || selected.imageUrl) {
+        setPowerMode('upload');
+        const url = selected.uploadedFile || selected.imageUrl || '';
+        setUploadedFileUrl(url);
+        
+        let filename = 'Saved Prescription Document';
+        try {
+          const u = new URL(url);
+          const pathSegments = u.pathname.split('/');
+          filename = pathSegments[pathSegments.length - 1] || 'prescription_document.jpg';
+        } catch (e) {
+          const pathSegments = url.split('/');
+          filename = pathSegments[pathSegments.length - 1] || 'prescription_document.jpg';
+        }
+        setPrescriptionFileName(decodeURIComponent(filename));
+      } else {
+        setPowerMode('enter');
+        if (selected.RE) {
+          setReSph(selected.RE.sph !== undefined ? selected.RE.sph.toFixed(2) : '0.00');
+          setReCyl(selected.RE.cyl !== undefined ? selected.RE.cyl.toFixed(2) : '0.00');
+          setReAxis(selected.RE.axis !== undefined ? selected.RE.axis.toString() : '0');
+        }
+        if (selected.LE) {
+          setLeSph(selected.LE.sph !== undefined ? selected.LE.sph.toFixed(2) : '0.00');
+          setLeCyl(selected.LE.cyl !== undefined ? selected.LE.cyl.toFixed(2) : '0.00');
+          setLeAxis(selected.LE.axis !== undefined ? selected.LE.axis.toString() : '0');
+        }
+        if (selected.pd !== undefined) {
+          setPd(selected.pd.toFixed(1));
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (!productId) {
@@ -181,9 +248,8 @@ export default function LensSelection() {
 
   const stepsConfig = [
     { step: 1, label: 'LENS TYPE' },
-    { step: 2, label: 'POWER' },
-    { step: 3, label: 'QUALITY' },
-    { step: 4, label: 'CHECKOUT' }
+    { step: 2, label: 'QUALITY' },
+    { step: 3, label: 'POWER' }
   ];
 
   // Navigation Handlers
@@ -192,17 +258,10 @@ export default function LensSelection() {
       if (!selectedType) return;
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (!isZeroPower && powerMode === 'enter') {
-        const hasAstigmatismRE = parseFloat(reCyl) !== 0;
-        const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-        if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-          alert('Please enter AXIS for astigmatism (when CYL is not 0)');
-          return;
-        }
+      if (selectedType?.type === 'progressive' && !selectedSubType) {
+        return;
       }
       setCurrentStep(3);
-    } else if (currentStep === 3) {
-      setCurrentStep(4);
     }
   };
 
@@ -318,33 +377,26 @@ export default function LensSelection() {
     }
   };
 
-  const handleApplyCoupon = () => {
-    setCouponError('');
-    setCouponSuccess('');
-    const code = couponCode.trim().toUpperCase();
-    if (!code) return;
 
-    if (code === 'WELCOME50' || code === 'EYEGLAZE50') {
-      setDiscountApplied(50);
-      setCouponSuccess('Coupon applied successfully! You got ₹50 discount.');
-    } else if (code === 'EYEGLAZE99') {
-      setDiscountApplied(99);
-      setCouponSuccess('Coupon applied successfully! You got ₹99 discount.');
-    } else {
-      setCouponError('Invalid coupon code. Try WELCOME50 or EYEGLAZE99.');
-      setDiscountApplied(0);
-    }
-  };
 
   const handleConfirmAndAdd = async () => {
-    if (!isZeroPower && powerMode === 'upload') {
-      if (uploadingPrescription) {
-        alert('Please wait for the prescription file to finish uploading.');
-        return;
-      }
-      if (!uploadedFileUrl) {
-        alert('Please select and upload a prescription file first.');
-        return;
+    if (!isZeroPower) {
+      if (powerMode === 'enter') {
+        const hasAstigmatismRE = parseFloat(reCyl) !== 0;
+        const hasAstigmatismLE = parseFloat(leCyl) !== 0;
+        if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
+          alert('Please enter AXIS for astigmatism (when CYL is not 0)');
+          return;
+        }
+      } else if (powerMode === 'upload') {
+        if (uploadingPrescription) {
+          alert('Please wait for the prescription file to finish uploading.');
+          return;
+        }
+        if (!uploadedFileUrl) {
+          alert('Please select and upload a prescription file first.');
+          return;
+        }
       }
     }
 
@@ -374,6 +426,18 @@ export default function LensSelection() {
         power: powerObj
       };
 
+      if (user && !isZeroPower && powerMode === 'enter') {
+        try {
+          await api.post('/prescriptions', {
+            RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
+            LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) }),
+            pd: parseFloat(pd)
+          });
+        } catch (err) {
+          console.error('Failed to save manual prescription to database:', err);
+        }
+      }
+
       if (!user) {
         // Guest user local cart flow
         const guestCartStr = localStorage.getItem('guest_cart');
@@ -399,7 +463,7 @@ export default function LensSelection() {
         cart.push(newItem);
         localStorage.setItem('guest_cart', JSON.stringify(cart));
         await fetchCartCount();
-        navigate('/cart');
+        navigate('/checkout');
         return;
       }
 
@@ -412,7 +476,7 @@ export default function LensSelection() {
 
       await api.post('/cart', payload);
       await fetchCartCount();
-      navigate('/cart');
+      navigate('/checkout');
     } catch (err) {
       console.error('Failed to add product with lens config:', err);
       alert('Failed to add config to cart. Please try again.');
@@ -421,17 +485,7 @@ export default function LensSelection() {
     }
   };
 
-  // Pricing Breakdown
-  const framePrice = product.price.selling;
-  const chosenLensPrice = selectedType?.type === 'progressive' 
-    ? (selectedSubType?.price || 2499)
-    : (selectedQuality?.price || selectedType?.price || 699);
-  const fittingCharge = 199;
-  const deliveryCharge = isMembershipAdded ? 0 : 99;
-  const subTotal = framePrice + chosenLensPrice + fittingCharge + deliveryCharge;
-  const totalDiscount = discountApplied;
-  const membershipFee = isMembershipAdded ? 99 : 0; // Updated membership fee to match ₹99 in screenshot
-  const totalPrice = Math.max(0, subTotal - totalDiscount + membershipFee);
+
 
   // SVG diagram rendering for Step 1
   const renderLensDiagram = (type: string, isBig = false) => {
@@ -551,35 +605,6 @@ export default function LensSelection() {
   return (
     <div className="min-h-screen bg-[#0E0E0F]">
       <SEO robots="noindex, nofollow" title="Configure Lenses" />
-      
-      {/* Sticky Custom Header */}
-      <header className="sticky top-0 bg-[#0E0E0F]/90 backdrop-blur-md border-b border-[#2A2A2D] z-50 py-3 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-            aria-label="Go Back"
-          >
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          
-          <div className="flex flex-col items-center">
-            <span className="text-[#D4A04D] font-serif text-lg tracking-[0.2em] uppercase font-bold leading-none">EYEGLAZE</span>
-            <span className="text-[#D4A04D]/85 font-sans text-[7px] tracking-[0.3em] uppercase mt-0.5">EYEWEAR</span>
-          </div>
-
-          <Link to="/cart" className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            <span className="absolute -top-1 -right-1 bg-[#D4A04D] text-black font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-[#0E0E0F]">
-              2
-            </span>
-          </Link>
-        </div>
-      </header>
 
       {/* Main Content Area */}
       <div className="max-w-3xl mx-auto px-4 py-6 pb-28">
@@ -737,7 +762,7 @@ export default function LensSelection() {
                     }`}
                   >
                     {isSelected && (
-                      <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#D4A04D] flex items-center justify-center shadow-md">
+                      <div className="absolute top-2.5 right-2.5 z-10 w-4 h-4 rounded-full bg-[#D4A04D] flex items-center justify-center shadow-md">
                         <span className="text-black text-[9px] font-extrabold">✓</span>
                       </div>
                     )}
@@ -793,6 +818,145 @@ export default function LensSelection() {
                   disabled={!selectedType}
                   className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <span>CONTINUE TO QUALITY</span>
+                  <span className="text-xs">→</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= STEP 2: SELECT LENS QUALITY ================= */}
+        {currentStep === 2 && selectedType && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="text-left">
+              <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Lens Quality</h1>
+              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose the quality and features for your lenses</p>
+            </div>
+
+            {selectedType.type === 'progressive' ? (
+              <div className="space-y-4 pt-1">
+                <h2 className="text-white font-extrabold text-xs uppercase tracking-wider">Choose Your Progressive Lens</h2>
+                <div className="space-y-3.5">
+                  {currentSubTypes.map((subOption) => {
+                    const isSubSelected = selectedSubType?._id === subOption._id;
+                    return (
+                      <div
+                        key={subOption._id}
+                        onClick={() => setSelectedSubType(subOption)}
+                        className={`relative bg-[#131314] border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
+                          isSubSelected ? 'border-[#D4A04D] bg-[#141416]' : 'border-[#2A2A2D]'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="flex-shrink-0 mt-1 sm:mt-0">
+                            {renderLensDiagram(selectedType.type || '')}
+                          </div>
+                          <div className="flex-1 space-y-2 text-left">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-white font-bold text-sm leading-none">{subOption.displayName}</h3>
+                              {subOption.isBestseller && (
+                                <span className="bg-[#D4A04D] text-black text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wide uppercase leading-none">
+                                  Bestseller
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">
+                              {subOption.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center sm:flex-col sm:items-end justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#2A2A2D]/40">
+                          <div className="flex flex-col sm:items-end text-left sm:text-right">
+                            <span className="text-white font-black text-sm">₹{subOption.price}</span>
+                            <span className="text-gray-500 text-[9px] font-semibold mt-0.5">/ pair</span>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center mt-3 sm:mt-4 ${
+                            isSubSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
+                          }`}>
+                            {isSubSelected && <span className="text-black text-[10px] font-black">✓</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4.5">
+                {lensQualities.map((quality) => {
+                  const isSelected = selectedQuality?._id === quality._id;
+                  
+                  return (
+                    <div
+                      key={quality._id}
+                      onClick={() => setSelectedQuality(quality)}
+                      className={`relative bg-[#131314] border rounded-xl p-5 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
+                        isSelected ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
+                      }`}
+                    >
+                      {/* Recommended badge */}
+                      {quality.isRecommended && (
+                        <div className="absolute -top-2.5 left-4">
+                          <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                            Recommended
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-start justify-between gap-4 text-left">
+                        <div className="flex-1 space-y-2">
+                          <h3 className="text-white font-bold text-sm leading-none pt-0.5">{quality.displayName}</h3>
+                          <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{quality.description}</p>
+                          
+                          {/* Feature icons with names */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
+                            {quality.features?.map((feat, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider">
+                                {renderQualityFeatureIcon(feat)}
+                                <span>{feat}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 self-stretch sm:justify-start gap-4">
+                          <span className="text-white font-black text-sm">₹{quality.price} / pair</span>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
+                          }`}>
+                            {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Bottom Strip */}
+            <div className="flex items-center justify-center gap-2 text-gray-500 text-[10px] font-bold uppercase tracking-wider py-2">
+              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>All lenses include 100% UV Protection</span>
+            </div>
+
+            {/* Sticky Navigation Footer */}
+            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
+              <div className="max-w-md mx-auto flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 bg-[#131314] border border-[#2A2A2D] hover:border-white text-white font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleNext}
+                  disabled={selectedType.type === 'progressive' && !selectedSubType}
+                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <span>CONTINUE TO POWER</span>
                   <span className="text-xs">→</span>
                 </button>
@@ -801,8 +965,8 @@ export default function LensSelection() {
           </div>
         )}
 
-        {/* ================= STEP 2: ENTER POWER ================= */}
-        {currentStep === 2 && selectedType && (
+        {/* ================= STEP 3: ENTER POWER ================= */}
+        {currentStep === 3 && selectedType && (
           <div className="space-y-6 animate-fade-in">
             
             {/* Header Block */}
@@ -817,16 +981,28 @@ export default function LensSelection() {
             {!isZeroPower ? (
               <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
                 
+                {user && savedPrescriptions.length > 0 && (
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
+                    <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
+                      📂 Add Saved Power
+                    </label>
+                    <select
+                      value={selectedPrescriptionId}
+                      onChange={(e) => handleSelectSavedPrescription(e.target.value)}
+                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer"
+                    >
+                      <option value="">-- Select from Saved Powers --</option>
+                      {savedPrescriptions.map((pr: any) => (
+                        <option key={pr._id} value={pr._id}>
+                          {formatOptionLabel(pr)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Tabs */}
                 <div className="flex border-b border-[#2A2A2D]/85">
-                  <button
-                    onClick={() => setPowerMode('upload')}
-                    className={`flex-1 pb-3 text-[10px] font-extrabold uppercase tracking-wider transition-colors border-b-2 text-center bg-transparent border-none cursor-pointer ${
-                      powerMode === 'upload' ? 'border-[#D4A04D] text-[#D4A04D]' : 'border-transparent text-gray-500 hover:text-white'
-                    }`}
-                  >
-                    UPLOAD PRESCRIPTION
-                  </button>
                   <button
                     onClick={() => setPowerMode('enter')}
                     className={`flex-1 pb-3 text-[10px] font-extrabold uppercase tracking-wider transition-colors border-b-2 text-center bg-transparent border-none cursor-pointer ${
@@ -834,6 +1010,14 @@ export default function LensSelection() {
                     }`}
                   >
                     ENTER MANUALLY
+                  </button>
+                  <button
+                    onClick={() => setPowerMode('upload')}
+                    className={`flex-1 pb-3 text-[10px] font-extrabold uppercase tracking-wider transition-colors border-b-2 text-center bg-transparent border-none cursor-pointer ${
+                      powerMode === 'upload' ? 'border-[#D4A04D] text-[#D4A04D]' : 'border-transparent text-gray-500 hover:text-white'
+                    }`}
+                  >
+                    UPLOAD PRESCRIPTION
                   </button>
                 </div>
 
@@ -844,6 +1028,12 @@ export default function LensSelection() {
                       <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType.displayName}</h4>
                       <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
                     </div>
+
+                    {user && savedPrescriptions.length === 0 && (
+                      <p className="text-gray-500 text-[9px] mt-2 italic">
+                        ℹ️ Power entered manually will be saved to your account dashboard for future orders.
+                      </p>
+                    )}
 
                     {/* Grid */}
                     <div className="space-y-4">
@@ -975,361 +1165,28 @@ export default function LensSelection() {
                         ✓ Selected: {prescriptionFileName} {uploadingPrescription && '(Processing compression & uploading...)'}
                       </div>
                     )}
+                    {uploadedFileUrl && (
+                      <div className="mt-2 flex flex-col items-center gap-2">
+                        {uploadedFileUrl.toLowerCase().endsWith('.pdf') || uploadedFileUrl.includes('.pdf') || uploadedFileUrl.startsWith('data:application/pdf') ? (
+                          <div className="text-xs text-[#D4A04D] bg-[#1A1A1C] border border-[#2A2A2D] rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            <span>📄</span> PDF Document Selected
+                          </div>
+                        ) : (
+                          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-[#2A2A2D]">
+                            <img src={uploadedFileUrl} alt="Prescription Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {/* Bottom Helper Toggle */}
-                <div className="flex items-center justify-center gap-3 pt-3.5 border-t border-[#2A2A2D]/40 mt-5 w-full">
-                  <svg className="w-7 h-7 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <div className="text-left text-xs leading-tight">
-                    <span className="text-gray-500 block">Preferred method?</span>
-                    <button 
-                      onClick={() => setPowerMode(powerMode === 'upload' ? 'enter' : 'upload')} 
-                      className="text-white font-bold underline hover:text-[#D4A04D] bg-transparent border-none p-0 cursor-pointer"
-                    >
-                      {powerMode === 'upload' ? 'Enter Manually' : 'Upload Prescription'}
-                    </button>
-                  </div>
-                </div>
 
               </div>
             ) : (
               <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 text-center text-gray-500 text-xs">
-                Cosmetic Zero Power (Plano) lenses do not require prescription values. Press continue to choose lens quality.
+                Cosmetic Zero Power (Plano) lenses do not require prescription values. Press continue to checkout.
               </div>
             )}
-
-            {/* Sticky Navigation Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
-              <div className="max-w-md mx-auto flex gap-3">
-                <button
-                  onClick={handleBack}
-                  className="flex-1 bg-[#131314] border border-[#2A2A2D] hover:border-white text-white font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleNext}
-                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>CONTINUE TO QUALITY</span>
-                  <span className="text-xs">→</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= STEP 3: SELECT LENS QUALITY ================= */}
-        {currentStep === 3 && selectedType && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="text-left">
-              <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Lens Quality</h1>
-              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose the quality and features for your lenses</p>
-            </div>
-
-            {selectedType.type === 'progressive' ? (
-              <div className="space-y-4 pt-1">
-                <h2 className="text-white font-extrabold text-xs uppercase tracking-wider">Choose Your Progressive Lens</h2>
-                <div className="space-y-3.5">
-                  {currentSubTypes.map((subOption) => {
-                    const isSubSelected = selectedSubType?._id === subOption._id;
-                    return (
-                      <div
-                        key={subOption._id}
-                        onClick={() => setSelectedSubType(subOption)}
-                        className={`relative bg-[#131314] border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                          isSubSelected ? 'border-[#D4A04D] bg-[#141416]' : 'border-[#2A2A2D]'
-                        }`}
-                      >
-                        <div className="flex items-start gap-4 flex-1">
-                          <div className="flex-shrink-0 mt-1 sm:mt-0">
-                            {renderLensDiagram(selectedType.type || '')}
-                          </div>
-                          <div className="flex-1 space-y-2 text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-white font-bold text-sm leading-none">{subOption.displayName}</h3>
-                              {subOption.isBestseller && (
-                                <span className="bg-[#D4A04D] text-black text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wide uppercase leading-none">
-                                  Bestseller
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">
-                              {subOption.description}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center sm:flex-col sm:items-end justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#2A2A2D]/40">
-                          <div className="flex flex-col sm:items-end text-left sm:text-right">
-                            <span className="text-white font-black text-sm">₹{subOption.price}</span>
-                            <span className="text-gray-500 text-[9px] font-semibold mt-0.5">/ pair</span>
-                          </div>
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center mt-3 sm:mt-4 ${
-                            isSubSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
-                          }`}>
-                            {isSubSelected && <span className="text-black text-[10px] font-black">✓</span>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4.5">
-                {lensQualities.map((quality) => {
-                  const isSelected = selectedQuality?._id === quality._id;
-                  
-                  return (
-                    <div
-                      key={quality._id}
-                      onClick={() => setSelectedQuality(quality)}
-                      className={`relative bg-[#131314] border rounded-xl p-5 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                        isSelected ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
-                      }`}
-                    >
-                      {/* Recommended badge */}
-                      {quality.isRecommended && (
-                        <div className="absolute -top-2.5 left-4">
-                          <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
-                            Recommended
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex items-start justify-between gap-4 text-left">
-                        <div className="flex-1 space-y-2">
-                          <h3 className="text-white font-bold text-sm leading-none pt-0.5">{quality.displayName}</h3>
-                          <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{quality.description}</p>
-                          
-                          {/* Feature icons with names */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
-                            {quality.features?.map((feat, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider">
-                                {renderQualityFeatureIcon(feat)}
-                                <span>{feat}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 self-stretch sm:justify-start gap-4">
-                          <span className="text-white font-black text-sm">₹{quality.price} / pair</span>
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                            isSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
-                          }`}>
-                            {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Bottom Strip */}
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-[10px] font-bold uppercase tracking-wider py-2">
-              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>All lenses include 100% UV Protection</span>
-            </div>
-
-            {/* Sticky Navigation Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
-              <div className="max-w-md mx-auto flex gap-3">
-                <button
-                  onClick={handleBack}
-                  className="flex-1 bg-[#131314] border border-[#2A2A2D] hover:border-white text-white font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleNext}
-                  disabled={selectedType.type === 'progressive' && !selectedSubType}
-                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span>CONTINUE TO CHECKOUT</span>
-                  <span className="text-xs">→</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= STEP 4: REVIEW & CHECKOUT ================= */}
-        {currentStep === 4 && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="text-left">
-              <h1 className="text-lg font-black text-white uppercase tracking-wider">Checkout</h1>
-              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Review your order details</p>
-            </div>
-
-            {/* Complete Custom Order Summary Card */}
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 space-y-4">
-              <div className="flex justify-between items-center pb-1">
-                <span className="text-[#D4A04D] font-extrabold text-xs uppercase tracking-wider">ORDER SUMMARY</span>
-                <button 
-                  onClick={() => setCurrentStep(1)}
-                  className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0"
-                >
-                  Edit
-                </button>
-              </div>
-
-              {/* Product Info */}
-              <div className="flex gap-4 pb-4 border-b border-[#2A2A2D]/60 items-center">
-                <div className="w-16 h-16 bg-[#222] border border-[#2A2A2D]/60 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
-                  {product.images?.[0] ? (
-                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl">👓</span>
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="text-white font-bold text-sm sm:text-base leading-tight">{product.sku}</h3>
-                  <p className="text-white text-xs font-semibold mt-0.5">{product.name}</p>
-                  <div className="text-gray-500 text-[10px] mt-1.5 uppercase font-bold flex flex-wrap items-center gap-2">
-                    <span>{color || 'Matte Black'}</span>
-                    <span>·</span>
-                    <span>Size: {product.frame ? `${product.frame.lensWidth}-${product.frame.bridgeWidth}-${product.frame.templeLength}` : '54-18-145'}</span>
-                    <span>·</span>
-                    <span className="text-white font-black">Qty: 1</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Specs Table */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs border-b border-[#2A2A2D]/60 pb-4 text-left">
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 font-semibold uppercase text-[9px] tracking-wider">Lens Type</span>
-                  <span className="text-white font-bold">{selectedType?.displayName}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 font-semibold uppercase text-[9px] tracking-wider">Power</span>
-                  <span className="text-white font-bold truncate max-w-[160px]">
-                    {isZeroPower 
-                      ? 'Zero Power' 
-                      : powerMode === 'enter' 
-                      ? `R: ${reSph} ${reCyl} ${reAxis} | L: ${leSph} ${leCyl} ${leAxis}` 
-                      : powerMode === 'upload' 
-                      ? 'File Uploaded' 
-                      : 'WhatsApp Later'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 font-semibold uppercase text-[9px] tracking-wider">PD</span>
-                  <span className="text-white font-bold">{isZeroPower ? '-' : `${pd} mm`}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 font-semibold uppercase text-[9px] tracking-wider">Lens Quality</span>
-                  <span className="text-white font-bold">
-                    {selectedType?.type === 'progressive' 
-                      ? (selectedSubType?.displayName || 'HC Progressive') 
-                      : (selectedQuality?.displayName || 'Standard')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="space-y-3 pt-1 text-left">
-                <div className="space-y-2 text-xs text-[#A7A7A7]">
-                  <div className="flex justify-between">
-                    <span>Frame Price</span>
-                    <span className="text-white font-medium">₹{framePrice}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Lenses ({selectedType?.type === 'progressive' ? selectedSubType?.displayName : selectedQuality?.displayName})</span>
-                    <span className="text-white font-medium">₹{chosenLensPrice}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1">
-                      Fitting Charge 
-                      <span className="text-gray-500 font-bold text-[9px] cursor-help" title="Fitting & Glazing Fee">(i)</span>
-                    </span>
-                    <span className="text-white font-medium font-mono">₹{fittingCharge}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Delivery Charge</span>
-                    <span className="text-white font-medium">
-                      {deliveryCharge === 0 ? <strong className="text-green-500 font-bold uppercase">Free</strong> : `₹${deliveryCharge}`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-3 border-t border-[#2A2A2D]/60 font-black text-white">
-                    <span>Subtotal</span>
-                    <span>₹{subTotal}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Coupon Code Block */}
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
-              <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider block text-left">Apply Coupon</span>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Enter code" 
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
-                  className="flex-1 bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#D4A04D] uppercase font-bold"
-                />
-                <button 
-                  onClick={handleApplyCoupon}
-                  className="border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D]/10 font-bold uppercase py-2 px-5 rounded-xl text-[10px] tracking-wider transition-colors cursor-pointer bg-transparent"
-                >
-                  Apply
-                </button>
-              </div>
-              {couponError && <p className="text-red-400 text-[10px] font-bold text-left">{couponError}</p>}
-              {couponSuccess && <p className="text-green-400 text-[10px] font-bold text-left">{couponSuccess}</p>}
-            </div>
-
-            {/* Gold Membership Banner */}
-            <div className="bg-gradient-to-r from-[#1E1911] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-xl p-4 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 border border-[#D4A04D]/40 rounded-lg flex items-center justify-center text-[#D4A04D] font-extrabold text-sm flex-shrink-0 bg-[#0E0E0F]">
-                  EG
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest">EYEGLAZE MEMBERSHIP</span>
-                  <span className="text-white text-xs font-bold mt-1">Join & get exclusive benefits</span>
-                  <span className="text-gray-500 text-[9px] mt-0.5">Free delivery, extended warranty & more! · ₹99 / year</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsMembershipAdded(!isMembershipAdded)}
-                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4 py-2.5 rounded-lg transition-colors cursor-pointer border-none shrink-0"
-              >
-                {isMembershipAdded ? 'Joined' : 'Join Now'}
-              </button>
-            </div>
-
-            {/* Checkout Secure Badges */}
-            <div className="py-2 flex justify-center items-center gap-5 text-[8.5px] font-bold text-gray-500 uppercase tracking-widest text-center">
-              <span>🔒 100% Secure Payment</span>
-              <span>•</span>
-              <span>🛡️ 1 Year Warranty</span>
-              <span>•</span>
-              <span>🔄 Easy Returns</span>
-              <span>•</span>
-              <span>🚚 Fast Delivery</span>
-            </div>
-
-            {/* Total Amount block */}
-            <div className="flex justify-between items-center bg-[#131314] border border-[#2A2A2D]/85 rounded-xl p-4.5">
-              <div className="text-left flex flex-col">
-                <span className="text-white font-bold text-sm">Total Amount</span>
-                {totalDiscount > 0 && (
-                  <span className="text-green-500 text-[10px] font-semibold mt-0.5">You will save ₹{totalDiscount} on this order</span>
-                )}
-              </div>
-              <span className="text-[#D4A04D] text-2xl font-black">₹{totalPrice}</span>
-            </div>
 
             {/* Sticky Navigation Footer */}
             <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
@@ -1343,13 +1200,10 @@ export default function LensSelection() {
                 <button
                   onClick={handleConfirmAndAdd}
                   disabled={submitting}
-                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0110 0v4" />
-                  </svg>
-                  <span>{submitting ? 'PROCESSING...' : 'PROCEED TO PAYMENT'}</span>
+                  <span>{submitting ? 'PROCESSING...' : 'CONTINUE TO CHECKOUT'}</span>
+                  {!submitting && <span className="text-xs">→</span>}
                 </button>
               </div>
             </div>

@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import { connectDB } from '../../config/mongodb';
 import { Category } from '../../models/Category';
 import { SubCategory } from '../../models/SubCategory';
-import { ChildCategory } from '../../models/ChildCategory';
-import { Collection } from '../../models/Collection';
+
 import { CategoryAttribute } from '../../models/CategoryAttribute';
 import { CategoryFilter } from '../../models/CategoryFilter';
 import { CategorySeo } from '../../models/CategorySeo';
@@ -21,10 +20,6 @@ function getModelByType(type: string): mongoose.Model<any> {
       return Category;
     case 'SubCategory':
       return SubCategory;
-    case 'ChildCategory':
-      return ChildCategory;
-    case 'Collection':
-      return Collection;
     default:
       throw new Error(`Invalid category type: ${type}`);
   }
@@ -59,19 +54,15 @@ export async function getCategories(req: Request, res: Response) {
       items = await model.find(query).sort({ displayOrder: 1, name: 1 }).skip(skip).limit(limit).lean();
       total = await model.countDocuments(query);
     } else {
-      // Gather from all 4 levels if no type is passed
-      const [cats, subcats, childcats, cols] = await Promise.all([
+      // Gather Category and SubCategory if no type is passed
+      const [cats, subcats] = await Promise.all([
         Category.find(query).lean(),
         SubCategory.find(query).lean(),
-        ChildCategory.find(query).lean(),
-        Collection.find(query).lean(),
       ]);
 
       const all = [
         ...cats.map((c) => ({ ...c, type: 'Category' })),
         ...subcats.map((s) => ({ ...s, type: 'SubCategory' })),
-        ...childcats.map((ch) => ({ ...ch, type: 'ChildCategory' })),
-        ...cols.map((cl) => ({ ...cl, type: 'Collection' })),
       ];
 
       // Sort in memory
@@ -93,11 +84,9 @@ export async function getCategoryTree(req: Request, res: Response) {
     await connectDB();
     const query = { isDeleted: false, status: 'Active' };
 
-    const [categories, subCategories, childCategories, collections] = await Promise.all([
+    const [categories, subCategories] = await Promise.all([
       Category.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
       SubCategory.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
-      ChildCategory.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
-      Collection.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
     ]);
 
     // Build hierarchy
@@ -105,33 +94,13 @@ export async function getCategoryTree(req: Request, res: Response) {
       const catSubcats = subCategories
         .filter((sub: any) => String(sub.categoryId) === String(cat._id))
         .map((sub: any) => {
-          const subChildren = childCategories
-            .filter((ch: any) => String(ch.subCategoryId) === String(sub._id))
-            .map((ch: any) => {
-              const childCols = collections.filter((col: any) => String(col.childCategoryId) === String(ch._id));
-              return {
-                id: ch._id,
-                name: ch.name,
-                code: ch.code,
-                slug: ch.slug,
-                type: 'ChildCategory',
-                children: childCols.map((col: any) => ({
-                  id: col._id,
-                  name: col.name,
-                  code: col.code,
-                  slug: col.slug,
-                  type: 'Collection',
-                })),
-              };
-            });
-
           return {
             id: sub._id,
             name: sub.name,
             code: sub.code,
             slug: sub.slug,
             type: 'SubCategory',
-            children: subChildren,
+            children: [],
           };
         });
 
@@ -248,16 +217,6 @@ export async function createCategory(req: Request, res: Response) {
         return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
       }
       docData.categoryId = hierarchy.categoryId;
-    } else if (type === 'ChildCategory') {
-      if (!hierarchy?.subCategoryId) {
-        return res.status(400).json({ error: 'subCategoryId hierarchy reference is required for ChildCategory' });
-      }
-      docData.subCategoryId = hierarchy.subCategoryId;
-    } else if (type === 'Collection') {
-      docData.bannerImage = basic.bannerImage;
-      if (hierarchy?.childCategoryId) {
-        docData.childCategoryId = hierarchy.childCategoryId;
-      }
     }
 
     const newDoc = new model(docData);
@@ -370,10 +329,6 @@ export async function updateCategory(req: Request, res: Response) {
     // Hierarchy bindings
     if (type === 'SubCategory' && hierarchy?.categoryId) {
       updateObj.categoryId = hierarchy.categoryId;
-    } else if (type === 'ChildCategory' && hierarchy?.subCategoryId) {
-      updateObj.subCategoryId = hierarchy.subCategoryId;
-    } else if (type === 'Collection' && hierarchy?.childCategoryId !== undefined) {
-      updateObj.childCategoryId = hierarchy.childCategoryId || null;
     }
 
     const updatedDoc = await model.findByIdAndUpdate(id, { $set: updateObj }, { returnDocument: 'after' });
@@ -621,11 +576,9 @@ export async function duplicateCategory(req: Request, res: Response) {
 export async function exportCategoriesToCSV(req: Request, res: Response) {
   try {
     await connectDB();
-    const [categories, subCategories, childCategories, collections] = await Promise.all([
+    const [categories, subCategories] = await Promise.all([
       Category.find({ isDeleted: false }).lean(),
       SubCategory.find({ isDeleted: false }).lean(),
-      ChildCategory.find({ isDeleted: false }).lean(),
-      Collection.find({ isDeleted: false }).lean(),
     ]);
 
     let csvContent = 'Type,Name,Code,Slug,ParentCodeOrName,DisplayOrder,Status\n';
@@ -638,16 +591,6 @@ export async function exportCategoriesToCSV(req: Request, res: Response) {
       // Find category code
       const parent = categories.find((c) => String(c._id) === String(s.categoryId));
       csvContent += `SubCategory,"${s.name}",${s.code},${s.slug},${parent?.code || 'N/A'},${s.displayOrder},${s.status}\n`;
-    });
-
-    childCategories.forEach((ch) => {
-      const parent = subCategories.find((s) => String(s._id) === String(ch.subCategoryId));
-      csvContent += `ChildCategory,"${ch.name}",${ch.code},${ch.slug},${parent?.code || 'N/A'},${ch.displayOrder},${ch.status}\n`;
-    });
-
-    collections.forEach((col) => {
-      const parent = childCategories.find((ch) => String(ch._id) === String(col.childCategoryId));
-      csvContent += `Collection,"${col.name}",${col.code},${col.slug},${parent?.code || 'N/A'},${col.displayOrder},${col.status}\n`;
     });
 
     res.header('Content-Type', 'text/csv');
@@ -718,28 +661,8 @@ export async function importCategoriesFromCSV(req: Request, res: Response) {
             { upsert: true }
           );
           importedCount++;
-        } else if (type === 'ChildCategory') {
-          const parentSub = await SubCategory.findOne({ $or: [{ code: parentCodeOrName }, { name: parentCodeOrName }] });
-          if (!parentSub) {
-            skipped.push(`Row ${i + 1}: Parent sub-category '${parentCodeOrName}' not found`);
-            continue;
-          }
-          await ChildCategory.findOneAndUpdate(
-            { code },
-            { name, slug, code, subCategoryId: parentSub._id, displayOrder, status, isDeleted: false },
-            { upsert: true }
-          );
-          importedCount++;
-        } else if (type === 'Collection') {
-          const parentChild = await ChildCategory.findOne({ $or: [{ code: parentCodeOrName }, { name: parentCodeOrName }] });
-          await Collection.findOneAndUpdate(
-            { code },
-            { name, slug, code, childCategoryId: parentChild?._id || undefined, displayOrder, status, isDeleted: false },
-            { upsert: true }
-          );
-          importedCount++;
         } else {
-          skipped.push(`Row ${i + 1}: Unknown type '${type}'`);
+          skipped.push(`Row ${i + 1}: Unknown or unsupported type '${type}'`);
         }
       } catch (err: any) {
         skipped.push(`Row ${i + 1}: Error - ${err.message}`);

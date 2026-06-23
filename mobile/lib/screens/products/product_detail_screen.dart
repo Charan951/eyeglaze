@@ -38,6 +38,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return 'Medium';
   }
 
+  Map<String, double?> get activeDimensions {
+    if (p.sizeMeasurements.isNotEmpty) {
+      try {
+        final match = p.sizeMeasurements.firstWhere((item) => item.size == _selectedSize);
+        return {
+          'frameWidth': match.frameWidth ?? p.frame?.width,
+          'lensWidth': match.lensWidth ?? p.frame?.lensWidth,
+          'bridgeWidth': match.bridgeWidth ?? p.frame?.bridgeWidth,
+          'templeLength': match.templeLength ?? p.frame?.templeLength,
+          'frameHeight': match.frameHeight ?? 40.0,
+        };
+      } catch (_) {}
+    }
+    return {
+      'frameWidth': p.frame?.width,
+      'lensWidth': p.frame?.lensWidth,
+      'bridgeWidth': p.frame?.bridgeWidth,
+      'templeLength': p.frame?.templeLength,
+      'frameHeight': 40.0,
+    };
+  }
+
   // Wishlist and Reviews State
   bool _isInWishlist = false;
   double _rating = 0;
@@ -118,7 +140,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _checkWishlistStatus();
     _loadProductDetails();
     _loadCartCount();
-    _selectedSize = recommendedSize;
+    final available = p.availableSizes.isNotEmpty ? p.availableSizes : const ['Small', 'Medium', 'Large'];
+    final recSize = recommendedSize;
+    if (available.contains(recSize)) {
+      _selectedSize = recSize;
+    } else {
+      _selectedSize = available.first;
+    }
   }
 
   @override
@@ -195,6 +223,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             _detailedProduct = Product.fromJson(prodData as Map<String, dynamic>);
             _rating = _detailedProduct!.rating;
             _reviewCount = _detailedProduct!.reviewCount;
+            final available = _detailedProduct!.availableSizes.isNotEmpty 
+                ? _detailedProduct!.availableSizes 
+                : const ['Small', 'Medium', 'Large'];
+            final recSize = recommendedSize;
+            if (available.contains(recSize)) {
+              _selectedSize = recSize;
+            } else if (!available.contains(_selectedSize)) {
+              _selectedSize = available.first;
+            }
           }
 
           if (backendReviews.isNotEmpty) {
@@ -744,14 +781,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(child: _buildSizeCard('Small', 'Up to 135 mm', 'Best for narrow face')),
-                          const SizedBox(width: 8),
-                          Expanded(child: _buildSizeCard('Medium', '136 – 142 mm', 'Best for standard face')),
-                          const SizedBox(width: 8),
-                          Expanded(child: _buildSizeCard('Large', '143 – 150 mm', 'Best for wide face')),
-                        ],
+                      Builder(
+                        builder: (context) {
+                          final List<Widget> sizeCards = [];
+                          final activeSizes = ['Small', 'Medium', 'Large']
+                              .where((size) => p.availableSizes.contains(size))
+                              .toList();
+                          final displaySizes = activeSizes.isNotEmpty ? activeSizes : const ['Small', 'Medium', 'Large'];
+                          
+                          for (int i = 0; i < displaySizes.length; i++) {
+                            final size = displaySizes[i];
+                            String range = 'Up to 135 mm';
+                            String desc = 'Best for narrow face';
+                            if (size == 'Medium') {
+                              range = '136 – 142 mm';
+                              desc = 'Best for standard face';
+                            } else if (size == 'Large') {
+                              range = '143 – 150 mm';
+                              desc = 'Best for wide face';
+                            }
+                            
+                            sizeCards.add(Expanded(child: _buildSizeCard(size, range, desc)));
+                            if (i < displaySizes.length - 1) {
+                              sizeCards.add(const SizedBox(width: 8));
+                            }
+                          }
+                          return Row(children: sizeCards);
+                        }
                       ),
                       const SizedBox(height: 20),
                       // Frame Dimensions Title Header
@@ -778,10 +834,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     'SKU: ${p.sku}\n'
                                     'Frame Type: ${p.frame?.type ?? "Standard"}\n'
                                     'Material: ${p.frame?.material ?? "Premium TR90"}\n'
-                                    'Frame Width: ${p.frame?.width?.toInt() ?? 0} mm\n'
-                                    'Lens Width: ${p.frame?.lensWidth?.toInt() ?? 0} mm\n'
-                                    'Bridge: ${p.frame?.bridgeWidth?.toInt() ?? 0} mm\n'
-                                    'Temple Length: ${p.frame?.templeLength?.toInt() ?? 0} mm',
+                                    'Frame Width: ${activeDimensions['frameWidth']?.toInt() ?? 0} mm\n'
+                                    'Lens Width: ${activeDimensions['lensWidth']?.toInt() ?? 0} mm\n'
+                                    'Bridge: ${activeDimensions['bridgeWidth']?.toInt() ?? 0} mm\n'
+                                    'Temple Length: ${activeDimensions['templeLength']?.toInt() ?? 0} mm',
                                     style: const TextStyle(color: Colors.white70),
                                   ),
                                   actions: [
@@ -811,7 +867,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      if (p.frame != null) _FrameSpecs(frame: p.frame!),
+                      _FrameSpecs(
+                        frameWidth: activeDimensions['frameWidth'] ?? 0.0,
+                        lensWidth: activeDimensions['lensWidth'] ?? 0.0,
+                        bridgeWidth: activeDimensions['bridgeWidth'] ?? 0.0,
+                        templeLength: activeDimensions['templeLength'] ?? 0.0,
+                      ),
                       const SizedBox(height: 10),
                       // Frame details card
                       if (p.frame != null) _FrameDetails(frame: p.frame!, compatible: p.compatible),
@@ -1839,8 +1900,17 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
 // Unused widgets removed
 
 class _FrameSpecs extends StatelessWidget {
-  final ProductFrame frame;
-  const _FrameSpecs({required this.frame});
+  final double frameWidth;
+  final double lensWidth;
+  final double bridgeWidth;
+  final double templeLength;
+
+  const _FrameSpecs({
+    required this.frameWidth,
+    required this.lensWidth,
+    required this.bridgeWidth,
+    required this.templeLength,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1857,25 +1927,25 @@ class _FrameSpecs extends StatelessWidget {
             Expanded(child: _buildSpecItem(
               painter: _FrameWidthPainter(),
               label: 'FRAME WIDTH',
-              value: '${frame.width?.toInt() ?? 0} mm',
+              value: '${frameWidth.toInt()} mm',
             )),
             _buildDivider(),
             Expanded(child: _buildSpecItem(
               painter: _LensWidthPainter(),
               label: 'LENS WIDTH',
-              value: '${frame.lensWidth?.toInt() ?? 0} mm',
+              value: '${lensWidth.toInt()} mm',
             )),
             _buildDivider(),
             Expanded(child: _buildSpecItem(
               painter: _BridgeWidthPainter(),
               label: 'BRIDGE',
-              value: '${frame.bridgeWidth?.toInt() ?? 0} mm',
+              value: '${bridgeWidth.toInt()} mm',
             )),
             _buildDivider(),
             Expanded(child: _buildSpecItem(
               painter: _TempleLengthPainter(),
               label: 'TEMPLE',
-              value: '${frame.templeLength?.toInt() ?? 0} mm',
+              value: '${templeLength.toInt()} mm',
             )),
           ],
         ),

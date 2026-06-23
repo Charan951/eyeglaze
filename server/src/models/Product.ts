@@ -8,6 +8,15 @@ export interface IProductColor {
   stock: number;
 }
 
+export interface ISizeMeasurement {
+  size: 'Small' | 'Medium' | 'Large';
+  lensWidth?: number;
+  bridgeWidth?: number;
+  templeLength?: number;
+  frameWidth?: number;
+  frameHeight?: number;
+}
+
 export interface IProduct extends Document {
   sku: string;
   name: string;
@@ -66,6 +75,7 @@ export interface IProduct extends Document {
     seoDescription?: string;
   };
   availableSizes?: ('Small' | 'Medium' | 'Large')[];
+  sizeMeasurements?: ISizeMeasurement[];
   offerBadges?: string[];
   
   // NEW WIZARD FIELDS BELOW
@@ -74,7 +84,7 @@ export interface IProduct extends Document {
   brandId?: mongoose.Types.ObjectId;
   categoryId?: mongoose.Types.ObjectId;
   subCategoryId?: mongoose.Types.ObjectId;
-  collectionName?: string;
+  subCategory?: string;
   launchDate?: Date;
   sortOrder?: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Scheduled';
@@ -116,6 +126,7 @@ export interface IProduct extends Document {
   faceShapeCompatibility?: string[];
 
   // Step 6: Lens Compatibility & Dynamic Lens Pricing
+  lensTypes?: mongoose.Types.ObjectId[];
   compatibleLensTypes?: string[];
   dynamicLensPricing?: Array<{
     lensName: string;
@@ -260,7 +271,7 @@ const ProductSchema = new Schema<IProduct>(
     discountPercent: { type: Number },
     category: {
       type: String,
-      enum: ['prescription', 'sunglasses', 'blue_light', 'contact_lenses', 'kids'],
+      enum: ['prescription', 'sunglasses', 'blue_light', 'contact_lenses', 'kids', 'eyeglasses', 'computer-glasses', 'power-sunglasses', 'reading-glasses', 'accessories'],
     },
     categories: [String],
     gender: {
@@ -287,6 +298,16 @@ const ProductSchema = new Schema<IProduct>(
       seoDescription: String,
     },
     availableSizes: [{ type: String, enum: ['Small', 'Medium', 'Large'] }],
+    sizeMeasurements: [
+      {
+        size: { type: String, enum: ['Small', 'Medium', 'Large'], required: true },
+        lensWidth: Number,
+        bridgeWidth: Number,
+        templeLength: Number,
+        frameWidth: Number,
+        frameHeight: Number,
+      }
+    ],
     offerBadges: [{ type: String }],
 
     // NEW WIZARD SCHEMAS
@@ -295,7 +316,7 @@ const ProductSchema = new Schema<IProduct>(
     brandId: { type: Schema.Types.ObjectId, ref: 'Brand' },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
     subCategoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
-    collectionName: { type: String },
+    subCategory: { type: String },
     launchDate: { type: Date },
     sortOrder: { type: Number, default: 0 },
     status: {
@@ -345,6 +366,7 @@ const ProductSchema = new Schema<IProduct>(
     faceShapeCompatibility: [String],
 
     // Step 6: Lens Compatibility & Dynamic Lens Pricing
+    lensTypes: [{ type: Schema.Types.ObjectId, ref: 'LensType' }],
     compatibleLensTypes: [String],
     dynamicLensPricing: [
       {
@@ -429,7 +451,6 @@ const ProductSchema = new Schema<IProduct>(
     topView: { type: String },
     threeSixtyImages: [String],
     lifestyleImages: [String],
-    productVideo: { type: String },
     threeDModel: { type: String },
     arModel: { type: String },
 

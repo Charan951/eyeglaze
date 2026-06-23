@@ -6,7 +6,7 @@ import * as z from 'zod';
 import api from '../../../lib/api';
 
 const categoryFormSchema = z.object({
-  type: z.enum(['Category', 'SubCategory', 'ChildCategory', 'Collection']),
+  type: z.enum(['Category', 'SubCategory']),
   
   // Basic Information
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -20,7 +20,6 @@ const categoryFormSchema = z.object({
   // Hierarchy references
   categoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
-  childCategoryId: z.string().optional(),
 
   // Attributes
   genders: z.array(z.string()).default([]),
@@ -53,12 +52,6 @@ const categoryFormSchema = z.object({
 }, {
   message: "Parent Category is required for Sub-Category",
   path: ["categoryId"]
-}).refine((data) => {
-  if (data.type === 'ChildCategory' && !data.subCategoryId) return false;
-  return true;
-}, {
-  message: "Parent Sub-Category is required for Child Category",
-  path: ["subCategoryId"]
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -72,7 +65,6 @@ export default function CategoryWizard() {
   // References list for Hierarchy selection
   const [parentCats, setParentCats] = useState<any[]>([]);
   const [parentSubcats, setParentSubcats] = useState<any[]>([]);
-  const [parentChildcats, setParentChildcats] = useState<any[]>([]);
   const [loadingParents, setLoadingParents] = useState(false);
 
   // Accordion active sections state
@@ -124,14 +116,12 @@ export default function CategoryWizard() {
     async function loadParents() {
       setLoadingParents(true);
       try {
-        const [catsRes, subsRes, childrenRes] = await Promise.all([
+        const [catsRes, subsRes] = await Promise.all([
           api.get('/admin/categories?type=Category'),
-          api.get('/admin/categories?type=SubCategory'),
-          api.get('/admin/categories?type=ChildCategory')
+          api.get('/admin/categories?type=SubCategory')
         ]);
         setParentCats(catsRes.data.items || []);
         setParentSubcats(subsRes.data.items || []);
-        setParentChildcats(childrenRes.data.items || []);
       } catch (err) {
         console.error('Failed to load parent reference dropdown lists', err);
       } finally {
@@ -216,14 +206,6 @@ export default function CategoryWizard() {
       const parent = parentCats.find(c => c._id === formValues.categoryId);
       return parent ? `${parent.name} (${parent.code})` : 'None';
     }
-    if (formValues.type === 'ChildCategory') {
-      const parent = parentSubcats.find(s => s._id === formValues.subCategoryId);
-      return parent ? `${parent.name} (${parent.code})` : 'None';
-    }
-    if (formValues.type === 'Collection') {
-      const parent = parentChildcats.find(ch => ch._id === formValues.childCategoryId);
-      return parent ? `${parent.name} (${parent.code})` : 'None';
-    }
     return 'N/A';
   };
 
@@ -255,8 +237,6 @@ export default function CategoryWizard() {
         },
         hierarchy: {
           categoryId: data.type === 'SubCategory' ? data.categoryId : undefined,
-          subCategoryId: data.type === 'ChildCategory' ? data.subCategoryId : undefined,
-          childCategoryId: data.type === 'Collection' ? data.childCategoryId : undefined,
         },
         attributes: {
           genders: data.genders,
@@ -365,8 +345,6 @@ export default function CategoryWizard() {
                 >
                   <option value="Category">Main Category</option>
                   <option value="SubCategory">Sub Category</option>
-                  <option value="ChildCategory">Child Category</option>
-                  <option value="Collection">Collection</option>
                 </select>
               </div>
 
@@ -394,45 +372,6 @@ export default function CategoryWizard() {
                         </select>
                       )}
                       {errors.categoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.categoryId.message}</p>}
-                    </div>
-                  )}
-
-                  {formValues.type === 'ChildCategory' && (
-                    <div>
-                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Select Parent Sub Category *</label>
-                      {loadingParents ? (
-                        <div className="text-xs text-zinc-500 animate-pulse">Loading sub-categories...</div>
-                      ) : (
-                        <select
-                          {...register('subCategoryId')}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                        >
-                          <option value="">-- Choose Sub-Category --</option>
-                          {parentSubcats.map(s => (
-                            <option key={s._id} value={s._id}>{s.name} ({s.code})</option>
-                          ))}
-                        </select>
-                      )}
-                      {errors.subCategoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.subCategoryId.message}</p>}
-                    </div>
-                  )}
-
-                  {formValues.type === 'Collection' && (
-                    <div>
-                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Select Parent Child Category (Optional)</label>
-                      {loadingParents ? (
-                        <div className="text-xs text-zinc-500 animate-pulse">Loading child-categories...</div>
-                      ) : (
-                        <select
-                          {...register('childCategoryId')}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                        >
-                          <option value="">-- Choose Child Category (or leave empty) --</option>
-                          {parentChildcats.map(ch => (
-                            <option key={ch._id} value={ch._id}>{ch.name} ({ch.code})</option>
-                          ))}
-                        </select>
-                      )}
                     </div>
                   )}
                 </div>

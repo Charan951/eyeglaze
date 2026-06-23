@@ -31,6 +31,8 @@ import adminTicketsRoutes from './routes/admin/tickets.routes';
 import adminCategoriesRoutes from './routes/admin/categories.routes';
 import homepageVideosRoutes from './routes/homepageVideos.routes';
 import adminHomepageVideosRoutes from './routes/admin/homepageVideos.routes';
+import adminLensTypesRoutes from './routes/admin/lensTypes.routes';
+import adminLensesRoutes from './routes/admin/lenses.routes';
 
 dotenv.config();
 
@@ -164,6 +166,8 @@ adminRouter.use('/upload', adminUploadRoutes);
 adminRouter.use('/tickets', adminTicketsRoutes);
 adminRouter.use('/categories', adminCategoriesRoutes);
 adminRouter.use('/homepage-videos', adminHomepageVideosRoutes);
+adminRouter.use('/lens-types', adminLensTypesRoutes);
+adminRouter.use('/lenses', adminLensesRoutes);
 
 app.use('/api/admin', requireAdmin(), adminRouter);
 

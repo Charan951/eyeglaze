@@ -18,11 +18,24 @@ export default function UserLayout() {
   // Check if we are on the product detail route (e.g. /products/:id)
   const segments = location.pathname.split('/');
   const isProductDetailPage = segments.length === 3 && segments[1] === 'products';
-  const isLensPage = location.pathname === '/lens';
+  
+  const isCustomerPage = [
+    '/orders',
+    '/membership',
+    '/profile',
+    '/saved-powers',
+    '/payments',
+    '/wallet',
+    '/support/questions',
+    '/support/contact',
+    '/about-eyeglaze',
+    '/rate-us',
+    '/account'
+  ].some(path => location.pathname.startsWith(path));
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-hidden">
-      {!isLensPage && (
+      {!isCustomerPage && (
         <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-50 w-full transition-colors duration-300">
         <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
           
@@ -157,6 +170,7 @@ export default function UserLayout() {
                       <nav className="mt-3 space-y-1">
                         {[
                           { href: '/profile', label: 'My Profile', icon: '👤' },
+                          { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                           { href: '/orders', label: 'My Orders', icon: '📦' },
                           { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                           { href: '/membership', label: 'Gold Membership', icon: '👑' },
@@ -269,6 +283,7 @@ export default function UserLayout() {
                 <nav className="flex flex-col gap-2">
                   {[
                     { href: '/profile', label: 'My Profile', icon: '👤' },
+                    { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                     { href: '/orders', label: 'My Orders', icon: '📦' },
                     { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                     { href: '/membership', label: 'Gold Membership', icon: '👑' },
@@ -329,11 +344,11 @@ export default function UserLayout() {
         </div>
       )}
 
-      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8">
+      <main className={isCustomerPage ? "w-full min-h-screen" : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8"}>
         <Outlet />
       </main>
 
-      {!isLensPage && <Footer />}
+      {!isCustomerPage && <Footer />}
     </div>
   );
 }
