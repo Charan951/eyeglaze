@@ -59,7 +59,9 @@ export default function LensSelection() {
     // Group custom lenses by their type ID or name to find the minimum/starting price
     const minPrices: Record<string, number> = {};
     lensesList.forEach((lens: any) => {
-      const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+      const typeId = typeof lens.lensType === 'object' 
+        ? (lens.lensType?._id?.toString() || '') 
+        : (lens.lensType?.toString() || '');
       if (typeId) {
         if (minPrices[typeId] === undefined || lens.basePrice < minPrices[typeId]) {
           minPrices[typeId] = lens.basePrice;
@@ -295,8 +297,11 @@ export default function LensSelection() {
   useEffect(() => {
     if (selectedType && customLenses.length > 0) {
       const lensesForType = customLenses.filter((lens: any) => {
-        const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
-        return typeId === selectedType._id;
+        const typeId = typeof lens.lensType === 'object' 
+          ? (lens.lensType?._id?.toString() || '') 
+          : (lens.lensType?.toString() || '');
+        const selectedTypeId = selectedType?._id?.toString() || '';
+        return typeId === selectedTypeId;
       });
       if (lensesForType.length > 0) {
         const firstLens = lensesForType[0];
@@ -944,8 +949,11 @@ export default function LensSelection() {
               <div className="space-y-4.5">
                 {(() => {
                   const activeLenses = customLenses.filter((lens: any) => {
-                    const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
-                    return typeId === selectedType?._id;
+                    const typeId = typeof lens.lensType === 'object' 
+                      ? (lens.lensType?._id?.toString() || '') 
+                      : (lens.lensType?.toString() || '');
+                    const selectedTypeId = selectedType?._id?.toString() || '';
+                    return typeId === selectedTypeId;
                   });
 
                   if (activeLenses.length === 0) {
