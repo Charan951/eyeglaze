@@ -357,6 +357,9 @@ export default function AddProductWizard() {
   const [versionHistory, setVersionHistory] = useState<number>(1);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeLensTypeTab, setActiveLensTypeTab] = useState<string | null>(null);
+  const [showAddCustomLensForm, setShowAddCustomLensForm] = useState<string | null>(null);
+  const [customLensName, setCustomLensName] = useState('');
+  const [customLensPrice, setCustomLensPrice] = useState('');
 
   // Autosave tracking
   const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
@@ -1920,10 +1923,28 @@ export default function AddProductWizard() {
 
                     {/* Active Tab Panel */}
                     {(() => {
-                      if (!activeLensTypeTab) return null;
+                        if (!activeLensTypeTab) return null;
                       const typeDetails = availableLensTypes.find(t => t._id === activeLensTypeTab);
                       if (!typeDetails) return null;
-                      const lenses = lensesMap[activeLensTypeTab] || [];
+                      
+                      const globalLenses = lensesMap[activeLensTypeTab] || [];
+                      const productSpecificLenses = (formValues.dynamicLensPricing || []).filter((o: any) => {
+                        const isCorrectCategory = o.lensCategory.toLowerCase() === typeDetails.name.toLowerCase();
+                        const notGlobal = !globalLenses.some((gl: any) => gl.name === o.lensName);
+                        return isCorrectCategory && notGlobal;
+                      });
+
+                      const lenses = [
+                        ...globalLenses,
+                        ...productSpecificLenses.map((pl: any) => ({
+                          _id: pl._id || `custom-${pl.lensName}`,
+                          name: pl.lensName,
+                          basePrice: pl.regularPrice,
+                          status: pl.status || 'Active',
+                          isProductSpecific: true
+                        }))
+                      ];
+
                       const isLoading = loadingLensesMap[activeLensTypeTab];
 
                       return (
@@ -1933,14 +1954,27 @@ export default function AddProductWizard() {
                               <h3 className="text-white text-sm font-extrabold uppercase tracking-wider text-[#D4A04D]">{typeDetails.name} Lenses</h3>
                               <p className="text-[10px] text-gray-400">Currently configured lenses under this category</p>
                             </div>
-                            <div className="text-[10px] bg-zinc-900 border border-zinc-800 text-gray-400 px-3 py-1 rounded-lg">
-                              Total Lenses: <span className="text-white font-bold">{lenses.length}</span>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddCustomLensForm(prev => prev === activeLensTypeTab ? null : activeLensTypeTab);
+                                  setCustomLensName('');
+                                  setCustomLensPrice('');
+                                }}
+                                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase tracking-wider rounded-lg px-3 py-1.5 transition-colors cursor-pointer border-none"
+                              >
+                                {showAddCustomLensForm === activeLensTypeTab ? '✕ Close Form' : '+ Add Product-Specific Lens'}
+                              </button>
+                              <div className="text-[10px] bg-zinc-900 border border-zinc-800 text-gray-400 px-3 py-1 rounded-lg">
+                                Total Lenses: <span className="text-white font-bold">{lenses.length}</span>
+                              </div>
                             </div>
                           </div>
 
                           {isLoading ? (
                             <div className="py-8 text-center text-gray-500 text-xs italic animate-pulse">Loading associated lenses...</div>
-                          ) : lenses.length > 0 ? (
+                          ) : (lenses.length > 0 || showAddCustomLensForm === activeLensTypeTab) ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs text-left">
                                 <thead>
@@ -1948,25 +1982,122 @@ export default function AddProductWizard() {
                                     <th className="py-3 px-4">Lens Name</th>
                                     <th className="py-3 px-4">Base Price</th>
                                     <th className="py-3 px-4">Status</th>
+                                    <th className="py-3 px-4 text-right">Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#2A2A2D]/30 text-gray-300">
-                                  {lenses.map((lens) => {
+                                  {showAddCustomLensForm === activeLensTypeTab && (
+                                    <tr className="bg-zinc-900/40 border-b border-[#2A2A2D]">
+                                      <td className="py-3 px-4">
+                                        <input
+                                          type="text"
+                                          value={customLensName}
+                                          onChange={(e) => setCustomLensName(e.target.value)}
+                                          placeholder="Lens name (e.g. Premium Clear)"
+                                          className="w-full max-w-md bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                          autoFocus
+                                        />
+                                      </td>
+                                      <td className="py-3 px-4 font-bold">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-500 text-xs">₹</span>
+                                          <input
+                                            type="number"
+                                            value={customLensPrice}
+                                            onChange={(e) => setCustomLensPrice(e.target.value)}
+                                            placeholder="Price"
+                                            className="w-24 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                          />
+                                        </div>
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                          Custom
+                                        </span>
+                                      </td>
+                                      <td className="py-3 px-4 text-right">
+                                        <div className="flex justify-end gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setShowAddCustomLensForm(null);
+                                              setCustomLensName('');
+                                              setCustomLensPrice('');
+                                            }}
+                                            className="text-gray-400 hover:text-white font-bold bg-transparent border-none cursor-pointer text-xs"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const trimmedName = customLensName.trim();
+                                              if (!trimmedName) {
+                                                showToast('Lens name is required!', 'error');
+                                                return;
+                                              }
+                                              const price = parseFloat(customLensPrice);
+                                              if (isNaN(price) || price < 0) {
+                                                showToast('Please enter a valid price!', 'error');
+                                                return;
+                                              }
+
+                                              const nameLower = trimmedName.toLowerCase();
+                                              const alreadyExists = (formValues.dynamicLensPricing || []).some(
+                                                (o: any) => o.lensName.toLowerCase() === nameLower
+                                              ) || globalLenses.some((l: any) => l.name.toLowerCase() === nameLower);
+
+                                              if (alreadyExists) {
+                                                showToast('A lens with this name already exists!', 'error');
+                                                return;
+                                              }
+
+                                              const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                              currentPricing.push({
+                                                lensName: trimmedName,
+                                                lensCategory: typeDetails.name,
+                                                regularPrice: price,
+                                                goldPrice: Math.round(price * 0.9),
+                                                platinumPrice: Math.round(price * 0.8),
+                                                priority: 0,
+                                                status: 'Active' as const
+                                              });
+                                              setValue('dynamicLensPricing', currentPricing);
+                                              setShowAddCustomLensForm(null);
+                                              setCustomLensName('');
+                                              setCustomLensPrice('');
+                                              showToast('Product-specific lens added successfully!', 'success');
+                                            }}
+                                            className="text-[#D4A04D] hover:text-[#C8923E] font-bold bg-transparent border-none cursor-pointer text-xs"
+                                          >
+                                            Save
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                  {lenses.map((lens: any) => {
                                     const override = (formValues.dynamicLensPricing || []).find(
                                       (o: any) => o.lensName === lens.name
                                     );
                                     const isOverridden = !!override;
+                                    const isExcluded = !lens.isProductSpecific && override?.status === 'Inactive';
+                                    const displayedStatus = isExcluded ? 'Inactive' : (lens.status || 'Active');
 
                                     return (
                                       <tr key={lens._id} className="hover:bg-zinc-900/30 transition-colors">
                                         <td className="py-3 px-4 font-semibold text-white">
                                           <div className="flex items-center gap-2">
                                             <span>{lens.name}</span>
-                                            {isOverridden && (
+                                            {lens.isProductSpecific ? (
+                                              <span className="bg-purple-500/15 text-purple-400 border border-purple-500/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                Custom
+                                              </span>
+                                            ) : isOverridden && !isExcluded ? (
                                               <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
                                                 Overridden
                                               </span>
-                                            )}
+                                            ) : null}
                                           </div>
                                         </td>
                                         <td className="py-3 px-4 font-bold">
@@ -1974,7 +2105,8 @@ export default function AddProductWizard() {
                                             <span className="text-gray-500 text-xs">₹</span>
                                             <input
                                               type="number"
-                                              value={isOverridden ? override.regularPrice : ''}
+                                              value={isOverridden && !isExcluded ? override.regularPrice : ''}
+                                              disabled={isExcluded}
                                               placeholder={String(lens.basePrice)}
                                               onChange={(e) => {
                                                 const valStr = e.target.value;
@@ -2007,7 +2139,7 @@ export default function AddProductWizard() {
                                                   }
                                                 }
                                               }}
-                                              className="w-24 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                              className="w-24 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                             />
                                             {!isOverridden && (
                                               <span className="text-[9px] text-gray-500 font-normal italic">
@@ -2018,12 +2150,81 @@ export default function AddProductWizard() {
                                         </td>
                                         <td className="py-3 px-4">
                                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
-                                            lens.status === 'Active' 
+                                            displayedStatus === 'Active' 
                                               ? 'bg-green-500/10 text-green-400 border-green-500/20' 
                                               : 'bg-red-500/10 text-red-400 border-red-500/20'
                                           }`}>
-                                            {lens.status}
+                                            {displayedStatus}
                                           </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-right">
+                                          {lens.isProductSpecific ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (confirm(`Remove product-specific lens "${lens.name}"?`)) {
+                                                  const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                                  const updatedPricing = currentPricing.filter(
+                                                    (o: any) => o.lensName !== lens.name
+                                                  );
+                                                  setValue('dynamicLensPricing', updatedPricing);
+                                                }
+                                              }}
+                                              className="text-red-400 hover:text-red-500 font-bold bg-transparent border-none cursor-pointer text-xs"
+                                            >
+                                              Delete
+                                            </button>
+                                          ) : (
+                                            <>
+                                              {isExcluded ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                                    const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                                    if (idx >= 0) {
+                                                      currentPricing[idx] = {
+                                                        ...currentPricing[idx],
+                                                        status: 'Active'
+                                                      };
+                                                      setValue('dynamicLensPricing', currentPricing);
+                                                    }
+                                                  }}
+                                                  className="text-green-400 hover:text-green-500 font-bold bg-transparent border-none cursor-pointer text-xs"
+                                                >
+                                                  Restore
+                                                </button>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                                    const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                                    if (idx >= 0) {
+                                                      currentPricing[idx] = {
+                                                        ...currentPricing[idx],
+                                                        status: 'Inactive'
+                                                      };
+                                                    } else {
+                                                      currentPricing.push({
+                                                        lensName: lens.name,
+                                                        lensCategory: typeDetails.name,
+                                                        regularPrice: lens.basePrice,
+                                                        goldPrice: Math.round(lens.basePrice * 0.9),
+                                                        platinumPrice: Math.round(lens.basePrice * 0.8),
+                                                        priority: 0,
+                                                        status: 'Inactive'
+                                                      });
+                                                    }
+                                                    setValue('dynamicLensPricing', currentPricing);
+                                                  }}
+                                                  className="text-red-400 hover:text-red-500 font-bold bg-transparent border-none cursor-pointer text-xs"
+                                                >
+                                                  Exclude
+                                                </button>
+                                              )}
+                                            </>
+                                          )}
                                         </td>
                                       </tr>
                                     );

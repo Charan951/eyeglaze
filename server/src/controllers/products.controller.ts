@@ -4,6 +4,7 @@ import { connectDB } from '../config/mongodb';
 import { Product } from '../models/Product';
 import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
+import { LensType } from '../models/LensType';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -218,24 +219,56 @@ export async function getProductById(req: Request, res: Response) {
     const lensTypeIds = product.lensTypes || [];
     const lenses = await Lens.find({ lensType: { $in: lensTypeIds }, status: 'Active' }).populate('lensType');
 
+    // Fetch all active lens types to map product-specific custom lenses
+    const allLensTypes = await LensType.find({ status: 'Active' });
+
     // Apply product-specific price overrides if present in dynamicLensPricing
     const overriddenLenses = lenses.map(lensDoc => {
       const lensObj = lensDoc.toObject();
       if (product.dynamicLensPricing && Array.isArray(product.dynamicLensPricing)) {
         const override = product.dynamicLensPricing.find(
-          (o: any) => o.lensName === lensObj.name && o.status === 'Active'
+          (o: any) => o.lensName === lensObj.name
         );
         if (override) {
-          lensObj.basePrice = override.regularPrice;
-          if (override.goldPrice !== undefined) {
-            lensObj.memberPrice = override.goldPrice;
+          if (override.status === 'Inactive') {
+            lensObj.status = 'Inactive';
+          } else {
+            lensObj.basePrice = override.regularPrice;
+            if (override.goldPrice !== undefined) {
+              lensObj.memberPrice = override.goldPrice;
+            }
           }
         }
       }
       return lensObj;
-    });
+    }).filter(lens => lens.status === 'Active');
 
-    return res.status(200).json({ product, reviews, lenses: overriddenLenses });
+    // Find any product-specific custom lenses in dynamicLensPricing that do not match global lenses
+    const customLenses: any[] = [];
+    if (product.dynamicLensPricing && Array.isArray(product.dynamicLensPricing)) {
+      const unmatchedPricing = product.dynamicLensPricing.filter((o: any) => {
+        return o.status === 'Active' && !lenses.some(lensDoc => lensDoc.name === o.lensName);
+      });
+
+      unmatchedPricing.forEach((o: any) => {
+        const matchingType = allLensTypes.find(t => t.name.toLowerCase() === o.lensCategory.toLowerCase());
+        customLenses.push({
+          _id: `custom-${o._id || new mongoose.Types.ObjectId()}`,
+          name: o.lensName,
+          basePrice: o.regularPrice,
+          memberPrice: o.goldPrice,
+          status: o.status || 'Active',
+          isProductSpecific: true,
+          lensType: matchingType ? { _id: matchingType._id, name: matchingType.name } : undefined
+        });
+      });
+    }
+
+    return res.status(200).json({ 
+      product, 
+      reviews, 
+      lenses: [...overriddenLenses, ...customLenses] 
+    });
   } catch (error) {
     console.error('GET product error:', error);
     return res.status(500).json({ error: 'Failed to fetch product' });

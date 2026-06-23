@@ -29,6 +29,14 @@ export default function AdminLensesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
+  const selectedType = lensTypes.find(t => t._id === selectedTypeId);
+
+  useEffect(() => {
+    if (lensTypes.length > 0 && !selectedTypeId) {
+      setSelectedTypeId(lensTypes[0]._id);
+    }
+  }, [lensTypes, selectedTypeId]);
+
   // Modals
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<LensType | null>(null);
@@ -224,17 +232,6 @@ export default function AdminLensesPage() {
         <div className="w-[30%] bg-[#131314] border border-[#2A2A2D] rounded-2xl p-4 flex flex-col overflow-hidden">
           <h2 className="text-sm text-[#A7A7A7] font-extrabold uppercase tracking-wider mb-4 px-2">Lens Types</h2>
           <div className="overflow-y-auto flex-1 pr-2 space-y-2">
-            <div
-              onClick={() => setSelectedTypeId(null)}
-              className={`p-3 rounded-xl cursor-pointer border transition-colors ${
-                selectedTypeId === null 
-                  ? 'bg-[#D4A04D]/10 border-[#D4A04D] text-[#D4A04D]' 
-                  : 'bg-[#1A1A1C] border-transparent text-[#A7A7A7] hover:bg-[#2A2A2D]'
-              }`}
-            >
-              <div className="font-bold">All Types</div>
-            </div>
-
             {loadingTypes ? (
               <div className="animate-pulse space-y-2 mt-2">
                 {[1, 2, 3].map(i => <div key={i} className="h-12 bg-[#2A2A2D] rounded-xl"></div>)}
@@ -402,18 +399,15 @@ export default function AdminLensesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Select Lens Type *</label>
-                  <select
+                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Lens Type</label>
+                  <div className="w-full bg-[#18181A] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm font-semibold select-none">
+                    {editingLens?.lensType?.name || selectedType?.name || 'Selected Lens Type'}
+                  </div>
+                  <input
+                    type="hidden"
                     name="lensType"
-                    required
-                    defaultValue={editingLens?.lensType?._id || ''}
-                    className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  >
-                    <option value="" disabled>Select Type</option>
-                    {lensTypes.map(lt => (
-                      <option key={lt._id} value={lt._id}>{lt.name}</option>
-                    ))}
-                  </select>
+                    value={editingLens?.lensType?._id || selectedTypeId || ''}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Base Price (₹) *</label>
