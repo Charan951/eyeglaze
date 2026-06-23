@@ -17,7 +17,13 @@ import {
   toggleWallet,
   addMoney,
   deleteAccount,
-  activateMembership
+  activateMembership,
+  logoutAll,
+  getSessions,
+  revokeSession,
+  refreshToken,
+  forgotPassword,
+  resetPassword
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -27,6 +33,12 @@ router.post('/verify-otp', verifyOTP);
 router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', logout);
+router.post('/logout-all', requireAuth, logoutAll);
+router.get('/sessions', requireAuth, getSessions);
+router.delete('/sessions/:id', requireAuth, revokeSession);
+router.post('/refresh', refreshToken);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.get('/me', requireAuth, getMe);
 
 router.put('/profile', requireAuth, updateProfile);

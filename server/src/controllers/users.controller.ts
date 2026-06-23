@@ -3,12 +3,12 @@ import { connectDB } from '../config/mongodb';
 import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
 import { getToken } from '../middleware/requireAuth';
-import { verifyJWT } from '../lib/auth';
+import { verifyAccessToken } from '../lib/auth';
 
 export async function getUsers(req: Request, res: Response) {
   try {
     const token = getToken(req);
-    const auth = token ? verifyJWT(token) : null;
+    const auth = token ? verifyAccessToken(token) : null;
     if (!auth || !['admin', 'store_manager', 'support_agent'].includes(auth.role)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }

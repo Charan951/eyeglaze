@@ -35,9 +35,6 @@ export default function LoginPage() {
         }
         const res = await api.post('/auth/register', { name, email, password });
         const data = res.data;
-        if (data?.token) {
-          localStorage.setItem('token', data.token);
-        }
         if (data?.user) {
           login(data.user);
         }
@@ -51,9 +48,6 @@ export default function LoginPage() {
         }
         const res = await api.post('/auth/login', { email, password });
         const data = res.data;
-        if (data?.token) {
-          localStorage.setItem('token', data.token);
-        }
         if (data?.user) {
           login(data.user);
         }
@@ -145,7 +139,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Password</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide font-semibold">Password</label>
+                {activeTab === 'login' && (
+                  <a href="/forgot-password" className="text-[#D4A04D] hover:underline text-xs font-semibold">
+                    Forgot Password?
+                  </a>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}

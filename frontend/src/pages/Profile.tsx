@@ -30,6 +30,103 @@ export default function ProfilePage() {
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
+  // Security & Device Sessions State
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+
+  const fetchSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const res = await api.get('/auth/sessions');
+      setSessions(res.data?.sessions || []);
+    } catch (err) {
+      console.error('Failed to load active sessions:', err);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchSessions();
+    }
+  }, [user]);
+
+  const handleRevokeSession = async (sessId: string) => {
+    if (!window.confirm('Are you sure you want to log out this device?')) return;
+    try {
+      const res = await api.delete(`/auth/sessions/${sessId}`);
+      if (res.data?.loggedOutCurrent) {
+        await logout();
+        navigate('/login');
+      } else {
+        await fetchSessions();
+      }
+    } catch (err: any) {
+      console.error('Failed to revoke session:', err);
+      alert(err.response?.data?.error || 'Failed to log out device.');
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    if (!window.confirm('Are you sure you want to log out from all devices? This will also log you out of this current session.')) return;
+    setIsLoggingOutAll(true);
+    try {
+      await api.post('/auth/logout-all');
+      await logout();
+      navigate('/login');
+    } catch (err: any) {
+      console.error('Failed to log out from all devices:', err);
+      alert(err.response?.data?.error || 'Failed to log out from all devices.');
+    } finally {
+      setIsLoggingOutAll(false);
+    }
+  };
+
+  const formatUserAgent = (ua: string) => {
+    if (!ua) return { browser: 'Unknown Device', os: 'Unknown OS', icon: '💻' };
+    
+    let browser = 'Unknown Browser';
+    let os = 'Unknown OS';
+    let icon = '💻';
+
+    const uaLower = ua.toLowerCase();
+
+    if (uaLower.includes('firefox')) {
+      browser = 'Firefox';
+      icon = '🦊';
+    } else if (uaLower.includes('edg')) {
+      browser = 'Edge';
+      icon = '🌐';
+    } else if (uaLower.includes('chrome')) {
+      browser = 'Chrome';
+      icon = '🌐';
+    } else if (uaLower.includes('safari')) {
+      browser = 'Safari';
+      icon = '🧭';
+    } else if (uaLower.includes('opr') || uaLower.includes('opera')) {
+      browser = 'Opera';
+      icon = '🅾️';
+    }
+
+    if (uaLower.includes('windows')) {
+      os = 'Windows';
+    } else if (uaLower.includes('android')) {
+      os = 'Android';
+      icon = '📱';
+    } else if (uaLower.includes('iphone') || uaLower.includes('ipad')) {
+      os = 'iOS';
+      icon = '📱';
+    } else if (uaLower.includes('macintosh') || uaLower.includes('mac os')) {
+      os = 'macOS';
+    } else if (uaLower.includes('linux')) {
+      os = 'Linux';
+    }
+
+    return { browser, os, icon };
+  };
+
   const handleDeleteAccount = async () => {
     const confirm1 = window.confirm('Are you sure you want to permanently delete your account? This action is irreversible.');
     if (!confirm1) return;
@@ -555,6 +652,94 @@ export default function ProfilePage() {
                         className="hover:text-red-400 transition-colors text-red-500/80"
                       >
                         Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Security & Active Sessions */}
+        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>🛡️</span> Security & Device Sessions
+              </h2>
+              <p className="text-[#A7A7A7] text-xs mt-1">Manage your active sessions and devices currently logged in.</p>
+            </div>
+            {sessions.length > 1 && (
+              <button
+                type="button"
+                onClick={handleLogoutAll}
+                disabled={isLoggingOutAll}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+              >
+                {isLoggingOutAll ? 'Logging out...' : 'Log Out All Devices'}
+              </button>
+            )}
+          </div>
+
+          {isLoadingSessions ? (
+            <div className="text-center py-8 text-gray-500 text-sm animate-pulse">Loading active sessions...</div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">No active sessions found.</div>
+          ) : (
+            <div className="space-y-4">
+              {sessions.map((sess) => {
+                const { browser, os, icon } = formatUserAgent(sess.userAgent);
+                return (
+                  <div
+                    key={sess.id}
+                    className={`border rounded-xl p-4 flex items-center justify-between transition-all ${
+                      sess.isCurrent
+                        ? 'border-[#D4A04D] bg-[#D4A04D]/5'
+                        : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="text-3xl bg-[#1D1D20] p-3 rounded-xl border border-[#2D2D30] shadow-inner flex-shrink-0">
+                        {icon}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-white font-bold text-sm truncate">
+                            {browser} on {os}
+                          </span>
+                          {sess.isCurrent && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#D4A04D]/20 text-[#D4A04D] text-[10px] font-extrabold uppercase border border-[#D4A04D]/30 flex-shrink-0">
+                              Current Device
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[#A7A7A7] text-xs mt-1 font-mono truncate">
+                          IP: {sess.ipAddress || 'Unknown IP'}
+                        </div>
+                        <div className="text-gray-500 text-[11px] mt-1.5 font-medium">
+                          Logged in:{' '}
+                          {new Date(sess.createdAt).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-4 flex-shrink-0">
+                      <button
+                        onClick={() => handleRevokeSession(sess.id)}
+                        className={`font-bold uppercase py-2 px-4 rounded-xl text-xs tracking-wider transition-all border ${
+                          sess.isCurrent
+                            ? 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
+                            : 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:border-gray-700 hover:text-white'
+                        }`}
+                      >
+                        {sess.isCurrent ? 'Log Out' : 'Revoke'}
                       </button>
                     </div>
                   </div>

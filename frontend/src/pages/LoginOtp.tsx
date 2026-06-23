@@ -36,9 +36,6 @@ export default function OtpPage() {
         : { email: target.value, otp };
       const res = await api.post('/auth/verify-otp', body);
       const data = res.data;
-      if (data?.token) {
-        localStorage.setItem('token', data.token);
-      }
       if (data?.user) {
         login(data.user);
       }

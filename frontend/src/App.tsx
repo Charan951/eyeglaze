@@ -9,6 +9,8 @@ import AdminLayout from './layouts/AdminLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import LoginOtp from './pages/LoginOtp';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import LensSelection from './pages/LensSelection';
@@ -69,6 +71,8 @@ export default function App() {
           <Route element={<UserLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/login/otp" element={<LoginOtp />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/lens" element={<LensSelection />} />

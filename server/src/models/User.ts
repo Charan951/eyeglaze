@@ -63,6 +63,10 @@ export interface IUser extends Document {
   termsAcceptedAt?: Date;
   oneRupeeOfferUsed: boolean;
   oneRupeeOfferCount: number;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  loginAttempts: number;
+  lockUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -142,6 +146,10 @@ const UserSchema = new Schema<IUser>(
     termsAcceptedAt: { type: Date },
     oneRupeeOfferUsed: { type: Boolean, default: false },
     oneRupeeOfferCount: { type: Number, default: 0 },
+    passwordResetToken: { type: String },
+    passwordResetExpires: { type: Date },
+    loginAttempts: { type: Number, default: 0, required: true },
+    lockUntil: { type: Date },
   },
   { timestamps: true }
 );

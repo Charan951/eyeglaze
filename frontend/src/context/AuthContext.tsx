@@ -39,9 +39,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [cartCount, setCartCount] = useState(0);
   const [wishlist, setWishlist] = useState<string[]>([]);
 
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+      setWishlist([]);
+      setCartCount(0);
+    };
+    window.addEventListener('auth-logout', handleAuthLogout);
+    return () => window.removeEventListener('auth-logout', handleAuthLogout);
+  }, []);
+
   const fetchCartCount = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       try {
         const guestCartStr = localStorage.getItem('guest_cart');
         const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
@@ -59,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setCartCount(0);
     }
-  }, []);
+  }, [user]);
 
   const syncLocalCart = useCallback(async () => {
     const guestCartStr = localStorage.getItem('guest_cart');
@@ -178,7 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     } finally {
-      localStorage.removeItem('token');
       setUser(null);
       setWishlist([]);
       setCartCount(0);

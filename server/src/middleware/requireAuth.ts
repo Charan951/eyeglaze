@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyJWT, JWTPayload, COOKIE_NAME } from '../lib/auth';
+import { verifyAccessToken, JWTPayload, ACCESS_COOKIE_NAME } from '../lib/auth';
 
 declare global {
   namespace Express {
@@ -12,7 +12,7 @@ declare global {
 function getToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
-  return (req.cookies && req.cookies[COOKIE_NAME]) || null;
+  return (req.cookies && req.cookies[ACCESS_COOKIE_NAME]) || null;
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -21,7 +21,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const payload = verifyJWT(token);
+  const payload = verifyAccessToken(token);
   if (!payload) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
