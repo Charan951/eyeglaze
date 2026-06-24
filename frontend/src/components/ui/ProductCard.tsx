@@ -50,7 +50,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             <img 
               src={product.images[0]} 
               alt={product.name} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+              className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
             />
           ) : (
             <div className="text-[#444] text-center py-6">

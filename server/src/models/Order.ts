@@ -58,6 +58,7 @@ export interface IOrder extends Document {
   prescriptionVerified: boolean;
   internalNotes: { note: string; addedBy?: mongoose.Types.ObjectId; addedAt: Date }[];
   isFlagged: boolean;
+  membershipAdded?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +147,7 @@ const OrderSchema = new Schema<IOrder>(
       },
     ],
     isFlagged: { type: Boolean, default: false },
+    membershipAdded: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

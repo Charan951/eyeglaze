@@ -33,6 +33,7 @@ import homepageVideosRoutes from './routes/homepageVideos.routes';
 import adminHomepageVideosRoutes from './routes/admin/homepageVideos.routes';
 import adminLensTypesRoutes from './routes/admin/lensTypes.routes';
 import adminLensesRoutes from './routes/admin/lenses.routes';
+import adminCouponsRoutes from './routes/admin/coupons.routes';
 
 dotenv.config();
 
@@ -168,6 +169,7 @@ adminRouter.use('/categories', adminCategoriesRoutes);
 adminRouter.use('/homepage-videos', adminHomepageVideosRoutes);
 adminRouter.use('/lens-types', adminLensTypesRoutes);
 adminRouter.use('/lenses', adminLensesRoutes);
+adminRouter.use('/coupons', adminCouponsRoutes);
 
 app.use('/api/admin', requireAdmin(), adminRouter);
 

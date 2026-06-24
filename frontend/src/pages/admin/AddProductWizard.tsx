@@ -15,12 +15,12 @@ const wizardSchema = z.object({
   barcode: z.string().optional(),
   name: z.string().min(3, 'Product Name must be at least 3 characters'),
   slug: z.string().min(3, 'Slug must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with dashes'),
-  brand: z.string().min(1, 'Brand is required'),
+  brand: z.string().optional(),
   category: z.string().min(1, 'Category is required'),
   categoryId: z.string().optional(),
   subCategory: z.string().optional(),
   subCategoryId: z.string().optional(),
-  gender: z.enum(['men', 'women', 'kids', 'unisex']),
+  gender: z.enum(['men', 'women', 'kids', 'unisex']).optional(),
   shortDescription: z.string().optional(),
   longDescription: z.string().optional(),
   tags: z.string().optional(),
@@ -34,7 +34,7 @@ const wizardSchema = z.object({
   sellingPrice: z.number().min(1, 'Selling price must be at least 1'),
   gstPercent: z.number().min(0).max(100).default(18),
   discountType: z.enum(['Percentage', 'Fixed Amount', 'None']).default('None'),
-  discountValue: z.number().min(0).default(0),
+  discountValue: z.union([z.number(), z.null()]).transform((val) => val ?? 0),
   taxInclusive: z.boolean().default(true),
   currency: z.string().default('INR'),
 
@@ -72,29 +72,7 @@ const wizardSchema = z.object({
   pdCompatibility: z.string().optional(),
   frameSize: z.enum(['Small', 'Medium', 'Large']).default('Medium'),
   availableSizes: z.array(z.enum(['Small', 'Medium', 'Large'])).default(['Small', 'Medium', 'Large']),
-  sizeMeasurements: z.object({
-    Small: z.object({
-      lensWidth: z.number().optional(),
-      bridgeWidth: z.number().optional(),
-      templeLength: z.number().optional(),
-      frameWidth: z.number().optional(),
-      frameHeight: z.number().optional(),
-    }).optional(),
-    Medium: z.object({
-      lensWidth: z.number().optional(),
-      bridgeWidth: z.number().optional(),
-      templeLength: z.number().optional(),
-      frameWidth: z.number().optional(),
-      frameHeight: z.number().optional(),
-    }).optional(),
-    Large: z.object({
-      lensWidth: z.number().optional(),
-      bridgeWidth: z.number().optional(),
-      templeLength: z.number().optional(),
-      frameWidth: z.number().optional(),
-      frameHeight: z.number().optional(),
-    }).optional(),
-  }).optional(),
+  sizeMeasurements: z.any().optional(),
   faceShapeCompatibility: z.array(z.string()).default([]),
 
   // Lenses compatibility
@@ -363,6 +341,7 @@ export default function AddProductWizard() {
 
   // Autosave tracking
   const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   // Canvas Image Cropper state
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -388,6 +367,7 @@ export default function AddProductWizard() {
 
   // Register custom fields manually so react-hook-form/zod includes them in handleSubmit payload
   useEffect(() => {
+    register('gender');
     register('availableSizes');
     register('faceShapeCompatibility');
     register('lensTypes');
@@ -428,6 +408,13 @@ export default function AddProductWizard() {
   const discountTypeValue = watch('discountType');
   const discountValueField = watch('discountValue') || 0;
   const enableMemberPricingField = watch('enableMemberPricing');
+
+  // Ensure discountValue is never null or undefined
+  useEffect(() => {
+    if (formValues.discountValue === null || formValues.discountValue === undefined) {
+      setValue('discountValue', 0);
+    }
+  }, [formValues.discountValue, setValue]);
 
   // Load Metadata & Product (if editing)
   useEffect(() => {
@@ -857,12 +844,15 @@ export default function AddProductWizard() {
     try {
       // Map tags into array
       const tagsArray = data.tags ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-      const sizeMeasurementsArray = Object.entries(data.sizeMeasurements || {}).map(([size, measurements]: any) => ({
+      
+      // Handle sizeMeasurements safely
+      const safeSizeMeasurements = data.sizeMeasurements || {};
+      const sizeMeasurementsArray = Object.entries(safeSizeMeasurements).map(([size, measurements]: any) => ({
         size,
         ...measurements
       })).filter((item: any) => data.availableSizes.includes(item.size));
 
-      const primaryMeasurements = (data.sizeMeasurements as any)?.[data.frameSize] || {};
+      const primaryMeasurements = safeSizeMeasurements?.[data.frameSize] || {};
 
       const compLensTypes: string[] = [];
       const selectedLensTypeNames = (data.lensTypes || []).map(typeId => {
@@ -879,8 +869,24 @@ export default function AddProductWizard() {
         }
       });
 
+      // Build the images array: thumbnail first, then other views, then lifestyle images
+      const imagesArray: string[] = [];
+      if (data.thumbnail) imagesArray.push(data.thumbnail);
+      if (data.frontView) imagesArray.push(data.frontView);
+      if (data.leftView) imagesArray.push(data.leftView);
+      if (data.rightView) imagesArray.push(data.rightView);
+      if (data.topView) imagesArray.push(data.topView);
+      if (data.lifestyleImages && data.lifestyleImages.length > 0) {
+        imagesArray.push(...data.lifestyleImages);
+      }
+      // If no images, add at least one placeholder
+      if (imagesArray.length === 0) {
+        imagesArray.push('/images/cat_prescription.png');
+      }
+
       const payload = {
         ...data,
+        images: imagesArray,
         compatibleLensTypes: compLensTypes,
         sizeMeasurements: sizeMeasurementsArray,
         lensWidth: primaryMeasurements.lensWidth ?? data.lensWidth,
@@ -928,17 +934,45 @@ export default function AddProductWizard() {
 
   // Actions
   const handleSaveDraft = async () => {
+    setFormSubmitted(true);
     setValue('status', 'Draft');
-    const isValid = await trigger(['name', 'sku', 'slug']);
+    const isValid = await trigger(['name', 'sku', 'slug', 'category', 'mrp', 'sellingPrice']);
     if (!isValid) {
-      showToast('Product Name, SKU, and Slug are required to save as Draft', 'error');
+      showToast('Product Name, SKU, Slug, Category, and Pricing are required to save as Draft', 'error');
+      // Scroll to first error
+      setTimeout(() => {
+        const firstErrorField = document.querySelector('.border-red-500');
+        if (firstErrorField) {
+          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
     handleSubmit(onSubmit)();
   };
 
   const handlePublish = async () => {
+    setFormSubmitted(true);
     setValue('status', 'Active');
+    
+    console.log('=== Form values before publish:', formValues);
+    
+    // Trigger full form validation
+    const isValid = await trigger();
+    
+    console.log('=== Form errors:', errors);
+    
+    if (!isValid) {
+      // Scroll to the first error field
+      setTimeout(() => {
+        const firstErrorField = document.querySelector('.border-red-500');
+        if (firstErrorField) {
+          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return;
+    }
+    
     handleSubmit(onSubmit)();
   };
 
@@ -1224,6 +1258,27 @@ export default function AddProductWizard() {
         </div>
       </header>
 
+      {/* Validation Error Summary */}
+      {formSubmitted && Object.keys(errors).length > 0 && (
+        <div className="max-w-7xl mx-auto px-8 pt-6">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+            <div className="text-red-400 text-lg mt-0.5">⚠️</div>
+            <div className="flex-1">
+              <h3 className="text-red-400 text-xs font-extrabold uppercase tracking-wider mb-2">
+                Please fix the following errors to publish:
+              </h3>
+              <ul className="space-y-1">
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field} className="text-red-400/80 text-xs">
+                    • {field}: {(error as any)?.message || 'Invalid value'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stepper UI removed */}
       {/* MAIN CONTENT AREA */}
       <main className="max-w-7xl mx-auto px-8 py-8 w-full flex-grow flex gap-8">
@@ -1248,7 +1303,9 @@ export default function AddProductWizard() {
                   type="text"
                   {...register('name')}
                   placeholder="e.g. Vincent Chase Air Rectangular Premium Glasses"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none ${
+                    errors.name ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                  }`}
                 />
                 {errors.name && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
               </div>
@@ -1267,7 +1324,9 @@ export default function AddProductWizard() {
                       const matched = categoryTree.find((c: any) => c.slug === val);
                       setValue('categoryId', matched ? matched.id : '');
                     }}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                    className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm font-bold focus:outline-none ${
+                      errors.category ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                    }`}
                   >
                     <option value="">-- Choose Category --</option>
                     {categoryTree.map((c: any) => (
@@ -1317,21 +1376,7 @@ export default function AddProductWizard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Gender */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Gender</label>
-                  <select
-                    {...register('gender')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  >
-                    <option value="men">Men</option>
-                    <option value="women">Women</option>
-                    <option value="kids">Kids</option>
-                    <option value="unisex">Unisex</option>
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Launch Date */}
                 <div>
                   <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Launch Date</label>
@@ -1380,8 +1425,11 @@ export default function AddProductWizard() {
                   <input
                     type="number"
                     {...register('costPrice', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                    className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none ${
+                      errors.costPrice ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                    }`}
                   />
+                  {errors.costPrice && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.costPrice.message}</p>}
                 </div>
 
                 {/* MRP */}
@@ -1390,7 +1438,9 @@ export default function AddProductWizard() {
                   <input
                     type="number"
                     {...register('mrp', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                    className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm font-bold focus:outline-none ${
+                      errors.mrp ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                    }`}
                   />
                   {errors.mrp && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.mrp.message}</p>}
                 </div>
@@ -1401,7 +1451,9 @@ export default function AddProductWizard() {
                   <input
                     type="number"
                     {...register('sellingPrice', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                    className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm font-bold focus:outline-none ${
+                      errors.sellingPrice ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                    }`}
                   />
                   {errors.sellingPrice && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.sellingPrice.message}</p>}
                 </div>

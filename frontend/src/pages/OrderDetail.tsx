@@ -153,9 +153,16 @@ export default function OrderDetailPage() {
 
                 {/* Connection line */}
                 {idx < statusSteps.length - 1 && (
-                  <div className={`hidden md:block absolute left-[calc(50%+16px)] right-[calc(-50%+16px)] h-0.5 top-[15px] -z-0 transition-colors ${
-                    idx < currentStatusIndex ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'
-                  }`} />
+                  <>
+                    {/* Desktop horizontal line */}
+                    <div className={`hidden md:block absolute left-[calc(50%+16px)] right-[calc(-50%+16px)] h-0.5 top-[15px] -z-0 transition-colors ${
+                      idx < currentStatusIndex ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'
+                    }`} />
+                    {/* Mobile vertical line */}
+                    <div className={`md:hidden absolute left-[15px] top-[32px] bottom-[-16px] w-[2px] -z-0 transition-colors ${
+                      idx < currentStatusIndex ? 'bg-[#D4A04D]' : 'bg-[#2A2A2D]'
+                    }`} />
+                  </>
                 )}
               </div>
             );
@@ -219,9 +226,9 @@ export default function OrderDetailPage() {
 
                 return (
                   <div key={idx} className="border-b border-[#2A2A2D]/50 pb-6 last:border-b-0 last:pb-0 space-y-4">
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                       {/* Frame image */}
-                      <div className="w-20 h-20 bg-[#222] border border-[#2A2A2D] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                      <div className="w-20 h-20 bg-[#222] border border-[#2A2A2D] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
                         {item.product?.images?.[0] ? (
                           <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
                         ) : (
@@ -230,13 +237,13 @@ export default function OrderDetailPage() {
                       </div>
 
                       {/* Main details */}
-                      <div className="flex-1">
+                      <div className="flex-1 text-center sm:text-left">
                         <h4 className="text-white font-bold text-sm">{item.product?.name || 'Eyeglass Frame'}</h4>
                         <p className="text-[#A7A7A7] text-xs mt-0.5">{item.product?.sku || item.sku} · Color: <span className="text-white font-medium">{item.color || 'Default'}</span></p>
                         
                         {/* Lens Configuration details */}
                         {item.lensType && (
-                          <div className="mt-2 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg p-3 space-y-1.5 text-xs text-[#A7A7A7]">
+                          <div className="mt-2 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg p-3 space-y-1.5 text-xs text-[#A7A7A7] text-left">
                             <p className="text-white font-bold text-[10px] uppercase tracking-wider">Custom Lens Configured</p>
                             <div>
                               <span>Type: </span>
@@ -252,7 +259,7 @@ export default function OrderDetailPage() {
                       </div>
 
                       {/* Pricing column */}
-                      <div className="text-right whitespace-nowrap">
+                      <div className="text-center sm:text-right whitespace-nowrap pt-2 sm:pt-0 border-t border-[#2A2A2D]/20 sm:border-none">
                         <span className="text-[#D4A04D] font-bold text-sm block">₹{totalItemPrice}</span>
                         <span className="text-[#A7A7A7] text-xs block mt-1">Qty: {item.qty}</span>
                       </div>
@@ -262,7 +269,62 @@ export default function OrderDetailPage() {
                     {isManualPower && item.power && (
                       <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
                         <h5 className="text-white font-bold text-xs uppercase tracking-wider">Prescription Details</h5>
-                        <div className="overflow-x-auto">
+                        
+                        {/* Mobile View: R/L Cards */}
+                        <div className="space-y-3 sm:hidden">
+                          {/* Right Eye (RE) */}
+                          <div className="bg-[#131314] border border-[#2A2A2D]/40 rounded-lg p-3 space-y-2">
+                            <div className="text-[#D4A04D] font-bold text-xs">Right Eye (RE)</div>
+                            <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">SPH</span>
+                                <span className="text-white font-bold">{item.power.RE?.sph?.toFixed(2) || '0.00'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">CYL</span>
+                                <span className="text-white font-bold">{item.power.RE?.cyl?.toFixed(2) || '0.00'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">AXIS</span>
+                                <span className="text-white font-mono">{item.power.RE?.axis || '—'}</span>
+                              </div>
+                            </div>
+                            {item.lensType?.toLowerCase().includes('progressive') && (
+                              <div className="text-[10px] pt-1.5 border-t border-[#2A2A2D]/30 flex justify-between">
+                                <span className="text-gray-500 uppercase tracking-wide">Addition (ADD)</span>
+                                <span className="text-white font-bold">+{item.power.addition?.toFixed(2) || '1.00'}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Left Eye (LE) */}
+                          <div className="bg-[#131314] border border-[#2A2A2D]/40 rounded-lg p-3 space-y-2">
+                            <div className="text-[#D4A04D] font-bold text-xs">Left Eye (LE)</div>
+                            <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">SPH</span>
+                                <span className="text-white font-bold">{item.power.LE?.sph?.toFixed(2) || '0.00'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">CYL</span>
+                                <span className="text-white font-bold">{item.power.LE?.cyl?.toFixed(2) || '0.00'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 block mb-0.5 uppercase tracking-wide">AXIS</span>
+                                <span className="text-white font-mono">{item.power.LE?.axis || '—'}</span>
+                              </div>
+                            </div>
+                            {item.lensType?.toLowerCase().includes('progressive') && (
+                              <div className="text-[10px] pt-1.5 border-t border-[#2A2A2D]/30 flex justify-between">
+                                <span className="text-gray-500 uppercase tracking-wide">Addition (ADD)</span>
+                                <span className="text-white font-bold">+{item.power.addition?.toFixed(2) || '1.00'}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Desktop View: Table */}
+                        <div className="hidden sm:block overflow-x-auto">
                           <table className="w-full text-left text-xs">
                             <thead>
                               <tr className="text-[#A7A7A7] border-b border-[#2A2A2D] uppercase tracking-wide text-[10px]">

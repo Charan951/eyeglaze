@@ -27,6 +27,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
   bool _loading = true;
   String? _selectedCategory;
   String? _selectedShape;
+  String _selectedSort = 'newest';
+  String? _selectedMaterial;
+  String? _selectedSize;
+  String? _selectedColor;
+  String? _selectedGender;
   final _searchCtrl = TextEditingController();
 
   final _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
@@ -103,7 +108,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final data = await api.getProducts(
         category: _normalizeCategory(_selectedCategory),
         search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+        sort: _selectedSort,
         shape: _selectedShape,
+        material: _selectedMaterial,
+        size: _selectedSize,
+        color: _selectedColor,
+        gender: _selectedGender,
       );
       final list = (data['products'] ?? data['data'] ?? []) as List;
       setState(() => _products = list.map((p) => Product.fromJson(p)).toList());
@@ -113,6 +123,33 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _FilterSheet(
+        initialSort: _selectedSort,
+        initialShape: _selectedShape,
+        initialMaterial: _selectedMaterial,
+        initialSize: _selectedSize,
+        initialColor: _selectedColor,
+        initialGender: _selectedGender,
+        onApply: (sort, shape, material, size, color, gender) {
+          setState(() {
+            _selectedSort = sort;
+            _selectedShape = shape;
+            _selectedMaterial = material;
+            _selectedSize = size;
+            _selectedColor = color;
+            _selectedGender = gender;
+          });
+          _loadProducts();
+        },
+      ),
+    );
   }
 
   Future<void> _addToCart(Product product) async {
@@ -171,6 +208,81 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
       ];
 
+  Widget _buildActiveFiltersList() {
+    final List<Widget> chips = [];
+    
+    if (_selectedShape != null) {
+      chips.add(_buildFilterChip('Shape: $_selectedShape', () {
+        setState(() => _selectedShape = null);
+        _loadProducts();
+      }));
+    }
+    if (_selectedSort != 'newest') {
+      String sortName = _selectedSort;
+      if (_selectedSort == 'price_asc') sortName = 'Price: Low to High';
+      if (_selectedSort == 'price_desc') sortName = 'Price: High to Low';
+      if (_selectedSort == 'rating') sortName = 'Rating';
+      if (_selectedSort == 'bestseller') sortName = 'Bestseller';
+      chips.add(_buildFilterChip('Sort: $sortName', () {
+        setState(() => _selectedSort = 'newest');
+        _loadProducts();
+      }));
+    }
+    if (_selectedMaterial != null) {
+      chips.add(_buildFilterChip('Material: $_selectedMaterial', () {
+        setState(() => _selectedMaterial = null);
+        _loadProducts();
+      }));
+    }
+    if (_selectedSize != null) {
+      chips.add(_buildFilterChip('Size: $_selectedSize', () {
+        setState(() => _selectedSize = null);
+        _loadProducts();
+      }));
+    }
+    if (_selectedColor != null) {
+      chips.add(_buildFilterChip('Color: $_selectedColor', () {
+        setState(() => _selectedColor = null);
+        _loadProducts();
+      }));
+    }
+    if (_selectedGender != null) {
+      chips.add(_buildFilterChip('Gender: $_selectedGender', () {
+        setState(() => _selectedGender = null);
+        _loadProducts();
+      }));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: chips,
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, VoidCallback onClear) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: AppColors.gold.withValues(alpha: 0.8),
+        deleteIcon: const Icon(Icons.close, size: 14, color: Colors.white),
+        onDeleted: onClear,
+        padding: EdgeInsets.zero,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -199,7 +311,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   prefixIcon: const Icon(Icons.search, color: AppColors.muted),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.tune, color: AppColors.gold),
-                    onPressed: () {},
+                    onPressed: _showFilterSheet,
                   ),
                 ),
                 onSubmitted: (_) => _loadProducts(),
@@ -239,28 +351,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 },
               ),
             ),
-            if (_selectedShape != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: Row(
-                  children: [
-                    Chip(
-                      label: Text(
-                        'Shape: $_selectedShape',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                      backgroundColor: AppColors.gold,
-                      deleteIcon: const Icon(Icons.close, size: 14, color: Colors.white),
-                      onDeleted: () {
-                        setState(() {
-                          _selectedShape = null;
-                        });
-                        _loadProducts();
-                      },
-                    ),
-                  ],
-                ),
-              ),
+            _buildActiveFiltersList(),
             const SizedBox(height: 8),
             // Product grid
             Expanded(
@@ -425,6 +516,276 @@ class _ProductCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterSheet extends StatefulWidget {
+  final String initialSort;
+  final String? initialShape;
+  final String? initialMaterial;
+  final String? initialSize;
+  final String? initialColor;
+  final String? initialGender;
+  final Function(String, String?, String?, String?, String?, String?) onApply;
+
+  const _FilterSheet({
+    required this.initialSort,
+    required this.initialShape,
+    required this.initialMaterial,
+    required this.initialSize,
+    required this.initialColor,
+    required this.initialGender,
+    required this.onApply,
+  });
+
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  late String _selectedSort;
+  String? _selectedShape;
+  String? _selectedMaterial;
+  String? _selectedSize;
+  String? _selectedColor;
+  String? _selectedGender;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSort = widget.initialSort;
+    _selectedShape = widget.initialShape;
+    _selectedMaterial = widget.initialMaterial;
+    _selectedSize = widget.initialSize;
+    _selectedColor = widget.initialColor;
+    _selectedGender = widget.initialGender;
+  }
+
+  Widget _buildFilterSection(String title, List<Map<String, String>> options, String? currentValue, Function(String?) onSelected) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            title.toUpperCase(),
+            style: const TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((opt) {
+            final value = opt['value'];
+            final label = opt['label'] ?? '';
+            final isSelected = currentValue == value;
+            return GestureDetector(
+              onTap: () {
+                if (isSelected) {
+                  onSelected(null);
+                } else {
+                  onSelected(value);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.gold.withValues(alpha: 0.15) : AppColors.card,
+                  border: Border.all(color: isSelected ? AppColors.gold : AppColors.border),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? AppColors.gold : Colors.white70,
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'FILTER & SORT',
+                  style: TextStyle(color: AppColors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(color: AppColors.border, height: 16),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFilterSection(
+                      'Sort By',
+                      [
+                        {'value': 'newest', 'label': 'Newest'},
+                        {'value': 'price_asc', 'label': 'Price: Low to High'},
+                        {'value': 'price_desc', 'label': 'Price: High to Low'},
+                        {'value': 'rating', 'label': 'Customer Rating'},
+                        {'value': 'bestseller', 'label': 'Bestseller'},
+                      ],
+                      _selectedSort,
+                      (val) => setState(() => _selectedSort = val ?? 'newest'),
+                    ),
+                    _buildFilterSection(
+                      'Frame Shape',
+                      [
+                        {'value': 'Square', 'label': 'Square'},
+                        {'value': 'Rectangle', 'label': 'Rectangle'},
+                        {'value': 'Aviator', 'label': 'Aviator'},
+                        {'value': 'Geometric', 'label': 'Geometric'},
+                      ],
+                      _selectedShape,
+                      (val) => setState(() => _selectedShape = val),
+                    ),
+                    _buildFilterSection(
+                      'Material',
+                      [
+                        {'value': 'TR90 Premium', 'label': 'TR90 Premium'},
+                        {'value': 'Premium Metal', 'label': 'Premium Metal'},
+                        {'value': 'Acetate', 'label': 'Acetate'},
+                      ],
+                      _selectedMaterial,
+                      (val) => setState(() => _selectedMaterial = val),
+                    ),
+                    _buildFilterSection(
+                      'Frame Size',
+                      [
+                        {'value': 'Small', 'label': 'Small'},
+                        {'value': 'Medium', 'label': 'Medium'},
+                        {'value': 'Large', 'label': 'Large'},
+                      ],
+                      _selectedSize,
+                      (val) => setState(() => _selectedSize = val),
+                    ),
+                    _buildFilterSection(
+                      'Frame Color',
+                      [
+                        {'value': 'Black', 'label': 'Black'},
+                        {'value': 'Matte Black', 'label': 'Matte Black'},
+                        {'value': 'Gold', 'label': 'Gold'},
+                        {'value': 'Silver', 'label': 'Silver'},
+                        {'value': 'Tortoise', 'label': 'Tortoise'},
+                        {'value': 'Blue', 'label': 'Blue'},
+                      ],
+                      _selectedColor,
+                      (val) => setState(() => _selectedColor = val),
+                    ),
+                    _buildFilterSection(
+                      'Gender',
+                      [
+                        {'value': 'Men', 'label': 'Men'},
+                        {'value': 'Women', 'label': 'Women'},
+                        {'value': 'Kids', 'label': 'Kids'},
+                        {'value': 'Unisex', 'label': 'Unisex'},
+                      ],
+                      _selectedGender,
+                      (val) => setState(() => _selectedGender = val),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(color: AppColors.border, height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedSort = 'newest';
+                        _selectedShape = null;
+                        _selectedMaterial = null;
+                        _selectedSize = null;
+                        _selectedColor = null;
+                        _selectedGender = null;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('CLEAR ALL', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      widget.onApply(
+                        _selectedSort,
+                        _selectedShape,
+                        _selectedMaterial,
+                        _selectedSize,
+                        _selectedColor,
+                        _selectedGender,
+                      );
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('APPLY FILTERS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -20,12 +20,14 @@ export interface ICoupon extends Document {
   isActive: boolean;
   name?: string;
   description?: string;
+  badge?: string;
 }
 
 const CouponSchema = new Schema<ICoupon>({
   code: { type: String, unique: true, uppercase: true, required: true },
   name: String,
   description: String,
+  badge: String,
   discountType: { type: String, enum: ['percent', 'flat'], required: true },
   discountValue: { type: Number, required: true },
   minOrderValue: Number,
@@ -42,6 +44,6 @@ const CouponSchema = new Schema<ICoupon>({
   skus: [String],
   userSpecific: { type: Schema.Types.ObjectId, ref: 'User' },
   isActive: { type: Boolean, default: true },
-});
+}, { timestamps: true });
 
 export const Coupon = mongoose.models.Coupon || mongoose.model<ICoupon>('Coupon', CouponSchema);

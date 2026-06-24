@@ -435,7 +435,7 @@ class _HomeBodyState extends State<_HomeBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _HeroBanner(),
+          _GreetingsHeader(),
           _CategoryGrids(),
           _FeaturedProducts(),
           _PromoBanners(),
@@ -446,223 +446,62 @@ class _HomeBodyState extends State<_HomeBody> {
   }
 }
 
-class _HeroBanner extends StatefulWidget {
-  const _HeroBanner();
-
-  @override
-  State<_HeroBanner> createState() => _HeroBannerState();
-}
-
-class _HeroBannerState extends State<_HeroBanner> {
-  late PageController _pageController;
-  late Timer _timer;
-  int _currentIndex = 0;
-
-  final List<Map<String, String>> _slides = const [
-    {
-      'subtitle': 'SEE THE WORLD',
-      'title': 'CLEARER.\nSHARPER.\nYOU.',
-      'description': 'Premium Eyewear for Every Version of You.',
-      'button': 'SHOP NOW',
-      'image': '/images/hero_model.png',
-    },
-    {
-      'subtitle': 'EXCLUSIVE DESIGNS',
-      'title': 'STYLE.\nCOMFORT.\nLUXURY.',
-      'description': 'Uncompromising quality meets timeless luxury.',
-      'button': 'EXPLORE ALL',
-      'image': '/images/promo_new_arrivals.png',
-    }
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-    _timer = Timer.periodic(const Duration(seconds: 6), (timer) {
-      if (_pageController.hasClients) {
-        final nextPage = (_currentIndex + 1) % _slides.length;
-        _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
+class _GreetingsHeader extends StatelessWidget {
+  const _GreetingsHeader();
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final user = auth.currentUser;
+    final name = user?.name ?? 'Guest';
+
+    final hour = DateTime.now().hour;
+    String timeGreeting = 'Good Morning';
+    if (hour >= 12 && hour < 17) {
+      timeGreeting = 'Good Afternoon';
+    } else if (hour >= 17 || hour < 4) {
+      timeGreeting = 'Good Evening';
+    }
+
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        height: 220,
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              PageView.builder(
-                controller: _pageController,
-                onPageChanged: (idx) => setState(() => _currentIndex = idx),
-                itemCount: _slides.length,
-                itemBuilder: (context, idx) {
-                  final slide = _slides[idx];
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cardWidth = constraints.maxWidth;
-                      return Stack(
-                        children: [
-                          // Model Image (Right side)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: cardWidth * 0.5,
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
-                                child: CachedNetworkImage(
-                                  imageUrl: AppConfig.resolveImageUrl(slide['image']!),
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  errorWidget: (context, url, error) => Container(color: Colors.transparent),
-                                ),
-                            ),
-                          ),
-                          // Text Details (Left side)
-                          Positioned(
-                            left: 18,
-                            top: 18,
-                            bottom: 18,
-                            width: cardWidth * 0.46,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(width: 14, height: 1.5, color: AppColors.gold),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        slide['subtitle']!,
-                                        style: const TextStyle(
-                                          color: AppColors.gold,
-                                          fontSize: 8.5,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  slide['title']!,
-                                  style: const TextStyle(
-                                    color: AppColors.white,
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.15,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  slide['description']!,
-                                  style: TextStyle(
-                                    color: AppColors.white.withValues(alpha: 0.6),
-                                    fontSize: 9,
-                                    height: 1.3,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 10),
-                                GestureDetector(
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: AppColors.gold, width: 1.2),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          slide['button']!,
-                                          style: const TextStyle(
-                                            color: AppColors.gold,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Icon(
-                                          Icons.arrow_forward,
-                                          color: AppColors.gold,
-                                          size: 10,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12), // spacer for dots
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
-              // Pagination Dots (Bottom left under button)
-              Positioned(
-                bottom: 14,
-                left: 18,
-                child: Row(
-                  children: List.generate(_slides.length, (i) {
-                    final isActive = i == _currentIndex;
-                    return Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      width: isActive ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: isActive ? AppColors.gold : Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
+              Text(
+                'Hello, $name',
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
                 ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.waving_hand,
+                color: AppColors.gold,
+                size: 20,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            '$timeGreeting! Ready to find your perfect fit?',
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
 
 class _CategoryCard extends StatelessWidget {
   final String label;

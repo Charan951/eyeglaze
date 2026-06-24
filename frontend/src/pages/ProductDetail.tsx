@@ -474,7 +474,7 @@ export default function ProductDetailPage() {
         <div>
           {/* Main Image Container */}
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl aspect-square flex items-center justify-center mb-4 relative overflow-hidden group">
-            <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-cover rounded-xl" />
+            <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-xl p-4" />
             
             <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
               {product.isBestseller && (
@@ -566,7 +566,7 @@ export default function ProductDetailPage() {
                     isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
                   }`}
                 >
-                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-lg p-1" />
                 </div>
               );
             })}
@@ -700,7 +700,7 @@ export default function ProductDetailPage() {
                         style={{ backgroundColor: c.hex }}
                       />
                       {isSelected && (
-                        <span className="absolute -bottom-1 -right-1 bg-[#D4A04D] text-black w-4.5 h-4.5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md">
+                        <span className="absolute -bottom-1 -right-1 bg-[#D4A04D] text-black w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md">
                           ✓
                         </span>
                       )}

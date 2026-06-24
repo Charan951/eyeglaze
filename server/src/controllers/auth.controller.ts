@@ -19,7 +19,7 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { Session } from '../models/Session';
 
-async function createUserSession(req: Request, res: Response, user: any) {
+async function createUserSession(req: Request, res: Response, user: any): Promise<string> {
   const sessionId = new mongoose.Types.ObjectId().toString();
   const accessToken = signAccessToken({ userId: user._id.toString(), role: user.role });
   const refreshToken = signRefreshToken({ userId: user._id.toString(), role: user.role, sessionId });
@@ -39,6 +39,7 @@ async function createUserSession(req: Request, res: Response, user: any) {
   });
 
   setAuthCookies(res, accessToken, refreshToken);
+  return accessToken;
 }
 
 export async function sendOTP(req: Request, res: Response) {
@@ -130,9 +131,10 @@ export async function verifyOTP(req: Request, res: Response) {
     }
     await user.save();
 
-    await createUserSession(req, res, user);
+    const accessToken = await createUserSession(req, res, user);
     return res.status(200).json({
       success: true,
+      token: accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -174,10 +176,11 @@ export async function register(req: Request, res: Response) {
       isVerified: true,
     });
 
-    await createUserSession(req, res, user);
+    const accessToken = await createUserSession(req, res, user);
 
     return res.status(201).json({
       success: true,
+      token: accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -237,10 +240,11 @@ export async function login(req: Request, res: Response) {
       await user.save();
     }
 
-    await createUserSession(req, res, user);
+    const accessToken = await createUserSession(req, res, user);
 
     return res.status(200).json({
       success: true,
+      token: accessToken,
       user: {
         id: user._id,
         name: user.name,

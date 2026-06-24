@@ -476,23 +476,22 @@ export default function LensSelection() {
 
 
   const handleConfirmAndAdd = async () => {
-    if (!isZeroPower) {
-      if (powerMode === 'enter') {
-        const hasAstigmatismRE = parseFloat(reCyl) !== 0;
-        const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-        if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-          alert('Please enter AXIS for astigmatism (when CYL is not 0)');
-          return;
-        }
-      } else if (powerMode === 'upload') {
-        if (uploadingPrescription) {
-          alert('Please wait for the prescription file to finish uploading.');
-          return;
-        }
-        if (!uploadedFileUrl) {
-          alert('Please select and upload a prescription file first.');
-          return;
-        }
+    // Check validation for both enter and upload modes, regardless of lens type
+    if (powerMode === 'enter') {
+      const hasAstigmatismRE = parseFloat(reCyl) !== 0;
+      const hasAstigmatismLE = parseFloat(leCyl) !== 0;
+      if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
+        alert('Please enter AXIS for astigmatism (when CYL is not 0)');
+        return;
+      }
+    } else if (powerMode === 'upload') {
+      if (uploadingPrescription) {
+        alert('Please wait for the prescription file to finish uploading.');
+        return;
+      }
+      if (!uploadedFileUrl) {
+        alert('Please select and upload a prescription file first.');
+        return;
       }
     }
 
@@ -500,7 +499,7 @@ export default function LensSelection() {
     try {
       let finalUploadedUrl = uploadedFileUrl;
 
-      if (user && !isZeroPower) {
+      if (user) {
         if (powerMode === 'upload' && prescriptionFileToUpload) {
           const formData = new FormData();
           formData.append('file', prescriptionFileToUpload);
@@ -540,16 +539,21 @@ export default function LensSelection() {
         ? (selectedSubType?.price || 2499)
         : (selectedQuality?.price || selectedType?.price || 699);
 
-      const powerObj = isZeroPower
-                    ? { RE: { sph: 0 }, LE: { sph: 0 } }
-                    : powerMode === 'enter'
-                    ? {
-                        RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) },
-                        LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) },
-                        pd: parseFloat(pd),
-                        addPower: parseFloat(reAdd)
-                      }
-                    : { uploadLater: true, uploadedFileUrl: finalUploadedUrl };
+      // Determine power object based on user's choice, not lens type!
+      let powerObj;
+      if (powerMode === 'enter') {
+        powerObj = {
+          RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) },
+          LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) },
+          pd: parseFloat(pd),
+          addPower: parseFloat(reAdd)
+        };
+      } else if (powerMode === 'upload') {
+        powerObj = { uploadLater: true, uploadedFileUrl: finalUploadedUrl };
+      } else {
+        // Default to zero power if no choice made (backward compatibility)
+        powerObj = { RE: { sph: 0 }, LE: { sph: 0 } };
+      }
 
       const lensPayload = {
         lensType: selectedType?.displayName || selectedType?.name,
@@ -560,7 +564,7 @@ export default function LensSelection() {
         power: powerObj
       };
 
-      if (user && !isZeroPower && powerMode === 'enter') {
+      if (user && powerMode === 'enter') {
         try {
           await api.post('/prescriptions', {
             RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
@@ -786,7 +790,7 @@ export default function LensSelection() {
               {/* Larger Product Image */}
               <div className="w-full sm:w-48 h-32 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
                 {product.images?.[0] ? (
-                  <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                  <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-2" />
                 ) : (
                   <span className="text-3xl">👓</span>
                 )}
@@ -837,7 +841,7 @@ export default function LensSelection() {
               <div className="flex items-center gap-4.5">
                 <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
                   {product.images?.[0] ? (
-                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-2" />
                   ) : (
                     <span className="text-2xl">👓</span>
                   )}
@@ -1246,9 +1250,8 @@ export default function LensSelection() {
 
 
 
-            {/* Prescription Form Block (Show only for non zero-power options) */}
-            {!isZeroPower ? (
-              <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
+            {/* Prescription Form Block (Show for ALL lens types!) */}
+            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
                 
                 {user && savedPrescriptions.length > 0 && (
                   <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
@@ -1488,11 +1491,7 @@ export default function LensSelection() {
                 )}
 
               </div>
-            ) : (
-              <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 text-center text-gray-500 text-xs">
-                Cosmetic Zero Power (Plano) lenses do not require prescription values. Press continue to cart.
-              </div>
-            )}
+
 
             {/* Sticky Navigation Footer */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">

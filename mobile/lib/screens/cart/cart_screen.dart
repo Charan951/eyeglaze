@@ -157,7 +157,29 @@ class _CartItemCard extends StatelessWidget {
               children: [
                 Text(item.product?.name ?? 'Frame', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700)),
                 if (item.selectedColor != null) Text('Color: ${item.selectedColor}', style: AppTextStyles.muted),
-                if (item.lensType != null) Text('Lens: ${item.lensType}', style: AppTextStyles.muted),
+                if (item.lensType != null) ...[
+                  Text('Lens: ${item.lensType}', style: AppTextStyles.muted),
+                  if (item.lensSubType != null) Text('Option: ${item.lensSubType}', style: AppTextStyles.muted),
+                  if (item.lensQuality != null) Text('Quality: ${item.lensQuality}', style: AppTextStyles.muted),
+                  if (item.lensConfig != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'RE (S:${item.lensConfig!.re?.sph ?? 0.0}, C:${item.lensConfig!.re?.cyl ?? 0.0}, A:${item.lensConfig!.re?.axis ?? 0})\n'
+                          'LE (S:${item.lensConfig!.le?.sph ?? 0.0}, C:${item.lensConfig!.le?.cyl ?? 0.0}, A:${item.lensConfig!.le?.axis ?? 0})\n'
+                          'PD: ${item.lensConfig!.pd ?? 0.0}',
+                          style: TextStyle(color: AppColors.gold.withValues(alpha: 0.9), fontSize: 9, height: 1.3),
+                        ),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 6),
                 Text('₹${item.totalPrice.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 16)),
               ],

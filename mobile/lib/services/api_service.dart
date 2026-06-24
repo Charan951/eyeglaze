@@ -54,12 +54,37 @@ class ApiService {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/forgot-password')),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/reset-password')),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'token': token, 'newPassword': newPassword}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   // Products
   Future<Map<String, dynamic>> getProducts({
     String? category,
     String? search,
     String? sort,
     String? shape,
+    String? material,
+    String? size,
+    String? color,
+    String? gender,
     int page = 1,
   }) async {
     final params = <String, String>{};
@@ -67,6 +92,10 @@ class ApiService {
     if (search != null) params['search'] = search;
     if (sort != null) params['sort'] = sort;
     if (shape != null) params['shape'] = shape;
+    if (material != null) params['material'] = material;
+    if (size != null) params['size'] = size;
+    if (color != null) params['color'] = color;
+    if (gender != null) params['gender'] = gender;
     params['page'] = page.toString();
     params['limit'] = '20';
 
@@ -168,7 +197,11 @@ class ApiService {
     final res = await _client.post(
       Uri.parse(_url('/coupons/validate')),
       headers: await _getHeaders(),
-      body: jsonEncode({'code': code, 'orderTotal': orderTotal}),
+      body: jsonEncode({
+        'code': code,
+        'orderTotal': orderTotal,
+        'cartTotal': orderTotal,
+      }),
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }

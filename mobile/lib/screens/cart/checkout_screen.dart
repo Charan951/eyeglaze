@@ -7,6 +7,7 @@ import '../../services/auth_service.dart';
 import '../../widgets/gold_button.dart';
 import '../../widgets/trust_strip.dart';
 import '../../models/cart_item.dart';
+import '../../models/user.dart';
 import '../orders/orders_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -32,6 +33,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _stateCtrl = TextEditingController();
   final _pincodeCtrl = TextEditingController();
 
+  // Coupon State
+  final _couponCtrl = TextEditingController();
+  bool _couponApplied = false;
+  double _couponDiscount = 0.0;
+  String _appliedCouponCode = '';
+  String _couponError = '';
+  String _couponSuccessMessage = '';
+  bool _validatingCoupon = false;
+
+  // Wallet State
+  bool _useWallet = false;
+
   // Payment Selection
   String _paymentMethod = 'cod'; // cod, card, upi
 
@@ -56,6 +69,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _cityCtrl.dispose();
     _stateCtrl.dispose();
     _pincodeCtrl.dispose();
+    _couponCtrl.dispose();
     super.dispose();
   }
 
@@ -102,8 +116,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double get _subtotal => _items.fold(0, (s, i) => s + i.totalPrice);
-  double get _delivery => _items.isNotEmpty ? 99 : 0;
+  double get _delivery {
+    final user = context.read<AuthService>().currentUser;
+    if (user != null && user.membershipActive == true) return 0.0;
+    return _items.isNotEmpty ? 99.0 : 0.0;
+  }
   double get _total => _subtotal + _delivery;
+
+  double get _walletDeduction {
+    if (!_useWallet) return 0.0;
+    final user = context.read<AuthService>().currentUser;
+    if (user == null) return 0.0;
+    final remainingAfterCoupon = _total - _couponDiscount;
+    return remainingAfterCoupon > user.walletBalance
+        ? user.walletBalance
+        : remainingAfterCoupon;
+  }
+
+  double get _finalTotal => _total - _couponDiscount - _walletDeduction;
+
+  Future<void> _validateCoupon() async {
+    final code = _couponCtrl.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _validatingCoupon = true;
+      _couponError = '';
+      _couponSuccessMessage = '';
+    });
+
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final res = await api.validateCoupon(code, _total);
+      if (res['valid'] == true) {
+        setState(() {
+          _couponApplied = true;
+          _appliedCouponCode = code.toUpperCase();
+          _couponDiscount = (res['discount'] as num).toDouble();
+          _couponSuccessMessage = res['message'] ?? 'Coupon applied successfully!';
+        });
+      } else {
+        setState(() {
+          _couponError = res['message'] ?? 'Invalid coupon code';
+          _couponApplied = false;
+          _appliedCouponCode = '';
+          _couponDiscount = 0.0;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _couponError = 'Failed to validate coupon';
+      });
+    } finally {
+      setState(() {
+        _validatingCoupon = false;
+      });
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _couponApplied = false;
+      _appliedCouponCode = '';
+      _couponDiscount = 0.0;
+      _couponCtrl.clear();
+      _couponSuccessMessage = '';
+      _couponError = '';
+    });
+  }
 
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) {
@@ -128,12 +209,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'state': _stateCtrl.text.trim(),
           'pincode': _pincodeCtrl.text.trim(),
         },
-        'paymentMethod': _paymentMethod,
+        'paymentMethod': _finalTotal == 0 ? 'wallet' : _paymentMethod,
         'paymentStatus': 'paid',
+        if (_appliedCouponCode.isNotEmpty) 'couponCode': _appliedCouponCode,
+        if (_useWallet && _walletDeduction > 0) 'walletUsed': _walletDeduction,
       };
 
       final response = await api.createOrder(payload);
       if (response['orderId'] != null) {
+        // Refresh profile to update wallet balance in local state
+        try {
+          final profileRes = await api.getProfile();
+          if (profileRes['user'] != null) {
+            auth.setUser(User.fromJson(profileRes['user']));
+          }
+        } catch (_) {}
+
         final estDelivery = response['estimatedDelivery'] != null
             ? DateTime.parse(response['estimatedDelivery'])
             : DateTime.now().add(const Duration(days: 5));
@@ -143,7 +234,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() {
           _orderSuccess = true;
           _successOrderId = response['orderId'];
-          _successTotal = (response['total'] ?? _total).toDouble();
+          _successTotal = (response['total'] ?? _finalTotal).toDouble();
           _successDeliveryDate = formatter.format(estDelivery);
         });
       } else {
@@ -305,10 +396,98 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 2. Payment Method
-              const Text('PAYMENT METHOD', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
+              // Coupon / Promo Section
+              const Text('PROMO CODE', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
               const SizedBox(height: 12),
               Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_couponApplied) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _couponCtrl,
+                              textCapitalization: TextCapitalization.characters,
+                              style: const TextStyle(color: AppColors.white, fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: 'Enter coupon code',
+                                hintStyle: const TextStyle(color: AppColors.muted, fontSize: 14),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: AppColors.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: AppColors.gold),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            height: 46,
+                            child: ElevatedButton(
+                              onPressed: _validatingCoupon ? null : _validateCoupon,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.gold,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: _validatingCoupon
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                                    )
+                                  : const Text('APPLY', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_couponError.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(_couponError, style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                      ],
+                    ] else ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: AppColors.success, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Code $_appliedCouponCode Applied!', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(_couponSuccessMessage, style: const TextStyle(color: AppColors.success, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: AppColors.error),
+                            onPressed: _removeCoupon,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Wallet Section
+              const Text('EYEGLAZE WALLET', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(12),
@@ -316,36 +495,92 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 child: Column(
                   children: [
-                    RadioListTile<String>(
-                      title: const Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                      value: 'cod',
-                      groupValue: _paymentMethod,
-                      activeColor: AppColors.gold,
-                      onChanged: (val) => setState(() => _paymentMethod = val!),
+                    Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet_outlined, color: AppColors.gold, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Apply Wallet Balance', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text('Available Balance: ₹${user?.walletBalance.toInt() ?? 0}', style: AppTextStyles.muted),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _useWallet,
+                          activeColor: AppColors.gold,
+                          activeTrackColor: AppColors.gold.withValues(alpha: 0.3),
+                          inactiveThumbColor: AppColors.muted,
+                          inactiveTrackColor: Colors.white10,
+                          onChanged: (user?.walletBalance ?? 0) > 0
+                              ? (val) => setState(() => _useWallet = val)
+                              : null,
+                        ),
+                      ],
                     ),
-                    const Divider(color: AppColors.border, height: 1),
-                    RadioListTile<String>(
-                      title: const Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                      value: 'card',
-                      groupValue: _paymentMethod,
-                      activeColor: AppColors.gold,
-                      onChanged: (val) => setState(() => _paymentMethod = val!),
-                    ),
-                    const Divider(color: AppColors.border, height: 1),
-                    RadioListTile<String>(
-                      title: const Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                      value: 'upi',
-                      groupValue: _paymentMethod,
-                      activeColor: AppColors.gold,
-                      onChanged: (val) => setState(() => _paymentMethod = val!),
-                    ),
+                    if (_useWallet && _walletDeduction > 0) ...[
+                      const Divider(color: AppColors.border),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Text('Deducting from Wallet', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                            const Spacer(),
+                            Text('-₹${_walletDeduction.toInt()}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(height: 24),
+
+              // 2. Payment Method
+              if (_finalTotal > 0) ...[
+                const Text('PAYMENT METHOD', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'cod',
+                        groupValue: _paymentMethod,
+                        activeColor: AppColors.gold,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                      ),
+                      const Divider(color: AppColors.border, height: 1),
+                      RadioListTile<String>(
+                        title: const Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'card',
+                        groupValue: _paymentMethod,
+                        activeColor: AppColors.gold,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                      ),
+                      const Divider(color: AppColors.border, height: 1),
+                      RadioListTile<String>(
+                        title: const Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'upi',
+                        groupValue: _paymentMethod,
+                        activeColor: AppColors.gold,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // 3. Order Items Summary
               const Text('ORDER SUMMARY', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
@@ -396,13 +631,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 6),
                     _PriceSummaryRow(label: 'Subtotal', value: '₹${_subtotal.toInt()}'),
                     _PriceSummaryRow(label: 'Shipping & Delivery', value: '₹${_delivery.toInt()}'),
+                    if (_couponApplied && _couponDiscount > 0)
+                      _PriceSummaryRow(
+                        label: 'Coupon Discount ($_appliedCouponCode)',
+                        value: '-₹${_couponDiscount.toInt()}',
+                        valueColor: AppColors.success,
+                      ),
+                    if (_useWallet && _walletDeduction > 0)
+                      _PriceSummaryRow(
+                        label: 'Wallet Deduction',
+                        value: '-₹${_walletDeduction.toInt()}',
+                        valueColor: AppColors.success,
+                      ),
                     const Divider(color: AppColors.border),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         const Text('Total Amount', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
                         const Spacer(),
-                        Text('₹${_total.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 18)),
+                        Text('₹${_finalTotal.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 18)),
                       ],
                     ),
                   ],
@@ -517,7 +764,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 class _PriceSummaryRow extends StatelessWidget {
   final String label;
   final String value;
-  const _PriceSummaryRow({required this.label, required this.value});
+  final Color? valueColor;
+  const _PriceSummaryRow({required this.label, required this.value, this.valueColor});
 
   @override
   Widget build(BuildContext context) {
@@ -527,7 +775,10 @@ class _PriceSummaryRow extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           const Spacer(),
-          Text(value, style: const TextStyle(color: AppColors.white, fontSize: 12)),
+          Text(
+            value,
+            style: TextStyle(color: valueColor ?? AppColors.white, fontSize: 12),
+          ),
         ],
       ),
     );

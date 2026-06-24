@@ -663,7 +663,7 @@ export default function ProfilePage() {
 
         {/* Security & Active Sessions */}
         <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <span>🛡️</span> Security & Device Sessions
@@ -675,7 +675,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleLogoutAll}
                 disabled={isLoggingOutAll}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 w-full sm:w-auto text-center"
               >
                 {isLoggingOutAll ? 'Logging out...' : 'Log Out All Devices'}
               </button>
@@ -693,17 +693,17 @@ export default function ProfilePage() {
                 return (
                   <div
                     key={sess.id}
-                    className={`border rounded-xl p-4 flex items-center justify-between transition-all ${
+                    className={`border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
                       sess.isCurrent
                         ? 'border-[#D4A04D] bg-[#D4A04D]/5'
                         : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-700'
                     }`}
                   >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-4 flex-1 min-w-0 w-full">
                       <div className="text-3xl bg-[#1D1D20] p-3 rounded-xl border border-[#2D2D30] shadow-inner flex-shrink-0">
                         {icon}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-white font-bold text-sm truncate">
                             {browser} on {os}
@@ -730,10 +730,10 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="ml-4 flex-shrink-0">
+                    <div className="w-full sm:w-auto flex-shrink-0 sm:ml-4">
                       <button
                         onClick={() => handleRevokeSession(sess.id)}
-                        className={`font-bold uppercase py-2 px-4 rounded-xl text-xs tracking-wider transition-all border ${
+                        className={`w-full sm:w-auto font-bold uppercase py-2 px-4 rounded-xl text-xs tracking-wider transition-all border ${
                           sess.isCurrent
                             ? 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
                             : 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:border-gray-700 hover:text-white'

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
@@ -11,14 +11,46 @@ export default function UserLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
+  // Close menus when route/pathname changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsProfileDropdownOpen(false);
+  }, [location.pathname]);
+
+  // Lock body scroll on mobile when menus are open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && (isProfileDropdownOpen || isMobileMenuOpen)) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isProfileDropdownOpen, isMobileMenuOpen]);
+
   const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
   if (user && ADMIN_ROLES.includes(user.role || '')) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
-  // Check if we are on the product detail route (e.g. /products/:id)
+  // Check if we are on the product detail route (e.g. /products/:id), cart page, wishlist, or login/auth pages
   const segments = location.pathname.split('/');
   const isProductDetailPage = segments.length === 3 && segments[1] === 'products';
+  const isCartPage = location.pathname === '/cart';
+  const isWishlistPage = location.pathname === '/wishlist';
+  const isAuthPage = [
+    '/login',
+    '/login/otp',
+    '/forgot-password',
+    '/reset-password'
+  ].includes(location.pathname);
+  const showBackButtonOnMobile = isProductDetailPage || isCartPage || isAuthPage || isWishlistPage;
+  const hideRightIconsOnMobile = isCartPage || isAuthPage;
   
   const isCustomerPage = [
     '/orders',
@@ -35,9 +67,9 @@ export default function UserLayout() {
   ].some(path => location.pathname.startsWith(path));
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-hidden">
+    <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-clip">
       {!isCustomerPage && (
-        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-50 w-full transition-colors duration-300">
+        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-50 w-full transition-colors duration-300">
         <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
           
           {/* Left spacer/tagline (visible on desktop) */}
@@ -47,8 +79,8 @@ export default function UserLayout() {
             <span>7-Day Returns</span>
           </div>
           
-          {isProductDetailPage ? (
-            /* Left actions on product detail: Back Button + Hamburger side-by-side */
+          {showBackButtonOnMobile ? (
+            /* Left actions: Back Button only */
             <div className="flex items-center gap-1.5 md:hidden">
               <button 
                 onClick={() => navigate(-1)} 
@@ -59,27 +91,10 @@ export default function UserLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
-              <button 
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="text-[#D4A04D] hover:text-[#C8923E] p-1 focus:outline-none transition-colors cursor-pointer"
-                aria-label="Open Menu"
-              >
-                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
             </div>
           ) : (
-            /* Hamburger Menu (visible on mobile) for normal pages */
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden text-[#D4A04D] hover:text-[#C8923E] p-1.5 focus:outline-none transition-colors cursor-pointer"
-              aria-label="Open Menu"
-            >
-              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            /* Left actions spacer on normal pages to keep center logo centered */
+            <div className="w-9 h-9 md:hidden" />
           )}
 
           {/* Center: Logo with Gold Styling */}
@@ -92,8 +107,14 @@ export default function UserLayout() {
           <div className="flex items-center gap-3.5 md:gap-6 z-10">
             {/* Search Icon */}
             <button 
-              onClick={() => navigate('/products')} 
-              className="text-gray-400 hover:text-[#D4A04D] transition-colors cursor-pointer"
+              onClick={() => {
+                if (location.pathname === '/products') {
+                  document.getElementById('search-input')?.focus();
+                } else {
+                  navigate('/products');
+                }
+              }}
+              className="hidden md:block text-gray-400 hover:text-[#D4A04D] transition-colors cursor-pointer"
               title="Search"
             >
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
@@ -104,7 +125,7 @@ export default function UserLayout() {
             {/* Wishlist Icon */}
             <Link 
               to="/wishlist" 
-              className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" 
+              className={`${(hideRightIconsOnMobile || isProductDetailPage || isWishlistPage) ? 'hidden md:block' : ''} text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer`} 
               title="Wishlist"
             >
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
@@ -113,12 +134,16 @@ export default function UserLayout() {
             </Link>
 
             {/* Cart Icon with Badge */}
-            <Link to="/cart" className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
+            <Link 
+              to="/cart" 
+              className={`${hideRightIconsOnMobile ? 'hidden md:block' : ''} text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer`} 
+              title="Shopping Cart"
+            >
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-[#0B0B0C]">
+                <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[8px] w-4 h-4 rounded-full flex items-center justify-center border border-[#0B0B0C]">
                   {cartCount}
                 </span>
               )}
@@ -127,6 +152,7 @@ export default function UserLayout() {
             {/* Profile / Login Button & Dropdown */}
             {user ? (
               <div className="relative">
+                {/* Desktop Trigger */}
                 <button 
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                   className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer focus:outline-none"
@@ -147,13 +173,24 @@ export default function UserLayout() {
                   </svg>
                 </button>
 
+                {/* Mobile Trigger */}
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className={`${hideRightIconsOnMobile ? 'hidden' : 'md:hidden'} w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer bg-transparent focus:outline-none`}
+                  title="Profile"
+                >
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </button>
+
                 {isProfileDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-64 bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in">
+                    <div className="absolute right-0 mt-3 w-52 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in scrollbar-none">
                       {/* Dropdown Header */}
-                      <div className="flex items-center gap-3 pb-3 border-b border-[#2A2A2D] select-none">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-sm uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
+                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#2A2A2D] select-none">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-xs uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
                           {user.name ? user.name[0].toUpperCase() : 'U'}
                         </div>
                         <div className="min-w-0">
@@ -168,39 +205,39 @@ export default function UserLayout() {
                       </div>
 
                       {/* Dropdown Navigation */}
-                      <nav className="mt-3 space-y-1">
+                      <nav className="mt-2 space-y-0.5">
                         {[
                           { href: '/profile', label: 'My Profile', icon: '👤' },
                           { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                           { href: '/orders', label: 'My Orders', icon: '📦' },
                           { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                           { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                          { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                          { href: '/payments', label: 'Payment History', icon: '💳' },
                           { href: '/wallet', label: 'My Wallet', icon: '👛' },
                         ].map(({ href, label, icon }) => (
                           <Link
                             key={href}
                             to={href}
                             onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
+                            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
                           >
-                            <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
+                            <BrandIcon name={icon} className="w-3.5 h-3.5 text-[#D4A04D]" />
                             <span>{label}</span>
                           </Link>
                         ))}
                       </nav>
 
                       {/* Dropdown Footer / Logout */}
-                      <div className="mt-3 pt-3 border-t border-[#2A2A2D]">
+                      <div className="mt-2 pt-2 border-t border-[#2A2A2D]">
                         <button
                           onClick={async () => {
                             setIsProfileDropdownOpen(false);
                             await logout();
                             navigate('/');
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
                         >
-                          <BrandIcon name="🚪" className="w-4 h-4 text-[#D4A04D]" />
+                          <BrandIcon name="🚪" className="w-3.5 h-3.5 text-[#D4A04D]" />
                           <span>Logout</span>
                         </button>
                       </div>
@@ -209,33 +246,28 @@ export default function UserLayout() {
                 )}
               </div>
             ) : (
-              <Link 
-                to="/login" 
-                className="hidden md:block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider transition-colors cursor-pointer"
-              >
-                Login/Signup
-              </Link>
+              <>
+                <Link 
+                  to="/login" 
+                  className="hidden md:block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider transition-colors cursor-pointer"
+                >
+                  Login/Signup
+                </Link>
+                <Link 
+                  to="/login" 
+                  className={`${hideRightIconsOnMobile ? 'hidden' : 'md:hidden'} w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer`}
+                  title="Login"
+                >
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                </Link>
+              </>
             )}
           </div>
         </div>
 
-        {/* Secondary Desktop Navbar - 100% View */}
-        <div className="border-t border-[#1C1C1E] bg-[#0A0A0A]/60 hidden md:block w-full">
-          <nav className="w-full px-4 sm:px-6 md:px-12 lg:px-16 flex justify-center gap-8 h-12 items-center text-xs tracking-[0.15em] uppercase font-bold">
-            {[
-              { href: '/', label: 'Home' },
-              { href: '/products', label: 'Products' },
-            ].map(({ href, label }) => (
-              <Link 
-                key={label} 
-                to={href} 
-                className="text-gray-400 hover:text-[#D4A04D] hover:border-b-2 hover:border-[#D4A04D] h-full flex items-center transition-colors px-1"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+
       </header>
       )}
 
@@ -259,21 +291,7 @@ export default function UserLayout() {
               </button>
             </div>
 
-            <nav className="flex flex-col gap-6 text-sm tracking-[0.15em] uppercase font-bold">
-              {[
-                { href: '/', label: 'Home' },
-                { href: '/products', label: 'Products' },
-              ].map(({ href, label }) => (
-                <Link 
-                  key={label} 
-                  to={href} 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-gray-400 hover:text-[#D4A04D] transition-colors py-1 border-b border-[#1A1A1C]"
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
+
 
             {/* Mobile Drawer "My Space" (if user logged in) */}
             {user && (
@@ -288,7 +306,7 @@ export default function UserLayout() {
                     { href: '/orders', label: 'My Orders', icon: '📦' },
                     { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                     { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                    { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                    { href: '/payments', label: 'Payment History', icon: '💳' },
                     { href: '/wallet', label: 'My Wallet', icon: '👛' },
                   ].map(({ href, label, icon }) => (
                     <Link
@@ -347,7 +365,7 @@ export default function UserLayout() {
         </div>
       )}
 
-      <main className={isCustomerPage ? "w-full min-h-screen" : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8"}>
+      <main className={isCustomerPage ? "w-full min-h-screen" : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16"}>
         <Outlet />
       </main>
 

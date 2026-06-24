@@ -72,10 +72,28 @@ export default function ProductsPage() {
   // Local price range state for mobile slider
   const maxPriceQuery = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : 3000;
   const [mobilePriceVal, setMobilePriceVal] = useState(maxPriceQuery);
+  const [searchVal, setSearchVal] = useState(searchParams.get('search') || '');
 
   useEffect(() => {
     setMobilePriceVal(maxPriceQuery);
   }, [maxPriceQuery]);
+
+  // Sync searchVal with URL search param
+  useEffect(() => {
+    setSearchVal(searchParams.get('search') || '');
+  }, [searchParams]);
+
+  // Debounced search update
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      const currentSearch = searchParams.get('search') || '';
+      if (searchVal !== currentSearch) {
+        updateSingleFilter('search', searchVal);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchVal]);
 
   useEffect(() => {
     let active = true;
@@ -193,10 +211,41 @@ export default function ProductsPage() {
         keywords="designer glasses, luxury eyewear, shop eyeglasses, prescription sunglasses, round frames, square frames, wayfarer"
       />
       
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">All Frames</h1>
           <p className="text-[#A7A7A7] text-sm mt-1">{total || products.length} products found</p>
+        </div>
+        
+        {/* Search Input Bar */}
+        <div className="relative w-full sm:w-72 md:w-80">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search frames by name, SKU..."
+            value={searchVal}
+            onChange={(e) => setSearchVal(e.target.value)}
+            className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"
+          />
+          {searchVal && (
+            <button
+              onClick={() => {
+                setSearchVal('');
+                updateSingleFilter('search', '');
+              }}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1"
+              title="Clear Search"
+            >
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

@@ -138,7 +138,7 @@ export default function AboutEyeglaze() {
           </div>
 
           {/* Interactive display block */}
-          <div className="lg:col-span-7 bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-6 h-56 flex flex-col justify-between relative overflow-hidden animate-fade-in">
+          <div className="lg:col-span-7 bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-6 min-h-[14rem] md:h-56 flex flex-col justify-between gap-6 md:gap-0 relative overflow-hidden animate-fade-in">
             <div className="absolute top-0 right-0 p-8 text-7xl opacity-5 select-none">{PRODUCTION_STEPS[activeStep].icon}</div>
             <div className="space-y-3 relative z-10">
               <span className="text-xs text-[#D4A04D] uppercase tracking-widest font-extrabold">

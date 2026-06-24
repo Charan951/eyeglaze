@@ -51,3 +51,35 @@ export async function validateCoupon(req: Request, res: Response) {
     return res.status(500).json({ error: 'Failed to validate coupon' });
   }
 }
+
+export async function getActiveCoupons(req: Request, res: Response) {
+  try {
+    await connectDB();
+    const now = new Date();
+    const coupons = await Coupon.find({
+      isActive: true,
+      $and: [
+        {
+          $or: [
+            { validTo: { $exists: false } },
+            { validTo: null },
+            { validTo: { $gte: now } }
+          ]
+        },
+        {
+          $or: [
+            { validFrom: { $exists: false } },
+            { validFrom: null },
+            { validFrom: { $lte: now } }
+          ]
+        }
+      ]
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({ coupons });
+  } catch (error) {
+    console.error('get active coupons error:', error);
+    return res.status(500).json({ error: 'Failed to fetch coupons' });
+  }
+}
+

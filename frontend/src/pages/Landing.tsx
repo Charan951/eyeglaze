@@ -12,6 +12,34 @@ export default function LandingPage() {
   const { user, cartCount, checkAuth, logout } = useAuth();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: -320, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
+    }
+  };
+
+  const iconsCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollIconsLeft = () => {
+    if (iconsCarouselRef.current) {
+      iconsCarouselRef.current.scrollBy({ left: -320, behavior: 'smooth' });
+    }
+  };
+
+  const scrollIconsRight = () => {
+    if (iconsCarouselRef.current) {
+      iconsCarouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
+    }
+  };
+
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
   const slides = [
@@ -49,8 +77,6 @@ export default function LandingPage() {
 
   // Videos States
   const [videos, setVideos] = useState<any[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<any>(null);
-  const [videoBlobUrl, setVideoBlobUrl] = useState<string>('');
 
   // Fetch homepage videos on mount
   useEffect(() => {
@@ -59,9 +85,6 @@ export default function LandingPage() {
       .then((res) => {
         if (!active) return;
         setVideos(res.data);
-        if (res.data && res.data.length > 0) {
-          setSelectedVideo(res.data[0]);
-        }
       })
       .catch((err) => {
         console.error('Error fetching homepage videos:', err);
@@ -70,43 +93,6 @@ export default function LandingPage() {
       active = false;
     };
   }, []);
-
-  // Convert S3 video stream into a Blob URL to hide the source URL in inspect element
-  useEffect(() => {
-    if (!selectedVideo) return;
-
-    if (isDirectVideo(selectedVideo.videoUrl)) {
-      let active = true;
-      // Fetch as blob
-      api.get(selectedVideo.videoUrl, { responseType: 'blob' })
-        .then((res) => {
-          if (!active) return;
-          const url = URL.createObjectURL(res.data);
-          setVideoBlobUrl(url);
-        })
-        .catch((err) => {
-          console.error('Error creating video blob:', err);
-          if (active) {
-            setVideoBlobUrl(selectedVideo.videoUrl); // Fallback to raw URL
-          }
-        });
-
-      return () => {
-        active = false;
-      };
-    } else {
-      setVideoBlobUrl('');
-    }
-  }, [selectedVideo]);
-
-  // Clean up blob URLs to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (videoBlobUrl && videoBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(videoBlobUrl);
-      }
-    };
-  }, [videoBlobUrl]);
 
   const getEmbedUrl = (url: string) => {
     if (!url) return '';
@@ -147,6 +133,22 @@ export default function LandingPage() {
   const [isShapeModalOpen, setIsShapeModalOpen] = useState(false);
   const [shapeModalTitle, setShapeModalTitle] = useState('');
   const [shapeModalCategory, setShapeModalCategory] = useState('');
+
+  // Lock body scroll on mobile when menus are open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && (isProfileDropdownOpen || isMobileMenuOpen)) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isProfileDropdownOpen, isMobileMenuOpen]);
 
   const handleCategoryClick = (e: React.MouseEvent, label: string, category: string) => {
     if (label === 'Contact Lens' || label === 'Accessories') {
@@ -355,19 +357,7 @@ export default function LandingPage() {
     }
   ];
 
-  // VIP Club Newsletter States
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newsletterEmail.trim()) return;
-    setIsSubscribed(true);
-    setTimeout(() => {
-      setNewsletterEmail('');
-      setIsSubscribed(false);
-      alert('Thank you! You have successfully subscribed to the EyeGlaze VIP club. Check your inbox for your 15% discount code!');
-    }, 1500);
-  };
+
 
   // Featured Products Data
   const defaultFeaturedProducts = [
@@ -414,6 +404,50 @@ export default function LandingPage() {
       reviews: 87,
       image: '/images/cat_blue_light.png',
       badge: 'NEW'
+    },
+    {
+      id: 'eg-4022',
+      name: 'EG-4022 | Aviator Style Shield',
+      category: 'Computer Glasses',
+      originalPrice: 1199,
+      salePrice: 299,
+      rating: 4.8,
+      reviews: 120,
+      image: '/images/cat_blue_light.png',
+      badge: 'POPULAR'
+    },
+    {
+      id: 'eg-6088',
+      name: 'EG-6088 | Cat-Eye Premium Frame',
+      category: 'Prescription Glasses',
+      originalPrice: 1499,
+      salePrice: 499,
+      rating: 4.7,
+      reviews: 95,
+      image: '/images/cat_prescription.png',
+      badge: 'ELEGANT'
+    },
+    {
+      id: 'eg-7044',
+      name: 'EG-7044 | Hexagonal Wireframe',
+      category: 'Zero Power Glasses',
+      originalPrice: 899,
+      salePrice: 199,
+      rating: 4.5,
+      reviews: 64,
+      image: '/images/cat_blue_light.png',
+      badge: 'TRENDING'
+    },
+    {
+      id: 'eg-8012',
+      name: 'EG-8012 | Wayfarer Classic',
+      category: 'Sunglasses',
+      originalPrice: 1099,
+      salePrice: 1,
+      rating: 4.9,
+      reviews: 310,
+      image: '/images/promo_sunglasses.png',
+      badge: 'HOT SELLER'
     }
   ];
 
@@ -423,7 +457,7 @@ export default function LandingPage() {
     let active = true;
 
     const fetchFeatured = () => {
-      api.get('/products?limit=4')
+      api.get('/products?limit=12')
         .then((res) => {
           if (!active) return;
           const fetched = res.data.products || res.data || [];
@@ -456,7 +490,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C] text-white flex flex-col font-sans pb-16 md:pb-0 w-full overflow-x-hidden">
+    <div className="min-h-screen bg-[#0B0B0C] text-white flex flex-col font-sans pb-16 md:pb-0 w-full overflow-x-clip">
       <SEO 
         title="Premium Eyewear & Custom Lenses"
         description="Experience luxury designer frames, custom prescription lenses, and blue light blocking glasses at EyeGlaze. Book a free home eye test today."
@@ -466,7 +500,7 @@ export default function LandingPage() {
       {/* ================= DESKTOP LAYOUT ================= */}
       <div className="hidden md:block w-full">
         {/* Top Header */}
-        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-40 w-full transition-colors duration-300">
+        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-40 w-full transition-colors duration-300">
         <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
           
           {/* Left spacer/tagline (visible on desktop) */}
@@ -555,10 +589,10 @@ export default function LandingPage() {
                 {isProfileDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-64 bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left">
+                    <div className="absolute right-0 mt-3 w-52 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left scrollbar-none">
                       {/* Dropdown Header */}
-                      <div className="flex items-center gap-3 pb-3 border-b border-[#2A2A2D] select-none">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-sm uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
+                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#2A2A2D] select-none">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-xs uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
                           {user.name ? user.name[0].toUpperCase() : 'U'}
                         </div>
                         <div className="min-w-0">
@@ -573,39 +607,39 @@ export default function LandingPage() {
                       </div>
 
                       {/* Dropdown Navigation */}
-                      <nav className="mt-3 space-y-1">
+                      <nav className="mt-2 space-y-0.5">
                         {[
                           { href: '/profile', label: 'My Profile', icon: '👤' },
                           { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
                           { href: '/orders', label: 'My Orders', icon: '📦' },
                           { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                           { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                          { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                          { href: '/payments', label: 'Payment History', icon: '💳' },
                           { href: '/wallet', label: 'My Wallet', icon: '👛' },
                         ].map(({ href, label, icon }) => (
                           <Link
                             key={href}
                             to={href}
                             onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
+                            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
                           >
-                            <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
+                            <BrandIcon name={icon} className="w-3.5 h-3.5 text-[#D4A04D]" />
                             <span>{label}</span>
                           </Link>
                         ))}
                       </nav>
 
                       {/* Dropdown Footer / Logout */}
-                      <div className="mt-3 pt-3 border-t border-[#2A2A2D]">
+                      <div className="mt-2 pt-2 border-t border-[#2A2A2D]">
                         <button
                           onClick={async () => {
                             setIsProfileDropdownOpen(false);
                             await logout();
                             navigate('/');
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
                         >
-                          <BrandIcon name="🚪" className="w-4 h-4 text-[#D4A04D]" />
+                          <BrandIcon name="🚪" className="w-3.5 h-3.5 text-[#D4A04D]" />
                           <span>Logout</span>
                         </button>
                       </div>
@@ -624,27 +658,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Secondary Desktop Navbar - 100% View */}
-        <div className="border-t border-[#1C1C1E] bg-[#0A0A0A]/60 hidden md:block w-full">
-          <nav className="w-full px-4 sm:px-6 md:px-12 lg:px-16 flex justify-center gap-8 h-12 items-center text-xs tracking-[0.15em] uppercase font-bold">
-            {[
-              { href: '/', label: 'Home' },
-              { href: '/products', label: 'Products' },
-            ].map(({ href, label }) => (
-              <Link 
-                key={label} 
-                to={href} 
-                className="text-gray-400 hover:text-[#D4A04D] hover:border-b-2 hover:border-[#D4A04D] h-full flex items-center transition-colors px-1"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+
       </header>
 
       {/* Main Body - 100% View Layout */}
-      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-6 flex flex-col gap-10">
+      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-6 flex flex-col gap-10 mt-16">
         
         {/* Hero Section - Full View */}
         <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] min-h-[260px] sm:min-h-[420px] md:min-h-[520px] flex items-center w-full">
@@ -860,29 +878,9 @@ export default function LandingPage() {
       {/* ================= MOBILE LAYOUT (Mockup Style) ================= */}
       <div className="block md:hidden w-full bg-black text-white pb-6 font-sans">
         {/* Mobile Header */}
-        <header className="bg-[#050505] sticky top-0 z-40 w-full px-4 h-16 flex items-center justify-between border-b border-[#151515]">
-          {/* Left: Profile or Hamburger Menu */}
-          {user ? (
-            <Link 
-              to="/profile" 
-              className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
-              title="Profile"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </Link>
-          ) : (
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="w-9 h-9 flex items-center justify-center text-[#D4A04D] hover:text-[#C8923E] transition-colors cursor-pointer bg-transparent border-none"
-              aria-label="Open Menu"
-            >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          )}
+        <header className="bg-[#050505] fixed top-0 left-0 right-0 z-40 w-full px-4 h-16 flex items-center justify-between border-b border-[#151515]">
+          {/* Left: Spacer to keep logo centered on mobile */}
+          <div className="w-9 h-9" />
 
           {/* Center: Logo */}
           <Link to="/" className="flex flex-col items-center text-center select-none">
@@ -890,47 +888,110 @@ export default function LandingPage() {
             <span className="text-[#D4A04D]/85 font-sans text-[8px] tracking-[0.4em] uppercase mt-0.5 font-bold">EYEWEAR</span>
           </Link>
 
-          {/* Right: Search, Notification Bell, Shopping Bag */}
+          {/* Right: Shopping Bag & Profile/Login */}
           <div className="flex items-center gap-3.5">
-            {/* Search */}
-            <button 
-              onClick={() => navigate('/products')} 
-              className="text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
-              title="Search"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-
-            {/* Notification Bell */}
-            <button 
-              onClick={() => setIsNotificationsModalOpen(true)}
-              className="text-gray-300 hover:text-[#D4A04D] transition-colors relative cursor-pointer"
-              title="Notifications"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-[#050505]">
-                3
-              </span>
-            </button>
-
             {/* Shopping Bag */}
             <Link to="/cart" className="text-gray-300 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
-              <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-[#050505]">
-                {cartCount > 0 ? cartCount : 2}
-              </span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-4 h-4 rounded-full flex items-center justify-center border border-[#050505]">
+                  {cartCount}
+                </span>
+              )}
             </Link>
+
+            {/* Mobile Profile / Login Icon */}
+            {user ? (
+              <div className="relative">
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer bg-transparent focus:outline-none"
+                  title="Profile"
+                >
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </button>
+
+                {isProfileDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-52 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left scrollbar-none">
+                      {/* Dropdown Header */}
+                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#2A2A2D] select-none">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-xs uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
+                          {user.name ? user.name[0].toUpperCase() : 'U'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-white text-xs font-black truncate">{user.name || 'Customer'}</div>
+                          <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
+                          {user.membershipActive && (
+                            <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
+                              <BrandIcon name="👑" className="w-3 h-3 text-[#D4A04D]" /> Gold Member
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dropdown Navigation */}
+                      <nav className="mt-2 space-y-0.5">
+                        {[
+                          { href: '/profile', label: 'My Profile', icon: '👤' },
+                          { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
+                          { href: '/orders', label: 'My Orders', icon: '📦' },
+                          { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
+                          { href: '/membership', label: 'Gold Membership', icon: '👑' },
+                          { href: '/payments', label: 'Payment History', icon: '💳' },
+                          { href: '/wallet', label: 'My Wallet', icon: '👛' },
+                        ].map(({ href, label, icon }) => (
+                          <Link
+                            key={href}
+                            to={href}
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
+                          >
+                            <BrandIcon name={icon} className="w-3.5 h-3.5 text-[#D4A04D]" />
+                            <span>{label}</span>
+                          </Link>
+                        ))}
+                      </nav>
+
+                      {/* Dropdown Footer / Logout */}
+                      <div className="mt-2 pt-2 border-t border-[#2A2A2D]">
+                        <button
+                          onClick={async () => {
+                            setIsProfileDropdownOpen(false);
+                            await logout();
+                            navigate('/');
+                          }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
+                        >
+                          <BrandIcon name="🚪" className="w-3.5 h-3.5 text-[#D4A04D]" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <Link 
+                to="/login" 
+                className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
+                title="Login"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </Link>
+            )}
           </div>
         </header>
 
         {/* Mobile Main Body */}
-        <main className="px-4 py-5 space-y-6">
+        <main className="px-4 py-5 space-y-6 mt-16">
           
           {/* Hero Slider Card */}
           <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 min-h-[170px] flex items-center justify-between overflow-hidden shadow-xl">
@@ -1146,71 +1207,99 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Products Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-            {featuredProducts.map((product) => {
-              const productId = product._id || product.id;
-              const salePrice = product.price?.selling ?? product.salePrice ?? 0;
-              const originalPrice = product.price?.original ?? product.originalPrice ?? 0;
-              const imageUrl = product.images?.[0] || product.image || '/images/cat_prescription.png';
-              const name = product.name;
-              const categoryName = product.category || 'Eyewear';
-              const rating = product.rating || 5.0;
-              const reviews = product.reviewCount ?? product.reviews ?? 0;
-              const badge = product.isBestseller ? 'BESTSELLER' : (product.badge || 'NEW');
+          {/* Products Carousel */}
+          <div className="relative w-full group/carousel">
+            {/* Left navigation arrow */}
+            <button 
+              onClick={scrollLeft}
+              className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/carousel:opacity-100 hidden md:flex"
+              aria-label="Previous Products"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
 
-              return (
-                <div 
-                  key={productId}
-                  onClick={() => navigate(`/products/${productId}`)}
-                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between cursor-pointer"
-                >
-                  
-                  {/* Image & Badge Container */}
-                  <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
-                    <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase">
-                      {badge}
-                    </span>
+            {/* Carousel Container */}
+            <div 
+              ref={carouselRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full pb-4"
+            >
+              {featuredProducts.map((product) => {
+                const productId = product._id || product.id;
+                const salePrice = product.price?.selling ?? product.salePrice ?? 0;
+                const originalPrice = product.price?.original ?? product.originalPrice ?? 0;
+                const imageUrl = product.images?.[0] || product.image || '/images/cat_prescription.png';
+                const name = product.name;
+                const categoryName = product.category || 'Eyewear';
+                const rating = product.rating || 5.0;
+                const reviews = product.reviewCount ?? product.reviews ?? 0;
+                const badge = product.isBestseller ? 'BESTSELLER' : (product.badge || 'NEW');
+
+                return (
+                  <div 
+                    key={productId}
+                    onClick={() => navigate(`/products/${productId}`)}
+                    className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between cursor-pointer"
+                  >
                     
-                    <img 
-                      src={imageUrl} 
-                      alt={name} 
-                      className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
-                    />
-
-                    {/* Hover Quick View Overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <span className="border border-[#D4A04D] text-[#D4A04D] bg-black/80 font-bold text-[10px] tracking-wider uppercase py-2 px-4 rounded-lg">
-                        Quick View
+                    {/* Image & Badge Container */}
+                    <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
+                      <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase">
+                        {badge}
                       </span>
-                    </div>
-                  </div>
+                      
+                      <img 
+                        src={imageUrl} 
+                        alt={name} 
+                        className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
+                      />
 
-                  {/* Details Container */}
-                  <div className="p-4 flex flex-col gap-2 flex-1 justify-between">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[#D4A04D] font-bold uppercase tracking-wider">{categoryName.replace('_', ' ')}</span>
-                      <h3 className="text-white text-xs font-semibold group-hover:text-[#D4A04D] transition-colors line-clamp-1">{name}</h3>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2A2A2D]/40">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[#D4A04D] text-sm font-bold">₹{salePrice}</span>
-                        <span className="text-gray-600 text-[10px] line-through">₹{originalPrice}</span>
-                      </div>
-
-                      {/* Ratings */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-yellow-500 text-xs">★</span>
-                        <span className="text-white text-[10px] font-semibold">{rating}</span>
-                        <span className="text-gray-600 text-[9px]">({reviews})</span>
+                      {/* Hover Quick View Overlay */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <span className="border border-[#D4A04D] text-[#D4A04D] bg-black/80 font-bold text-[10px] tracking-wider uppercase py-2 px-4 rounded-lg">
+                          Quick View
+                        </span>
                       </div>
                     </div>
-                  </div>
 
-                </div>
-              );
-            })}
+                    {/* Details Container */}
+                    <div className="p-4 flex flex-col gap-2 flex-1 justify-between">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#D4A04D] font-bold uppercase tracking-wider">{categoryName.replace('_', ' ')}</span>
+                        <h3 className="text-white text-xs font-semibold group-hover:text-[#D4A04D] transition-colors line-clamp-1">{name}</h3>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2A2A2D]/40">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#D4A04D] text-sm font-bold">₹{salePrice}</span>
+                          <span className="text-gray-600 text-[10px] line-through">₹{originalPrice}</span>
+                        </div>
+
+                        {/* Ratings */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-yellow-500 text-xs">★</span>
+                          <span className="text-white text-[10px] font-semibold">{rating}</span>
+                          <span className="text-gray-600 text-[9px]">({reviews})</span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right navigation arrow */}
+            <button 
+              onClick={scrollRight}
+              className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/carousel:opacity-100 hidden md:flex"
+              aria-label="Next Products"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </section>
 
@@ -1438,143 +1527,150 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-            {[
-              {
-                title: 'The Minimalist',
-                style: 'Thin Gold Wireframes',
-                img: '/images/cat_prescription.png',
-                desc: 'A subtle statement. Lightweight frames engineered from aerospace titanium.'
-              },
-              {
-                title: 'The Maverick',
-                style: 'Chunky Acetate Square',
-                img: '/images/cat_sunglasses.png',
-                desc: 'Bold contours and thick temples for an unapologetically smart profile.'
-              },
-              {
-                title: 'The Creator',
-                style: 'Round Transparent Rim',
-                img: '/images/cat_blue_light.png',
-                desc: 'Intellectual styling utilizing clear bio-acetates and textured temples.'
-              },
-              {
-                title: 'The Explorer',
-                style: 'Classic Double-Bar Aviators',
-                img: '/images/promo_sunglasses.png',
-                desc: 'An outdoor vintage classic re-imagined with high-contrast polaroid lenses.'
-              }
-            ].map((trend, idx) => (
-              <div
-                key={idx}
-                className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col"
-              >
-                <div className="aspect-[4/3] w-full overflow-hidden bg-[#131314] relative flex items-center justify-center p-6 border-b border-[#2A2A2D]/40">
-                  <img
-                    src={trend.img}
-                    alt={trend.title}
-                    className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                </div>
-                <div className="p-4 flex flex-col gap-1.5 flex-1 justify-between">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase tracking-wider">{trend.style}</span>
-                    <h3 className="text-white text-xs font-bold">{trend.title}</h3>
-                    <p className="text-gray-400 text-[10px] leading-relaxed mt-1 font-semibold">{trend.desc}</p>
-                  </div>
-                  <button
-                    onClick={() => navigate('/products')}
-                    className="w-full mt-3 border border-[#2A2A2D] group-hover:border-[#D4A04D] text-white group-hover:text-black group-hover:bg-[#D4A04D] text-[10px] font-bold py-2 rounded-lg transition-all"
-                  >
-                    SHOP THE LOOK
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+          {/* Icons Carousel */}
+          <div className="relative w-full group/icons-carousel">
+            {/* Left navigation arrow */}
+            <button 
+              onClick={scrollIconsLeft}
+              className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/icons-carousel:opacity-100 hidden md:flex"
+              aria-label="Previous Trend"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
 
-        {/* Split Section: Book Free Home Eye Test */}
-        <section className="w-full py-4 border-t border-[#1C1C1E] flex justify-center">
-          {/* Left Column: Home Eye Test Form */}
-          <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col gap-5 justify-between relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors w-full max-w-2xl shadow-xl">
-            <div className="flex flex-col gap-2">
-              <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">EYEGLAZE CLINIC @ HOME</span>
-              <h3 className="text-white text-lg md:text-xl font-extrabold uppercase tracking-wide">Book Free Home Eye Test</h3>
-              <p className="text-gray-400 text-xs leading-relaxed">
-                Why step out? Get your eyes tested by a certified optometrist in the comfort of your home. Includes advanced digital refraction and a collection of 150+ frames to try on!
-              </p>
+            {/* Carousel Container */}
+            <div 
+              ref={iconsCarouselRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full pb-4"
+            >
+              {[
+                {
+                  title: 'The Minimalist',
+                  style: 'Thin Gold Wireframes',
+                  img: '/images/cat_prescription.png',
+                  desc: 'A subtle statement. Lightweight frames engineered from aerospace titanium.'
+                },
+                {
+                  title: 'The Maverick',
+                  style: 'Chunky Acetate Square',
+                  img: '/images/cat_sunglasses.png',
+                  desc: 'Bold contours and thick temples for an unapologetically smart profile.'
+                },
+                {
+                  title: 'The Creator',
+                  style: 'Round Transparent Rim',
+                  img: '/images/cat_blue_light.png',
+                  desc: 'Intellectual styling utilizing clear bio-acetates and textured temples.'
+                },
+                {
+                  title: 'The Explorer',
+                  style: 'Classic Double-Bar Aviators',
+                  img: '/images/promo_sunglasses.png',
+                  desc: 'An outdoor vintage classic re-imagined with high-contrast polaroid lenses.'
+                }
+              ].map((trend, idx) => (
+                <div
+                  key={idx}
+                  className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col justify-between"
+                >
+                  <div className="aspect-[4/3] w-full overflow-hidden bg-[#131314] relative flex items-center justify-center p-6 border-b border-[#2A2A2D]/40">
+                    <img
+                      src={trend.img}
+                      alt={trend.title}
+                      className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                  </div>
+                  <div className="p-4 flex flex-col gap-1.5 flex-1 justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[#D4A04D] text-[10px] font-bold uppercase tracking-wider">{trend.style}</span>
+                      <h3 className="text-white text-xs font-bold">{trend.title}</h3>
+                      <p className="text-gray-400 text-[10px] leading-relaxed mt-1 font-semibold">{trend.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/products')}
+                      className="w-full mt-3 border border-[#2A2A2D] group-hover:border-[#D4A04D] text-white group-hover:text-black group-hover:bg-[#D4A04D] text-[10px] font-bold py-2 rounded-lg transition-all"
+                    >
+                      SHOP THE LOOK
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <form onSubmit={handleBookTest} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Select Date</label>
-                <input
-                  type="date"
-                  required
-                  value={bookingDate}
-                  onChange={(e) => setBookingDate(e.target.value)}
-                  className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Preferred Time Slot</label>
-                <select
-                  required
-                  value={bookingTime}
-                  onChange={(e) => setBookingTime(e.target.value)}
-                  className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
-                >
-                  <option value="">Choose slot...</option>
-                  <option value="10am-12pm">10:00 AM - 12:00 PM</option>
-                  <option value="12pm-2pm">12:00 PM - 02:00 PM</option>
-                  <option value="2pm-4pm">02:00 PM - 04:00 PM</option>
-                  <option value="4pm-6pm">04:00 PM - 06:00 PM</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Address & Pincode</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter full address for optometrist visit..."
-                  value={bookingAddress}
-                  onChange={(e) => setBookingAddress(e.target.value)}
-                  className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Phone Number</label>
-                <input
-                  type="tel"
-                  required
-                  pattern="[0-9]{10}"
-                  placeholder="10-digit mobile number"
-                  value={bookingPhone}
-                  onChange={(e) => setBookingPhone(e.target.value)}
-                  className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
-                />
-              </div>
-
-              <div className="flex items-end mt-1">
-                <button
-                  type="submit"
-                  disabled={isBooked}
-                  className="w-full bg-[#D4A04D] hover:bg-[#C8923E] disabled:bg-gray-600 text-black font-extrabold text-[10px] uppercase py-3 rounded-lg tracking-wider transition-colors cursor-pointer"
-                >
-                  {isBooked ? 'BOOKING IN PROGRESS...' : 'CONFIRM FREE APPOINTMENT'}
-                </button>
-              </div>
-            </form>
+            {/* Right navigation arrow */}
+            <button 
+              onClick={scrollIconsRight}
+              className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/icons-carousel:opacity-100 hidden md:flex"
+              aria-label="Next Trend"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </section>
 
+        {/* EyeGlaze Showcase Section */}
+        {videos && videos.length > 0 ? (
+          <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
+            </div>
 
-        {/* Collapsible FAQ & Videos Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+              {videos.map((vid) => (
+                <div 
+                  key={vid._id || vid.id}
+                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-4 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-full"
+                >
+                  <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                    {isDirectVideo(vid.videoUrl) ? (
+                      <video
+                        src={vid.videoUrl}
+                        className="w-full h-full object-cover"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <iframe
+                        title={vid.title}
+                        className="w-full h-full"
+                        src={getEmbedUrl(vid.videoUrl)}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 px-1">
+                    <span className="text-white text-xs font-bold uppercase tracking-wide">{vid.title}</span>
+                    {vid.description && (
+                      <p className="text-gray-400 text-[10px] leading-relaxed font-semibold">
+                        {vid.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6 opacity-40">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
+            </div>
+            <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-2 max-w-3xl mx-auto w-full">
+              <span>🎥</span>
+              <span className="text-xs text-gray-400">Videos will appear here once activated by admin.</span>
+            </div>
+          </section>
+        )}
+
+        {/* Split Section: Frequently Asked Questions & EYEGLAZE CLINIC @ HOME */}
         <section className="w-full py-8 border-t border-[#1C1C1E] grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left Column: FAQ */}
           <div className="flex flex-col gap-6 w-full">
@@ -1611,118 +1707,85 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right Column: Videos Showcase */}
-          {videos && videos.length > 0 ? (
-            <div className="flex flex-col gap-6 w-full">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
-                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
+          {/* Right Column: Home Eye Test Form */}
+          <div className="lg:sticky lg:top-24">
+            <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col gap-5 justify-between relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors w-full shadow-xl">
+              <div className="flex flex-col gap-2">
+                <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">EYEGLAZE CLINIC @ HOME</span>
+                <h3 className="text-white text-lg md:text-xl font-extrabold uppercase tracking-wide">Book Free Home Eye Test</h3>
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  Why step out? Get your eyes tested by a certified optometrist in the comfort of your home. Includes advanced digital refraction and a collection of 150+ frames to try on!
+                </p>
               </div>
 
-              <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-4 flex flex-col gap-4 shadow-xl">
-                {/* Active Player */}
-                {selectedVideo && (
-                  <div className="flex flex-col gap-3 animate-fade-in">
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                      {isDirectVideo(selectedVideo.videoUrl) ? (
-                        <video
-                          src={videoBlobUrl || selectedVideo.videoUrl}
-                          className="w-full h-full object-cover"
-                          controls
-                          playsInline
-                        />
-                      ) : (
-                        <iframe
-                          title={selectedVideo.title}
-                          className="w-full h-full"
-                          src={getEmbedUrl(selectedVideo.videoUrl)}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 px-1">
-                      <span className="text-white text-xs font-bold uppercase tracking-wide">{selectedVideo.title}</span>
-                      {selectedVideo.description && (
-                        <p className="text-gray-400 text-[10px] leading-relaxed font-semibold">
-                          {selectedVideo.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <form onSubmit={handleBookTest} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Select Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
+                  />
+                </div>
 
-                {/* Tabs to switch videos */}
-                {videos.length > 1 && (
-                  <div className="flex flex-wrap gap-2 border-t border-[#2A2A2D]/40 pt-3">
-                    {videos.map((vid) => (
-                      <button
-                        key={vid._id}
-                        onClick={() => setSelectedVideo(vid)}
-                        className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-350 cursor-pointer ${
-                          selectedVideo && selectedVideo._id === vid._id
-                            ? 'bg-[#D4A04D] text-black shadow-md font-extrabold'
-                            : 'bg-[#181818] border border-[#2A2A2D] text-[#A7A7A7] hover:text-white'
-                        }`}
-                      >
-                        {vid.title}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6 w-full opacity-40">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
-                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
-              </div>
-              <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-2">
-                <span>🎥</span>
-                <span className="text-xs text-gray-400">Videos will appear here once activated by admin.</span>
-              </div>
-            </div>
-          )}
-        </section>
+                <div className="flex flex-col gap-1">
+                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Preferred Time Slot</label>
+                  <select
+                    required
+                    value={bookingTime}
+                    onChange={(e) => setBookingTime(e.target.value)}
+                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
+                  >
+                    <option value="">Choose slot...</option>
+                    <option value="10am-12pm">10:00 AM - 12:00 PM</option>
+                    <option value="12pm-2pm">12:00 PM - 02:00 PM</option>
+                    <option value="2pm-4pm">02:00 PM - 04:00 PM</option>
+                    <option value="4pm-6pm">04:00 PM - 06:00 PM</option>
+                  </select>
+                </div>
 
-        {/* Newsletter / VIP Club Section */}
-        <section className="w-full py-8 border-t border-[#1C1C1E]">
-          <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-10 flex flex-col lg:flex-row items-center justify-between gap-6 w-full relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-1/3 h-full bg-gradient-to-l from-[#D4A04D]/5 to-transparent pointer-events-none" />
-            
-            <div className="flex flex-col gap-2 max-w-xl z-10">
-              <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">JOIN THE COVENANT</span>
-              <h3 className="text-white text-lg md:text-2xl font-extrabold uppercase tracking-wide">Subscribe to EyeGlaze VIP</h3>
-              <p className="text-gray-400 text-xs md:text-sm leading-relaxed">
-                Be the first to receive premium collection drops, exclusive VIP coupon discounts, and complimentary shape consultations. Plus, get 15% OFF your first order!
-              </p>
-            </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Address & Pincode</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter full address for optometrist visit..."
+                    value={bookingAddress}
+                    onChange={(e) => setBookingAddress(e.target.value)}
+                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
+                  />
+                </div>
 
-            {isSubscribed ? (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 text-xs font-bold animate-scale-up z-10 sm:w-[320px] text-center shrink-0">
-                ✓ YOU ARE ON THE VIP LIST! CHECK YOUR INBOX.
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto shrink-0 z-10">
-                <input
-                  type="email"
-                  required
-                  placeholder="Enter your email address..."
-                  value={newsletterEmail}
-                  onChange={(e) => setNewsletterEmail(e.target.value)}
-                  className="bg-[#131314] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-xl px-4 py-3 sm:w-[280px] focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase py-3 px-6 rounded-xl tracking-wider transition-colors shrink-0 cursor-pointer"
-                >
-                  JOIN THE CLUB
-                </button>
+                <div className="flex flex-col gap-1">
+                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    pattern="[0-9]{10}"
+                    placeholder="10-digit mobile number"
+                    value={bookingPhone}
+                    onChange={(e) => setBookingPhone(e.target.value)}
+                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
+                  />
+                </div>
+
+                <div className="flex items-end mt-1">
+                  <button
+                    type="submit"
+                    disabled={isBooked}
+                    className="w-full bg-[#D4A04D] hover:bg-[#C8923E] disabled:bg-gray-600 text-black font-extrabold text-[10px] uppercase py-3 rounded-lg tracking-wider transition-colors cursor-pointer"
+                  >
+                    {isBooked ? 'BOOKING IN PROGRESS...' : 'CONFIRM FREE APPOINTMENT'}
+                  </button>
+                </div>
               </form>
-            )}
+            </div>
           </div>
         </section>
+
+
       </main> {/* END SHARED PAGE CONTENT */}
 
         {/* Mobile Bottom Navigation Bar */}
@@ -1802,21 +1865,7 @@ export default function LandingPage() {
               </button>
             </div>
 
-            <nav className="flex flex-col gap-6 text-sm tracking-[0.15em] uppercase font-bold">
-              {[
-                { href: '/', label: 'Home' },
-                { href: '/products', label: 'Products' },
-              ].map(({ href, label }) => (
-                <Link 
-                  key={label} 
-                  to={href} 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-gray-400 hover:text-[#D4A04D] transition-colors py-1 border-b border-[#1A1A1C]"
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
+
 
             {/* Mobile Drawer "My Space" (if user logged in) */}
             {user && (
@@ -1831,7 +1880,7 @@ export default function LandingPage() {
                     { href: '/orders', label: 'My Orders', icon: '📦' },
                     { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
                     { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                    { href: '/payments', label: 'Payment Methods', icon: '💳' },
+                    { href: '/payments', label: 'Payment History', icon: '💳' },
                     { href: '/wallet', label: 'My Wallet', icon: '👛' },
                   ].map(({ href, label, icon }) => (
                     <Link

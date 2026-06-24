@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { validateCoupon } from '../controllers/coupons.controller';
+import { validateCoupon, getActiveCoupons } from '../controllers/coupons.controller';
 
 const router = Router();
 
+router.get('/', getActiveCoupons);
 router.post('/validate', validateCoupon);
 
 export default router;

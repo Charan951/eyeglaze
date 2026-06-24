@@ -152,7 +152,8 @@ export default function SavedPowersPage() {
           </h3>
           
           <form onSubmit={handleAddPowerSubmit} className="space-y-6">
-            <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
+            {/* Header: hidden on mobile */}
+            <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-[10px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
               <div className="text-left" />
               <div>SPH (Sphere)</div>
               <div>CYL (Cylinder)</div>
@@ -160,54 +161,64 @@ export default function SavedPowersPage() {
             </div>
 
             {/* Right Eye Row */}
-            <div className="grid grid-cols-4 gap-2 items-center text-center">
-              <div className="text-[#D4A04D] text-xs font-black text-left">Right Eye (R)</div>
-              <div>
-                <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
+            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-3 sm:gap-2 items-stretch sm:items-center text-center">
+              <div className="text-[#D4A04D] text-xs font-black text-left self-start sm:self-auto mb-1 sm:mb-0">Right Eye (R)</div>
+              <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">SPH</span>
+                  <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                      <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">CYL</span>
+                  <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                      <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">AXIS</span>
+                  <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* Left Eye Row */}
-            <div className="grid grid-cols-4 gap-2 items-center text-center">
-              <div className="text-[#D4A04D] text-xs font-black text-left">Left Eye (L)</div>
-              <div>
-                <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
-                  {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
+            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-3 sm:gap-2 items-stretch sm:items-center text-center">
+              <div className="text-[#D4A04D] text-xs font-black text-left self-start sm:self-auto mb-1 sm:mb-0">Left Eye (L)</div>
+              <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">SPH</span>
+                  <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                      <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">CYL</span>
+                  <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                      <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col sm:contents">
+                  <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">AXIS</span>
+                  <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -324,7 +335,8 @@ export default function SavedPowersPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-4 gap-2 text-center text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-[#2A2A2D]/30 pb-1.5">
+                    {/* Header: hidden on mobile */}
+                    <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-[#2A2A2D]/30 pb-1.5">
                       <div className="text-left" />
                       <div>SPH</div>
                       <div>CYL</div>
@@ -332,19 +344,41 @@ export default function SavedPowersPage() {
                     </div>
 
                     {/* Right Eye */}
-                    <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                      <div className="text-left font-semibold text-gray-400">Right Eye</div>
-                      <div className="text-white font-bold">{formatValue(pr.RE?.sph)}</div>
-                      <div className="text-white font-bold">{formatValue(pr.RE?.cyl)}</div>
-                      <div className="text-white font-mono">{pr.RE?.axis ?? '0'}°</div>
+                    <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs">
+                      <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Right Eye</div>
+                      <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                          <span className="text-white font-bold">{formatValue(pr.RE?.sph)}</span>
+                        </div>
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                          <span className="text-white font-bold">{formatValue(pr.RE?.cyl)}</span>
+                        </div>
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                          <span className="text-white font-mono">{pr.RE?.axis ?? '0'}°</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Left Eye */}
-                    <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                      <div className="text-left font-semibold text-gray-400">Left Eye</div>
-                      <div className="text-white font-bold">{formatValue(pr.LE?.sph)}</div>
-                      <div className="text-white font-bold">{formatValue(pr.LE?.cyl)}</div>
-                      <div className="text-white font-mono">{pr.LE?.axis ?? '0'}°</div>
+                    <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs pt-1.5 sm:pt-0">
+                      <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Left Eye</div>
+                      <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                          <span className="text-white font-bold">{formatValue(pr.LE?.sph)}</span>
+                        </div>
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                          <span className="text-white font-bold">{formatValue(pr.LE?.cyl)}</span>
+                        </div>
+                        <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                          <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                          <span className="text-white font-mono">{pr.LE?.axis ?? '0'}°</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* PD */}

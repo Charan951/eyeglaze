@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../models/user.dart';
 import '../splash/splash_screen.dart';
 import '../home/home_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -286,6 +287,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                 ),
               ),
+              if (_activeTab == 'login') ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: AppColors.gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Error Display

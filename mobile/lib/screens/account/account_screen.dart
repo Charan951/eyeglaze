@@ -14,9 +14,34 @@ import 'membership_screen.dart';
 import 'prescriptions_screen.dart';
 import 'support_screen.dart';
 import 'terms_screen.dart';
+import 'wallet_screen.dart';
+import 'offers_screen.dart';
+import 'contact_screen.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshProfile();
+  }
+
+  Future<void> _refreshProfile() async {
+    try {
+      final authService = context.read<AuthService>();
+      final api = ApiService(authService);
+      final res = await api.getProfile();
+      if (res['user'] != null) {
+        authService.setUser(User.fromJson(res['user']));
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -244,51 +269,46 @@ class AccountScreen extends StatelessWidget {
                       color: AppColors.border.withValues(alpha: 0.5),
                     ),
                     // Wallet row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.account_balance_wallet_outlined,
-                            color: AppColors.gold,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Wallet Balance',
-                            style: TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WalletScreen()),
+                        ).then((_) => _refreshProfile());
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.account_balance_wallet_outlined,
+                              color: AppColors.gold,
+                              size: 20,
                             ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '₹${user?.walletBalance.toStringAsFixed(2) ?? "0.00"}',
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Wallet Balance',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Mini Add Money action
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'To add money, use the WALLET tab on the home screen.',
-                                  ),
-                                  backgroundColor: AppColors.gold,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                            child: Container(
+                            const Spacer(),
+                            Text(
+                              '₹${user?.walletBalance.toStringAsFixed(2) ?? "0.00"}',
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 5,
@@ -298,7 +318,7 @@ class AccountScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
-                                '+ ADD',
+                                'VIEW',
                                 style: TextStyle(
                                   color: Colors.black,
                                   fontSize: 10,
@@ -306,8 +326,8 @@ class AccountScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -345,12 +365,22 @@ class AccountScreen extends StatelessWidget {
                   _MenuTile(
                     icon: Icons.description_outlined,
                     label: 'My Prescriptions',
-                    showDivider: false,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const PrescriptionsScreen()),
                       );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Wallet Dashboard',
+                    showDivider: false,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WalletScreen()),
+                      ).then((_) => _refreshProfile());
                     },
                   ),
                 ],
@@ -372,11 +402,21 @@ class AccountScreen extends StatelessWidget {
                   _MenuTile(
                     icon: Icons.workspace_premium_outlined,
                     label: 'EyeGlaze Membership',
-                    showDivider: false,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const MembershipScreen()),
+                      );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.local_offer_outlined,
+                    label: 'Offers & Coupons',
+                    showDivider: false,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const OffersScreen()),
                       );
                     },
                   ),
@@ -393,6 +433,16 @@ class AccountScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const SupportScreen()),
+                      );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.contact_support_outlined,
+                    label: 'Contact Us',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ContactScreen()),
                       );
                     },
                   ),

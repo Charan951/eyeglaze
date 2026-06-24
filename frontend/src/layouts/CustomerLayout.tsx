@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import BrandIcon from '../components/BrandIcon';
@@ -17,7 +17,8 @@ const customerNavSections = [
   {
     title: 'Payments',
     items: [
-      { href: '/payments', label: 'Payments & Wallet', icon: '💳' },
+      { href: '/payments', label: 'Payment History', icon: '💳' },
+      { href: '/wallet', label: 'My Wallet', icon: '👛' },
     ],
   },
   {
@@ -42,6 +43,27 @@ export default function CustomerLayout() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Close menus when route/pathname changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Lock body scroll on mobile when menus are open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && isMobileMenuOpen) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0B0B0C]">
@@ -65,16 +87,16 @@ export default function CustomerLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#0B0B0C] w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#0B0B0C] w-full overflow-x-clip">
       {/* Mobile Top Header */}
-      <header className="md:hidden bg-[#0A0A0A] border-b border-[#2A2A2D] h-16 px-4 flex items-center justify-between sticky top-0 z-40 w-full select-none">
+      <header className="md:hidden bg-[#0A0A0A] border-b border-[#2A2A2D] h-16 px-4 flex items-center justify-between fixed top-0 left-0 right-0 z-40 w-full select-none">
         <button 
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="text-[#D4A04D] hover:text-[#C8923E] p-1.5 focus:outline-none transition-colors cursor-pointer bg-transparent border-none"
-          aria-label="Open Customer Menu"
+          onClick={() => navigate('/')}
+          className="text-gray-400 hover:text-white p-1 focus:outline-none transition-colors cursor-pointer bg-transparent border-none"
+          aria-label="Go to Home"
         >
           <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </button>
 
@@ -83,15 +105,7 @@ export default function CustomerLayout() {
           <span className="text-[#D4A04D]/80 font-sans text-[7px] tracking-[0.25em] uppercase mt-1 font-bold">CUSTOMER PORTAL</span>
         </Link>
 
-        <Link 
-          to="/" 
-          className="text-gray-400 hover:text-[#D4A04D] transition-colors p-1"
-          title="Back to Store"
-        >
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-        </Link>
+        <div className="w-9 h-9" />
       </header>
 
       {/* Desktop Sidebar (hidden on mobile) */}
@@ -249,7 +263,7 @@ export default function CustomerLayout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto mt-16 md:mt-0">
         <div className="max-w-5xl mx-auto px-4 py-6 md:px-10 md:py-8">
           <Outlet />
         </div>

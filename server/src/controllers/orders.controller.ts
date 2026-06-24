@@ -28,7 +28,7 @@ export async function createOrder(req: Request, res: Response) {
   try {
     await connectDB();
     const body = req.body || {};
-    const { deliveryAddress, paymentMethod, couponCode, walletUsed = 0 } = body;
+    const { deliveryAddress, paymentMethod, couponCode, walletUsed = 0, activateMembership } = body;
 
     if (!deliveryAddress) {
       return res.status(400).json({ error: 'Delivery address is required' });
@@ -43,6 +43,8 @@ export async function createOrder(req: Request, res: Response) {
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ error: 'Cart is empty' });
     }
+
+    const isMemberNow = user.membershipActive || activateMembership;
 
     // Recalculate pricing server-side with business logic
     let subtotal = 0;
@@ -68,14 +70,14 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       // Check ₹1 Frame eligibility
-      if (item.product?.oneRupeeFrameOffer && user.membershipActive && !user.oneRupeeOfferUsed && oneRupeeFramesUsed < 2) {
+      if (item.product?.oneRupeeFrameOffer && isMemberNow && !user.oneRupeeOfferUsed && oneRupeeFramesUsed < 2) {
         framePrice = 1;
         oneRupeeFramesUsed++;
         appliedOffers.push('₹1 Frame');
-      } else if (item.product?.memberPrice && user.membershipActive) {
+      } else if (item.product?.memberPrice && isMemberNow) {
         framePrice = item.product.memberPrice;
         appliedOffers.push('Member Price');
-      } else if (item.product?.nonMemberPrice && !user.membershipActive) {
+      } else if (item.product?.nonMemberPrice && !isMemberNow) {
         framePrice = item.product.nonMemberPrice;
       }
 
@@ -116,7 +118,14 @@ export async function createOrder(req: Request, res: Response) {
     }
 
     // Shipping charges: members free
-    const deliveryCharge = user.membershipActive ? 0 : 99;
+    const deliveryCharge = isMemberNow ? 0 : 99;
+    
+    // Add membership fee if selected and not yet a member
+    let membershipFee = 0;
+    if (activateMembership && !user.membershipActive) {
+      membershipFee = 129;
+    }
+
     let discount = onePlusOneDiscount;
     let couponData;
 
@@ -151,8 +160,9 @@ export async function createOrder(req: Request, res: Response) {
     }
 
     // Apply wallet
-    const walletToUse = Math.min(walletUsed || 0, user.walletBalance || 0, Math.max(0, subtotal + totalFittingCharge + deliveryCharge - discount));
-    const total = Math.max(0, subtotal + totalFittingCharge + deliveryCharge - discount - walletToUse);
+    const totalWithoutWallet = subtotal + totalFittingCharge + deliveryCharge + membershipFee - discount;
+    const walletToUse = Math.min(walletUsed || 0, user.walletBalance || 0, Math.max(0, totalWithoutWallet));
+    const total = Math.max(0, totalWithoutWallet - walletToUse);
 
     const count = await Order.countDocuments();
     const date = new Date();
@@ -181,11 +191,12 @@ export async function createOrder(req: Request, res: Response) {
       status: 'pending',
       statusHistory: [{ status: 'pending', timestamp: new Date() }],
       estimatedDelivery,
+      membershipAdded: activateMembership && !user.membershipActive,
     });
 
     await order.save();
 
-    // Update user: deduct wallet, update ₹1 Frame usage
+    // Update user: deduct wallet, update ₹1 Frame usage, activate membership
     const updateUser: any = {};
     if (walletToUse > 0) {
       updateUser.$inc = { walletBalance: -walletToUse };
@@ -196,7 +207,16 @@ export async function createOrder(req: Request, res: Response) {
       if ((user.oneRupeeOfferCount ?? 0) + oneRupeeFramesUsed >= 2) {
         updateUser.oneRupeeOfferUsed = true;
       }
-      // Add wallet transaction
+    }
+
+    if (activateMembership && !user.membershipActive) {
+      const expiry = new Date();
+      expiry.setFullYear(expiry.getFullYear() + 1);
+      updateUser.membershipActive = true;
+      updateUser.membershipExpiry = expiry;
+    }
+
+    if (walletToUse > 0) {
       if (!updateUser.$push) updateUser.$push = {};
       updateUser.$push.transactions = {
         type: 'Order',
@@ -205,7 +225,8 @@ export async function createOrder(req: Request, res: Response) {
         description: `Order ${orderId}`
       };
     }
-    if (Object.keys(updateUser).length > 0) {
+
+    if (Object.keys(updateUser).length > 0 || (activateMembership && !user.membershipActive)) {
       await User.findByIdAndUpdate(user._id, updateUser);
     }
 
