@@ -510,7 +510,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         Switch(
                           value: _useWallet,
-                          activeColor: AppColors.gold,
+                          activeThumbColor: AppColors.gold,
                           activeTrackColor: AppColors.gold.withValues(alpha: 0.3),
                           inactiveThumbColor: AppColors.muted,
                           inactiveTrackColor: Colors.white10,
@@ -548,35 +548,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: Column(
-                    children: [
-                      RadioListTile<String>(
-                        title: const Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                        value: 'cod',
-                        groupValue: _paymentMethod,
-                        activeColor: AppColors.gold,
-                        onChanged: (val) => setState(() => _paymentMethod = val!),
-                      ),
-                      const Divider(color: AppColors.border, height: 1),
-                      RadioListTile<String>(
-                        title: const Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                        value: 'card',
-                        groupValue: _paymentMethod,
-                        activeColor: AppColors.gold,
-                        onChanged: (val) => setState(() => _paymentMethod = val!),
-                      ),
-                      const Divider(color: AppColors.border, height: 1),
-                      RadioListTile<String>(
-                        title: const Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                        value: 'upi',
-                        groupValue: _paymentMethod,
-                        activeColor: AppColors.gold,
-                        onChanged: (val) => setState(() => _paymentMethod = val!),
-                      ),
-                    ],
+                  child: RadioGroup<String>(
+                    groupValue: _paymentMethod,
+                    onChanged: (val) => setState(() => _paymentMethod = val!),
+                    child: const Column(
+                      children: [
+                        RadioListTile<String>(
+                          title: Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          value: 'cod',
+                          activeColor: AppColors.gold,
+                        ),
+                        Divider(color: AppColors.border, height: 1),
+                        RadioListTile<String>(
+                          title: Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          value: 'card',
+                          activeColor: AppColors.gold,
+                        ),
+                        Divider(color: AppColors.border, height: 1),
+                        RadioListTile<String>(
+                          title: Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          value: 'upi',
+                          activeColor: AppColors.gold,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

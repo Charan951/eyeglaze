@@ -9,7 +9,7 @@ import '../../widgets/gold_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/product.dart';
-import 'lens_power_screen.dart';
+import 'lens_quality_screen.dart';
 
 class LensTypeScreen extends StatefulWidget {
   const LensTypeScreen({super.key});
@@ -69,20 +69,109 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
 
   Future<void> _loadLensTypes() async {
     setState(() => _loading = true);
+    final wizard = context.read<LensWizardState>();
     try {
       final auth = context.read<AuthService>();
       final api = ApiService(auth);
-      final list = await api.getLensOptions();
-      final types = list.where((o) => o['kind'] == 'type' && o['subType'] == null).toList();
+      final product = wizard.product;
+      if (product == null) return;
+
+      // Fetch product details (to get custom lenses & lensTypes list)
+      // and general lens options in parallel
+      final results = await Future.wait([
+        api.getProduct(product.id),
+        api.getLensOptions(),
+      ]);
+
+      final productRes = results[0] as Map<String, dynamic>;
+      final lensRes = results[1] as List<dynamic>;
+
+      final customLensesList = productRes['lenses'] as List<dynamic>? ?? [];
+      final prodData = productRes['product'] ?? productRes;
+      final lensTypesFromProduct = prodData['lensTypes'] as List<dynamic>? ?? [];
+
+      // Save custom lenses in state & map lens types
+      wizard.setProductAndLenses(
+        p: product,
+        color: wizard.selectedColor ?? 'Matte Black',
+        lensesList: customLensesList,
+        lensTypesFromApi: lensTypesFromProduct,
+      );
+
+      // Extract general types & filter by compatibility
+      var types = lensRes.where((o) => o['kind'] == 'type' && o['subType'] == null).toList();
+      if (types.isEmpty) {
+        types = List.from(_fallbackTypes);
+      }
+
+      if (product.compatible != null) {
+        final comp = product.compatible!;
+        types = types.where((t) {
+          final tName = (t['type'] ?? t['name'] ?? '').toString().toLowerCase();
+          if (tName.contains('single_vision') || tName.contains('single vision')) {
+            return comp.prescription;
+          }
+          if (tName.contains('progressive')) {
+            return comp.progressive;
+          }
+          if (tName.contains('zero_power') || tName.contains('zero power') || tName.contains('plano')) {
+            return comp.zeropower;
+          }
+          if (tName.contains('bluecut') || tName.contains('blue cut')) {
+            return comp.bluecut;
+          }
+          if (tName.contains('photochromic') || tName.contains('transition')) {
+            return comp.prescription;
+          }
+          return true;
+        }).toList();
+      }
+
       if (mounted) {
         setState(() {
-          _types = types.isNotEmpty ? types : _fallbackTypes;
+          _types = types;
+
+          final availableTypes = wizard.mappedLensTypes.isNotEmpty ? wizard.mappedLensTypes : _types;
+          if (availableTypes.isNotEmpty) {
+            // Find default selection (prefer single vision if available, otherwise first)
+            final defaultType = availableTypes.firstWhere(
+              (t) => t['type'] == 'single_vision',
+              orElse: () => availableTypes.first,
+            );
+            _selected = defaultType['type'];
+          } else {
+            _selected = null;
+          }
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Failed to load dynamic lens configurations: $e');
+      final product = wizard.product;
+      var types = List<dynamic>.from(_fallbackTypes);
+      if (product != null && product.compatible != null) {
+        final comp = product.compatible!;
+        types = types.where((t) {
+          final tStr = t['type'] as String;
+          if (tStr == 'single_vision') return comp.prescription;
+          if (tStr == 'progressive') return comp.progressive;
+          if (tStr == 'zero_power') return comp.zeropower;
+          if (tStr == 'bluecut') return comp.bluecut;
+          if (tStr == 'photochromic') return comp.prescription;
+          return true;
+        }).toList();
+      }
       if (mounted) {
         setState(() {
-          _types = _fallbackTypes;
+          _types = types;
+          if (_types.isNotEmpty) {
+            final defaultType = _types.firstWhere(
+              (t) => t['type'] == 'single_vision',
+              orElse: () => _types.first,
+            );
+            _selected = defaultType['type'];
+          } else {
+            _selected = null;
+          }
         });
       }
     } finally {
@@ -111,6 +200,7 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
   Widget build(BuildContext context) {
     final wizard = context.watch<LensWizardState>();
     final product = wizard.product;
+    final availableTypes = wizard.mappedLensTypes.isNotEmpty ? wizard.mappedLensTypes : _types;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -154,9 +244,9 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _types.length,
+                          itemCount: availableTypes.length,
                           itemBuilder: (_, i) {
-                            final lt = _types[i];
+                            final lt = availableTypes[i];
                             final typeStr = lt['type'] as String;
                             final isSelected = _selected == typeStr;
                             final isBestseller = lt['isBestseller'] as bool? ?? false;
@@ -185,9 +275,13 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                                             children: [
                                               Row(
                                                 children: [
-                                                  Text(
-                                                    lt['displayName'] ?? lt['name'] ?? '',
-                                                    style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                  Expanded(
+                                                    child: Text(
+                                                      lt['displayName'] ?? lt['name'] ?? '',
+                                                      style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
                                                   ),
                                                   if (isBestseller) ...[
                                                     const SizedBox(width: 6),
@@ -294,18 +388,26 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       GoldButton(
-                        label: 'CONTINUE TO POWER →',
+                        label: 'CONTINUE TO QUALITY →',
                         onPressed: _selected == null
                             ? null
                             : () {
-                                final selectedOption = _types.firstWhere((t) => t['type'] == _selected);
-                                context.read<LensWizardState>().setLensType(_selected!, subType: selectedOption['subType'] as String?);
+                                final selectedOption = availableTypes.firstWhere((t) => t['type'] == _selected);
+                                final wizard = context.read<LensWizardState>();
+                                
+                                wizard.setLensType(
+                                  _selected!,
+                                  subType: selectedOption['subType'] as String?,
+                                  typeId: selectedOption['_id']?.toString(),
+                                  displayName: selectedOption['displayName'] ?? selectedOption['name'] ?? '',
+                                );
+                                
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ChangeNotifierProvider.value(
-                                      value: context.read<LensWizardState>(),
-                                      child: const LensPowerScreen(),
+                                      value: wizard,
+                                      child: const LensQualityScreen(),
                                     ),
                                   ),
                                 );
@@ -367,7 +469,7 @@ class _MiniProductCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${product.sku} | ${product.name}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text('${product.sku} | ${product.name}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text('Color: $color', style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                 Text('Size: $size', style: AppTextStyles.muted),
@@ -408,7 +510,6 @@ class _FooterBadge extends StatelessWidget {
       );
 }
 
-// Custom diagrams painter widget for premium lens designs
 class _LensDiagramWidget extends StatelessWidget {
   final String type;
   const _LensDiagramWidget({required this.type});
@@ -449,11 +550,9 @@ class _LensDiagramPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    // Draw inner dashed ring
     canvas.drawCircle(center, radius * 0.8, basePaint);
 
     if (type == 'single_vision') {
-      // Crosshairs & center target
       canvas.drawCircle(center, radius * 0.5, goldPaint);
       canvas.drawCircle(center, radius * 0.15, goldPaint..style = PaintingStyle.fill);
 
@@ -465,25 +564,21 @@ class _LensDiagramPainter extends CustomPainter {
       canvas.drawLine(Offset(center.dx, size.height * 0.15), Offset(center.dx, size.height * 0.35), linePaint);
       canvas.drawLine(Offset(center.dx, size.height * 0.65), Offset(center.dx, size.height * 0.85), linePaint);
     } else if (type == 'progressive') {
-      // Dotted horizontal curves
       final curvePaint = Paint()
         ..color = AppColors.gold
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1;
 
-      // Far boundary curve (top)
       final pathTop = Path();
       pathTop.moveTo(size.width * 0.2, size.height * 0.35);
       pathTop.quadraticBezierTo(center.dx, size.height * 0.45, size.width * 0.8, size.height * 0.35);
       canvas.drawPath(pathTop, curvePaint);
 
-      // Near boundary curve (bottom)
       final pathBottom = Path();
       pathBottom.moveTo(size.width * 0.25, size.height * 0.65);
       pathBottom.quadraticBezierTo(center.dx, size.height * 0.55, size.width * 0.75, size.height * 0.65);
       canvas.drawPath(pathBottom, curvePaint);
 
-      // Small text markers
       final textPainter = TextPainter(
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
@@ -493,7 +588,6 @@ class _LensDiagramPainter extends CustomPainter {
       _drawText(canvas, textPainter, 'INT', Offset(center.dx, size.height * 0.46), size, color: AppColors.gold);
       _drawText(canvas, textPainter, 'NEAR', Offset(center.dx, size.height * 0.76), size);
     } else if (type == 'bluecut') {
-      // Blue reflecting rays & checkmark shield
       final wavePaint = Paint()
         ..color = const Color(0xFF4169E1)
         ..style = PaintingStyle.stroke
@@ -511,12 +605,11 @@ class _LensDiagramPainter extends CustomPainter {
       pathWave2.quadraticBezierTo(size.width * 0.6, size.height * 0.4, size.width * 0.75, size.height * 0.5);
       canvas.drawPath(pathWave2, wavePaint);
 
-      // Checkmark shield in center
       final shieldPaint = Paint()
         ..color = AppColors.gold
         ..style = PaintingStyle.fill;
       canvas.drawCircle(center, radius * 0.2, shieldPaint);
-      
+
       final checkPaint = Paint()
         ..color = Colors.black
         ..style = PaintingStyle.stroke
@@ -527,15 +620,14 @@ class _LensDiagramPainter extends CustomPainter {
       checkPath.lineTo(center.dx + 3, center.dy - 2);
       canvas.drawPath(checkPath, checkPaint);
     } else if (type == 'photochromic') {
-      // Half dark half light transition representation
       final arcPaintDark = Paint()
         ..color = const Color(0xFF2E2335)
         ..style = PaintingStyle.fill;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius * 0.8),
-        -1.57, // start from top center
-        3.14,  // draw half circle (180 degrees)
+        -1.57,
+        3.14,
         true,
         arcPaintDark,
       );
@@ -548,12 +640,10 @@ class _LensDiagramPainter extends CustomPainter {
       _drawText(canvas, textPainter, 'SUN', Offset(size.width * 0.3, center.dy), size, fontSize: 6);
       _drawText(canvas, textPainter, 'CLR', Offset(size.width * 0.7, center.dy), size, fontSize: 6, color: AppColors.muted);
     } else {
-      // Zero Power / default - stars representing clarity
       final starPaint = Paint()
         ..color = AppColors.gold
         ..style = PaintingStyle.fill;
 
-      // Draw standard small star shape
       _drawStar(canvas, center, 4, starPaint);
       _drawStar(canvas, Offset(size.width * 0.3, size.height * 0.3), 2.5, starPaint);
       _drawStar(canvas, Offset(size.width * 0.7, size.height * 0.7), 2.5, starPaint);

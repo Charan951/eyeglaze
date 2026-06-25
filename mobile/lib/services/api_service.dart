@@ -122,6 +122,16 @@ class ApiService {
     return data is List ? data : (data['lensOptions'] ?? data['data'] ?? []);
   }
 
+  // Categories
+  Future<List<dynamic>> getCategories() async {
+    final res = await _client.get(
+      Uri.parse(_url('/categories')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['categories'] ?? data['data'] ?? []);
+  }
+
   // Cart
   Future<Map<String, dynamic>> getCart() async {
     final res = await _client.get(

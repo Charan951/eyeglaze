@@ -62,19 +62,23 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
             } else {
               await api.addAddress(data);
             }
-            if (mounted) {
+            if (context.mounted) {
               Navigator.pop(context);
-              await _loadAddresses();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Address saved successfully'),
-                  backgroundColor: AppColors.success,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              if (mounted) {
+                await _loadAddresses();
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Address saved successfully'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             }
           } catch (e) {
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Failed to save address: $e'), backgroundColor: AppColors.error),
               );
@@ -110,6 +114,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   }
 
   Future<void> _deleteAddress(String id) async {
+    final authService = context.read<AuthService>();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -130,26 +135,24 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     );
 
     if (confirm == true) {
-      final authService = context.read<AuthService>();
       final api = ApiService(authService);
       try {
         await api.deleteAddress(id);
+        if (!mounted) return;
         await _loadAddresses();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Address deleted'),
-              backgroundColor: AppColors.success,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        if (!mounted || !context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Address deleted'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: $e'), backgroundColor: AppColors.error),
-          );
-        }
+        if (!mounted || !context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete address: $e'), backgroundColor: AppColors.error),
+        );
       }
     }
   }

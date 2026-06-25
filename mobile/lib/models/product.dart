@@ -58,6 +58,18 @@ class ProductFrame {
       );
 }
 
+class ContactPower {
+  final String power;
+  final double price;
+
+  ContactPower({required this.power, required this.price});
+
+  factory ContactPower.fromJson(Map<dynamic, dynamic> json) => ContactPower(
+        power: json['power']?.toString() ?? '',
+        price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
 class ProductCompatible {
   final bool prescription;
   final bool bluecut;
@@ -97,6 +109,30 @@ class Product {
   final ProductCompatible? compatible;
   final List<String> availableSizes;
   final List<SizeMeasurement> sizeMeasurements;
+  final String? subCategory;
+  final List<String> readingPowers;
+  final List<ContactPower> contactPowers;
+  final String? contactDisposableType;
+  final bool sellAsFrame;
+  final bool sellWithLens;
+
+  // New Dynamic & Premium Specification Fields
+  final List<String> offerBadges;
+  final bool isPremium;
+  final bool buy1Get1;
+  final bool oneRupeeFrameOffer;
+  final String? shortDescription;
+  final String? longDescription;
+  final String? warranty;
+  final double? memberPrice;
+  final double? nonMemberPrice;
+  final String? frameType;
+  final String? frameShape;
+  final String? material;
+  final String? frameWeight;
+  final String? countryOfOrigin;
+  final String? manufacturer;
+  final List<String> gender;
 
   Product({
     required this.id,
@@ -116,6 +152,28 @@ class Product {
     this.compatible,
     this.availableSizes = const ['Small', 'Medium', 'Large'],
     this.sizeMeasurements = const [],
+    this.subCategory,
+    this.readingPowers = const [],
+    this.contactPowers = const [],
+    this.contactDisposableType,
+    this.sellAsFrame = true,
+    this.sellWithLens = true,
+    this.offerBadges = const [],
+    this.isPremium = false,
+    this.buy1Get1 = false,
+    this.oneRupeeFrameOffer = false,
+    this.shortDescription,
+    this.longDescription,
+    this.warranty,
+    this.memberPrice,
+    this.nonMemberPrice,
+    this.frameType,
+    this.frameShape,
+    this.material,
+    this.frameWeight,
+    this.countryOfOrigin,
+    this.manufacturer,
+    this.gender = const [],
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -162,6 +220,47 @@ class Product {
               ?.map((m) => SizeMeasurement.fromJson(m as Map))
               .toList() ??
           const [],
+      subCategory: json['subCategory']?.toString(),
+      readingPowers: (json['readingPowers'] as List<dynamic>?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          const [],
+      contactPowers: (json['contactPowers'] as List<dynamic>?)
+              ?.map((c) => ContactPower.fromJson(c as Map))
+              .toList() ??
+          const [],
+      contactDisposableType: json['contactDisposableType']?.toString(),
+      sellAsFrame: json['sellAsFrame'] != false,
+      sellWithLens: json['sellWithLens'] != false,
+      
+      // New fields parsing
+      offerBadges: (json['offerBadges'] as List<dynamic>?)
+              ?.map((b) => b.toString())
+              .toList() ??
+          const [],
+      isPremium: json['isPremium'] == true,
+      buy1Get1: json['buy1Get1'] == true,
+      oneRupeeFrameOffer: json['oneRupeeFrameOffer'] == true,
+      shortDescription: json['shortDescription']?.toString(),
+      longDescription: json['longDescription']?.toString() ?? json['description']?.toString(),
+      warranty: json['warranty']?.toString(),
+      memberPrice: (json['memberPrice'] as num?)?.toDouble(),
+      nonMemberPrice: (json['nonMemberPrice'] as num?)?.toDouble(),
+      frameType: json['frameType']?.toString() ?? json['frame']?['type']?.toString(),
+      frameShape: json['frameShape']?.toString() ?? json['shape']?.toString(),
+      material: json['material']?.toString() ?? json['frame']?['material']?.toString(),
+      frameWeight: json['frameWeight']?.toString(),
+      countryOfOrigin: json['countryOfOrigin']?.toString(),
+      manufacturer: json['manufacturer']?.toString(),
+      gender: (() {
+        final val = json['gender'];
+        if (val is List) {
+          return val.map((g) => g.toString()).toList();
+        } else if (val is String) {
+          return [val];
+        }
+        return const <String>[];
+      })(),
     );
   }
 

@@ -603,127 +603,220 @@ class _CategoryCard extends StatelessWidget {
   }
 }
 
-class _CategoryGrids extends StatelessWidget {
+class _CategoryGrids extends StatefulWidget {
   const _CategoryGrids();
 
-  void _showShapeSelectionSheet(BuildContext context, {required String title, required String category}) {
+  @override
+  State<_CategoryGrids> createState() => _CategoryGridsState();
+}
+
+class _CategoryGridsState extends State<_CategoryGrids> {
+  List<dynamic> _categoriesList = [];
+  bool _loading = false;
+
+  final List<dynamic> _fallbackCategories = [
+    {'name': 'Prescription', 'code': 'prescription', 'slug': 'prescription'},
+    {'name': 'Sunglasses', 'code': 'sunglasses', 'slug': 'sunglasses'},
+    {'name': 'Reading Glasses', 'code': 'reading-glasses', 'slug': 'reading-glasses'},
+    {'name': 'Contact Lenses', 'code': 'contact-lenses', 'slug': 'contact-lenses'},
+    {'name': 'Accessories', 'code': 'accessories', 'slug': 'accessories'},
+    {'name': 'Kids', 'code': 'kids', 'slug': 'kids'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getCategories();
+      if (mounted) {
+        setState(() {
+          _categoriesList = list.isNotEmpty ? list : _fallbackCategories;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _categoriesList = _fallbackCategories;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showShapeSelectionSheet(BuildContext context, {required String title, required String category, String? gender}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return _ShapeSelectionSheet(title: title, category: category);
+        return _ShapeSelectionSheet(title: title, category: category, gender: gender);
       },
     );
   }
 
+  List<Map<String, dynamic>> _getCategorySubOptions(dynamic cat) {
+    final slug = (cat['slug'] ?? '').toString().toLowerCase();
+
+    if (slug == 'eyeglasses' || slug == 'prescription') {
+      return [
+        { 'label': 'Men', 'imagePath': '/images/men_eyeglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
+        { 'label': 'Women', 'imagePath': '/images/women_eyeglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
+        { 'label': 'Kids', 'imagePath': '/images/kids_eyeglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
+        { 'label': 'Contact Lens', 'imagePath': '/images/cat_contacts.png', 'category': 'contact-lenses', 'shapeModal': false }
+      ];
+    }
+
+    if (slug == 'sunglasses') {
+      return [
+        { 'label': 'Men', 'imagePath': '/images/men_sunglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
+        { 'label': 'Women', 'imagePath': '/images/women_sunglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
+        { 'label': 'Kids', 'imagePath': '/images/kids_sunglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
+        { 'label': 'Accessories', 'imagePath': '/images/accessories.png', 'category': 'accessories', 'shapeModal': false }
+      ];
+    }
+
+    if (slug == 'reading-glasses') {
+      return [
+        { 'label': 'Zero Power', 'imagePath': '/images/zero_power_glasses.png', 'category': 'zero-power', 'shapeModal': true },
+        { 'label': 'Reading', 'imagePath': '/images/reading_book.png', 'category': cat['slug'], 'shapeModal': true },
+        { 'label': 'Power Sun', 'imagePath': '/images/transition_lens.png', 'category': 'sunglasses', 'shapeModal': true }
+      ];
+    }
+
+    if (slug == 'contact-lenses') {
+      return [
+        { 'label': 'Clear Lenses', 'imagePath': '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false },
+        { 'label': 'Color Lenses', 'imagePath': '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false },
+        { 'label': 'Solutions', 'imagePath': '/images/accessories.png', 'category': cat['slug'], 'shapeModal': false },
+        { 'label': 'View More', 'imagePath': cat['bannerImage'] ?? '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false }
+      ];
+    }
+
+    // Default generic sub-options for any dynamic category
+    return [
+      { 'label': 'Men', 'imagePath': '/images/men_eyeglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
+      { 'label': 'Women', 'imagePath': '/images/women_eyeglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
+      { 'label': 'Kids', 'imagePath': '/images/kids_eyeglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
+      { 'label': 'View More', 'imagePath': cat['bannerImage'] ?? '/images/hero_model.png', 'category': cat['slug'], 'shapeModal': false }
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+      );
+    }
+
+    final List<Widget> sections = [];
+
+    // Group the categories to replicate standard layout
+    final eyeglassesCat = _categoriesList.firstWhere(
+      (c) => c['slug'] == 'prescription' || c['slug'] == 'eyeglasses',
+      orElse: () => null,
+    );
+    final sunglassesCat = _categoriesList.firstWhere(
+      (c) => c['slug'] == 'sunglasses',
+      orElse: () => null,
+    );
+    final readingCat = _categoriesList.firstWhere(
+      (c) => c['slug'] == 'reading-glasses',
+      orElse: () => null,
+    );
+
+    final knownSlugs = ['prescription', 'eyeglasses', 'sunglasses', 'reading-glasses', 'contact-lenses', 'accessories', 'kids'];
+    final dynamicCats = _categoriesList.where((c) => !knownSlugs.contains(c['slug']?.toString().toLowerCase())).toList();
+
+    if (eyeglassesCat != null) {
+      sections.add(_buildSection(eyeglassesCat));
+      sections.add(const SizedBox(height: 16));
+    }
+    if (sunglassesCat != null) {
+      sections.add(_buildSection(sunglassesCat));
+      sections.add(const SizedBox(height: 16));
+    }
+    if (readingCat != null) {
+      sections.add(_buildSection(readingCat));
+      sections.add(const SizedBox(height: 16));
+    }
+
+    for (final dynamicCat in dynamicCats) {
+      sections.add(_buildSection(dynamicCat));
+      sections.add(const SizedBox(height: 16));
+    }
+
+    if (sections.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    sections.removeLast();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Eyeglasses
-          const Text('EYEGLASSES', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 3 / 4.2,
-            children: [
-              _CategoryCard(
-                label: 'Men',
-                imagePath: '/images/men_eyeglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Men's Eyeglasses", category: 'Prescription'),
-              ),
-              _CategoryCard(
-                label: 'Women',
-                imagePath: '/images/women_eyeglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Women's Eyeglasses", category: 'Prescription'),
-              ),
-              _CategoryCard(
-                label: 'Kids',
-                imagePath: '/images/kids_eyeglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Kids' Eyeglasses", category: 'Kids'),
-              ),
-              _CategoryCard(
-                label: 'Contact Lens',
-                imagePath: '/images/cat_contacts.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Contact Lenses'))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Sunglasses & Accessories
-          const Text('SUNGLASSES & ACCESSORIES', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 3 / 4.2,
-            children: [
-              _CategoryCard(
-                label: 'Men',
-                imagePath: '/images/men_sunglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Men's Sunglasses", category: 'Sunglasses'),
-              ),
-              _CategoryCard(
-                label: 'Women',
-                imagePath: '/images/women_sunglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Women's Sunglasses", category: 'Sunglasses'),
-              ),
-              _CategoryCard(
-                label: 'Kids',
-                imagePath: '/images/kids_sunglasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Kids' Sunglasses", category: 'Kids'),
-              ),
-              _CategoryCard(
-                label: 'Accessories',
-                imagePath: '/images/accessories.png',
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Accessories'))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Reading Glasses
-          const Text('READING GLASSES', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 1.35 / 1,
-            children: [
-              _CategoryCard(
-                label: 'Zero Power',
-                imagePath: '/images/zero_power_glasses.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Zero Power Glasses", category: 'Zero Power'),
-              ),
-              _CategoryCard(
-                label: 'Reading',
-                imagePath: '/images/reading_book.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Reading Glasses", category: 'Reading'),
-              ),
-              _CategoryCard(
-                label: 'Power Sun',
-                imagePath: '/images/transition_lens.png',
-                onTap: () => _showShapeSelectionSheet(context, title: "Power Sun Glasses", category: 'Sunglasses'),
-              ),
-            ],
-          ),
-        ],
+        children: sections,
       ),
+    );
+  }
+
+  Widget _buildSection(dynamic cat) {
+    final subOptions = _getCategorySubOptions(cat);
+    final title = (cat['name'] ?? cat['code'] ?? '').toString().toUpperCase();
+
+    final crossCount = subOptions.length == 3 ? 3 : 4;
+    final aspect = subOptions.length == 3 ? 1.35 / 1 : 3 / 4.2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        const SizedBox(height: 8),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossCount,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: aspect,
+          children: subOptions.map((opt) {
+            return _CategoryCard(
+              label: opt['label'],
+              imagePath: opt['imagePath'],
+              onTap: () {
+                if (opt['shapeModal'] == true) {
+                  _showShapeSelectionSheet(
+                    context,
+                    title: "${opt['label']}'s ${cat['name'] ?? ''}",
+                    category: opt['category'],
+                    gender: opt['gender'],
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProductsScreen(
+                        category: opt['category'],
+                        gender: opt['gender'],
+                      ),
+                    ),
+                  );
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
@@ -1760,10 +1853,12 @@ class _WalletSheetState extends State<_WalletSheet> {
 class _ShapeSelectionSheet extends StatelessWidget {
   final String title;
   final String category;
+  final String? gender;
 
   const _ShapeSelectionSheet({
     required this.title,
     required this.category,
+    this.gender,
   });
 
   @override
@@ -1841,6 +1936,7 @@ class _ShapeSelectionSheet extends StatelessWidget {
                           builder: (_) => ProductsScreen(
                             category: category,
                             shape: shape['value'],
+                            gender: gender,
                           ),
                         ),
                       );

@@ -16,7 +16,8 @@ import '../../widgets/responsive_container.dart';
 class ProductsScreen extends StatefulWidget {
   final String? category;
   final String? shape;
-  const ProductsScreen({super.key, this.category, this.shape});
+  final String? gender;
+  const ProductsScreen({super.key, this.category, this.shape, this.gender});
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -40,6 +41,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void initState() {
     super.initState();
     _selectedShape = widget.shape;
+    _selectedGender = widget.gender;
     final passedCat = widget.category;
     if (passedCat == null) {
       _selectedCategory = 'All';

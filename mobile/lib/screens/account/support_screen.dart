@@ -141,19 +141,24 @@ class _SupportScreenState extends State<SupportScreen> {
           final api = ApiService(authService);
           try {
             await api.createTicket(data);
-            if (mounted) {
+            if (context.mounted) {
               Navigator.pop(context);
-              await _loadTickets();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ticket created successfully'),
-                  backgroundColor: AppColors.success,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              if (mounted) {
+                await _loadTickets();
+              }
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Ticket created successfully'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             }
           } catch (e) {
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Failed to create ticket: $e'), backgroundColor: AppColors.error),
               );

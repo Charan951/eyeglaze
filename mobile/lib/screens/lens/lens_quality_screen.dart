@@ -9,7 +9,8 @@ import '../../widgets/gold_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/product.dart';
-import 'lens_checkout_screen.dart';
+import '../cart/cart_screen.dart';
+import 'lens_power_screen.dart';
 
 class LensQualityScreen extends StatefulWidget {
   const LensQualityScreen({super.key});
@@ -20,8 +21,9 @@ class LensQualityScreen extends StatefulWidget {
 
 class _LensQualityScreenState extends State<LensQualityScreen> {
   String? _selectedSubtype;
-  double _selectedPrice = 2499.0;
+  double _selectedPrice = 699.0;
   bool _loading = false;
+  bool _placingOrder = false;
   List<dynamic> _options = [];
 
   // Fallbacks
@@ -115,35 +117,66 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
   Future<void> _loadOptions() async {
     setState(() => _loading = true);
     final wizard = context.read<LensWizardState>();
-    final isProgressive = wizard.lensType == 'progressive';
 
     try {
-      final auth = context.read<AuthService>();
-      final api = ApiService(auth);
-      final list = await api.getLensOptions();
+      if (wizard.customLenses.isNotEmpty) {
+        // Filter custom lenses matching chosen lensType ID
+        final activeLenses = wizard.customLenses.where((lens) {
+          final lensTypeObj = lens['lensType'];
+          String? typeId;
+          if (lensTypeObj is Map) {
+            typeId = lensTypeObj['_id']?.toString();
+          } else if (lensTypeObj != null) {
+            typeId = lensTypeObj.toString();
+          }
+          return typeId == wizard.selectedTypeId;
+        }).toList();
 
-      if (isProgressive) {
-        final prog = list.where((o) => o['kind'] == 'type' && o['type'] == 'progressive' && o['subType'] != null).toList();
         if (mounted) {
           setState(() {
-            _options = prog.isNotEmpty ? prog : _progressiveOptions;
-            final defaultOpt = _getDefaultOption(_options, true);
-            _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
-            _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 2499.0) : 2499.0;
+            _options = activeLenses;
+            if (_options.isNotEmpty) {
+              final firstLens = _options.first;
+              _selectedSubtype = (firstLens['_id'] ?? '').toString();
+              _selectedPrice = (firstLens['basePrice'] as num?)?.toDouble() ?? 999.0;
+            } else {
+              _selectedSubtype = null;
+              _selectedPrice = 0.0;
+            }
           });
         }
       } else {
-        final qual = list.where((o) => o['kind'] == 'quality').toList();
-        if (mounted) {
-          setState(() {
-            _options = qual.isNotEmpty ? qual : _qualityOptions;
-            final defaultOpt = _getDefaultOption(_options, false);
-            _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
-            _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 699.0) : 699.0;
-          });
+        // Fallback options
+        final isProgressive = wizard.lensType == 'progressive';
+        final auth = context.read<AuthService>();
+        final api = ApiService(auth);
+        final list = await api.getLensOptions();
+
+        if (isProgressive) {
+          final prog = list.where((o) => o['kind'] == 'type' && o['type'] == 'progressive' && o['subType'] != null).toList();
+          if (mounted) {
+            setState(() {
+              _options = prog.isNotEmpty ? prog : _progressiveOptions;
+              final defaultOpt = _getDefaultOption(_options, true);
+              _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
+              _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 2499.0) : 2499.0;
+            });
+          }
+        } else {
+          final qual = list.where((o) => o['kind'] == 'quality').toList();
+          if (mounted) {
+            setState(() {
+              _options = qual.isNotEmpty ? qual : _qualityOptions;
+              final defaultOpt = _getDefaultOption(_options, false);
+              _selectedSubtype = defaultOpt != null ? (defaultOpt['subType'] ?? defaultOpt['_id']) : null;
+              _selectedPrice = defaultOpt != null ? ((defaultOpt['price'] as num?)?.toDouble() ?? 699.0) : 699.0;
+            });
+          }
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Failed to load lens quality options: $e');
+      final isProgressive = wizard.lensType == 'progressive';
       if (mounted) {
         setState(() {
           _options = isProgressive ? _progressiveOptions : _qualityOptions;
@@ -160,7 +193,8 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
   String _getSelectedOptionName() {
     if (_selectedSubtype == null || _options.isEmpty) return 'None';
     for (final o in _options) {
-      if ((o['subType'] ?? o['_id']) == _selectedSubtype) {
+      final id = (o['subType'] ?? o['_id'] ?? '').toString();
+      if (id == _selectedSubtype) {
         return o['displayName'] ?? o['name'] ?? '';
       }
     }
@@ -184,12 +218,81 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
     }
   }
 
+  Future<void> _handleContinue(LensWizardState wizard) async {
+    if (_selectedSubtype == null || _options.isEmpty) return;
+
+    final selectedOpt = _options.firstWhere(
+      (o) => (o['subType'] ?? o['_id'] ?? '').toString() == _selectedSubtype,
+    );
+
+    final String qualityName = selectedOpt['displayName'] ?? selectedOpt['name'] ?? '';
+    final double price = (selectedOpt['price'] ?? selectedOpt['basePrice'] as num).toDouble();
+    final String qualityId = (selectedOpt['_id'] ?? selectedOpt['subType'] ?? '').toString();
+
+    wizard.setLensQuality(qualityName, price, qualityId: qualityId);
+
+    if (wizard.powerRequired) {
+      // Step 3 (Power) is required
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider.value(
+            value: wizard,
+            child: const LensPowerScreen(),
+          ),
+        ),
+      );
+    } else {
+      // Step 3 (Power) is NOT required -> Add to Cart directly and redirect to CartScreen
+      setState(() => _placingOrder = true);
+      try {
+        final authService = context.read<AuthService>();
+        final api = ApiService(authService);
+        final p = wizard.product;
+        if (p == null) return;
+
+        final lensConfig = {
+          'lensType': wizard.selectedTypeDisplayName ?? wizard.lensType,
+          'lensSubType': wizard.lensSubType,
+          'lensQuality': wizard.lensQuality,
+          'lensPrice': wizard.lensPrice,
+          'power': null,
+        };
+
+        await api.addToCart({
+          'productId': p.id,
+          'qty': 1,
+          'color': wizard.selectedColor,
+          'lens': lensConfig,
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Added configuration to cart!'), backgroundColor: AppColors.success),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const CartScreen()),
+            (route) => route.isFirst,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add to cart: $e'), backgroundColor: AppColors.error),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _placingOrder = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wizard = context.watch<LensWizardState>();
     final product = wizard.product;
     final isProgressive = wizard.lensType == 'progressive';
-
     final selectedName = _getSelectedOptionName();
 
     return Scaffold(
@@ -204,7 +307,7 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
           ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
           : Column(
               children: [
-                const LensStepBar(currentStep: 3),
+                const LensStepBar(currentStep: 2),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
@@ -215,12 +318,8 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
                           _CondensedProductCard(
                             product: product,
                             color: wizard.selectedColor ?? 'Matte Black',
-                            lensTypeFormatted: isProgressive ? 'Progressive ($selectedName)' : '${wizard.lensType} ($selectedName)',
-                            onEditLensType: () {
-                              // Pop twice to get back to LensTypeScreen (from QualityScreen -> PowerScreen -> TypeScreen)
-                              Navigator.pop(context);
-                              Navigator.pop(context);
-                            },
+                            lensTypeFormatted: wizard.selectedTypeDisplayName ?? wizard.lensType ?? '',
+                            onEditLensType: () => Navigator.pop(context),
                           ),
 
                         // Section header
@@ -245,126 +344,166 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
                         ),
 
                         // Options list
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _options.length,
-                          itemBuilder: (_, i) {
-                            final opt = _options[i];
-                            final id = opt['subType'] ?? opt['_id'];
-                            final isSelected = _selectedSubtype == id;
-                            final isBestseller = opt['isBestseller'] as bool? ?? false;
-                            final isRec = opt['isRecommended'] as bool? ?? false;
-
-                            return GestureDetector(
-                              onTap: () => setState(() {
-                                _selectedSubtype = id;
-                                _selectedPrice = (opt['price'] as num).toDouble();
-                              }),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: AppColors.card,
-                                  border: Border.all(color: isSelected ? AppColors.gold : AppColors.border, width: isSelected ? 2 : 1),
-                                  borderRadius: BorderRadius.circular(12),
+                        _options.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: Center(
+                                  child: Text(
+                                    'No quality options available for this lens type.',
+                                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                                  ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Left Diagram
-                                        _ProgressiveMiniDiagram(),
-                                        const SizedBox(width: 12),
-                                        // Details
-                                        Expanded(
-                                          child: Column(
+                              )
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: _options.length,
+                                itemBuilder: (_, i) {
+                                  final opt = _options[i];
+                                  final id = (opt['subType'] ?? opt['_id'] ?? '').toString();
+                                  final isSelected = _selectedSubtype == id;
+                                  final isBestseller = opt['isBestseller'] as bool? ?? false;
+                                  final isRec = opt['isRecommended'] as bool? ?? false;
+
+                                  // Apply React dynamic description & features if mapping custom dynamic lenses
+                                  String desc = opt['description']?.toString() ?? 'Premium quality lens with multi-coat protection.';
+                                  List<String> features = (opt['features'] as List?)?.map((f) => f.toString()).toList() ?? ['UV Protection', 'Scratch Resistant'];
+                                  
+                                  if (wizard.customLenses.isNotEmpty) {
+                                    final lowerLensName = (opt['name'] ?? '').toString().toLowerCase();
+                                    if (lowerLensName.contains('blu') || lowerLensName.contains('blue cut')) {
+                                      desc = 'Blocks harmful blue light from screens. Great for computer use.';
+                                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant', 'UV Protection'];
+                                    } else if (lowerLensName.contains('anti-glare') || lowerLensName.contains('anti reflective')) {
+                                      desc = 'Reduces glare and reflections. Clear vision in all lighting.';
+                                      features = ['Anti Reflective', 'Scratch Resistant', 'UV Protection', 'Water Repellent'];
+                                    } else if (lowerLensName.contains('computer')) {
+                                      desc = 'Specifically designed for digital screen usage to reduce eye strain.';
+                                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant'];
+                                    } else if (lowerLensName.contains('essential')) {
+                                      desc = 'Essential clear lens offering reliable daily protection.';
+                                      features = ['Scratch Resistant', 'UV Protection'];
+                                    } else if (lowerLensName.contains('zero power')) {
+                                      desc = 'Standard cosmetic clear lens for daily wear.';
+                                      features = ['Scratch Resistant', 'UV Protection'];
+                                    }
+                                  }
+
+                                  final price = (opt['price'] ?? opt['basePrice'] as num).toDouble();
+
+                                  return GestureDetector(
+                                    onTap: () => setState(() {
+                                      _selectedSubtype = id;
+                                      _selectedPrice = price;
+                                    }),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.card,
+                                        border: Border.all(color: isSelected ? AppColors.gold : AppColors.border, width: isSelected ? 2 : 1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    opt['displayName'] ?? opt['name'] ?? '',
-                                                    style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                                  ),
-                                                  if (isBestseller || isRec) ...[
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: AppColors.gold,
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        isBestseller ? 'BESTSELLER' : 'RECOMMENDED',
-                                                        style: const TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.bold),
-                                                      ),
+                                              // Left Diagram
+                                              _ProgressiveMiniDiagram(),
+                                              const SizedBox(width: 12),
+                                              // Details
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            opt['displayName'] ?? opt['name'] ?? '',
+                                                            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                        if (isBestseller || isRec) ...[
+                                                          const SizedBox(width: 8),
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                            decoration: BoxDecoration(
+                                                              color: AppColors.gold,
+                                                              borderRadius: BorderRadius.circular(4),
+                                                            ),
+                                                            child: Text(
+                                                              isBestseller ? 'BESTSELLER' : 'RECOMMENDED',
+                                                              style: const TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.bold),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
+                                                    const SizedBox(height: 4),
+                                                    Text(desc, style: const TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35)),
                                                   ],
-                                                ],
+                                                ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(opt['description'] ?? '', style: const TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35)),
+                                              const SizedBox(width: 10),
+                                              // Selection Radio circle
+                                              Container(
+                                                width: 18,
+                                                height: 18,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: isSelected ? AppColors.gold : AppColors.border, width: 2),
+                                                  color: isSelected ? AppColors.gold : Colors.transparent,
+                                                ),
+                                                child: isSelected
+                                                    ? const Icon(Icons.check, color: Colors.black, size: 10)
+                                                    : null,
+                                              ),
                                             ],
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        // Selection Radio circle
-                                        Container(
-                                          width: 18,
-                                          height: 18,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: isSelected ? AppColors.gold : AppColors.border, width: 2),
-                                            color: isSelected ? AppColors.gold : Colors.transparent,
-                                          ),
-                                          child: isSelected
-                                              ? const Icon(Icons.check, color: Colors.black, size: 10)
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Divider(color: AppColors.border, height: 1),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        // Features Wrap
-                                        Expanded(
-                                          child: Wrap(
-                                            spacing: 12,
-                                            runSpacing: 4,
-                                            children: (opt['features'] as List? ?? []).map((feat) {
-                                              return Row(
-                                                mainAxisSize: MainAxisSize.min,
+                                          const SizedBox(height: 12),
+                                          const Divider(color: AppColors.border, height: 1),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            children: [
+                                              // Features Wrap
+                                              Expanded(
+                                                child: Wrap(
+                                                  spacing: 12,
+                                                  runSpacing: 4,
+                                                  children: features.map((feat) {
+                                                    return Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(_getFeatureIcon(feat), color: AppColors.gold, size: 12),
+                                                        const SizedBox(width: 4),
+                                                        Text(feat, style: const TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                      ],
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                              ),
+                                              // Price
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.end,
                                                 children: [
-                                                  Icon(_getFeatureIcon(feat), color: AppColors.gold, size: 12),
-                                                  const SizedBox(width: 4),
-                                                  Text(feat, style: const TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                  Text('₹${price.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                                                  const Text('/ pair', style: TextStyle(color: AppColors.muted, fontSize: 8, fontWeight: FontWeight.bold)),
                                                 ],
-                                              );
-                                            }).toList(),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        // Price
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            Text('₹${(opt['price'] as num).toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
-                                            const Text('/ pair', style: TextStyle(color: AppColors.muted, fontSize: 8, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
 
                         // If progressive, render "How Progressive Lenses Work"
                         if (isProgressive)
@@ -409,11 +548,7 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
                                     const Text(' / pair', style: TextStyle(color: AppColors.muted, fontSize: 10)),
                                     const SizedBox(width: 10),
                                     GestureDetector(
-                                      onTap: () {
-                                        // edit lens
-                                        Navigator.pop(context);
-                                        Navigator.pop(context);
-                                      },
+                                      onTap: () => Navigator.pop(context),
                                       child: const Text('Change', style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
                                     ),
                                   ],
@@ -424,23 +559,14 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
                           const SizedBox(width: 12),
                           SizedBox(
                             width: 180,
-                            child: GoldButton(
-                              label: 'CONTINUE →',
-                              onPressed: _selectedSubtype == null
-                                  ? null
-                                  : () {
-                                      context.read<LensWizardState>().setLensQuality(selectedName, _selectedPrice);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ChangeNotifierProvider.value(
-                                            value: context.read<LensWizardState>(),
-                                            child: const LensCheckoutScreen(),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                            ),
+                            child: _placingOrder
+                                ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                                : GoldButton(
+                                    label: wizard.powerRequired ? 'CONTINUE →' : 'ADD TO CART →',
+                                    onPressed: _selectedSubtype == null
+                                        ? null
+                                        : () => _handleContinue(wizard),
+                                  ),
                           ),
                         ],
                       ),
@@ -513,7 +639,7 @@ class _CondensedProductCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(product.sku, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
-                    Text(product.name, style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(product.name, style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                     Text(color, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
                   ],
                 ),

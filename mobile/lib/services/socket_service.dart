@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/app_config.dart';
 
 class SocketService extends ChangeNotifier {
-  IO.Socket? _socket;
+  io.Socket? _socket;
 
-  IO.Socket? get socket => _socket;
+  io.Socket? get socket => _socket;
   bool get isConnected => _socket?.connected ?? false;
 
   void connect() {
@@ -16,7 +16,7 @@ class SocketService extends ChangeNotifier {
         ? apiBase.substring(0, apiBase.length - 4)
         : apiBase;
 
-    _socket = IO.io(socketUrl, IO.OptionBuilder()
+    _socket = io.io(socketUrl, io.OptionBuilder()
       .setTransports(['websocket'])
       .enableAutoConnect()
       .build());

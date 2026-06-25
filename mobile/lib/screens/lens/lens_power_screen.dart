@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
-import '../../models/cart_item.dart';
 import '../../widgets/lens_step_bar.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
-import 'lens_quality_screen.dart';
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
+import '../cart/cart_screen.dart';
 
 class LensPowerScreen extends StatefulWidget {
   const LensPowerScreen({super.key});
@@ -15,12 +17,262 @@ class LensPowerScreen extends StatefulWidget {
 }
 
 class _LensPowerScreenState extends State<LensPowerScreen> {
-  double _rSph = -1.25, _rCyl = -0.50, _lSph = -1.75, _lCyl = -0.75;
-  int _rAxis = 180, _lAxis = 170;
-  final double _pd = 62.0;
+  final ImagePicker _picker = ImagePicker();
+  bool _uploadingFile = false;
+  bool _submitting = false;
 
-  final _sphValues = List.generate(25, (i) => (i * -0.25).toStringAsFixed(2));
-  final _cylValues = List.generate(13, (i) => (i * -0.25).toStringAsFixed(2));
+  // Local state for prescription parameters matching the React app
+  double _rSph = -1.25;
+  double _rCyl = -0.50;
+  int _rAxis = 180;
+
+  double _lSph = -1.75;
+  double _lCyl = -0.75;
+  int _lAxis = 170;
+
+  double _pd = 62.0;
+  double _addPower = 1.00;
+
+  final List<String> _sphValues = List.generate(81, (i) {
+    final val = -10.0 + i * 0.25;
+    return val > 0 ? '+${val.toStringAsFixed(2)}' : val.toStringAsFixed(2);
+  });
+
+  final List<String> _cylValues = List.generate(49, (i) {
+    final val = -6.0 + i * 0.25;
+    return val > 0 ? '+${val.toStringAsFixed(2)}' : val.toStringAsFixed(2);
+  });
+
+  final List<String> _axisValues = List.generate(181, (i) => i.toString());
+
+  final List<String> _addPowerValues = [
+    '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPrescriptions();
+  }
+
+  Future<void> _loadSavedPrescriptions() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final res = await api.getPrescriptions();
+      final list = res['prescriptions'] as List<dynamic>? ?? [];
+      if (mounted) {
+        context.read<LensWizardState>().setSavedPrescriptions(list);
+      }
+    } catch (e) {
+      debugPrint('Failed to load saved prescriptions: $e');
+    }
+  }
+
+  String _formatOptionLabel(Map<String, dynamic> pr) {
+    final name = pr['name']?.toString() ?? '';
+    final dateStr = pr['createdAt'] != null
+        ? DateTime.parse(pr['createdAt'].toString()).toLocal().toString().split(' ')[0]
+        : '';
+    
+    if (pr['uploadedFile'] != null || pr['imageUrl'] != null) {
+      return name.isNotEmpty
+          ? '📄 $name ($dateStr)'
+          : '📄 Prescription ($dateStr)';
+    }
+
+    final re = pr['RE'] is Map ? pr['RE'] : null;
+    final le = pr['LE'] is Map ? pr['LE'] : null;
+    final reSph = re != null ? (re['sph'] as num?)?.toDouble() ?? 0.0 : 0.0;
+    final leSph = le != null ? (le['sph'] as num?)?.toDouble() ?? 0.0 : 0.0;
+    
+    final reStr = 'R: ${reSph > 0 ? '+$reSph' : reSph}';
+    final leStr = 'L: ${leSph > 0 ? '+$leSph' : leSph}';
+
+    return name.isNotEmpty
+        ? '👓 $name - $reStr | $leStr'
+        : '👓 Power - $reStr | $leStr';
+  }
+
+  Future<void> _selectSavedPrescription(String id, LensWizardState wizard) async {
+    wizard.setSelectedPrescriptionId(id);
+    if (id.isEmpty) {
+      return;
+    }
+
+    final pr = wizard.savedPrescriptions.firstWhere((p) => p['_id'] == id, orElse: () => null);
+    if (pr != null) {
+      wizard.setPrescriptionName(pr['name']?.toString());
+      if (pr['uploadedFile'] != null || pr['imageUrl'] != null) {
+        wizard.setPrescriptionMode('upload');
+        wizard.setUploadedFile(pr['uploadedFile'] ?? pr['imageUrl'], 'Saved Document');
+      } else {
+        wizard.setPrescriptionMode('enter');
+        final re = pr['RE'] is Map ? pr['RE'] : null;
+        final le = pr['LE'] is Map ? pr['LE'] : null;
+        final pdVal = (pr['pd'] as num?)?.toDouble() ?? 62.0;
+
+        setState(() {
+          _rSph = (re?['sph'] as num?)?.toDouble() ?? -1.25;
+          _rCyl = (re?['cyl'] as num?)?.toDouble() ?? -0.50;
+          _rAxis = (re?['axis'] as num?)?.toInt() ?? 180;
+
+          _lSph = (le?['sph'] as num?)?.toDouble() ?? -1.75;
+          _lCyl = (le?['cyl'] as num?)?.toDouble() ?? -0.75;
+          _lAxis = (le?['axis'] as num?)?.toInt() ?? 170;
+
+          _pd = pdVal;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickPrescriptionImage(LensWizardState wizard) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final auth = context.read<AuthService>();
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (image == null) return;
+
+      setState(() => _uploadingFile = true);
+
+      final api = ApiService(auth);
+      final bytes = await image.readAsBytes();
+
+      final res = await api.addPrescription(
+        fileBytes: bytes,
+        fileName: image.name,
+        mimeType: 'image/jpeg',
+      );
+
+      final prescriptionData = res['prescription'] as Map?;
+      final String? fileUrl = prescriptionData?['uploadedFile'] ?? prescriptionData?['imageUrl'];
+
+      if (fileUrl != null) {
+        wizard.setUploadedFile(fileUrl, image.name);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Prescription uploaded successfully!'), backgroundColor: AppColors.success),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingFile = false);
+    }
+  }
+
+  Future<void> _handleCheckout(LensWizardState wizard) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    if (wizard.prescriptionMode == 'upload' && wizard.uploadedFileUrl == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Please upload a prescription image first.'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    if (wizard.prescriptionMode == 'enter') {
+      final hasAstigmatismRE = _rCyl != 0.0;
+      final hasAstigmatismLE = _lCyl != 0.0;
+      if ((hasAstigmatismRE && _rAxis == 0) || (hasAstigmatismLE && _lAxis == 0)) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Please select AXIS for astigmatism (when CYL is not 0)'), backgroundColor: AppColors.error),
+        );
+        return;
+      }
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final authService = context.read<AuthService>();
+      final api = ApiService(authService);
+      final p = wizard.product;
+      if (p == null) return;
+
+      // Save manually entered prescription to server if custom name entered
+      if (wizard.prescriptionMode == 'enter' && wizard.selectedPrescriptionId == null) {
+        try {
+          await api.addPrescription(
+            re: {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis},
+            le: {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis},
+            pd: _pd,
+          );
+        } catch (e) {
+          debugPrint('Failed to save manual prescription: $e');
+        }
+      }
+
+      // Dynamic cart payload mapping
+      final lensConfig = {
+        'lensType': wizard.selectedTypeDisplayName ?? wizard.lensType,
+        'lensSubType': wizard.lensSubType,
+        'lensQuality': wizard.lensQuality,
+        'lensPrice': wizard.lensPrice,
+        'power': wizard.prescriptionMode == 'enter'
+            ? {
+                'RE': {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis},
+                'LE': {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis},
+                'pd': _pd,
+                'addPower': (wizard.lensType == 'progressive' || wizard.lensType == 'reading_power')
+                    ? _addPower
+                    : null,
+              }
+            : {
+                'uploadLater': true,
+                'uploadedFileUrl': wizard.uploadedFileUrl,
+              },
+      };
+
+      await api.addToCart({
+        'productId': p.id,
+        'qty': 1,
+        'color': wizard.selectedColor,
+        'lens': lensConfig,
+      });
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Configuration added to cart!'), backgroundColor: AppColors.success),
+      );
+      
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const CartScreen()),
+        (route) => route.isFirst,
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Checkout failed: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _showPdInstructionDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Pupillary Distance (PD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          '1. Hold a ruler horizontally against your forehead.\n'
+          '2. Align the 0mm mark directly under the pupil of one eye.\n'
+          '3. Look straight ahead and read the millimeter mark under the pupil of your other eye.\n'
+          '4. Average values are 58mm - 68mm.',
+          style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('GOT IT', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,248 +289,383 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const LensStepBar(currentStep: 2),
-            if (wizard.product != null)
-              _MiniProductCard2(wizard: wizard),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const LensStepBar(currentStep: 3),
+            
+            // Header text
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ENTER YOUR POWER', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
-                  const Text('All fields are required', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  Text('ENTER YOUR POWER', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
+                  SizedBox(height: 4),
+                  Text('All fields are required', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 ],
               ),
             ),
-            // Prescription table
+
+            // Form container
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      child: Row(
+                    // Saved prescriptions dropdown
+                    if (wizard.savedPrescriptions.isNotEmpty) ...[
+                      const Text(
+                        '📂 ADD SAVED POWER',
+                        style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: wizard.selectedPrescriptionId,
+                            dropdownColor: AppColors.card,
+                            isExpanded: true,
+                            hint: const Text('Select from Saved Powers', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                            style: const TextStyle(color: AppColors.white, fontSize: 13),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('-- Clear Selection --'),
+                              ),
+                              ...wizard.savedPrescriptions.map((pr) {
+                                final map = pr as Map<String, dynamic>;
+                                return DropdownMenuItem<String>(
+                                  value: map['_id'].toString(),
+                                  child: Text(_formatOptionLabel(map)),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              _selectSavedPrescription(val ?? '', wizard);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Mode Selection Tabs
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => wizard.setPrescriptionMode('enter'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: wizard.prescriptionMode == 'enter' ? AppColors.gold : AppColors.background,
+                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'ENTER MANUALLY',
+                                style: TextStyle(
+                                  color: wizard.prescriptionMode == 'enter' ? Colors.black : AppColors.muted,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => wizard.setPrescriptionMode('upload'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: wizard.prescriptionMode == 'upload' ? AppColors.gold : AppColors.background,
+                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'UPLOAD PRESCRIPTION',
+                                style: TextStyle(
+                                  color: wizard.prescriptionMode == 'upload' ? Colors.black : AppColors.muted,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Content based on Mode
+                    if (wizard.prescriptionMode == 'enter') ...[
+                      // Manual Form
+                      // Header Row
+                      Row(
                         children: const [
-                          SizedBox(width: 28),
-                          Expanded(child: Text('SPH', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center)),
-                          Expanded(child: Text('CYL', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center)),
-                          Expanded(child: Text('AXIS', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center)),
+                          SizedBox(width: 32),
+                          Expanded(child: Text('SPH', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
+                          Expanded(child: Text('CYL', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
+                          Expanded(child: Text('AXIS', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
                         ],
                       ),
-                    ),
-                    const Divider(color: AppColors.border, height: 1),
-                    // Right eye
-                    _PowerRow(
-                      label: 'R',
-                      sph: _rSph.toStringAsFixed(2),
-                      cyl: _rCyl.toStringAsFixed(2),
-                      axis: _rAxis.toString(),
-                      onSphTap: () => _showPicker(context, _sphValues, _rSph.toStringAsFixed(2), (v) => setState(() => _rSph = double.parse(v))),
-                      onCylTap: () => _showPicker(context, _cylValues, _rCyl.toStringAsFixed(2), (v) => setState(() => _rCyl = double.parse(v))),
-                      onAxisTap: () => _showAxisPicker(context, _rAxis, (v) => setState(() => _rAxis = v)),
-                    ),
-                    const Divider(color: AppColors.border, height: 1),
-                    // Left eye
-                    _PowerRow(
-                      label: 'L',
-                      sph: _lSph.toStringAsFixed(2),
-                      cyl: _lCyl.toStringAsFixed(2),
-                      axis: _lAxis.toString(),
-                      onSphTap: () => _showPicker(context, _sphValues, _lSph.toStringAsFixed(2), (v) => setState(() => _lSph = double.parse(v))),
-                      onCylTap: () => _showPicker(context, _cylValues, _lCyl.toStringAsFixed(2), (v) => setState(() => _lCyl = double.parse(v))),
-                      onAxisTap: () => _showAxisPicker(context, _lAxis, (v) => setState(() => _lAxis = v)),
-                    ),
+                      const SizedBox(height: 8),
+
+                      // Right Eye Row
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 32,
+                            child: Text('R', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _rSph > 0 ? '+${_rSph.toStringAsFixed(2)}' : _rSph.toStringAsFixed(2),
+                              items: _sphValues,
+                              onChanged: (v) => setState(() => _rSph = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _rCyl > 0 ? '+${_rCyl.toStringAsFixed(2)}' : _rCyl.toStringAsFixed(2),
+                              items: _cylValues,
+                              onChanged: (v) => setState(() => _rCyl = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _rAxis.toString(),
+                              items: _axisValues,
+                              onChanged: (v) => setState(() => _rAxis = int.parse(v)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Left Eye Row
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 32,
+                            child: Text('L', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _lSph > 0 ? '+${_lSph.toStringAsFixed(2)}' : _lSph.toStringAsFixed(2),
+                              items: _sphValues,
+                              onChanged: (v) => setState(() => _lSph = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _lCyl > 0 ? '+${_lCyl.toStringAsFixed(2)}' : _lCyl.toStringAsFixed(2),
+                              items: _cylValues,
+                              onChanged: (v) => setState(() => _lCyl = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _lAxis.toString(),
+                              items: _axisValues,
+                              onChanged: (v) => setState(() => _lAxis = int.parse(v)),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Progressive Add Power
+                      if (wizard.lensType == 'progressive' || wizard.lensType == 'reading_power') ...[
+                        const SizedBox(height: 20),
+                        const Divider(color: AppColors.border),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Add Power (Reading)',
+                              style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            SizedBox(
+                              width: 100,
+                              child: _DropdownCell(
+                                value: _addPower > 0 ? '+${_addPower.toStringAsFixed(2)}' : _addPower.toStringAsFixed(2),
+                                items: _addPowerValues,
+                                onChanged: (v) => setState(() => _addPower = double.parse(v.replaceAll('+', ''))),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // Pupillary Distance Row
+                      const SizedBox(height: 20),
+                      const Divider(color: AppColors.border),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'PD (Pupillary Distance)',
+                            style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 44,
+                                      child: TextField(
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                        controller: TextEditingController(text: _pd.toStringAsFixed(1))..selection = TextSelection.fromPosition(TextPosition(offset: _pd.toStringAsFixed(1).length)),
+                                        onChanged: (v) {
+                                          final parsed = double.tryParse(v);
+                                          if (parsed != null) setState(() => _pd = parsed);
+                                        },
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          filled: false,
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ),
+                                    const Text('mm', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: _showPdInstructionDialog,
+                                child: const Text(
+                                  'Measure PD',
+                                  style: TextStyle(color: AppColors.gold, fontSize: 11, decoration: TextDecoration.underline, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Upload Prescription Form
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.cloud_upload_outlined, color: AppColors.gold, size: 36),
+                            const SizedBox(height: 12),
+                            const Text('Upload Prescription Photo', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            const Text('Drag & drop or click below to upload prescription.', style: TextStyle(color: AppColors.muted, fontSize: 10), textAlign: TextAlign.center),
+                            const SizedBox(height: 16),
+                            _uploadingFile
+                                ? const CircularProgressIndicator(color: AppColors.gold)
+                                : ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.gold,
+                                      minimumSize: const Size(120, 36),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () => _pickPrescriptionImage(wizard),
+                                    child: const Text('Browse File', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                            if (wizard.uploadedFileName != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                '✓ Selected: ${wizard.uploadedFileName}',
+                                style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            // PD row
+            const SizedBox(height: 40),
+            
+            // Continue CTA Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.remove_red_eye_outlined, color: AppColors.gold, size: 20),
-                    const SizedBox(width: 10),
-                    const Expanded(child: Text('PD (Pupillary Distance)', style: TextStyle(color: AppColors.white, fontSize: 14))),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Text('${_pd.toStringAsFixed(1)} mm', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: _submitting
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                  : GoldButton(
+                      label: 'CONTINUE TO CART →',
+                      onPressed: () => _handleCheckout(wizard),
                     ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () {},
-                      child: const Text('Measure PD', style: TextStyle(color: AppColors.gold, fontSize: 12, decoration: TextDecoration.underline)),
-                    ),
-                  ],
-                ),
-              ),
             ),
-            const SizedBox(height: 16),
-            // Upload prescription
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: const [
-                  Icon(Icons.cloud_upload_outlined, color: AppColors.gold, size: 18),
-                  SizedBox(width: 8),
-                  Text("Don't have prescription? ", style: AppTextStyles.muted),
-                  Text('Upload Prescription', style: TextStyle(color: AppColors.gold, decoration: TextDecoration.underline, fontSize: 13)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GoldButton(
-                label: 'CONTINUE TO QUALITY →',
-                onPressed: () {
-                  context.read<LensWizardState>().setPower(
-                    re: PowerData(sph: _rSph, cyl: _rCyl, axis: _rAxis),
-                    le: PowerData(sph: _lSph, cyl: _lCyl, axis: _lAxis),
-                    pupillaryDistance: _pd,
-                  );
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(
-                      value: context.read<LensWizardState>(),
-                      child: const LensQualityScreen(),
-                    ),
-                  ));
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
-  }
-
-  void _showPicker(BuildContext context, List<String> values, String current, Function(String) onSelect) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.card,
-      builder: (_) => SizedBox(
-        height: 250,
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            const Text('Select Value', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-            Expanded(
-              child: ListView.builder(
-                itemCount: values.length,
-                itemBuilder: (_, i) => ListTile(
-                  title: Text(values[i], style: TextStyle(color: values[i] == current ? AppColors.gold : AppColors.white)),
-                  onTap: () { onSelect(values[i]); Navigator.pop(context); },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAxisPicker(BuildContext context, int current, Function(int) onSelect) {
-    final vals = List.generate(181, (i) => i.toString());
-    _showPicker(context, vals, current.toString(), (v) => onSelect(int.parse(v)));
   }
 }
 
-class _PowerRow extends StatelessWidget {
-  final String label, sph, cyl, axis;
-  final VoidCallback onSphTap, onCylTap, onAxisTap;
+class _DropdownCell extends StatelessWidget {
+  final String value;
+  final List<String> items;
+  final ValueChanged<String> onChanged;
 
-  const _PowerRow({required this.label, required this.sph, required this.cyl, required this.axis, required this.onSphTap, required this.onCylTap, required this.onAxisTap});
+  const _DropdownCell({required this.value, required this.items, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 28,
-            child: Text(label, style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
-          ),
-          Expanded(child: _DropCell(value: sph, onTap: onSphTap)),
-          Expanded(child: _DropCell(value: cyl, onTap: onCylTap)),
-          Expanded(child: _DropCell(value: axis, onTap: onAxisTap)),
-        ],
-      ),
-    );
-  }
-}
-
-class _DropCell extends StatelessWidget {
-  final String value;
-  final VoidCallback onTap;
-  const _DropCell({required this.value, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.background,
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(value, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-          const Icon(Icons.keyboard_arrow_down, color: AppColors.muted, size: 14),
-        ],
-      ),
-    ),
-  );
-}
-
-class _MiniProductCard2 extends StatelessWidget {
-  final LensWizardState wizard;
-  const _MiniProductCard2({required this.wizard});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-      child: Row(
-        children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 24),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${wizard.product?.sku} | ${wizard.product?.name}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12)),
-                Text('${wizard.selectedColor} • Size: ${wizard.sizeString}', style: AppTextStyles.muted),
-                Row(
-                  children: [
-                    const Text('Lens: ', style: AppTextStyles.muted),
-                    Text(wizard.lensType ?? 'Not Selected', style: const TextStyle(color: AppColors.gold, fontSize: 12)),
-                    const SizedBox(width: 6),
-                    const Text('Edit', style: TextStyle(color: AppColors.muted, fontSize: 11, decoration: TextDecoration.underline)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: items.contains(value) ? value : items.first,
+          dropdownColor: AppColors.card,
+          isExpanded: true,
+          style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.w600),
+          items: items.map((v) {
+            return DropdownMenuItem<String>(
+              value: v,
+              child: Text(v, textAlign: TextAlign.center),
+            );
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) onChanged(val);
+          },
+        ),
       ),
     );
   }

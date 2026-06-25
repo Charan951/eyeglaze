@@ -95,6 +95,41 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Product? _detailedProduct;
   Product get p => _detailedProduct ?? widget.product;
 
+  bool get isContactLenses {
+    final catLower = p.categories.map((c) => c.toLowerCase()).toList();
+    return catLower.contains('contact-lenses') || 
+           catLower.contains('contact_lenses') || 
+           catLower.contains('contact');
+  }
+
+  bool get isReadingGlasses {
+    final catLower = p.categories.map((c) => c.toLowerCase()).toList();
+    return catLower.contains('power-sunglasses') && (p.subCategory?.toLowerCase() == 'reading');
+  }
+
+  bool get isKidsProduct {
+    final gendersLower = p.gender.map((g) => g.toLowerCase()).toList();
+    return gendersLower.contains('kids');
+  }
+
+  bool get hasAnySpecs {
+    final frameType = p.frameType ?? p.frame?.type;
+    final material = p.material ?? p.frame?.material;
+    return (frameType != null && frameType.isNotEmpty) ||
+           (p.frameShape != null && p.frameShape!.isNotEmpty) ||
+           (material != null && material.isNotEmpty) ||
+           (p.frameWeight != null && p.frameWeight!.isNotEmpty) ||
+           (p.countryOfOrigin != null && p.countryOfOrigin!.isNotEmpty) ||
+           (p.manufacturer != null && p.manufacturer!.isNotEmpty) ||
+           (p.warranty != null && p.warranty!.isNotEmpty);
+  }
+
+  double get displayPrice => _customPriceOverride ?? p.sellingPrice;
+
+  String? _selectedContactPower;
+  double? _customPriceOverride;
+  String? _selectedReadingPower;
+
   List<String> get imagesList {
     final colors = p.colors;
     if (colors.isNotEmpty && _selectedColorIdx < colors.length) {
@@ -514,16 +549,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 50),
                                       ),
                                     ),
-                                    if (p.isBestseller)
-                                      Positioned(
-                                        top: 8,
-                                        left: 8,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                          decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
-                                          child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                        ),
+                                    Positioned(
+                                      top: 8,
+                                      left: 8,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (p.isBestseller)
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
+                                              child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                            ),
+                                          if (p.isPremium)
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.75),
+                                                border: Border.all(color: AppColors.gold, width: 1),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text('PREMIUM', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
+                                            ),
+                                          if (p.buy1Get1)
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(color: Colors.pink.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                              child: const Text('BUY 1 GET 1', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                            ),
+                                          if (p.oneRupeeFrameOffer)
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                              child: const Text('₹1 FRAME OFFER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                            ),
+                                          ...p.offerBadges.map((badge) => Container(
+                                                margin: const EdgeInsets.only(bottom: 4),
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                                child: Text(badge.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                              )),
+                                        ],
                                       ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -604,38 +677,69 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text(
-                                    'FRAME STARTING',
-                                    style: TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  Text(
+                                    isContactLenses ? 'CONTACT LENS PRICE' : 'FRAME STARTING',
+                                    style: const TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                                   ),
                                   const SizedBox(height: 4),
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '₹${p.sellingPrice.toInt()}',
-                                        style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '₹${p.originalPrice.toInt()}',
-                                        style: const TextStyle(color: Colors.white38, fontSize: 11, decoration: TextDecoration.lineThrough),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.gold.withValues(alpha: 0.15),
-                                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 1),
-                                          borderRadius: BorderRadius.circular(4),
+                                  if (!isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '₹${p.memberPrice!.toInt()}',
+                                              style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w900),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+                                          ],
                                         ),
-                                        child: Text(
-                                          '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
-                                          style: const TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.w800),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '₹${p.nonMemberPrice!.toInt()}',
+                                              style: const TextStyle(color: AppColors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ] else
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          '₹${displayPrice.toInt()}',
+                                          style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                        ),
+                                        if (_customPriceOverride == null) ...[
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '₹${p.originalPrice.toInt()}',
+                                            style: const TextStyle(color: Colors.white38, fontSize: 11, decoration: TextDecoration.lineThrough),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.gold.withValues(alpha: 0.15),
+                                              border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
+                                              style: const TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.w800),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                 ],
                               ),
                             ),
@@ -650,233 +754,329 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
-                      // Color selector
-                      Text(
-                        'SELECT COLOR: ${selectedColorName.toUpperCase()}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          letterSpacing: 0.5,
+                      if (!isContactLenses) ...[
+                        const SizedBox(height: 8),
+                        // Color selector
+                        Text(
+                          'SELECT COLOR: ${selectedColorName.toUpperCase()}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      if (p.colors.isNotEmpty)
-                        Row(
-                          children: [
-                            ...p.colors.take(4).toList().asMap().entries.map((e) {
-                              final isSelected = e.key == _selectedColorIdx;
-                              final color = e.value;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _selectedColorIdx = e.key),
-                                  child: SizedBox(
-                                    width: 34,
-                                    height: 34,
-                                    child: Stack(
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: _parseHexColor(color.hex),
-                                            border: Border.all(
-                                              color: isSelected ? AppColors.gold : AppColors.border,
-                                              width: isSelected ? 2.5 : 1,
-                                            ),
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          Positioned(
-                                            bottom: 0,
-                                            right: 0,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(2),
-                                              decoration: const BoxDecoration(
-                                                color: AppColors.gold,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(Icons.check, color: Colors.black, size: 8),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                            if (p.colors.length > 4)
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.card,
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '+${p.colors.length - 4}',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      
-                      // Choose Size section
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                        const SizedBox(height: 10),
+                        if (p.colors.isNotEmpty)
                           Row(
                             children: [
-                              const Text(
-                                'CHOOSE SIZE',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                                  Icon(Icons.help_outline, color: Colors.white.withValues(alpha: 0.5), size: 14),
-                                ],
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: AppColors.card,
-                                  title: const Text('Size Guide', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  content: const Text(
-                                    'Small: Up to 135 mm (Narrow face)\n'
-                                    'Medium: 136 mm to 142 mm (Standard face)\n'
-                                    'Large: 143 mm to 150 mm (Wide face)\n\n'
-                                    'Measure your face width temple-to-temple to find your ideal fit.',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
+                              ...p.colors.take(4).toList().asMap().entries.map((e) {
+                                final isSelected = e.key == _selectedColorIdx;
+                                final color = e.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _selectedColorIdx = e.key),
+                                    child: SizedBox(
+                                      width: 34,
+                                      height: 34,
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: _parseHexColor(color.hex),
+                                              border: Border.all(
+                                                color: isSelected ? AppColors.gold : AppColors.border,
+                                                width: isSelected ? 2.5 : 1,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Positioned(
+                                              bottom: 0,
+                                              right: 0,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(2),
+                                                decoration: const BoxDecoration(
+                                                  color: AppColors.gold,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.check, color: Colors.black, size: 8),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              "What's my size?",
-                              style: TextStyle(
-                                color: AppColors.gold,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Builder(
-                        builder: (context) {
-                          final List<Widget> sizeCards = [];
-                          final activeSizes = ['Small', 'Medium', 'Large']
-                              .where((size) => p.availableSizes.contains(size))
-                              .toList();
-                          final displaySizes = activeSizes.isNotEmpty ? activeSizes : const ['Small', 'Medium', 'Large'];
-                          
-                          for (int i = 0; i < displaySizes.length; i++) {
-                            final size = displaySizes[i];
-                            String range = 'Up to 135 mm';
-                            String desc = 'Best for narrow face';
-                            if (size == 'Medium') {
-                              range = '136 – 142 mm';
-                              desc = 'Best for standard face';
-                            } else if (size == 'Large') {
-                              range = '143 – 150 mm';
-                              desc = 'Best for wide face';
-                            }
-                            
-                            sizeCards.add(Expanded(child: _buildSizeCard(size, range, desc)));
-                            if (i < displaySizes.length - 1) {
-                              sizeCards.add(const SizedBox(width: 8));
-                            }
-                          }
-                          return Row(children: sizeCards);
-                        }
-                      ),
-                      const SizedBox(height: 20),
-                      // Frame Dimensions Title Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'FRAME DIMENSIONS (in mm)',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: AppColors.card,
-                                  title: const Text('Technical Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  content: Text(
-                                    'SKU: ${p.sku}\n'
-                                    'Frame Type: ${p.frame?.type ?? "Standard"}\n'
-                                    'Material: ${p.frame?.material ?? "Premium TR90"}\n'
-                                    'Frame Width: ${activeDimensions['frameWidth']?.toInt() ?? 0} mm\n'
-                                    'Lens Width: ${activeDimensions['lensWidth']?.toInt() ?? 0} mm\n'
-                                    'Bridge: ${activeDimensions['bridgeWidth']?.toInt() ?? 0} mm\n'
-                                    'Temple Length: ${activeDimensions['templeLength']?.toInt() ?? 0} mm',
-                                    style: const TextStyle(color: Colors.white70),
                                   ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
+                                );
+                              }),
+                              if (p.colors.length > 4)
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.card,
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '+${p.colors.length - 4}',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              );
-                            },
-                            child: const Row(
+                            ],
+                          ),
+                        
+                        // Choose Size section
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
                               children: [
-                                Text(
-                                  'Technical Details',
+                                const Text(
+                                  'CHOOSE SIZE',
                                   style: TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(Icons.keyboard_arrow_up, color: AppColors.gold, size: 14),
+                                const SizedBox(width: 6),
+                                Icon(Icons.help_outline, color: Colors.white.withValues(alpha: 0.5), size: 14),
                               ],
                             ),
-                          ),
+                            GestureDetector(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: AppColors.card,
+                                    title: const Text('Size Guide', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    content: const Text(
+                                      'Small: Up to 135 mm (Narrow face)\n'
+                                      'Medium: 136 mm to 142 mm (Standard face)\n'
+                                      'Large: 143 mm to 150 mm (Wide face)\n\n'
+                                      'Measure your face width temple-to-temple to find your ideal fit.',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                "What's my size?",
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Builder(
+                          builder: (context) {
+                            final List<Widget> sizeCards = [];
+                            final activeSizes = ['Small', 'Medium', 'Large']
+                                .where((size) => p.availableSizes.contains(size))
+                                .toList();
+                            final displaySizes = activeSizes.isNotEmpty ? activeSizes : const ['Small', 'Medium', 'Large'];
+                            
+                            for (int i = 0; i < displaySizes.length; i++) {
+                              final size = displaySizes[i];
+                              String range = 'Up to 135 mm';
+                              String desc = 'Best for narrow face';
+                              if (size == 'Medium') {
+                                range = '136 – 142 mm';
+                                desc = 'Best for standard face';
+                              } else if (size == 'Large') {
+                                range = '143 – 150 mm';
+                                desc = 'Best for wide face';
+                              }
+                              
+                              sizeCards.add(Expanded(child: _buildSizeCard(size, range, desc)));
+                              if (i < displaySizes.length - 1) {
+                                sizeCards.add(const SizedBox(width: 8));
+                              }
+                            }
+                            return Row(children: sizeCards);
+                          }
+                        ),
+                        const SizedBox(height: 20),
+                        // Frame Dimensions Title Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'FRAME DIMENSIONS (in mm)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: AppColors.card,
+                                    title: const Text('Technical Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    content: Text(
+                                      'SKU: ${p.sku}\n'
+                                      'Frame Type: ${p.frame?.type ?? "Standard"}\n'
+                                      'Material: ${p.frame?.material ?? "Premium TR90"}\n'
+                                      'Frame Width: ${activeDimensions['frameWidth']?.toInt() ?? 0} mm\n'
+                                      'Lens Width: ${activeDimensions['lensWidth']?.toInt() ?? 0} mm\n'
+                                      'Bridge: ${activeDimensions['bridgeWidth']?.toInt() ?? 0} mm\n'
+                                      'Temple Length: ${activeDimensions['templeLength']?.toInt() ?? 0} mm',
+                                      style: const TextStyle(color: Colors.white70),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: const Row(
+                                children: [
+                                  Text(
+                                    'Technical Details',
+                                    style: TextStyle(
+                                      color: AppColors.gold,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.keyboard_arrow_up, color: AppColors.gold, size: 14),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _FrameSpecs(
+                          frameWidth: activeDimensions['frameWidth'] ?? 0.0,
+                          lensWidth: activeDimensions['lensWidth'] ?? 0.0,
+                          bridgeWidth: activeDimensions['bridgeWidth'] ?? 0.0,
+                          templeLength: activeDimensions['templeLength'] ?? 0.0,
+                        ),
+                        if (!isContactLenses && hasAnySpecs) ...[
+                          const SizedBox(height: 10),
+                          _FrameDetails(product: p),
+                          const SizedBox(height: 20),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      _FrameSpecs(
-                        frameWidth: activeDimensions['frameWidth'] ?? 0.0,
-                        lensWidth: activeDimensions['lensWidth'] ?? 0.0,
-                        bridgeWidth: activeDimensions['bridgeWidth'] ?? 0.0,
-                        templeLength: activeDimensions['templeLength'] ?? 0.0,
-                      ),
-                      const SizedBox(height: 10),
-                      // Frame details card
-                      if (p.frame != null) _FrameDetails(frame: p.frame!, compatible: p.compatible),
-                      const SizedBox(height: 20),
+                      ],
+                      if (isReadingGlasses) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'SELECT READING POWER',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: p.readingPowers.map((power) {
+                            final isSelected = _selectedReadingPower == power;
+                            return ChoiceChip(
+                              label: Text(
+                                power,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              selected: isSelected,
+                              selectedColor: AppColors.gold,
+                              backgroundColor: AppColors.card,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                  color: isSelected ? AppColors.gold : AppColors.border,
+                                  width: 1,
+                                ),
+                              ),
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedReadingPower = selected ? power : null;
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      if (isContactLenses) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'SELECT CONTACT LENS POWER (${p.contactDisposableType ?? "Monthly"})'.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: p.contactPowers.map((cp) {
+                            final isSelected = _selectedContactPower == cp.power;
+                            return ChoiceChip(
+                              label: Text(
+                                cp.power,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              selected: isSelected,
+                              selectedColor: AppColors.gold,
+                              backgroundColor: AppColors.card,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                  color: isSelected ? AppColors.gold : AppColors.border,
+                                  width: 1,
+                                ),
+                              ),
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedContactPower = selected ? cp.power : null;
+                                  _customPriceOverride = selected ? cp.price : null;
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ],
                   ),
                 ),
@@ -1290,45 +1490,73 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                '₹${p.sellingPrice.toInt()}',
-                                style: const TextStyle(
-                                  color: AppColors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 22,
+                          if (_customPriceOverride == null && !isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
+                            Row(
+                              children: [
+                                Text(
+                                  '₹${p.memberPrice!.toInt()}',
+                                  style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w900),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '₹${p.originalPrice.toInt()}',
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  decoration: TextDecoration.lineThrough,
-                                  fontSize: 12,
+                                const SizedBox(width: 4),
+                                const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text(
+                                  '₹${p.nonMemberPrice!.toInt()}',
+                                  style: const TextStyle(color: AppColors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                                ),
+                                const SizedBox(width: 4),
+                                const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                              ],
+                            ),
+                          ] else ...[
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '₹${displayPrice.toInt()}',
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                  ),
+                                ),
+                                if (_customPriceOverride == null) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '₹${p.originalPrice.toInt()}',
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      decoration: TextDecoration.lineThrough,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (_customPriceOverride == null) ...[
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: 0.15),
+                                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 0.8),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
+                                  style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: AppColors.gold.withValues(alpha: 0.15),
-                              border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 0.8),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
-                              style: const TextStyle(
-                                color: AppColors.gold,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                          ],
                         ],
                       ),
                       const SizedBox(width: 16),
@@ -1336,74 +1564,140 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            // ADD TO CART
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _addToCart,
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.black,
-                                  foregroundColor: AppColors.gold,
-                                  side: const BorderSide(color: AppColors.gold, width: 1.2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  minimumSize: Size.zero,
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 16),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'ADD TO CART',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 11,
-                                        letterSpacing: 0.5,
-                                      ),
+                            if (isContactLenses || isReadingGlasses) ...[
+                              // ADD TO CART
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _addToCart,
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: AppColors.gold,
+                                    side: const BorderSide(color: AppColors.gold, width: 1.2),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                  ],
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    minimumSize: Size.zero,
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'ADD TO CART',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            // BUY WITH LENS
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _buyWithLens,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.gold,
-                                  foregroundColor: Colors.black,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                              const SizedBox(width: 8),
+                              // BUY NOW
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _buyNow,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.gold,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    minimumSize: Size.zero,
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  minimumSize: Size.zero,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 18,
-                                      height: 12,
-                                      child: CustomPaint(
-                                        painter: _SizeGlassesPainter(color: Colors.black),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.flash_on, color: Colors.black, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'BUY NOW',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11,
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'BUY WITH LENS',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 11,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
+                            ] else ...[
+                              // Standard frame
+                              if (p.sellAsFrame)
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _addToCart,
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: Colors.black,
+                                      foregroundColor: AppColors.gold,
+                                      side: const BorderSide(color: AppColors.gold, width: 1.2),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size.zero,
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'ADD TO CART',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              if (p.sellAsFrame && p.sellWithLens) const SizedBox(width: 8),
+                              if (p.sellWithLens)
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _buyWithLens,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.gold,
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      minimumSize: Size.zero,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 18,
+                                          height: 12,
+                                          child: CustomPaint(
+                                            painter: _SizeGlassesPainter(color: Colors.black),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Text(
+                                          'BUY WITH LENS',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ],
                         ),
                       ),
@@ -1438,23 +1732,119 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _addToCart() async {
+    if (isContactLenses && _selectedContactPower == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select a contact lens power first.'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+    if (isReadingGlasses && _selectedReadingPower == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select a reading power first.'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+
     try {
       final authService = context.read<AuthService>();
       final api = ApiService(authService);
-      await api.addToCart({
+      final payload = {
         'productId': p.id,
         'qty': 1,
         'color': selectedColorName,
-        'framePrice': p.sellingPrice,
-      });
+      };
+
+      if (isContactLenses) {
+        payload['lens'] = {
+          'lensType': 'Contact Lens',
+          'lensSubType': p.contactDisposableType ?? 'Monthly',
+          'lensQuality': _selectedContactPower!,
+          'framePrice': 0.0,
+          'lensPrice': displayPrice,
+          'fittingCharge': 0.0,
+        };
+      } else if (isReadingGlasses) {
+        payload['lens'] = {
+          'lensType': 'Reading Lens',
+          'lensSubType': _selectedReadingPower!,
+          'lensQuality': 'Standard Reading',
+        };
+      } else {
+        payload['framePrice'] = p.sellingPrice;
+      }
+
+      await api.addToCart(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Added to cart!'),
           backgroundColor: AppColors.gold,
         ));
+        _loadCartCount();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  void _buyNow() async {
+    if (isContactLenses && _selectedContactPower == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select a contact lens power first.'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+    if (isReadingGlasses && _selectedReadingPower == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select a reading power first.'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+
+    try {
+      final authService = context.read<AuthService>();
+      final api = ApiService(authService);
+      final payload = {
+        'productId': p.id,
+        'qty': 1,
+        'color': selectedColorName,
+      };
+
+      if (isContactLenses) {
+        payload['lens'] = {
+          'lensType': 'Contact Lens',
+          'lensSubType': p.contactDisposableType ?? 'Monthly',
+          'lensQuality': _selectedContactPower!,
+          'framePrice': 0.0,
+          'lensPrice': displayPrice,
+          'fittingCharge': 0.0,
+        };
+      } else if (isReadingGlasses) {
+        payload['lens'] = {
+          'lensType': 'Reading Lens',
+          'lensSubType': _selectedReadingPower!,
+          'lensQuality': 'Standard Reading',
+        };
+      }
+
+      await api.addToCart(payload);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CartScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
     }
   }
 
@@ -1494,6 +1884,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final isSelected = _selectedSize == sizeName;
     final isRecommended = recommendedSize == sizeName;
 
+    String displayTitle = sizeName.toUpperCase();
+    String displayRange = rangeText;
+    String displayDesc = descText;
+
+    if (isKidsProduct) {
+      if (sizeName == 'Small') {
+        displayTitle = 'JUNIORS';
+        displayRange = '5 – 8 years';
+        displayDesc = 'Frame: Small';
+      } else if (sizeName == 'Medium') {
+        displayTitle = 'TWEENS';
+        displayRange = '8 – 12 years';
+        displayDesc = 'Frame: Medium';
+      } else if (sizeName == 'Large') {
+        displayTitle = 'TEENS';
+        displayRange = '12 – 17 years';
+        displayDesc = 'Frame: Large';
+      }
+    }
+
     return GestureDetector(
       onTap: () => setState(() => _selectedSize = sizeName),
       child: Stack(
@@ -1514,7 +1924,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 if (isRecommended) const SizedBox(height: 4), // offset for top banner spacing
                 Text(
-                  sizeName.toUpperCase(),
+                  displayTitle,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -1535,7 +1945,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  rangeText,
+                  displayRange,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 10,
@@ -1545,7 +1955,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  descText,
+                  displayDesc,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.3),
                     fontSize: 7.5,
@@ -2118,12 +2528,85 @@ class _TempleLengthPainter extends CustomPainter {
 }
 
 class _FrameDetails extends StatelessWidget {
-  final ProductFrame frame;
-  final ProductCompatible? compatible;
-  const _FrameDetails({required this.frame, this.compatible});
+  final Product product;
+  const _FrameDetails({required this.product});
 
   @override
   Widget build(BuildContext context) {
+    final p = product;
+    final frame = p.frame;
+    final compatible = p.compatible;
+
+    final frameShape = p.frameShape;
+    final frameWeight = p.frameWeight;
+    final countryOfOrigin = p.countryOfOrigin;
+    final manufacturer = p.manufacturer;
+    final warranty = p.warranty;
+    final frameType = p.frameType ?? frame?.type;
+    final material = p.material ?? frame?.material;
+
+    final List<MapEntry<String, String>> specs = [];
+    if (frameType != null && frameType.isNotEmpty) specs.add(MapEntry('Frame Type', frameType));
+    if (frameShape != null && frameShape.isNotEmpty) specs.add(MapEntry('Frame Shape', frameShape));
+    if (material != null && material.isNotEmpty) specs.add(MapEntry('Material', material));
+    if (frameWeight != null && frameWeight.isNotEmpty) specs.add(MapEntry('Weight', frameWeight));
+    if (countryOfOrigin != null && countryOfOrigin.isNotEmpty) specs.add(MapEntry('Origin', countryOfOrigin));
+    if (manufacturer != null && manufacturer.isNotEmpty) specs.add(MapEntry('Manufacturer', manufacturer));
+    if (warranty != null && warranty.isNotEmpty) specs.add(MapEntry('Warranty', warranty));
+
+    // build a 2-column layout using pairs of specs
+    final List<Widget> specRows = [];
+    for (int i = 0; i < specs.length; i += 2) {
+      final left = specs[i];
+      final right = (i + 1 < specs.length) ? specs[i + 1] : null;
+
+      specRows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('${left.key}: ', style: AppTextStyles.muted.copyWith(fontSize: 11)),
+                    Expanded(
+                      child: Text(
+                        left.value,
+                        style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.right,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (right != null) ...[
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${right.key}: ', style: AppTextStyles.muted.copyWith(fontSize: 11)),
+                      Expanded(
+                        child: Text(
+                          right.value,
+                          style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else
+                const Expanded(child: SizedBox()),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
@@ -2134,8 +2617,15 @@ class _FrameDetails extends StatelessWidget {
             children: [
               const Icon(Icons.shield_outlined, color: AppColors.gold, size: 18),
               const SizedBox(width: 8),
-              const Text('Frame Details', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-              const Spacer(),
+              const Expanded(
+                child: Text(
+                  'Frame Details & Specifications',
+                  style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: () {
                   showDialog(
@@ -2144,7 +2634,7 @@ class _FrameDetails extends StatelessWidget {
                       backgroundColor: AppColors.card,
                       title: const Text('Frame Specifications', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       content: const Text(
-                        'Handcrafted premium frames, double-reinforced hinges, organic coatings, premium TR90 materials.',
+                        'Handcrafted premium frames, double-reinforced hinges, organic coatings, premium materials.',
                         style: TextStyle(color: Colors.white70),
                       ),
                       actions: [
@@ -2171,36 +2661,37 @@ class _FrameDetails extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _DetailRow('Frame Type', frame.type ?? '-'),
-          _DetailRow('Material', frame.material ?? '-'),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: frame.featureTags
-                .map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1C),
-                        border: Border.all(color: AppColors.border),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            '✔ ',
-                            style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            tag,
-                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-          ),
+          ...specRows,
+          if (frame != null && frame.featureTags.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: frame.featureTags
+                  .map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1C),
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '✔ ',
+                              style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              tag,
+                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
           if (compatible != null) ...[
             const SizedBox(height: 12),
             const Divider(color: AppColors.border),
@@ -2212,10 +2703,10 @@ class _FrameDetails extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Compatible with ${[
-                      if (compatible!.prescription) 'Prescription Lenses',
-                      if (compatible!.bluecut) 'Blue Cut',
-                      if (compatible!.zeropower) 'Zero Power',
-                      if (compatible!.progressive) 'Progressive',
+                      if (compatible.prescription) 'Prescription Lenses',
+                      if (compatible.bluecut) 'Blue Cut',
+                      if (compatible.zeropower) 'Zero Power',
+                      if (compatible.progressive) 'Progressive',
                     ].join(' • ')}',
                     style: const TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
@@ -2227,23 +2718,6 @@ class _FrameDetails extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _DetailRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          children: [
-            Text('$label: ', style: AppTextStyles.muted),
-            Text(value, style: const TextStyle(color: AppColors.white, fontSize: 13)),
-          ],
-        ),
-      );
 }
 
 class _SimilarProductCard extends StatelessWidget {

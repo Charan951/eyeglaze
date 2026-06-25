@@ -65,19 +65,23 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
               fileName: data['fileName'],
               mimeType: data['mimeType'],
             );
-            if (mounted) {
+            if (context.mounted) {
               Navigator.pop(context);
-              await _loadPrescriptions();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Prescription saved successfully'),
-                  backgroundColor: AppColors.success,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              if (mounted) {
+                await _loadPrescriptions();
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Prescription saved successfully'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             }
           } catch (e) {
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Failed to save prescription: $e'), backgroundColor: AppColors.error),
               );

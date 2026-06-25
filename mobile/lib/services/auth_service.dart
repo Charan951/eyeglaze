@@ -28,7 +28,17 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<String?> getToken() async {
-    return await _storage.read(key: _tokenKey);
+    try {
+      return await _storage.read(key: _tokenKey);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Secure storage decryption error: $e');
+      }
+      try {
+        await _storage.delete(key: _tokenKey);
+      } catch (_) {}
+      return null;
+    }
   }
 
   Future<void> clearToken() async {

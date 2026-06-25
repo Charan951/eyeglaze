@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme.dart';
+import 'lens_wizard_state.dart';
 
 class LensStepBar extends StatelessWidget {
   final int currentStep;
@@ -8,7 +10,11 @@ class LensStepBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = ['LENS TYPE', 'POWER', 'ADD-ONS', 'REVIEW & CHECKOUT'];
+    final wizard = context.watch<LensWizardState>();
+    final steps = wizard.powerRequired
+        ? ['LENS TYPE', 'QUALITY', 'POWER']
+        : ['LENS TYPE', 'QUALITY'];
+
     return Container(
       color: AppColors.card,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -21,7 +27,11 @@ class LensStepBar extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (i > 0) Expanded(child: Container(height: 1, color: isDone ? AppColors.gold : AppColors.border)),
+                    if (i > 0)
+                      Expanded(
+                          child: Container(
+                              height: 1,
+                              color: isDone ? AppColors.gold : AppColors.border)),
                     Container(
                       width: 24,
                       height: 24,
@@ -35,12 +45,17 @@ class LensStepBar extends StatelessWidget {
                             : Text(
                                 '${i + 1}',
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
                               ),
                       ),
                     ),
                     if (i < steps.length - 1)
-                      Expanded(child: Container(height: 1, color: isDone ? AppColors.gold : AppColors.border)),
+                      Expanded(
+                          child: Container(
+                              height: 1,
+                              color: isDone ? AppColors.gold : AppColors.border)),
                   ],
                 ),
                 const SizedBox(height: 4),
