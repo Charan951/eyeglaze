@@ -428,7 +428,7 @@ export default function AddProductWizard() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showConfirm, setShowConfirm] = useState<string | null>(null); // 'cancel' | 'delete' | 'duplicate'
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [, setAuditLogs] = useState<any[]>([]);
   const [versionHistory, setVersionHistory] = useState<number>(1);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadedProduct, setLoadedProduct] = useState<any | null>(null);
@@ -804,7 +804,7 @@ export default function AddProductWizard() {
         : prev;
 
       return names.map(name => {
-        const existing = source.find(p => p.name.toLowerCase() === name.toLowerCase());
+        const existing = source.find((p: any) => p.name.toLowerCase() === name.toLowerCase());
         if (existing) {
           return { ...existing, name };
         }
@@ -1297,61 +1297,61 @@ export default function AddProductWizard() {
   };
 
   // Price Engine Simulation state (for Step 12 Preview)
-  const [engineLens, setEngineLens] = useState<string>('Zero Power');
-  const [engineThickness, setEngineThickness] = useState<string>('1.50');
-  const [engineCoatings, setEngineCoatings] = useState<string[]>([]);
-  const [engineCoupon, setEngineCoupon] = useState<string>('');
+  // const [engineLens, setEngineLens] = useState<string>('Zero Power');
+  // const [engineThickness, setEngineThickness] = useState<string>('1.50');
+  // const [engineCoatings, setEngineCoatings] = useState<string[]>([]);
+  // const [engineCoupon, setEngineCoupon] = useState<string>('');
   
   // Calculate simulation prices
-  const getSimulatedPayable = () => {
-    const baseFrame = sellingPriceValue;
-    
-    // Lens Price
-    const lensObj = formValues.dynamicLensPricing?.find(l => l.lensName === engineLens) || 
-                    formValues.dynamicLensPricing?.find(l => l.lensCategory === engineLens);
-    const lensPrice = lensObj ? lensObj.regularPrice : 0;
-
-    // Thickness Price
-    const thickObj = formValues.thicknessPricing?.find(t => t.thickness === engineThickness);
-    const thickPrice = thickObj ? thickObj.regularPrice : 0;
-
-    // Coating Price
-    let coatingPrice = 0;
-    engineCoatings.forEach(coat => {
-      const coatObj = formValues.coatingPricing?.find(c => c.coatingName === coat);
-      if (coatObj) coatingPrice += coatObj.regularPrice;
-    });
-
-    // Discount / Member Discount
-    let membershipDiscount = 0;
-    if (enableMemberPricingField) {
-      const goldPrice = formValues.memberPrices?.goldMemberPrice || baseFrame;
-      membershipDiscount = Math.max(0, baseFrame - goldPrice);
-    }
-
-    // Coupon
-    let couponDiscount = 0;
-    if (engineCoupon === 'SAVE10') {
-      couponDiscount = Math.round((baseFrame + lensPrice) * 0.1);
-    } else if (engineCoupon === 'FLAT500') {
-      couponDiscount = 500;
-    }
-
-    // Cashback
-    const cashback = Math.round((baseFrame * (formValues.memberPrices?.cashbackPercent || 0)) / 100);
-
-    const payableAmount = baseFrame + lensPrice + thickPrice + coatingPrice - membershipDiscount - couponDiscount - cashback;
-    return {
-      frame: baseFrame,
-      lens: lensPrice,
-      thickness: thickPrice,
-      coatings: coatingPrice,
-      memberDisc: membershipDiscount,
-      couponDisc: couponDiscount,
-      cashback,
-      total: Math.max(0, payableAmount)
-    };
-  };
+  // const getSimulatedPayable = () => {
+  //   const baseFrame = sellingPriceValue;
+  //   
+  //   // Lens Price
+  //   const lensObj = formValues.dynamicLensPricing?.find(l => l.lensName === engineLens) || 
+  //                   formValues.dynamicLensPricing?.find(l => l.lensCategory === engineLens);
+  //   const lensPrice = lensObj ? lensObj.regularPrice : 0;
+  // 
+  //   // Thickness Price
+  //   const thickObj = formValues.thicknessPricing?.find(t => t.thickness === engineThickness);
+  //   const thickPrice = thickObj ? thickObj.regularPrice : 0;
+  // 
+  //   // Coating Price
+  //   let coatingPrice = 0;
+  //   engineCoatings.forEach(coat => {
+  //     const coatObj = formValues.coatingPricing?.find(c => c.coatingName === coat);
+  //     if (coatObj) coatingPrice += coatObj.regularPrice;
+  //   });
+  // 
+  //   // Discount / Member Discount
+  //   let membershipDiscount = 0;
+  //   if (enableMemberPricingField) {
+  //     const goldPrice = formValues.memberPrices?.goldMemberPrice || baseFrame;
+  //     membershipDiscount = Math.max(0, baseFrame - goldPrice);
+  //   }
+  // 
+  //   // Coupon
+  //   let couponDiscount = 0;
+  //   if (engineCoupon === 'SAVE10') {
+  //     couponDiscount = Math.round((baseFrame + lensPrice) * 0.1);
+  //   } else if (engineCoupon === 'FLAT500') {
+  //     couponDiscount = 500;
+  //   }
+  // 
+  //   // Cashback
+  //   const cashback = Math.round((baseFrame * (formValues.memberPrices?.cashbackPercent || 0)) / 100);
+  // 
+  //   const payableAmount = baseFrame + lensPrice + thickPrice + coatingPrice - membershipDiscount - couponDiscount - cashback;
+  //   return {
+  //     frame: baseFrame,
+  //     lens: lensPrice,
+  //     thickness: thickPrice,
+  //     coatings: coatingPrice,
+  //     memberDisc: membershipDiscount,
+  //     couponDisc: couponDiscount,
+  //     cashback,
+  //     total: Math.max(0, payableAmount)
+  //   };
+  // };
 
   // Derive compatibleLensTypes from selected lensTypes in real-time
   const selectedLensTypeNames = (formValues.lensTypes || []).map(typeId => {
@@ -1368,7 +1368,7 @@ export default function AddProductWizard() {
     }
   });
 
-  const simResult = getSimulatedPayable();
+  // const simResult = getSimulatedPayable();
 
   // Desktop, Tablet, Mobile Preview selector
 

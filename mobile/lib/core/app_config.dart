@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  static const bool isProduction = false; // Set to true for production, false for local development
+  static const bool isProduction = true; // Set to true for production, false for local development
 
   static String get baseUrl {
     if (isProduction) {

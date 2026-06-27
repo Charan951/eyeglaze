@@ -40,122 +40,6 @@ export default function UserLayout() {
     };
   }, []);
 
-  const getDynamicBrandsAndPrice = (
-    categorySlug: string,
-    genderVal: string | null,
-    tier: 'premium' | 'classic' | 'essential',
-    fallbackPrice: number
-  ) => {
-    const matchingProds = products.filter(p => {
-      // check category
-      const pCat = (p.category || '').toLowerCase();
-      const pCats = (p.categories || []).map((c: any) => String(c).toLowerCase());
-      const catMatch = pCat === categorySlug.toLowerCase() || pCats.includes(categorySlug.toLowerCase());
-      if (!catMatch) return false;
-
-      // check gender
-      if (genderVal && genderVal !== 'all') {
-        let genderMatch = false;
-        if (p.gender) {
-          if (Array.isArray(p.gender)) {
-            genderMatch = p.gender.some((g: string) => g.toLowerCase() === genderVal.toLowerCase() || g.toLowerCase() === 'unisex');
-          } else {
-            genderMatch = p.gender.toLowerCase() === genderVal.toLowerCase() || p.gender.toLowerCase() === 'unisex';
-          }
-        } else {
-          genderMatch = genderVal.toLowerCase() === 'unisex';
-        }
-        if (!genderMatch) return false;
-      }
-
-      // check price tier
-      const price = p.price?.selling || p.sellingPrice || fallbackPrice;
-      if (tier === 'premium') return price >= 2000;
-      if (tier === 'classic') return price >= 1000 && price < 2000;
-      return price < 1000; // essential
-    });
-
-    const labelMap = {
-      premium: 'EyeGlaze Premium',
-      classic: 'EyeGlaze Classic',
-      essential: 'EyeGlaze Essential'
-    };
-
-    const buildToUrl = () => {
-      let url = `/products?category=${categorySlug}`;
-      if (genderVal && genderVal !== 'all') url += `&gender=${genderVal}`;
-      url += `&brand=eyeglaze`;
-      if (tier === 'premium') url += `&minPrice=2000`;
-      else if (tier === 'classic') url += `&minPrice=1000&maxPrice=1999`;
-      else if (tier === 'essential') url += `&maxPrice=999`;
-      return url;
-    };
-
-    const url = buildToUrl();
-
-    if (matchingProds.length === 0) {
-      return {
-        label: labelMap[tier],
-        price: `Starts at ₹${fallbackPrice}`,
-        to: url
-      };
-    }
-
-    const firstProd = matchingProds[0];
-    const prodPrice = firstProd.price?.selling || firstProd.sellingPrice || fallbackPrice;
-
-    return {
-      label: firstProd.name,
-      price: `₹${prodPrice}`,
-      to: url
-    };
-  };
-
-  const getDynamicSizeAndPrice = (
-    categorySlug: string,
-    genderVal: string,
-    sizeLabel: string,
-    sizeVal: 'Small' | 'Medium' | 'Large',
-    fallbackPrice: number
-  ) => {
-    const matchingProds = products.filter(p => {
-      const pCat = (p.category || '').toLowerCase();
-      const pCats = (p.categories || []).map((c: any) => String(c).toLowerCase());
-      const catMatch = pCat === categorySlug.toLowerCase() || pCats.includes(categorySlug.toLowerCase());
-      if (!catMatch) return false;
-
-      let genderMatch = false;
-      if (p.gender) {
-        if (Array.isArray(p.gender)) {
-          genderMatch = p.gender.some((g: string) => g.toLowerCase() === genderVal.toLowerCase());
-        } else {
-          genderMatch = p.gender.toLowerCase() === genderVal.toLowerCase();
-        }
-      }
-      if (!genderMatch) return false;
-
-      const pSize = (p.frameSize || '').toLowerCase();
-      const pSizes = (p.availableSizes || []).map((s: string) => s.toLowerCase());
-      return pSize === sizeVal.toLowerCase() || pSizes.includes(sizeVal.toLowerCase());
-    });
-
-    if (matchingProds.length === 0) {
-      return {
-        label: sizeLabel,
-        price: `Starts at ₹${fallbackPrice}`,
-        to: `/products?category=${categorySlug}&gender=${genderVal}&size=${sizeVal}`
-      };
-    }
-
-    const minPrice = Math.min(...matchingProds.map(p => p.price?.selling || p.sellingPrice || fallbackPrice));
-
-    return {
-      label: sizeLabel,
-      price: `Starts at ₹${minPrice}`,
-      to: `/products?category=${categorySlug}&gender=${genderVal}&size=${sizeVal}`
-    };
-  };
-
   const getDynamicCategoryPrice = (categorySlug: string, fallbackPrice: number) => {
     const matchingProds = products.filter(p => {
       const pCat = (p.category || '').toLowerCase();
@@ -195,7 +79,7 @@ export default function UserLayout() {
       // 1. check category
       const pCat = (p.category || '').toLowerCase();
       const pCats = (p.categories || []).map((c: any) => String(c).toLowerCase());
-      const catMatch = normalizedCats.includes(pCat) || pCats.some(c => normalizedCats.includes(c));
+      const catMatch = normalizedCats.includes(pCat) || pCats.some((c: string) => normalizedCats.includes(c));
       if (!catMatch) return false;
 
       // 2. check gender
