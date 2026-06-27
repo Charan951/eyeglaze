@@ -37,7 +37,13 @@ export async function uploadImage(req: Request, res: Response) {
       fs.writeFileSync(filePath, compressedBuffer);
 
       const host = req.get('host') || 'localhost:5000';
-      const protocol = req.protocol || 'http';
+      let protocol = req.protocol || 'http';
+      const forwardedProto = req.headers['x-forwarded-proto'];
+      if (forwardedProto) {
+        protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+      } else if (host.includes('.in') || host.includes('.com')) {
+        protocol = 'https';
+      }
       const fileUrl = `${protocol}://${host}/uploads/${filename}`;
       return res.status(200).json({ url: fileUrl });
     }
@@ -75,7 +81,13 @@ export async function uploadVideo(req: Request, res: Response) {
       fs.writeFileSync(filePath, file.buffer);
 
       const host = req.get('host') || 'localhost:5000';
-      const protocol = req.protocol || 'http';
+      let protocol = req.protocol || 'http';
+      const forwardedProto = req.headers['x-forwarded-proto'];
+      if (forwardedProto) {
+        protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+      } else if (host.includes('.in') || host.includes('.com')) {
+        protocol = 'https';
+      }
       const fileUrl = `${protocol}://${host}/uploads/${filename}`;
       return res.status(200).json({ url: fileUrl });
     }

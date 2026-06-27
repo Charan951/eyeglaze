@@ -15,7 +15,13 @@ function getProxiedUrl(video: any, req: Request) {
   const isS3 = url.includes('amazonaws.com') && url.includes('eyeglaze_videos');
   if (isS3) {
     const host = req.get('host') || 'localhost:5000';
-    const protocol = req.protocol || 'http';
+    let protocol = req.protocol || 'http';
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    if (forwardedProto) {
+      protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    } else if (host.includes('.in') || host.includes('.com')) {
+      protocol = 'https';
+    }
     return `${protocol}://${host}/api/homepage-videos/stream/${video._id}`;
   }
   return url;
