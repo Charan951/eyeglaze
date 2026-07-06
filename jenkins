@@ -1,365 +1,309 @@
 pipeline {
- 
-agent any
- 
-options {
-    timestamps()
-}
- 
-environment {
-    ROCKETCHAT_WEBHOOK = credentials('eyeglaze-rocketchat-webhook')
-    FAILED_STAGE = ""
-    AWS_REGION = 'ap-south-1'
-    INSTANCE_ID = 'i-0b8220a1b8642ffc3'
-    SCALE_UP_TYPE = 'c7i-flex.large'
-    SCALE_DOWN_TYPE = 't3.micro'
- 
-}
- 
-stages {
- 
-    stage('Notify Start') {
-        steps {
-            script {
- 
-                wrap([$class: 'BuildUser']) {
- 
-                    sh """
-                    curl -X POST \
-                    -H "Content-Type: application/json" \
-                    -d '{
-                        "text":"🚀 *EYEGLAZE DEPLOYMENT STARTED*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nJob: ${JOB_NAME}\\n\\nBuild URL:\\n${BUILD_URL}"
-                    }' \
-                    "${ROCKETCHAT_WEBHOOK}"
-                    """
+    agent any
+
+    options {
+        timestamps()
+    }
+
+    environment {
+        ROCKETCHAT_WEBHOOK = credentials('eyeglaze-rocketchat-webhook')
+
+        FAILED_STAGE = ""
+
+        AWS_REGION      = 'ap-south-1'
+        INSTANCE_ID     = 'i-0b8220a1b8642ffc3'
+        SCALE_UP_TYPE   = 'c7i-flex.large'
+        SCALE_DOWN_TYPE = 't3.micro'
+    }
+
+    stages {
+
+        stage('Notify Start') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        sh """
+                            curl -X POST \
+                              -H "Content-Type: application/json" \
+                              -d '{
+                                  "text":"🚀 *EYEGLAZE DEPLOYMENT STARTED*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nJob: ${JOB_NAME}\\n\\nBuild URL:\\n${BUILD_URL}"
+                              }' \
+                              "${ROCKETCHAT_WEBHOOK}"
+                        """
+                    }
                 }
             }
         }
+
+        stage('Scale Up Instance') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-eyeglaze']
+                ]) {
+                    sh '''
+                        echo "Stopping instance..."
+                        aws ec2 stop-instances \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_REGION
+
+                        aws ec2 wait instance-stopped \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_REGION
+
+                        echo "Changing instance type to $SCALE_UP_TYPE"
+
+                        aws ec2 modify-instance-attribute \
+                            --instance-id $INSTANCE_ID \
+                            --instance-type "{\\"Value\\":\\"$SCALE_UP_TYPE\\"}" \
+                            --region $AWS_REGION
+
+                        echo "Starting instance..."
+
+                        aws ec2 start-instances \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_REGION
+
+                        aws ec2 wait instance-running \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_REGION
+
+                        echo "Instance scaled up successfully."
+                    '''
+                }
+            }
+        }
+
+        stage('Git Pull') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Git Pull"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        cd /root/eyeglaze
+
+                        git stash
+
+                        echo "Pulling latest code..."
+                        git pull origin main
+                        EOF
+                    '''
+                }
+            }
+        }
+
+        stage('Backend Build') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Backend Build"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        cd /root/eyeglaze/server
+
+                        echo "Installing backend dependencies..."
+                        npm install
+
+                        echo "Building backend..."
+                        npm run build
+                        EOF
+                    '''
+                }
+            }
+        }
+
+        stage('Restart Backend') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Restart Backend"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        echo "Restarting PM2..."
+                        pm2 restart all
+                        EOF
+                    '''
+                }
+            }
+        }
+
+        stage('Frontend Build') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Frontend Build"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        cd /root/eyeglaze/frontend
+
+                        echo "Installing frontend dependencies..."
+                        npm install
+
+                        echo "Building frontend..."
+                        npm run build
+                        EOF
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Frontend') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Deploy Frontend"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        echo "Removing old frontend files..."
+                        rm -rf /var/www/eyeglaze/*
+
+                        echo "Copying new dist files..."
+                        cp -r /root/eyeglaze/frontend/dist/* /var/www/eyeglaze/
+                        EOF
+                    '''
+                }
+            }
+        }
+
+        stage('Reload Nginx') {
+            steps {
+                script {
+                    env.FAILED_STAGE = "Reload Nginx"
+                }
+
+                sshagent(['ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+                        set -e
+
+                        echo "Validating Nginx configuration..."
+                        nginx -t
+
+                        echo "Reloading Nginx..."
+                        systemctl reload nginx
+
+                        echo "Deployment completed successfully."
+                        EOF
+                    '''
+                }
+            }
+        }
+
     }
- 
-     stage('Scale Up Instance') {
-        steps {
+
+    post {
+
+        always {
             withCredentials([
                 [$class: 'AmazonWebServicesCredentialsBinding',
                 credentialsId: 'aws-eyeglaze']
             ]) {
- 
                 sh '''
                     echo "Stopping instance..."
- 
+
                     aws ec2 stop-instances \
-                      --instance-ids $INSTANCE_ID \
-                      --region $AWS_REGION
- 
+                        --instance-ids $INSTANCE_ID \
+                        --region $AWS_REGION
+
                     aws ec2 wait instance-stopped \
-                      --instance-ids $INSTANCE_ID \
-                      --region $AWS_REGION
- 
-                    echo "Changing instance type to $SCALE_UP_TYPE"
- 
+                        --instance-ids $INSTANCE_ID \
+                        --region $AWS_REGION
+
+                    echo "Changing instance type to $SCALE_DOWN_TYPE"
+
                     aws ec2 modify-instance-attribute \
-                      --instance-id $INSTANCE_ID \
-                      --instance-type "{\\"Value\\":\\"$SCALE_UP_TYPE\\"}" \
-                      --region $AWS_REGION
- 
+                        --instance-id $INSTANCE_ID \
+                        --instance-type "{\\"Value\\":\\"$SCALE_DOWN_TYPE\\"}" \
+                        --region $AWS_REGION
+
                     echo "Starting instance..."
- 
+
                     aws ec2 start-instances \
-                      --instance-ids $INSTANCE_ID \
-                      --region $AWS_REGION
- 
+                        --instance-ids $INSTANCE_ID \
+                        --region $AWS_REGION
+
                     aws ec2 wait instance-running \
-                      --instance-ids $INSTANCE_ID \
-                      --region $AWS_REGION
- 
-                    echo "Instance scaled up successfully."
+                        --instance-ids $INSTANCE_ID \
+                        --region $AWS_REGION
+
+                    echo "Verifying final instance type..."
+
+                    aws ec2 describe-instances \
+                        --instance-ids $INSTANCE_ID \
+                        --region $AWS_REGION \
+                        --query 'Reservations[0].Instances[0].[InstanceType,State.Name]' \
+                        --output table
+
+                    echo "Instance scaled down successfully."
                 '''
             }
         }
-    }
- 
- 
-   stage('Git Pull') {
- 
-        steps {
- 
+
+        success {
             script {
-                env.FAILED_STAGE = "Git Pull"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                cd /root/eyeglaze
- 
-                echo "Pulling latest code..."
- 
-                git pull origin main
- 
- 
-EOF
-'''
-}
-}
-}
- 
-    stage('Backend Build') {
- 
-        steps {
- 
-            script {
-                env.FAILED_STAGE = "Backend Build"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                cd /root/eyeglaze/server
- 
-                echo "Installing backend dependencies..."
- 
-                npm install
- 
-                echo "Building backend..."
- 
-                npm run build
- 
-EOF
-'''
-}
-}
-}
- 
-    stage('Restart Backend') {
- 
-        steps {
- 
-            script {
-                env.FAILED_STAGE = "Restart Backend"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                echo "Restarting PM2..."
- 
-                pm2 restart all
- 
-EOF
-'''
-}
-}
-}
- 
-    stage('Frontend Build') {
- 
-        steps {
- 
-            script {
-                env.FAILED_STAGE = "Frontend Build"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                cd /root/eyeglaze/frontend
- 
-                echo "Installing frontend dependencies..."
- 
-                npm install
- 
-                echo "Building frontend..."
- 
-                npm run build
- 
- 
-EOF
-'''
-}
-}
-}
- 
-    stage('Deploy Frontend') {
- 
-        steps {
- 
-            script {
-                env.FAILED_STAGE = "Deploy Frontend"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                echo "Removing old frontend files..."
- 
-                rm -rf /var/www/eyeglaze/*
- 
-                echo "Copying new dist files..."
- 
-                cp -r /root/eyeglaze/frontend/dist/* /var/www/eyeglaze/
- 
-EOF
-'''
-}
-}
-}
- 
-    stage('Reload Nginx') {
- 
-        steps {
- 
-            script {
-                env.FAILED_STAGE = "Reload Nginx"
-            }
- 
-            sshagent(['ec2-ssh']) {
- 
-                sh '''
-                ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
- 
-                set -e
- 
-                echo "Validating Nginx configuration..."
- 
-                nginx -t
- 
-                echo "Reloading Nginx..."
- 
-                systemctl restart nginx
-                systemctl reload nginx
- 
-                echo "Deployment completed successfully."
- 
-EOF
-'''
-}
-}
-}
-}
- 
-post {
- 
-      always {
- 
-        withCredentials([
-            [$class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-eyeglaze']
-        ]) {
- 
-            sh '''
-                echo "Stopping instance..."
- 
-                aws ec2 stop-instances \
-                  --instance-ids $INSTANCE_ID \
-                  --region $AWS_REGION
- 
-                aws ec2 wait instance-stopped \
-                  --instance-ids $INSTANCE_ID \
-                  --region $AWS_REGION
- 
-                echo "Changing instance type to $SCALE_DOWN_TYPE"
- 
-                aws ec2 modify-instance-attribute \
-                  --instance-id $INSTANCE_ID \
-                  --instance-type "{\\"Value\\":\\"$SCALE_DOWN_TYPE\\"}" \
-                  --region $AWS_REGION
- 
-                echo "Starting instance..."
- 
-                aws ec2 start-instances \
-                  --instance-ids $INSTANCE_ID \
-                  --region $AWS_REGION
- 
-                aws ec2 wait instance-running \
-                  --instance-ids $INSTANCE_ID \
-                  --region $AWS_REGION
- 
-                echo "Verifying final instance type..."
- 
-                aws ec2 describe-instances \
-                  --instance-ids $INSTANCE_ID \
-                  --region $AWS_REGION \
-                  --query 'Reservations[0].Instances[0].[InstanceType,State.Name]' \
-                  --output table
- 
-                echo "Instance scaled down successfully."
-            '''
-        }
-    }
- 
- 
-    success {
- 
-        script {
- 
-            wrap([$class: 'BuildUser']) {
- 
-                def duration = currentBuild.durationString
- 
-                sh """
-                curl -X POST \
-                -H "Content-Type: application/json" \
-                -d '{
-                    "text":"✅ *EYEGLAZE DEPLOYMENT SUCCESSFUL*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nDuration: ${duration}\\n\\nConsole URL:\\n${BUILD_URL}console"
-                }' \
-                "${ROCKETCHAT_WEBHOOK}"
-                """
-            }
-        }
-    }
- 
-    failure {
- 
-        script {
- 
-            try {
- 
                 wrap([$class: 'BuildUser']) {
- 
                     def duration = currentBuild.durationString
- 
-                    def logs = currentBuild.rawBuild
+
+                    sh """
+                        curl -X POST \
+                          -H "Content-Type: application/json" \
+                          -d '{
+                              "text":"✅ *EYEGLAZE DEPLOYMENT SUCCESSFUL*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nDuration: ${duration}\\n\\nConsole URL:\\n${BUILD_URL}console"
+                          }' \
+                          "${ROCKETCHAT_WEBHOOK}"
+                    """
+                }
+            }
+        }
+
+        failure {
+            script {
+                try {
+                    wrap([$class: 'BuildUser']) {
+
+                        def duration = currentBuild.durationString
+
+                        def logs = currentBuild.rawBuild
                             .getLog(10)
                             .join("\\n")
                             .replace('"', '\\"')
                             .replace("\n", "\\n")
- 
-                    sh """
-                    curl -X POST \
-                    -H "Content-Type: application/json" \
-                    -d '{
-                        "text":"❌ *EYEGLAZE DEPLOYMENT FAILED*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nFailed Stage: ${FAILED_STAGE}\\nDuration: ${duration}\\n\\nLast 10 Console Lines:\\n${logs}\\n\\nConsole URL:\\n${BUILD_URL}console"
-                    }' \
-                    "${ROCKETCHAT_WEBHOOK}"
-                    """
+
+                        sh """
+                            curl -X POST \
+                              -H "Content-Type: application/json" \
+                              -d '{
+                                  "text":"❌ *EYEGLAZE DEPLOYMENT FAILED*\\n\\nBuild Number: #${BUILD_NUMBER}\\nTriggered By: ${BUILD_USER}\\nFailed Stage: ${FAILED_STAGE}\\nDuration: ${duration}\\n\\nLast 10 Console Lines:\\n${logs}\\n\\nConsole URL:\\n${BUILD_URL}console"
+                              }' \
+                              "${ROCKETCHAT_WEBHOOK}"
+                        """
+                    }
+                } catch (Exception e) {
+                    echo "Rocket.Chat notification failed: ${e}"
                 }
- 
-            } catch (Exception e) {
- 
-                echo "Rocket.Chat notification failed: ${e}"
             }
         }
+
     }
-}
- 
 }
