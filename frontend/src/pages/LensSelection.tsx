@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface LensOption {
   _id: string;
@@ -265,15 +266,17 @@ export default function LensSelection() {
     }
   };
 
-  useEffect(() => {
+  const fetchLensSelectionData = useCallback((isInitial = false) => {
     if (!productId) {
       setError('Product ID is missing in query parameters');
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError('');
+    if (isInitial) {
+      setLoading(true);
+      setError('');
+    }
 
     // Fetch product details & lens options
     Promise.all([
@@ -293,46 +296,73 @@ export default function LensSelection() {
         setCustomLenses(customLensesList);
 
         const mappedTypes = getMappedLensTypesFromProduct(prod, customLensesList);
-        if (customLensesList.length > 0 && mappedTypes.length > 0) {
-          // Auto-select first compatible lens type as default
-          const defaultType = mappedTypes.find((t: LensOption) => t.type === 'single_vision') || mappedTypes[0];
-          setSelectedType(defaultType);
-          
-          // Auto-select first lens under this default type
-          const lensesForDefault = customLensesList.filter((lens: any) => {
-            const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
-            return typeId === defaultType._id;
-          });
-          if (lensesForDefault.length > 0) {
-            const firstLens = lensesForDefault[0];
-            setSelectedQuality({
-              _id: firstLens._id,
-              kind: 'quality',
-              name: firstLens.name,
-              displayName: firstLens.name,
-              price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
-              features: ['UV Protection', 'Scratch Resistant'],
-              powerPricing: firstLens.powerPricing
-            } as any);
-          }
-        } else {
-          // Fallback legacy behavior
-          if (types.length > 0) {
-            const sv = types.find((t: LensOption) => t.type === 'single_vision') || types[0];
-            setSelectedType(sv);
-          }
-          if (qualities.length > 0) {
-            const rec = qualities.find((q: LensOption) => q.isRecommended) || qualities[0];
-            setSelectedQuality(rec);
+        if (isInitial) {
+          if (customLensesList.length > 0 && mappedTypes.length > 0) {
+            // Auto-select first compatible lens type as default
+            const defaultType = mappedTypes.find((t: LensOption) => t.type === 'single_vision') || mappedTypes[0];
+            setSelectedType(defaultType);
+            
+            // Auto-select first lens under this default type
+            const lensesForDefault = customLensesList.filter((lens: any) => {
+              const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
+              return typeId === defaultType._id;
+            });
+            if (lensesForDefault.length > 0) {
+              const firstLens = lensesForDefault[0];
+              setSelectedQuality({
+                _id: firstLens._id,
+                kind: 'quality',
+                name: firstLens.name,
+                displayName: firstLens.name,
+                price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
+                features: ['UV Protection', 'Scratch Resistant'],
+                powerPricing: firstLens.powerPricing
+              } as any);
+            }
+          } else {
+            // Fallback legacy behavior
+            if (types.length > 0) {
+              const sv = types.find((t: LensOption) => t.type === 'single_vision') || types[0];
+              setSelectedType(sv);
+            }
+            if (qualities.length > 0) {
+              const rec = qualities.find((q: LensOption) => q.isRecommended) || qualities[0];
+              setSelectedQuality(rec);
+            }
           }
         }
       })
       .catch((err) => {
         console.error('Failed to load lens selection data:', err);
-        setError('Failed to load lens options or product details.');
+        if (isInitial) {
+          setError('Failed to load lens options or product details.');
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isInitial) {
+          setLoading(false);
+        }
+      });
   }, [productId]);
+
+  useEffect(() => {
+    fetchLensSelectionData(true);
+  }, [fetchLensSelectionData]);
+
+  // Real-time socket updates for lenses & types
+  useEffect(() => {
+    const handleSocketUpdate = () => {
+      fetchLensSelectionData(false);
+    };
+
+    socket.on('lens_type_changed', handleSocketUpdate);
+    socket.on('lens_changed', handleSocketUpdate);
+
+    return () => {
+      socket.off('lens_type_changed', handleSocketUpdate);
+      socket.off('lens_changed', handleSocketUpdate);
+    };
+  }, [fetchLensSelectionData]);
 
   // Set default power mode
   useEffect(() => {

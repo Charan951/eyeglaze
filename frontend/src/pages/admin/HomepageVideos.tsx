@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 interface Video {
   _id: string;
@@ -85,6 +86,13 @@ export default function HomepageVideos() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    socket.on('homepage_video_changed', fetchVideos);
+    return () => {
+      socket.off('homepage_video_changed', fetchVideos);
+    };
+  }, []);
 
   const getEmbedUrl = (url: string) => {
     if (!url) return '';

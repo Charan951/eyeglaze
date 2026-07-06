@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "seed": "tsx src/scripts/seed.ts",
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tsx src/tests/couponEngine.test.ts",
+    "test:coupons": "tsx src/tests/couponEngine.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +27,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.0",
     "sharp": "^0.35.1",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

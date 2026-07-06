@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { LensType } from '../models/LensType';
 import { Lens } from '../models/Lens';
+import { getIO } from '../lib/socket';
 
 export const getLensTypes = async (req: Request, res: Response) => {
   try {
@@ -39,6 +40,11 @@ export const createLensType = async (req: Request, res: Response) => {
     }
     const newLensType = new LensType({ name, status, category });
     await newLensType.save();
+    try {
+      getIO().emit('lens_type_changed', { action: 'create', lensType: newLensType });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.status(201).json({ lensType: newLensType });
   } catch (error) {
     console.error('Error creating lens type:', error);
@@ -56,6 +62,11 @@ export const updateLensType = async (req: Request, res: Response) => {
     }
     const updated = await LensType.findByIdAndUpdate(id, { name, status, category }, { new: true });
     if (!updated) return res.status(404).json({ message: 'Lens Type not found' });
+    try {
+      getIO().emit('lens_type_changed', { action: 'update', lensType: updated });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.json({ lensType: updated });
   } catch (error) {
     console.error('Error updating lens type:', error);
@@ -72,6 +83,11 @@ export const deleteLensType = async (req: Request, res: Response) => {
     }
     const deleted = await LensType.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: 'Lens Type not found' });
+    try {
+      getIO().emit('lens_type_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.json({ message: 'Lens Type deleted successfully' });
   } catch (error) {
     console.error('Error deleting lens type:', error);

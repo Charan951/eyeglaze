@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface IOrderItem {
   product: {
@@ -60,23 +61,35 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const fetchOrder = () => {
     if (!id) return;
-    let active = true;
-    setLoading(true);
-    setError('');
-
     api.get(`/orders/${id}`)
       .then(res => {
-        if (active) setOrder(res.data.order);
+        setOrder(res.data.order);
       })
       .catch((err) => {
         console.error('Failed to fetch order details:', err);
-        if (active) setError('Failed to load order details. Please make sure the order exists.');
+        setError('Failed to load order details. Please make sure the order exists.');
       })
-      .finally(() => active && setLoading(false));
+      .finally(() => setLoading(false));
+  };
 
-    return () => { active = false; };
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    fetchOrder();
+  }, [id]);
+
+  useEffect(() => {
+    const handleOrderUpdate = (data: any) => {
+      if (data?.order?._id === id || data?.order?.orderId === id || data?.id === id) {
+        fetchOrder();
+      }
+    };
+    socket.on('order_changed', handleOrderUpdate);
+    return () => {
+      socket.off('order_changed', handleOrderUpdate);
+    };
   }, [id]);
 
   if (loading) {

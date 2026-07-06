@@ -91,35 +91,41 @@ export default function LandingPage() {
   const [videos, setVideos] = useState<any[]>([]);
   const [reels, setReels] = useState<any[]>([]);
 
-  // Fetch homepage videos on mount
-  useEffect(() => {
-    let active = true;
+  const fetchHomepageVideos = () => {
     api.get('/homepage-videos')
       .then((res) => {
-        if (!active) return;
         setVideos(res.data);
       })
       .catch((err) => {
         console.error('Error fetching homepage videos:', err);
       });
-    return () => {
-      active = false;
-    };
-  }, []);
+  };
 
-  // Fetch homepage reels on mount
-  useEffect(() => {
-    let active = true;
+  const fetchHomepageReels = () => {
     api.get('/reels')
       .then((res) => {
-        if (!active) return;
         setReels(res.data);
       })
       .catch((err) => {
         console.error('Error fetching reels:', err);
       });
+  };
+
+  // Fetch homepage videos on mount and setup socket listener
+  useEffect(() => {
+    fetchHomepageVideos();
+    socket.on('homepage_video_changed', fetchHomepageVideos);
     return () => {
-      active = false;
+      socket.off('homepage_video_changed', fetchHomepageVideos);
+    };
+  }, []);
+
+  // Fetch homepage reels on mount and setup socket listener
+  useEffect(() => {
+    fetchHomepageReels();
+    socket.on('reel_changed', fetchHomepageReels);
+    return () => {
+      socket.off('reel_changed', fetchHomepageReels);
     };
   }, []);
 

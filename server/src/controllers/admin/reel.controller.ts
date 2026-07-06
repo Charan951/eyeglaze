@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Reel } from '../../models/Reel';
+import { getIO } from '../../lib/socket';
 
 export async function getAdminReels(req: Request, res: Response) {
   try {
@@ -27,6 +28,11 @@ export async function createReel(req: Request, res: Response) {
     });
 
     await reel.save();
+    try {
+      getIO().emit('reel_changed', { action: 'create', reel });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(201).json(reel);
   } catch (error) {
     console.error('Error creating reel:', error);
@@ -51,6 +57,11 @@ export async function updateReel(req: Request, res: Response) {
     if (isActive !== undefined) reel.isActive = isActive;
 
     await reel.save();
+    try {
+      getIO().emit('reel_changed', { action: 'update', reel });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(200).json(reel);
   } catch (error) {
     console.error('Error updating reel:', error);
@@ -64,6 +75,11 @@ export async function deleteReel(req: Request, res: Response) {
     const reel = await Reel.findByIdAndDelete(id);
     if (!reel) {
       return res.status(404).json({ error: 'Reel not found' });
+    }
+    try {
+      getIO().emit('reel_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
     }
     return res.status(200).json({ message: 'Reel deleted successfully' });
   } catch (error) {

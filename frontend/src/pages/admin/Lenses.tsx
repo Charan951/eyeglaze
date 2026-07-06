@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 interface LensType {
   _id: string;
@@ -146,6 +147,25 @@ export default function AdminLensesPage() {
   useEffect(() => {
     fetchLenses();
   }, [fetchLenses]);
+
+  // Real-time socket synchronization
+  useEffect(() => {
+    const handleTypeChange = () => {
+      fetchLensTypes();
+    };
+    const handleLensChange = () => {
+      fetchLenses();
+      fetchLensTypes(); // Also update lens counts in types list
+    };
+
+    socket.on('lens_type_changed', handleTypeChange);
+    socket.on('lens_changed', handleLensChange);
+
+    return () => {
+      socket.off('lens_type_changed', handleTypeChange);
+      socket.off('lens_changed', handleLensChange);
+    };
+  }, [fetchLensTypes, fetchLenses]);
 
   // Derived state
   const filteredLenses = lenses.filter(lens => {

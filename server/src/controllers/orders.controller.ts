@@ -2,11 +2,15 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
 import { Order } from '../models/Order';
+import { getIO } from '../lib/socket';
 import { Cart } from '../models/Cart';
 import { Coupon } from '../models/Coupon';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
 import { CashbackCampaign } from '../models/CashbackCampaign';
+import { CouponEngine } from '../services/couponEngine';
+import { CouponUsage } from '../models/CouponUsage';
+import { recordAnalytics } from './coupons.controller';
 
 const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
 
@@ -129,33 +133,41 @@ export async function createOrder(req: Request, res: Response) {
     let discount = onePlusOneDiscount;
     let couponData;
 
-    // Apply coupon
+    // Apply coupon using validation engine
     if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
-      if (coupon) {
-        // Check user specific coupon
-        if (coupon.userSpecific && coupon.userSpecific.toString() !== user._id.toString()) {
-          // Invalid coupon for user
-        } else {
-          const orderTotal = subtotal + totalFittingCharge + deliveryCharge - onePlusOneDiscount;
-          let couponDiscount = 0;
-          if (coupon.discountType === 'percent') {
-            couponDiscount = (orderTotal * coupon.discountValue) / 100;
-            const cap = coupon.maxDiscount || coupon.maxDiscountCap;
-            if (cap) couponDiscount = Math.min(couponDiscount, cap);
-          } else {
-            couponDiscount = coupon.discountValue;
-          }
-          couponDiscount = Math.round(couponDiscount);
-          discount += couponDiscount;
-          couponData = {
-            code: coupon.code,
-            discountType: coupon.discountType,
-            discountValue: coupon.discountValue,
-            amountSaved: couponDiscount,
-          };
-          await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
-        }
+      const validationItems = cart.items.map((item: any) => ({
+        productId: item.product?._id?.toString() || item.product?.toString(),
+        qty: item.qty,
+        price: item.product?.price?.selling ?? item.framePrice ?? 0,
+        category: item.product?.category,
+        brand: item.product?.brand,
+      }));
+
+      const validationContext = {
+        cartTotal: subtotal + totalFittingCharge + deliveryCharge - onePlusOneDiscount,
+        items: validationItems,
+        paymentMethod,
+        location: {
+          country: 'India',
+          state: deliveryAddress.state,
+          city: deliveryAddress.city,
+        },
+        shippingCost: deliveryCharge,
+      };
+
+      const valResult = await CouponEngine.validate(couponCode, req.user!.userId, validationContext);
+      if (!valResult.valid) {
+        return res.status(400).json({ error: valResult.message });
+      }
+
+      if (valResult.valid && valResult.discountAmount) {
+        discount += valResult.discountAmount;
+        couponData = {
+          code: valResult.coupon!.code,
+          discountType: valResult.coupon!.discountType,
+          discountValue: valResult.coupon!.discountValue,
+          amountSaved: valResult.discountAmount,
+        };
       }
     }
 
@@ -195,6 +207,36 @@ export async function createOrder(req: Request, res: Response) {
     });
 
     await order.save();
+
+    try {
+      getIO().emit('order_changed', { action: 'create', order });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
+
+    // Track coupon usage and update used counts
+    if (couponCode && couponData) {
+      const couponObj = await Coupon.findOne({ code: couponCode.toUpperCase(), isDeleted: false });
+      if (couponObj) {
+        const usage = new CouponUsage({
+          couponId: couponObj._id,
+          userId: req.user!.userId,
+          orderId: orderId,
+          orderObjectId: order._id,
+          discountApplied: couponData.amountSaved,
+          transactionAmount: total,
+          status: 'applied',
+        });
+        await usage.save();
+
+        await Coupon.findByIdAndUpdate(couponObj._id, { $inc: { usedCount: 1 } });
+        
+        await recordAnalytics(couponObj._id.toString(), couponObj.code, 'usage', {
+          revenue: total,
+          discount: couponData.amountSaved,
+        });
+      }
+    }
 
     // Update user: deduct wallet, update ₹1 Frame usage, activate membership
     const updateUser: any = {};

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
 
@@ -38,6 +39,14 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
+  }, [fetchOrders]);
+
+  // Real-time socket updates for orders
+  useEffect(() => {
+    socket.on('order_changed', fetchOrders);
+    return () => {
+      socket.off('order_changed', fetchOrders);
+    };
   }, [fetchOrders]);
 
   const updateStatus = async (order: OrderItem, newStatus: string) => {

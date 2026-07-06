@@ -34,22 +34,13 @@ function setupAndroidPortForwarding() {
   }
 
   exec(`${adbPath} reverse tcp:5000 tcp:5000`, (err, stdout, stderr) => {
-    if (err) {
-      console.log('[Android Port Forwarding] Note: adb reverse was not set up (no active Android device/emulator detected or adb not found)');
-    } else {
-      console.log('[Android Port Forwarding] Successfully ran adb reverse tcp:5000 tcp:5000. Connected Android devices can now access the backend at http://127.0.0.1:5000');
-    }
+    // Quietly set up port forwarding
   });
 }
 
 
 async function main() {
   try {
-    console.log('--- Server Startup Debug ---');
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('MONGODB_URI present?:', !!process.env.MONGODB_URI);
-    console.log('MONGODB_URI value:', process.env.MONGODB_URI);
-
     if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'development') {
       const inMemoryUri = await startInMemoryMongoDB();
       process.env.MONGODB_URI = inMemoryUri;
@@ -62,6 +53,7 @@ async function main() {
     initSocket(server);
 
     server.listen(PORT, () => {
+      console.clear();
       console.log(`EyeGlaze Express server listening on port ${PORT}`);
       setupAndroidPortForwarding();
     });

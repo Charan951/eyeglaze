@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { HomepageVideo } from '../../models/HomepageVideo';
+import { getIO } from '../../lib/socket';
 
 export async function getAdminHomepageVideos(req: Request, res: Response) {
   try {
@@ -45,6 +46,11 @@ export async function createHomepageVideo(req: Request, res: Response) {
     });
 
     await video.save();
+    try {
+      getIO().emit('homepage_video_changed', { action: 'create', video });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(201).json(video);
   } catch (error) {
     console.error('Error creating homepage video:', error);
@@ -69,6 +75,11 @@ export async function updateHomepageVideo(req: Request, res: Response) {
     if (isActive !== undefined) video.isActive = isActive;
 
     await video.save();
+    try {
+      getIO().emit('homepage_video_changed', { action: 'update', video });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(200).json(video);
   } catch (error) {
     console.error('Error updating homepage video:', error);
@@ -82,6 +93,11 @@ export async function deleteHomepageVideo(req: Request, res: Response) {
     const video = await HomepageVideo.findByIdAndDelete(id);
     if (!video) {
       return res.status(404).json({ error: 'Homepage video not found' });
+    }
+    try {
+      getIO().emit('homepage_video_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
     }
     return res.status(200).json({ message: 'Homepage video deleted successfully' });
   } catch (error) {

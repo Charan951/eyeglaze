@@ -37,7 +37,5 @@ const NavigationMenuSchema = new Schema<INavigationMenu>(
   { timestamps: true }
 );
 
-NavigationMenuSchema.index({ code: 1 });
-
 export const NavigationMenu =
   mongoose.models.NavigationMenu || mongoose.model<INavigationMenu>('NavigationMenu', NavigationMenuSchema);

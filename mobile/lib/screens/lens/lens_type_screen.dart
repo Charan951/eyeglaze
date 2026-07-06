@@ -8,6 +8,7 @@ import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
 import '../../models/product.dart';
 import 'lens_quality_screen.dart';
 
@@ -65,6 +66,33 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
   void initState() {
     super.initState();
     _loadLensTypes();
+    
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          final socketService = context.read<SocketService>();
+          socketService.socket?.on('lens_type_changed', _onLensOrTypeChanged);
+          socketService.socket?.on('lens_changed', _onLensOrTypeChanged);
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('lens_type_changed', _onLensOrTypeChanged);
+      socketService.socket?.off('lens_changed', _onLensOrTypeChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onLensOrTypeChanged(dynamic data) {
+    if (mounted) {
+      _loadLensTypes();
+    }
   }
 
   Future<void> _loadLensTypes() async {

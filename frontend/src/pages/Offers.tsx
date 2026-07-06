@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../lib/api';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface Coupon {
   _id: string;
@@ -40,6 +41,13 @@ export default function Offers() {
 
   useEffect(() => {
     fetchCoupons();
+  }, []);
+
+  useEffect(() => {
+    socket.on('coupon_changed', fetchCoupons);
+    return () => {
+      socket.off('coupon_changed', fetchCoupons);
+    };
   }, []);
 
   // Auto-slide functionality

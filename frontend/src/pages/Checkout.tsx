@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 interface CartItem {
   id: string;
+  _id?: string;
   name: string;
   sku: string;
   color: string;
@@ -26,12 +27,17 @@ interface Coupon {
   name: string;
   description: string;
   badge?: string;
-  discountType: 'percent' | 'flat';
+  discountType: 'percent' | 'flat' | 'bogo' | 'buy_x_get_y' | 'free_shipping' | 'cashback' | 'wallet_credit' | 'gift';
   discountValue: number;
   minOrderValue?: number;
   maxDiscount?: number;
   expiresAt?: string;
   validTo?: string;
+  applicableBrands?: string[];
+  applicableCategories?: string[];
+  applicableProducts?: string[];
+  buyQty?: number;
+  getQty?: number;
 }
 
 export default function CheckoutPage() {
@@ -163,7 +169,21 @@ export default function CheckoutPage() {
     try {
       const res = await api.post('/coupons/validate', {
         code: code.trim().toUpperCase(),
-        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        items: itemsWithPricing.map(item => ({
+          productId: item.product?._id || item.product?.id || item._id,
+          qty: item.qty,
+          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          category: item.product?.category,
+          brand: item.product?.brand,
+        })),
+        paymentMethod: 'cod',
+        shippingMethod: 'standard',
+        location: {
+          country: 'India',
+          state: state || undefined,
+          city: city || undefined,
+        }
       });
 
       if (res.data.valid) {
@@ -181,6 +201,42 @@ export default function CheckoutPage() {
       setCouponError(err.response?.data?.error || 'Failed to validate coupon.');
       setDiscount(0);
       setAppliedCoupon(null);
+    }
+  };
+
+  const handleAutoApplyBest = async () => {
+    setCouponError('');
+    setCouponSuccess('');
+    try {
+      const res = await api.post('/coupons/auto-apply', {
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        items: itemsWithPricing.map(item => ({
+          productId: item.product?._id || item.product?.id || item._id,
+          qty: item.qty,
+          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          category: item.product?.category,
+          brand: item.product?.brand,
+        })),
+        paymentMethod: 'cod',
+        shippingMethod: 'standard',
+        location: {
+          country: 'India',
+          state: state || undefined,
+          city: city || undefined,
+        }
+      });
+
+      if (res.data.valid) {
+        setDiscount(res.data.discount);
+        setAppliedCoupon(res.data.coupon.code);
+        setCouponSuccess(res.data.message || 'Auto-applied best coupon!');
+        setIsCouponModalOpen(false);
+      } else {
+        setCouponError(res.data.message || 'No eligible auto coupons found');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setCouponError(err.response?.data?.error || 'Failed to auto apply best coupon.');
     }
   };
 
@@ -260,7 +316,21 @@ export default function CheckoutPage() {
     if (appliedCoupon) {
       api.post('/coupons/validate', {
         code: appliedCoupon,
-        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        items: itemsWithPricing.map(item => ({
+          productId: item.product?._id || item.product?.id || item._id,
+          qty: item.qty,
+          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          category: item.product?.category,
+          brand: item.product?.brand,
+        })),
+        paymentMethod: 'cod',
+        shippingMethod: 'standard',
+        location: {
+          country: 'India',
+          state: state || undefined,
+          city: city || undefined,
+        }
       }).then(res => {
         if (res.data.valid) {
           setDiscount(res.data.discount);
@@ -898,52 +968,110 @@ export default function CheckoutPage() {
             </div>
             {couponError && <p className="text-red-400 text-[10px] mt-1">{couponError}</p>}
 
+            {/* Auto Apply Action */}
+            <button
+              type="button"
+              onClick={handleAutoApplyBest}
+              className="mt-3 w-full bg-[#D4A04D]/10 hover:bg-[#D4A04D]/20 text-[#D4A04D] border border-[#D4A04D]/30 font-extrabold text-[10px] uppercase py-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              ⚡ Auto-Apply Best Coupon
+            </button>
+
             {/* Coupons List */}
             <div className="mt-4 flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[45vh]">
               {activeCoupons.length === 0 ? (
                 <div className="text-center py-6 text-gray-500 text-xs">No active coupons available right now</div>
               ) : (
-                activeCoupons.map((coupon) => (
-                  <div 
-                    key={coupon._id} 
-                    className={`border border-dashed rounded-xl p-4 flex flex-col relative overflow-hidden bg-[#1A1A1C]/50 ${
-                      appliedCoupon === coupon.code 
-                        ? 'border-green-500/50 bg-green-500/5' 
-                        : 'border-[#D4A04D]/40'
-                    }`}
-                  >
-                    {/* Punch holes for coupon ticket effect */}
-                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-r-[#2A2A2D] z-10" />
-                    <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-l-[#2A2A2D] z-10" />
-                    
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="text-left">
-                        {coupon.badge && (
-                          <span className="bg-[#D4A04D]/15 text-[#D4A04D] text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-[#D4A04D]/35">
-                            {coupon.badge}
-                          </span>
-                        )}
-                        <h4 className="text-white font-mono font-bold text-sm tracking-wider mt-1.5">{coupon.code}</h4>
-                        <p className="text-gray-400 text-[10px] mt-1 leading-snug">{coupon.description}</p>
-                        <div className="flex gap-3 text-[9px] text-gray-500 mt-2 font-medium">
-                          {coupon.minOrderValue && <span>MIN PURCHASE: ₹{coupon.minOrderValue}</span>}
-                          {coupon.maxDiscount && <span>MAX DISCOUNT: ₹{coupon.maxDiscount}</span>}
+                activeCoupons.map((coupon) => {
+                  const currentCartTotal = actualSubtotal + fittingFeeTotal - bogoDiscount;
+                  
+                  // Calculate BOGO eligibility based on brands, categories, and products
+                  const eligibleItemsForCoupon = items.filter(item => {
+                    if (coupon.applicableBrands && coupon.applicableBrands.length > 0) {
+                      if (!coupon.applicableBrands.includes(item.product?.brand || '')) return false;
+                    }
+                    if (coupon.applicableCategories && coupon.applicableCategories.length > 0) {
+                      if (!coupon.applicableCategories.includes(item.product?.category || '')) return false;
+                    }
+                    if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+                      const pId = item.product?._id || item.product?.id || item._id;
+                      if (!coupon.applicableProducts.some((ap: any) => ap.toString() === pId?.toString())) return false;
+                    }
+                    return true;
+                  });
+                  const eligibleQty = eligibleItemsForCoupon.reduce((acc, item) => acc + item.qty, 0);
+                  
+                  const isBogoType = coupon.discountType === 'bogo' || coupon.discountType === 'buy_x_get_y';
+                  const requiredBogoQty = (coupon.buyQty || 1) + (coupon.getQty || 1);
+                  const isBogoLocked = isBogoType && eligibleQty < requiredBogoQty;
+                  
+                  const isCartValueLocked = coupon.minOrderValue ? currentCartTotal < coupon.minOrderValue : false;
+                  const isLocked = isCartValueLocked || isBogoLocked;
+                  
+                  return (
+                    <div 
+                      key={coupon._id} 
+                      className={`border border-dashed rounded-xl p-4 flex flex-col relative overflow-hidden bg-[#1A1A1C]/50 ${
+                        appliedCoupon === coupon.code 
+                          ? 'border-green-500/50 bg-green-500/5' 
+                          : isLocked 
+                            ? 'border-gray-800 bg-gray-900/10 opacity-70'
+                            : 'border-[#D4A04D]/40'
+                      }`}
+                    >
+                      {/* Punch holes for coupon ticket effect */}
+                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-r-[#2A2A2D] z-10" />
+                      <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-l-[#2A2A2D] z-10" />
+                      
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="text-left">
+                          {coupon.badge && (
+                            <span className="bg-[#D4A04D]/15 text-[#D4A04D] text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-[#D4A04D]/35">
+                              {coupon.badge}
+                            </span>
+                          )}
+                          <h4 className="text-white font-mono font-bold text-sm tracking-wider mt-1.5">{coupon.code}</h4>
+                          <p className="text-gray-400 text-[10px] mt-1 leading-snug">{coupon.description}</p>
+                          <div className="flex gap-3 text-[9px] text-gray-500 mt-2 font-medium">
+                            {coupon.minOrderValue && <span>MIN PURCHASE: ₹{coupon.minOrderValue}</span>}
+                            {coupon.maxDiscount && <span>MAX DISCOUNT: ₹{coupon.maxDiscount}</span>}
+                          </div>
+                          
+                          {/* Spin to unlock gamified recommendations */}
+                          {isCartValueLocked && (
+                            <div className="mt-2.5 text-[9px] text-orange-400 font-extrabold bg-orange-950/20 border border-orange-500/20 px-2 py-1 rounded">
+                              🔒 Spend ₹{coupon.minOrderValue! - currentCartTotal} more to unlock this coupon!
+                            </div>
+                          )}
+
+                          {isBogoLocked && (
+                            <div className="mt-2.5 text-[9px] text-[#D4A04D] font-extrabold bg-[#D4A04D]/5 border border-[#D4A04D]/25 px-2 py-1 rounded space-y-1">
+                              <div>🎁 BOGO Alert: Add {requiredBogoQty - eligibleQty} more BOGO-eligible frame(s) to unlock this coupon!</div>
+                              <div className="text-[8px] text-gray-400 font-medium">
+                                Eligible: {coupon.applicableBrands?.length ? `Brands: ${coupon.applicableBrands.join(', ')}` : ''} 
+                                {coupon.applicableCategories?.length ? ` Categories: ${coupon.applicableCategories.join(', ')}` : ' All frames & lenses'}
+                              </div>
+                            </div>
+                          )}
                         </div>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => handleApplyCoupon(coupon.code)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex-shrink-0 ${
+                            appliedCoupon === coupon.code
+                              ? 'bg-green-500 text-white'
+                              : isLocked
+                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                : 'bg-[#D4A04D] text-black hover:opacity-90 hover:scale-105'
+                          }`}
+                        >
+                          {appliedCoupon === coupon.code ? 'Applied ✓' : isLocked ? 'Locked' : 'Apply'}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyCoupon(coupon.code)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex-shrink-0 ${
-                          appliedCoupon === coupon.code
-                            ? 'bg-green-500 text-white'
-                            : 'bg-[#D4A04D] text-black hover:opacity-90 hover:scale-105'
-                        }`}
-                      >
-                        {appliedCoupon === coupon.code ? 'Applied ✓' : 'Apply'}
-                      </button>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

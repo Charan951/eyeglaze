@@ -89,7 +89,7 @@ export async function seedDatabase() {
   const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
   // ---- Seed Lens Options ----
-  console.log('Seeding lens options...');
+  // console.log('Seeding lens options...');
 
   const lensTypes = [
     {
@@ -446,10 +446,10 @@ export async function seedDatabase() {
       { upsert: true, returnDocument: 'after' }
     );
   }
-  console.log('Lens options seeded.');
+  // console.log('Lens options seeded.');
 
   // ---- Seed Products ----
-  console.log('Seeding products...');
+  // console.log('Seeding products...');
 
   const products = [
     {
@@ -721,10 +721,10 @@ export async function seedDatabase() {
     const query = (prod as any)._id ? { _id: (prod as any)._id } : { sku: prod.sku };
     await Product.findOneAndUpdate(query, prod, { upsert: true, returnDocument: 'after' });
   }
-  console.log('Products seeded.');
+  // console.log('Products seeded.');
 
   // ---- Seed Admin User ----
-  console.log('Seeding admin user...');
+  // console.log('Seeding admin user...');
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@eyeglaze.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
   const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
@@ -742,10 +742,10 @@ export async function seedDatabase() {
     },
     { upsert: true, returnDocument: 'after' }
   );
-  console.log(`Admin user seeded (email: ${adminEmail}).`);
+  // console.log(`Admin user seeded (email: ${adminEmail}).`);
 
   // ---- Seed Customer Users ----
-  console.log('Seeding customer/user accounts...');
+  // console.log('Seeding customer/user accounts...');
   const userPasswordHash = await bcrypt.hash('user123', 10);
   const customerSeeds = [
     {
@@ -791,10 +791,10 @@ export async function seedDatabase() {
       { upsert: true, returnDocument: 'after' }
     );
   }
-  console.log('Customer/user accounts seeded.');
+  // console.log('Customer/user accounts seeded.');
 
   // ---- Seed Homepage Videos ----
-  console.log('Seeding homepage videos...');
+  // console.log('Seeding homepage videos...');
   const HomepageVideo = mongoose.models.HomepageVideo || mongoose.model('HomepageVideo', new mongoose.Schema({
     title: { type: String, required: true },
     videoUrl: { type: String, required: true },
@@ -827,7 +827,7 @@ export async function seedDatabase() {
       { upsert: true, returnDocument: 'after' }
     );
   }
-  console.log('Homepage videos seeded.');
+  // console.log('Homepage videos seeded.');
 
-  console.log('\nSeed completed successfully!');
+  // console.log('\nSeed completed successfully!');
 }

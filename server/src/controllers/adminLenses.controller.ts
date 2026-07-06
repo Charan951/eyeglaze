@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Lens } from '../models/Lens';
 import { LensType } from '../models/LensType';
+import { getIO } from '../lib/socket';
 
 export const getLenses = async (req: Request, res: Response) => {
   try {
@@ -47,6 +48,11 @@ export const createLens = async (req: Request, res: Response) => {
     await newLens.save();
     
     const populatedLens = await Lens.findById(newLens._id).populate('lensType');
+    try {
+      getIO().emit('lens_changed', { action: 'create', lens: populatedLens });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.status(201).json({ lens: populatedLens });
   } catch (error) {
     console.error('Error creating lens:', error);
@@ -88,6 +94,11 @@ export const updateLens = async (req: Request, res: Response) => {
     ).populate('lensType');
 
     if (!updated) return res.status(404).json({ message: 'Lens not found' });
+    try {
+      getIO().emit('lens_changed', { action: 'update', lens: updated });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.json({ lens: updated });
   } catch (error) {
     console.error('Error updating lens:', error);
@@ -100,6 +111,11 @@ export const deleteLens = async (req: Request, res: Response) => {
     const { id } = req.params;
     const deleted = await Lens.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: 'Lens not found' });
+    try {
+      getIO().emit('lens_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     res.json({ message: 'Lens deleted successfully' });
   } catch (error) {
     console.error('Error deleting lens:', error);

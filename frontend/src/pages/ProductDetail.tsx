@@ -6,6 +6,7 @@ import ProductCard from '../components/ui/ProductCard';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface ColorOption {
   name: string;
@@ -222,7 +223,7 @@ export default function ProductDetailPage() {
     return ext.some(e => cleanUrl.endsWith(e)) || lower.includes('/uploads/') || lower.includes('/stream/');
   };
 
-  useEffect(() => {
+  const fetchReels = () => {
     api.get('/reels')
       .then(res => {
         if (Array.isArray(res.data)) {
@@ -232,6 +233,17 @@ export default function ProductDetailPage() {
         }
       })
       .catch(err => console.error('Error fetching reels:', err));
+  };
+
+  useEffect(() => {
+    fetchReels();
+  }, []);
+
+  useEffect(() => {
+    socket.on('reel_changed', fetchReels);
+    return () => {
+      socket.off('reel_changed', fetchReels);
+    };
   }, []);
 
   // Custom Power & Pricing states

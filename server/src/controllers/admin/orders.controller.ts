@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../../config/mongodb';
 import { Order } from '../../models/Order';
+import { getIO } from '../../lib/socket';
 
 export async function getAdminOrders(req: Request, res: Response) {
   try {
@@ -87,6 +88,11 @@ export async function updateAdminOrder(req: Request, res: Response) {
     if (body.isFlagged !== undefined) order.isFlagged = body.isFlagged;
 
     await order.save();
+    try {
+      getIO().emit('order_changed', { action: 'update', order });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(200).json({ order });
   } catch (error) {
     console.error('PUT admin order error:', error);

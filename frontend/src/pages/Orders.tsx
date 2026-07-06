@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface OrderItemRow {
   name: string;
@@ -23,17 +24,25 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
+  const fetchOrders = () => {
     api.get('/orders')
       .then(res => {
-        if (!active) return;
         const data = res.data?.orders;
         setOrders(data || []);
       })
       .catch(() => {})
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    socket.on('order_changed', fetchOrders);
+    return () => {
+      socket.off('order_changed', fetchOrders);
+    };
   }, []);
 
   if (loading) {

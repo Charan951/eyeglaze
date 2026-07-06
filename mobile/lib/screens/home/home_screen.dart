@@ -513,13 +513,33 @@ class _OfferCouponsState extends State<_OfferCoupons> {
   void initState() {
     super.initState();
     _loadCoupons();
+
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          final socketService = context.read<SocketService>();
+          socketService.socket?.on('coupon_changed', _onCouponChanged);
+        } catch (_) {}
+      }
+    });
   }
 
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
     _pageController.dispose();
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('coupon_changed', _onCouponChanged);
+    } catch (_) {}
     super.dispose();
+  }
+
+  void _onCouponChanged(dynamic data) {
+    if (mounted) {
+      _loadCoupons();
+    }
   }
 
   void _startAutoPlay() {

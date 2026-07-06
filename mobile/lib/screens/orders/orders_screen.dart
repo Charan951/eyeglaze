@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
 import 'order_details_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -21,6 +22,31 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     _loadOrders();
+    
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          final socketService = context.read<SocketService>();
+          socketService.socket?.on('order_changed', _onOrderChanged);
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('order_changed', _onOrderChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onOrderChanged(dynamic data) {
+    if (mounted) {
+      _loadOrders();
+    }
   }
 
   Future<void> _loadOrders() async {

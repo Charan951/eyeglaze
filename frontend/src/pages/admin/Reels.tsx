@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 interface Reel {
   _id: string;
@@ -85,6 +86,13 @@ export default function AdminReels() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    socket.on('reel_changed', fetchReels);
+    return () => {
+      socket.off('reel_changed', fetchReels);
+    };
+  }, []);
 
   const getEmbedUrl = (url: string) => {
     if (!url) return '';

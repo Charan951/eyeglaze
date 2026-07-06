@@ -46,10 +46,10 @@ export function initSocket(server: http.Server) {
   });
 
   io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    // Quietly handle connection
     
     socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
+      // Quietly handle disconnection
     });
   });
 
