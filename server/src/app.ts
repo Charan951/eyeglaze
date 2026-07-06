@@ -35,6 +35,8 @@ import adminHomepageVideosRoutes from './routes/admin/homepageVideos.routes';
 import adminLensTypesRoutes from './routes/admin/lensTypes.routes';
 import adminLensesRoutes from './routes/admin/lenses.routes';
 import adminCouponsRoutes from './routes/admin/coupons.routes';
+import reelsRoutes from './routes/reels.routes';
+import adminReelsRoutes from './routes/admin/reels.routes';
 
 dotenv.config();
 
@@ -147,6 +149,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/lens-options', lensOptionsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/homepage-videos', homepageVideosRoutes);
+app.use('/api/reels', reelsRoutes);
 app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
 app.use('/api/categories', categoriesRoutes);
 
@@ -169,6 +172,7 @@ adminRouter.use('/upload', adminUploadRoutes);
 adminRouter.use('/tickets', adminTicketsRoutes);
 adminRouter.use('/categories', adminCategoriesRoutes);
 adminRouter.use('/homepage-videos', adminHomepageVideosRoutes);
+adminRouter.use('/reels', adminReelsRoutes);
 adminRouter.use('/lens-types', adminLensTypesRoutes);
 adminRouter.use('/lenses', adminLensesRoutes);
 adminRouter.use('/coupons', adminCouponsRoutes);

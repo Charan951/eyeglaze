@@ -26,8 +26,17 @@ api.interceptors.response.use(
 
     // If response status is 401 and we haven't retried this request yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // If the failed request was the refresh endpoint itself, reject immediately
-      if (originalRequest.url === '/auth/refresh') {
+      // If the failed request was an onboarding/login endpoint or the refresh endpoint itself, reject immediately
+      const skipRefreshUrls = [
+        '/auth/login',
+        '/auth/register',
+        '/auth/verify-otp',
+        '/auth/send-otp',
+        '/auth/forgot-password',
+        '/auth/reset-password',
+        '/auth/refresh'
+      ];
+      if (skipRefreshUrls.some(url => originalRequest.url?.includes(url))) {
         return Promise.reject(error);
       }
 

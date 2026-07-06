@@ -315,7 +315,7 @@ class OrderDetailsScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _SummaryRow('Subtotal', '₹${order.subtotal.toInt()}'),
+                  _SummaryRow('Total Item Price', '₹${order.subtotal.toInt()}'),
                   if (order.fittingCharge > 0)
                     _SummaryRow('Fitting Fee', '₹${order.fittingCharge.toInt()}'),
                   _SummaryRow('Shipping & Delivery', '₹${order.deliveryCharge.toInt()}'),

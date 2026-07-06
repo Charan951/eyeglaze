@@ -119,7 +119,7 @@ export default function LensSelection() {
   const [selectedQuality, setSelectedQuality] = useState<LensOption | null>(null); // Quality/Coatings tier (Step 3)
 
   // Power Input State
-  const [powerMode, setPowerMode] = useState<'enter' | 'upload' | 'later'>('enter');
+  const [powerMode, setPowerMode] = useState<'enter' | 'upload'>('enter');
   const [prescriptionFileName, setPrescriptionFileName] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [uploadingPrescription, setUploadingPrescription] = useState(false);
@@ -130,16 +130,14 @@ export default function LensSelection() {
   const [reSph, setReSph] = useState('-1.25');
   const [reCyl, setReCyl] = useState('-0.50');
   const [reAxis, setReAxis] = useState('180');
-  const [reAdd, setReAdd] = useState('1.00');
+  const [reAdd, setReAdd] = useState('0.00');
 
   const [leSph, setLeSph] = useState('-1.75');
   const [leCyl, setLeCyl] = useState('-0.75');
   const [leAxis, setLeAxis] = useState('170');
-
-  const [pd, setPd] = useState('62.0');
+  const [leAdd, setLeAdd] = useState('0.00');
 
   // Checkout States
-  const [isPdModalOpen, setIsPdModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Saved Prescriptions State
@@ -171,7 +169,7 @@ export default function LensSelection() {
   };
 
   useEffect(() => {
-    if (currentStep === 3 && user) {
+    if (currentStep === 1 && user) {
       api.get('/prescriptions')
         .then(res => {
           setSavedPrescriptions(res.data.prescriptions || []);
@@ -206,14 +204,13 @@ export default function LensSelection() {
           setReSph(selected.RE.sph !== undefined ? selected.RE.sph.toFixed(2) : '0.00');
           setReCyl(selected.RE.cyl !== undefined ? selected.RE.cyl.toFixed(2) : '0.00');
           setReAxis(selected.RE.axis !== undefined ? selected.RE.axis.toString() : '0');
+          setReAdd(selected.RE.addPower !== undefined ? selected.RE.addPower.toFixed(2) : '0.00');
         }
         if (selected.LE) {
           setLeSph(selected.LE.sph !== undefined ? selected.LE.sph.toFixed(2) : '0.00');
           setLeCyl(selected.LE.cyl !== undefined ? selected.LE.cyl.toFixed(2) : '0.00');
           setLeAxis(selected.LE.axis !== undefined ? selected.LE.axis.toString() : '0');
-        }
-        if (selected.pd !== undefined) {
-          setPd(selected.pd.toFixed(1));
+          setLeAdd(selected.LE.addPower !== undefined ? selected.LE.addPower.toFixed(2) : '0.00');
         }
       }
     }
@@ -286,6 +283,26 @@ export default function LensSelection() {
       })
       .finally(() => setLoading(false));
   }, [productId]);
+
+  // Set default power mode
+  useEffect(() => {
+    setPowerMode('enter');
+  }, [product]);
+
+  // Auto-select lens type when powerMode changes
+  useEffect(() => {
+    if (!product || mainLensTypes.length === 0) return;
+    
+    const allowedTypes = mainLensTypes.filter(t => t.type !== 'zero_power');
+
+    if (allowedTypes.length > 0) {
+      const isCurrentAllowed = selectedType && allowedTypes.some(t => t._id === selectedType._id);
+      if (!isCurrentAllowed) {
+        const defaultType = allowedTypes.find(t => t.type === 'single_vision') || allowedTypes[0];
+        setSelectedType(defaultType);
+      }
+    }
+  }, [powerMode, product, lensTypes]);
 
   // Handle progressive sub-type defaults
   useEffect(() => {
@@ -361,21 +378,43 @@ export default function LensSelection() {
     ? getMappedLensTypesFromProduct(product, customLenses)
     : compatibleTypes.filter(t => !t.subType);
   const currentSubTypes = compatibleTypes.filter(t => t.type === selectedType?.type && t.subType);
+  
+  const filteredLensTypes = mainLensTypes.filter(typeOption => {
+    return typeOption.type !== 'zero_power';
+  });
 
-  const isZeroPower = selectedType?.type === 'zero_power';
+  const isZeroPower = false;
 
   const stepsConfig = [
-    { step: 1, label: 'LENS TYPE' },
-    { step: 2, label: 'QUALITY' },
-    { step: 3, label: 'POWER' }
+    { step: 1, label: 'POWER' },
+    { step: 2, label: 'LENS TYPE' },
+    { step: 3, label: 'QUALITY' }
   ];
 
   // Navigation Handlers
   const handleNext = () => {
     if (currentStep === 1) {
-      if (!selectedType) return;
+      // Validate Power Step
+      if (powerMode === 'enter') {
+        const hasAstigmatismRE = parseFloat(reCyl) !== 0;
+        const hasAstigmatismLE = parseFloat(leCyl) !== 0;
+        if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
+          alert('Please enter AXIS for astigmatism (when CYL is not 0)');
+          return;
+        }
+      } else if (powerMode === 'upload') {
+        if (uploadingPrescription) {
+          alert('Please wait for the prescription file to finish uploading.');
+          return;
+        }
+        if (!uploadedFileUrl) {
+          alert('Please select and upload a prescription file first.');
+          return;
+        }
+      }
       setCurrentStep(2);
     } else if (currentStep === 2) {
+      if (!selectedType) return;
       if (selectedType?.type === 'progressive' && !selectedSubType) {
         return;
       }
@@ -521,9 +560,9 @@ export default function LensSelection() {
         } else if (powerMode === 'enter' && !selectedPrescriptionId) {
           try {
             const payload: any = {
-              RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
-              LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) }),
-              pd: parseFloat(pd)
+              RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) }),
+              LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) }),
+              pd: 62
             };
             if (prescriptionName.trim()) {
               payload.name = prescriptionName.trim();
@@ -543,15 +582,14 @@ export default function LensSelection() {
       let powerObj;
       if (powerMode === 'enter') {
         powerObj = {
-          RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) },
-          LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) },
-          pd: parseFloat(pd),
+          RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) },
+          LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) },
+          pd: 62,
           addPower: parseFloat(reAdd)
         };
       } else if (powerMode === 'upload') {
         powerObj = { uploadLater: true, uploadedFileUrl: finalUploadedUrl };
       } else {
-        // Default to zero power if no choice made (backward compatibility)
         powerObj = { RE: { sph: 0 }, LE: { sph: 0 } };
       }
 
@@ -567,9 +605,9 @@ export default function LensSelection() {
       if (user && powerMode === 'enter') {
         try {
           await api.post('/prescriptions', {
-            RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
-            LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) }),
-            pd: parseFloat(pd)
+            RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) }),
+            LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) }),
+            pd: 62
           });
         } catch (err) {
           console.error('Failed to save manual prescription to database:', err);
@@ -836,7 +874,7 @@ export default function LensSelection() {
               </div>
             </div>
           ) : (
-            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-4.5 mb-6 flex flex-col">
+            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-4.5 mb-6 flex flex-col animate-fade-in">
               {/* Top Row: Image & Details */}
               <div className="flex items-center gap-4.5">
                 <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -855,29 +893,295 @@ export default function LensSelection() {
               {/* Divider Line spanning full width */}
               <div className="w-full border-t border-[#2A2A2D]/40 my-3.5" />
               
-              {/* Bottom Row: Lens Type and Edit link */}
-              <div className="flex items-start justify-between w-full text-xs">
-                <div className="flex items-start gap-4 flex-1 pr-4">
-                  <span className="text-gray-500 font-medium whitespace-nowrap">Lens Type:</span>
-                  <span className="text-[#D4A04D] font-bold leading-normal text-left max-w-sm sm:max-w-md">
-                    {selectedType?.displayName} {selectedSubType ? `(${selectedSubType.displayName})` : ''}
-                  </span>
+              {/* Bottom Row: Selections and Edit links */}
+              <div className="space-y-3">
+                {/* Power Selection */}
+                <div className="flex items-start justify-between w-full text-xs">
+                  <div className="flex items-start gap-4 flex-1 pr-4">
+                    <span className="text-gray-500 font-medium whitespace-nowrap">Power Selection:</span>
+                    <span className="text-[#D4A04D] font-bold leading-normal text-left">
+                      {powerMode === 'enter' ? 'Manual Prescription' : 'Uploaded Prescription'}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => setCurrentStep(1)} 
+                    className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
+                  >
+                    Edit
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setCurrentStep(1)} 
-                  className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
-                >
-                  Edit
-                </button>
+
+                {/* Lens Type Selection (only shown in Step 3) */}
+                {currentStep === 3 && selectedType && (
+                  <>
+                    <div className="w-full border-t border-[#2A2A2D]/20 my-1" />
+                    <div className="flex items-start justify-between w-full text-xs">
+                      <div className="flex items-start gap-4 flex-1 pr-4">
+                        <span className="text-gray-500 font-medium whitespace-nowrap">Lens Type:</span>
+                        <span className="text-[#D4A04D] font-bold leading-normal text-left">
+                          {selectedType?.displayName} {selectedSubType ? `(${selectedSubType.displayName})` : ''}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setCurrentStep(2)} 
+                        className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )
         )}
 
-        {/* ================= STEP 1: SELECT LENS TYPE ================= */}
+        {/* ================= STEP 1: ENTER POWER ================= */}
         {currentStep === 1 && (
           <div className="space-y-6 animate-fade-in">
-            <div>
+            {/* Header Block */}
+            <div className="text-left">
+              <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Power Option</h1>
+              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose how you want to configure your lens power</p>
+            </div>
+
+            {/* Prescription Form Block */}
+            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
+                {user && savedPrescriptions.length > 0 && powerMode !== 'zero' && (
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
+                    <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
+                      📂 Add Saved Power
+                    </label>
+                    <select
+                      value={selectedPrescriptionId}
+                      onChange={(e) => handleSelectSavedPrescription(e.target.value)}
+                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer"
+                    >
+                      <option value="">-- Select from Saved Powers --</option>
+                      {savedPrescriptions.map((pr: any) => (
+                        <option key={pr._id} value={pr._id}>
+                          {formatOptionLabel(pr)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Segmented Control Tabs */}
+                <div className="flex bg-[#0B0B0C] border border-[#2A2A2D]/80 rounded-xl p-1">
+                  <button
+                    onClick={() => setPowerMode('enter')}
+                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                      powerMode === 'enter' 
+                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                        : 'text-gray-500 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Enter Manually
+                  </button>
+                  <button
+                    onClick={() => setPowerMode('upload')}
+                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                      powerMode === 'upload' 
+                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                        : 'text-gray-500 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Upload
+                  </button>
+                </div>
+
+                {/* Manual entry view */}
+                {powerMode === 'enter' && (
+                  <div className="space-y-6 pt-2 text-left animate-fade-in">
+                    <div>
+                      <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType?.displayName || 'Prescription Lenses'}</h4>
+                      <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
+                    </div>
+
+                    {user && savedPrescriptions.length === 0 && (
+                      <p className="text-gray-500 text-[9px] mt-2 italic">
+                        ℹ️ Power entered manually will be saved to your account dashboard for future orders.
+                      </p>
+                    )}
+
+                    {/* Grid */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-5 gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
+                        <div className="text-left" />
+                        <div>SPH (Sphere)</div>
+                        <div>CYL (Cylinder)</div>
+                        <div>AXIS</div>
+                        <div>ADD</div>
+                      </div>
+
+                      {/* Right Eye Row */}
+                      <div className="grid grid-cols-5 gap-2 items-center text-center">
+                        <div className="text-white text-xs font-black text-left">R (Right)</div>
+                        <div>
+                          <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            <option value="0.00">0.00</option>
+                            {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                              <option key={power} value={power.replace('+', '')}>{power}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Left Eye Row */}
+                      <div className="grid grid-cols-5 gap-2 items-center text-center">
+                        <div className="text-white text-xs font-black text-left">L (Left)</div>
+                        <div>
+                          <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                            <option value="0.00">0.00</option>
+                            {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                              <option key={power} value={power.replace('+', '')}>{power}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {user && (
+                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
+                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
+                          Save this Power as (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
+                          value={prescriptionName}
+                          onChange={e => setPrescriptionName(e.target.value)}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* File upload view */}
+                {powerMode === 'upload' && (
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-xl p-5 text-center space-y-4 animate-fade-in">
+                    <div className="text-3xl text-[#D4A04D] animate-bounce">📁</div>
+                    <h3 className="text-white font-bold text-xs">Upload Prescription Photo</h3>
+                    <p className="text-gray-500 text-[10px] max-w-xs mx-auto leading-relaxed">
+                      Drag & drop or click below to upload a clear image of your doctor's prescription.
+                    </p>
+                    <div className="pt-1">
+                      <label className="inline-block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4.5 py-2.5 rounded-lg transition-colors cursor-pointer tracking-wider">
+                        {uploadingPrescription ? 'UPLOADING...' : 'Browse File'}
+                        <input type="file" accept="image/*,application/pdf" onChange={handleUploadChange} className="hidden" disabled={uploadingPrescription} />
+                      </label>
+                    </div>
+                    {prescriptionFileName && (
+                      <div className="text-green-400 text-[10px] font-semibold mt-1">
+                        ✓ Selected: {prescriptionFileName} {uploadingPrescription && '(Processing compression & uploading...)'}
+                      </div>
+                    )}
+                    {uploadedFileUrl && (
+                      <div className="mt-2 flex flex-col items-center gap-2">
+                        {uploadedFileUrl.toLowerCase().endsWith('.pdf') || uploadedFileUrl.includes('.pdf') || uploadedFileUrl.startsWith('data:application/pdf') ? (
+                          <div className="text-xs text-[#D4A04D] bg-[#1A1A1C] border border-[#2A2A2D] rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            <span>📄</span> PDF Document Selected
+                          </div>
+                        ) : (
+                          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-[#2A2A2D]">
+                            <img src={uploadedFileUrl} alt="Prescription Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {user && uploadedFileUrl && (
+                      <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
+                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
+                          Save this Prescription as (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
+                          value={prescriptionName}
+                          onChange={e => setPrescriptionName(e.target.value)}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+            {/* Sticky Navigation Footer */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
+              <div className="flex items-center justify-between gap-4">
+                {/* Selection Summary (Desktop only) */}
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 1 of 3</span>
+                  <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
+                    {powerMode === 'zero' ? 'Zero Power (Plano)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
+                  </span>
+                </div>
+                
+                {/* Navigation Buttons */}
+                <div className="w-full sm:w-auto sm:min-w-[240px]">
+                  <button
+                    onClick={handleNext}
+                    className="w-full bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)] hover:shadow-[0_6px_20px_rgba(212,160,77,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_10px_rgba(212,160,77,0.2)]"
+                  >
+                    <span>CONTINUE TO LENS TYPE</span>
+                    <span className="text-xs">→</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= STEP 2: SELECT LENS TYPE ================= */}
+        {currentStep === 2 && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="text-left">
               <h1 className="text-lg font-black text-white uppercase tracking-wider">Buy With Lens</h1>
               <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Select lens type that suits your lifestyle</p>
             </div>
@@ -888,7 +1192,7 @@ export default function LensSelection() {
                 <p className="text-gray-500 text-[10px]">All lenses come with 100% UV Protection</p>
               </div>
 
-              {mainLensTypes.map((typeOption) => {
+              {filteredLensTypes.map((typeOption) => {
                 const isSelected = selectedType?._id === typeOption._id;
                 
                 return (
@@ -926,7 +1230,7 @@ export default function LensSelection() {
                             </span>
                           )}
                         </div>
-                        <p className="text-[#A7A7A7] text-[10px] font-medium leading-normal mt-1.5 max-w-sm font-medium">
+                        <p className="text-[#A7A7A7] text-[10px] font-medium leading-normal mt-1.5 max-w-sm">
                           {typeOption.description}
                         </p>
                         <span className="text-[#D4A04D] text-[10px] font-extrabold uppercase mt-2.5">
@@ -946,34 +1250,29 @@ export default function LensSelection() {
               })}
             </div>
 
-            {/* Trust Badges Strip */}
-            <div className="bg-[#131314]/40 border border-[#2A2A2D]/35 rounded-xl py-3 px-4 flex items-center justify-between text-center mt-8 text-[8px] font-bold text-gray-500 uppercase tracking-widest">
-              <span>🛡️ 100% UV Protection</span>
-              <span className="text-[#2A2A2D]">•</span>
-              <span>🔒 1 Year Warranty</span>
-              <span className="text-[#2A2A2D]">•</span>
-              <span>💎 Scratch Resistant</span>
-              <span className="text-[#2A2A2D]">•</span>
-              <span>🔄 Easy Returns</span>
-            </div>
-
             {/* Sticky Continue Footer */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
               <div className="flex items-center justify-between gap-4">
                 {/* Left side: Selection summary */}
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Selected Type</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Step 2 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
                     {selectedType ? selectedType.displayName : 'None'}
                   </span>
                 </div>
                 
                 {/* Right side: Button */}
-                <div className="w-full sm:w-auto sm:min-w-[240px]">
+                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
+                  <button
+                    onClick={handleBack}
+                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
+                  >
+                    Back
+                  </button>
                   <button
                     onClick={handleNext}
                     disabled={!selectedType}
-                    className="w-full bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)] hover:shadow-[0_6px_20px_rgba(212,160,77,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_10px_rgba(212,160,77,0.2)]"
+                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
                   >
                     <span>CONTINUE TO QUALITY</span>
                     <span className="text-xs">→</span>
@@ -984,8 +1283,8 @@ export default function LensSelection() {
           </div>
         )}
 
-        {/* ================= STEP 2: SELECT LENS QUALITY ================= */}
-        {currentStep === 2 && selectedType && (
+        {/* ================= STEP 3: SELECT LENS QUALITY ================= */}
+        {currentStep === 3 && selectedType && (
           <div className="space-y-6 animate-fade-in">
             <div className="text-left">
               <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Lens Quality</h1>
@@ -1209,297 +1508,9 @@ export default function LensSelection() {
               <div className="flex items-center justify-between gap-4">
                 {/* Selection Summary (Desktop only) */}
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 2 of 3</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 3 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
                     {selectedQuality ? selectedQuality.displayName : (selectedSubType ? selectedSubType.displayName : 'Quality Selection')}
-                  </span>
-                </div>
-                
-                {/* Navigation Buttons */}
-                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
-                  <button
-                    onClick={handleBack}
-                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={selectedType.type === 'progressive' && !selectedSubType}
-                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
-                  >
-                    <span>CONTINUE TO POWER</span>
-                    <span className="text-xs">→</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= STEP 3: ENTER POWER ================= */}
-        {currentStep === 3 && selectedType && (
-          <div className="space-y-6 animate-fade-in">
-            
-            {/* Header Block */}
-            <div className="text-left">
-              <h1 className="text-lg font-black text-white uppercase tracking-wider">Enter Your Power</h1>
-              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">All fields are required</p>
-            </div>
-
-
-
-            {/* Prescription Form Block (Show for ALL lens types!) */}
-            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
-                
-                {user && savedPrescriptions.length > 0 && (
-                  <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
-                    <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
-                      📂 Add Saved Power
-                    </label>
-                    <select
-                      value={selectedPrescriptionId}
-                      onChange={(e) => handleSelectSavedPrescription(e.target.value)}
-                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer"
-                    >
-                      <option value="">-- Select from Saved Powers --</option>
-                      {savedPrescriptions.map((pr: any) => (
-                        <option key={pr._id} value={pr._id}>
-                          {formatOptionLabel(pr)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Segmented Control Tabs */}
-                <div className="flex bg-[#0B0B0C] border border-[#2A2A2D]/80 rounded-xl p-1">
-                  <button
-                    onClick={() => setPowerMode('enter')}
-                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
-                      powerMode === 'enter' 
-                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
-                        : 'text-gray-500 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Enter Manually
-                  </button>
-                  <button
-                    onClick={() => setPowerMode('upload')}
-                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
-                      powerMode === 'upload' 
-                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
-                        : 'text-gray-500 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Upload Prescription
-                  </button>
-                </div>
-
-                {/* Manual entry view */}
-                {powerMode === 'enter' && (
-                  <div className="space-y-6 pt-2 text-left animate-fade-in">
-                    <div>
-                      <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType.displayName}</h4>
-                      <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
-                    </div>
-
-                    {user && savedPrescriptions.length === 0 && (
-                      <p className="text-gray-500 text-[9px] mt-2 italic">
-                        ℹ️ Power entered manually will be saved to your account dashboard for future orders.
-                      </p>
-                    )}
-
-                    {/* Grid */}
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-4 gap-2.5 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
-                        <div className="text-left" />
-                        <div>SPH (Sphere)</div>
-                        <div>CYL (Cylinder)</div>
-                        <div>AXIS</div>
-                      </div>
-
-                      {/* Right Eye Row */}
-                      <div className="grid grid-cols-4 gap-2.5 items-center text-center">
-                        <div className="text-white text-xs font-black text-left">R (Right)</div>
-                        <div>
-                          <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                              <option key={v} value={v}>{v}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Left Eye Row */}
-                      <div className="grid grid-cols-4 gap-2.5 items-center text-center">
-                        <div className="text-white text-xs font-black text-left">L (Left)</div>
-                        <div>
-                          <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                              <option key={v} value={v}>{v}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Add Power (for reading/progressive) */}
-                    {(selectedType?.type === 'progressive' || selectedType?.type === 'reading_power') && (
-                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
-                        <div className="flex items-center justify-between gap-3">
-                          <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">Add Power (Reading) <span className="text-gray-600 font-bold ml-0.5 cursor-help" title="Add power is required for near vision">(i)</span></label>
-                          <div className="flex items-center gap-2 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1.5">
-                            <select 
-                              value={reAdd} 
-                              onChange={e => setReAdd(e.target.value)} 
-                              className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer"
-                            >
-                              {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                <option key={power} value={power.replace('+', '')}>{power}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PD */}
-                    <div className="pt-4 border-t border-[#2A2A2D]/55 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
-                      <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">
-                          PD (Pupillary Distance){' '}
-                          <span className="text-gray-600 font-bold ml-0.5 cursor-help" title="PD represents distance between pupils">(i)</span>
-                        </label>
-                        <div className="flex items-center gap-1.5 bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2">
-                          <input 
-                            type="text" 
-                            value={pd} 
-                            onChange={e => setPd(e.target.value)} 
-                            className="bg-transparent border-none text-white text-xs focus:outline-none w-10 text-center font-bold"
-                          />
-                          <span className="text-gray-500 text-[10px] font-bold">mm</span>
-                        </div>
-                      </div>
-                      
-                      <button 
-                        onClick={() => setIsPdModalOpen(true)}
-                        className="border border-[#D4A04D]/35 hover:bg-[#D4A04D]/10 text-[#D4A04D] font-bold text-[10px] uppercase tracking-wider rounded-xl px-3.5 py-2 transition-all cursor-pointer bg-transparent flex items-center justify-center gap-1.5 w-full sm:w-auto"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <circle cx="12" cy="12" r="8" />
-                          <path d="M12 8v8M8 12h8" />
-                        </svg>
-                        Measure PD
-                      </button>
-                    </div>
-
-                    {user && (
-                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
-                          Save this Power as (Optional)
-                        </label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
-                          value={prescriptionName}
-                          onChange={e => setPrescriptionName(e.target.value)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* File upload view */}
-                {powerMode === 'upload' && (
-                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-xl p-5 text-center space-y-4 animate-fade-in">
-                    <div className="text-3xl text-[#D4A04D] animate-bounce">📁</div>
-                    <h3 className="text-white font-bold text-xs">Upload Prescription Photo</h3>
-                    <p className="text-gray-500 text-[10px] max-w-xs mx-auto leading-relaxed">
-                      Drag & drop or click below to upload a clear image of your doctor's prescription.
-                    </p>
-                    <div className="pt-1">
-                      <label className="inline-block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4.5 py-2.5 rounded-lg transition-colors cursor-pointer tracking-wider">
-                        {uploadingPrescription ? 'UPLOADING...' : 'Browse File'}
-                        <input type="file" accept="image/*,application/pdf" onChange={handleUploadChange} className="hidden" disabled={uploadingPrescription} />
-                      </label>
-                    </div>
-                    {prescriptionFileName && (
-                      <div className="text-green-400 text-[10px] font-semibold mt-1">
-                        ✓ Selected: {prescriptionFileName} {uploadingPrescription && '(Processing compression & uploading...)'}
-                      </div>
-                    )}
-                    {uploadedFileUrl && (
-                      <div className="mt-2 flex flex-col items-center gap-2">
-                        {uploadedFileUrl.toLowerCase().endsWith('.pdf') || uploadedFileUrl.includes('.pdf') || uploadedFileUrl.startsWith('data:application/pdf') ? (
-                          <div className="text-xs text-[#D4A04D] bg-[#1A1A1C] border border-[#2A2A2D] rounded-lg px-3 py-2 flex items-center gap-1.5">
-                            <span>📄</span> PDF Document Selected
-                          </div>
-                        ) : (
-                          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-[#2A2A2D]">
-                            <img src={uploadedFileUrl} alt="Prescription Preview" className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {user && uploadedFileUrl && (
-                      <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
-                          Save this Prescription as (Optional)
-                        </label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
-                          value={prescriptionName}
-                          onChange={e => setPrescriptionName(e.target.value)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
-
-
-            {/* Sticky Navigation Footer */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
-              <div className="flex items-center justify-between gap-4">
-                {/* Selection Summary (Desktop only) */}
-                <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Final Step</span>
-                  <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
-                    {isZeroPower ? 'Plano (Zero Power)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
                   </span>
                 </div>
                 
@@ -1527,27 +1538,6 @@ export default function LensSelection() {
 
       </div>
 
-      {/* Pupillary Distance Modal dialog */}
-      {isPdModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div onClick={() => setIsPdModalOpen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-xs" />
-          <div className="relative bg-[#131314] border border-[#2A2A2D] max-w-sm w-full rounded-2xl p-6 shadow-2xl z-10 text-center space-y-4">
-            <h4 className="text-white font-black text-sm uppercase tracking-wider">How to Measure Pupil Distance (PD)</h4>
-            <p className="text-[#A7A7A7] text-[11px] leading-relaxed">
-              1. Hold a ruler horizontally against your forehead.<br />
-              2. Align the 0mm mark directly under the pupil of one eye.<br />
-              3. Look straight ahead and read the millimeter mark under the pupil of your other eye.<br />
-              4. Average values are 58mm - 68mm.
-            </p>
-            <button 
-              onClick={() => setIsPdModalOpen(false)}
-              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer border-none"
-            >
-              GOT IT
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

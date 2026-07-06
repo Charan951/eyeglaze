@@ -77,12 +77,12 @@ export default function WishlistPage() {
         {wishlistItems.map((item) => {
           const discount = Math.round(((item.price.original - item.price.selling) / item.price.original) * 100);
           return (
-            <div key={item._id} className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col group relative">
+            <div key={item._id} className="bg-[#131314] border border-[#2A2A2D] rounded-none overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col group relative">
               
               {/* Image Container */}
-              <div className="relative aspect-[4/3] bg-[#222] flex items-center justify-center p-6 border-b border-[#2A2A2D]/40">
+              <div className="relative aspect-square bg-[#1A1A1C] flex items-center justify-center p-4 border-b border-[#2A2A2D]/40">
                 {item.images?.[0] ? (
-                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 rounded-lg" />
+                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500 rounded-none" />
                 ) : (
                   <div className="text-gray-500 text-center">
                     <div className="text-5xl mb-2">👓</div>

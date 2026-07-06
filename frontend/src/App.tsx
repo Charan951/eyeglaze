@@ -51,6 +51,7 @@ import AdminCategoryWizard from './pages/admin/categories/Wizard';
 import AdminCategoryTreeView from './pages/admin/categories/tree';
 import AdminNavigationMenuBuilder from './pages/admin/categories/menu-builder';
 import AdminHomepageVideos from './pages/admin/HomepageVideos';
+import AdminReels from './pages/admin/Reels';
 import AdminCoupons from './pages/admin/Coupons';
 
 function ScrollToTop() {
@@ -316,6 +317,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminHomepageVideos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reels"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminReels />
                 </ProtectedRoute>
               }
             />

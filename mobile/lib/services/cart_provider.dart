@@ -18,9 +18,22 @@ class CartProvider extends ChangeNotifier {
   List<CartItem> get items => _items;
   int get itemCount => _items.length;
   bool get isLoading => _loading;
-  double get subtotal => _items.fold(0, (s, i) => s + i.totalPrice);
-  double get delivery => _items.isNotEmpty ? 99 : 0;
-  double get total => subtotal + delivery;
+  double get subtotal => _items.fold(0.0, (s, i) {
+        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
+        return s + (originalFramePrice + (i.lensPrice ?? 0.0)) * i.qty;
+      });
+
+  double get productDiscount => _items.fold(0.0, (s, i) {
+        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
+        final diff = originalFramePrice - i.framePrice;
+        return s + (diff > 0.0 ? diff : 0.0) * i.qty;
+      });
+
+  double get fittingFee => _items.any((i) => (i.lensPrice ?? 0.0) > 0.0 || i.lensType != null) ? 199.0 : 0.0;
+
+  double get delivery => _items.isNotEmpty ? (_authService.currentUser?.membershipActive == true ? 0.0 : 99.0) : 0.0;
+
+  double get total => subtotal + fittingFee + delivery - productDiscount;
 
   void _onAuthChanged() {
     if (_authService.isLoggedIn) {

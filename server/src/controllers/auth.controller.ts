@@ -223,21 +223,34 @@ export async function login(req: Request, res: Response) {
       return res.status(400).json({ error: 'This account does not have a password set. Please log in using OTP.' });
     }
 
-    // Check account lockout
-    if (user.lockUntil && user.lockUntil > new Date()) {
-      const remainingMinutes = Math.ceil((user.lockUntil.getTime() - Date.now()) / (60 * 1000));
-      return res.status(423).json({ error: `Account is temporarily locked. Try again in ${remainingMinutes} minute(s).` });
+    // Reset or ignore lockout for admin users
+    const isAdmin = ['admin', 'store_manager', 'support_agent'].includes(user.role);
+    
+    if (isAdmin) {
+      if (user.lockUntil || user.loginAttempts > 0) {
+        user.loginAttempts = 0;
+        user.lockUntil = undefined;
+        await user.save();
+      }
+    } else {
+      // Check account lockout for normal customers
+      if (user.lockUntil && user.lockUntil > new Date()) {
+        const remainingMinutes = Math.ceil((user.lockUntil.getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({ error: `Account is temporarily locked. Try again in ${remainingMinutes} minute(s).` });
+      }
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      user.loginAttempts = (user.loginAttempts || 0) + 1;
-      if (user.loginAttempts >= 5) {
-        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      if (!isAdmin) {
+        user.loginAttempts = (user.loginAttempts || 0) + 1;
+        if (user.loginAttempts >= 5) {
+          user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+          await user.save();
+          return res.status(423).json({ error: 'Account locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.' });
+        }
         await user.save();
-        return res.status(423).json({ error: 'Account locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.' });
       }
-      await user.save();
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 

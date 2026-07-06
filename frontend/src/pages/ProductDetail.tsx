@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import StarRating from '../components/ui/StarRating';
 import AddToCartButton from '../components/AddToCartButton';
@@ -38,6 +38,8 @@ interface Product {
     featureTags: string[];
   };
   warranty?: string;
+  returnPolicy?: string;
+  deliveryInfo?: string;
   compatible: { prescription?: boolean; bluecut?: boolean; zeropower?: boolean; progressive?: boolean };
   categories: string[];
   category?: string;
@@ -175,6 +177,62 @@ export default function ProductDetailPage() {
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+
+  // Reels states & refs
+  const [reels, setReels] = useState<any[]>([]);
+  const [selectedReel, setSelectedReel] = useState<any | null>(null);
+  const [isReelModalOpen, setIsReelModalOpen] = useState(false);
+  const [playingReelId, setPlayingReelId] = useState<string | null>(null);
+  const [clickedReelId, setClickedReelId] = useState<string | null>(null);
+  const reelsCarouselRefReal = useRef<HTMLDivElement>(null);
+
+  const scrollReelsLeft = () => {
+    if (reelsCarouselRefReal.current) {
+      reelsCarouselRefReal.current.scrollBy({ left: -240, behavior: 'smooth' });
+    }
+  };
+
+  const scrollReelsRight = () => {
+    if (reelsCarouselRefReal.current) {
+      reelsCarouselRefReal.current.scrollBy({ left: 240, behavior: 'smooth' });
+    }
+  };
+
+  const getEmbedUrl = (url: string) => {
+    if (!url) return '';
+    const youtubeMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
+    if (youtubeMatch) {
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+    const vimeoMatch = url.match(/(?:vimeo\.com\/)(?:video\/)?([0-9]+)/i);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+    return url;
+  };
+
+  const isDirectVideo = (url: string) => {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com')) {
+      return false;
+    }
+    const ext = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
+    const cleanUrl = lower.split('?')[0];
+    return ext.some(e => cleanUrl.endsWith(e)) || lower.includes('/uploads/') || lower.includes('/stream/');
+  };
+
+  useEffect(() => {
+    api.get('/reels')
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setReels(res.data);
+        } else if (res.data?.reels) {
+          setReels(res.data.reels);
+        }
+      })
+      .catch(err => console.error('Error fetching reels:', err));
+  }, []);
 
   // Custom Power & Pricing states
   const [selectedReadingPower, setSelectedReadingPower] = useState<string>('');
@@ -763,8 +821,8 @@ export default function ProductDetailPage() {
         {/* Image Gallery */}
         <div>
           {/* Main Image Container */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl aspect-square flex items-center justify-center mb-4 relative overflow-hidden group">
-            <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-xl p-4" />
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center mb-4 relative overflow-hidden group">
+            <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-none p-4" />
             
             <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
               {product.isBestseller && (
@@ -852,11 +910,11 @@ export default function ProductDetailPage() {
                 <div
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
-                  className={`bg-[#131314] border rounded-lg w-14 h-14 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#D4A04D] transition-colors overflow-hidden ${
+                  className={`bg-[#131314] border rounded-none w-14 h-14 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#D4A04D] transition-colors overflow-hidden ${
                     isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
                   }`}
                 >
-                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-lg p-1" />
+                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-none p-1" />
                 </div>
               );
             })}
@@ -1263,17 +1321,19 @@ export default function ProductDetailPage() {
             <div className="flex flex-col items-center justify-center p-1 border-x border-[#2A2A2D]">
               <span className="text-lg mb-1">🔄</span>
               <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">
-                {product.category === 'contact_lenses' ? 'Non-Returnable' : '14-Day Returnable'}
+                {product.returnPolicy || (product.category === 'contact_lenses' ? 'Non-Returnable' : '14-Day Returnable')}
               </span>
               <span className="text-gray-500 text-[8px] mt-0.5 font-bold uppercase tracking-wider">
-                {product.category === 'contact_lenses' ? 'Final Sale' : 'Easy Returns'}
+                {(product.returnPolicy || '').toLowerCase().includes('non') ? 'Final Sale' : 'Easy Returns'}
               </span>
             </div>
             
             {/* 3. Delivery */}
             <div className="flex flex-col items-center justify-center p-1">
               <span className="text-lg mb-1">🚚</span>
-              <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">5-7 Days Delivery</span>
+              <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">
+                {product.deliveryInfo || '5-7 Days Delivery'}
+              </span>
               <span className="text-gray-500 text-[8px] mt-0.5 font-bold uppercase tracking-wider">Fast Shipping</span>
             </div>
           </div>
@@ -1370,6 +1430,149 @@ export default function ProductDetailPage() {
           <div className="text-[#A7A7A7] text-sm italic py-4">No similar products found.</div>
         )}
       </div>
+
+      {/* EyeGlaze Reels Section (Above Reviews) */}
+      {reels && reels.length > 0 && (
+        <div className="mt-12 border-t border-[#2A2A2D] pt-10">
+          <div className="flex flex-col gap-1 mb-6">
+            <h2 className="text-xl font-bold text-white uppercase tracking-wider">EyeGlaze Reels</h2>
+            <p className="text-[#A7A7A7] text-xs font-medium uppercase tracking-wider">Trending styles, lookbooks and details</p>
+          </div>
+
+          <div className="relative w-full group/reels-carousel">
+            {/* Left navigation arrow */}
+            <button 
+              onClick={scrollReelsLeft}
+              className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/reels-carousel:opacity-100 hidden md:flex"
+              aria-label="Previous Reel"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Right navigation arrow */}
+            <button 
+              onClick={scrollReelsRight}
+              className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/reels-carousel:opacity-100 hidden md:flex"
+              aria-label="Next Reel"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {/* Reels Carousel Container */}
+            <div 
+              ref={reelsCarouselRefReal}
+              className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth"
+            >
+              {reels.map((reel) => (
+                <div 
+                  key={reel._id || reel.id}
+                  onClick={(e) => {
+                    const isClicked = clickedReelId === reel._id;
+                    const videoEl = e.currentTarget.querySelector('video');
+                    
+                    // Pause and mute all other videos
+                    const allVideos = document.querySelectorAll('video');
+                    allVideos.forEach(v => {
+                      if (v !== videoEl) {
+                        v.pause();
+                        v.muted = true;
+                      }
+                    });
+
+                    if (isClicked) {
+                      setClickedReelId(null);
+                      setPlayingReelId(null);
+                      if (videoEl) {
+                        videoEl.pause();
+                        videoEl.muted = true;
+                      }
+                    } else {
+                      setClickedReelId(reel._id);
+                      setPlayingReelId(reel._id);
+                      if (videoEl) {
+                        videoEl.muted = false; // Unmute to allow audio!
+                        videoEl.play().catch(() => {});
+                      }
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (clickedReelId && clickedReelId !== reel._id) return;
+                    setPlayingReelId(reel._id);
+                    const videoEl = e.currentTarget.querySelector('video');
+                    if (videoEl) {
+                      videoEl.muted = clickedReelId === reel._id ? false : true;
+                      videoEl.play().catch(() => {});
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (clickedReelId === reel._id) return; // Keep playing if clicked!
+                    setPlayingReelId(null);
+                    const videoEl = e.currentTarget.querySelector('video');
+                    if (videoEl) {
+                      videoEl.pause();
+                      videoEl.muted = true;
+                    }
+                  }}
+                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-3 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[160px] md:w-[220px] flex-shrink-0 cursor-pointer group relative"
+                >
+                  <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                    {/* The Logo Cover Overlay */}
+                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                      {/* Logo emblem */}
+                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
+                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
+                      </div>
+                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
+                    </div>
+
+                    {isDirectVideo(reel.videoUrl) ? (
+                      <video
+                        src={reel.videoUrl}
+                        className="w-full h-full object-cover"
+                        loop
+                        playsInline
+                        autoPlay={playingReelId === reel._id}
+                      />
+                    ) : (
+                      <iframe
+                        title={reel.title}
+                        className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                        src={
+                          playingReelId === reel._id
+                            ? clickedReelId === reel._id
+                              ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                              : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                            : getEmbedUrl(reel.videoUrl)
+                        }
+                        allow="autoplay; encrypted-media"
+                      />
+                    )}
+                    {/* Dark gradient overlay at the bottom for title */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-3 gap-1">
+                      <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                      {reel.description && (
+                        <p className="text-gray-400 text-[8px] md:text-[9.5px] leading-relaxed line-clamp-2 font-medium">
+                          {reel.description}
+                        </p>
+                      )}
+                    </div>
+                    {/* Play Badge Overlay */}
+                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity bg-black/25 ${playingReelId === reel._id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white text-sm">
+                        ▶
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reviews Section */}
       <div className="mt-12 border-t border-[#2A2A2D] pt-10">
@@ -1709,6 +1912,69 @@ export default function ProductDetailPage() {
       )}
 
 
+
+      {/* Reels Modal Player */}
+      {isReelModalOpen && selectedReel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            onClick={() => {
+              setIsReelModalOpen(false);
+              setSelectedReel(null);
+            }} 
+            className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer" 
+          />
+          <div className="relative bg-[#0E0E0E] border border-[#2A2A2D] w-full max-w-sm aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl z-10 animate-scale-up flex flex-col justify-between">
+            {/* Header overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center z-20">
+              <h3 className="text-white text-xs font-bold uppercase tracking-wider truncate max-w-[80%]">
+                {selectedReel.title}
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsReelModalOpen(false);
+                  setSelectedReel(null);
+                }} 
+                className="text-white hover:text-gray-300 p-1.5 rounded-full bg-black/40 hover:bg-black/60 transition-colors border-none cursor-pointer"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video content */}
+            <div className="flex-1 w-full h-full bg-black relative">
+              {isDirectVideo(selectedReel.videoUrl) ? (
+                <video
+                  src={selectedReel.videoUrl}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  controls
+                  loop
+                  playsInline
+                />
+              ) : (
+                <iframe
+                  title={selectedReel.title}
+                  className="w-full h-full border-none"
+                  src={`${getEmbedUrl(selectedReel.videoUrl)}?autoplay=1`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+
+            {/* Description overlay */}
+            {selectedReel.description && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent z-20 flex flex-col gap-1">
+                <p className="text-gray-200 text-[10px] md:text-xs leading-relaxed font-semibold">
+                  {selectedReel.description}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Padding for sticky bar */}
       <div className="h-32 md:hidden" />

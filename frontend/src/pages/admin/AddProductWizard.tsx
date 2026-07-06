@@ -72,6 +72,8 @@ const wizardSchema = z.object({
   countryOfOrigin: z.string().optional(),
   manufacturer: z.string().optional(),
   warranty: z.string().optional(),
+  returnPolicy: z.string().optional(),
+  deliveryInfo: z.string().optional(),
 
   // Measurements
   lensWidth: z.number().optional(),
@@ -322,6 +324,8 @@ const defaultValues: WizardFormData = {
   countryOfOrigin: 'India',
   manufacturer: 'EyeGlaze Ltd',
   warranty: '1 Year Warranty',
+  returnPolicy: '14-Day Returnable',
+  deliveryInfo: '5-7 Days Delivery',
 
   lensWidth: 50,
   bridgeWidth: 18,
@@ -622,6 +626,8 @@ export default function AddProductWizard() {
             countryOfOrigin: p.countryOfOrigin || 'India',
             manufacturer: p.manufacturer || 'EyeGlaze Ltd',
             warranty: p.warranty || '1 Year Warranty',
+            returnPolicy: p.returnPolicy || '14-Day Returnable',
+            deliveryInfo: p.deliveryInfo || '5-7 Days Delivery',
 
             lensWidth: p.lensWidth || p.frame?.lensWidth || 50,
             bridgeWidth: p.bridgeWidth || p.frame?.bridgeWidth || 18,
@@ -2192,7 +2198,7 @@ export default function AddProductWizard() {
             </div>
 
           {/* SECTION 3: FRAME SPECIFICATIONS */}
-          {!(isSunglasses || (isPowerSunglasses && isReading)) && (
+          {!isContactLenses && (
             <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 3: Frame Specifications</h2>
               
@@ -2311,6 +2317,28 @@ export default function AddProductWizard() {
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   />
                 </div>
+
+                {/* Return Policy */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Return Policy</label>
+                  <input
+                    type="text"
+                    {...register('returnPolicy')}
+                    placeholder="e.g. 14-Day Returnable"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+
+                {/* Delivery Info */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Delivery Info</label>
+                  <input
+                    type="text"
+                    {...register('deliveryInfo')}
+                    placeholder="e.g. 5-7 Days Delivery"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Feature Tags Selector */}
@@ -2358,8 +2386,71 @@ export default function AddProductWizard() {
             </div>
           )}
 
+          {/* TRUST INFO FOR CONTACT LENSES */}
+          {isContactLenses && (
+            <div className="space-y-6 mb-12">
+              <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Product Trust Info</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Country of Origin */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Country of Origin</label>
+                  <input
+                    type="text"
+                    {...register('countryOfOrigin')}
+                    placeholder="e.g. India"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                  />
+                </div>
+
+                {/* Manufacturer */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Manufacturer</label>
+                  <input
+                    type="text"
+                    {...register('manufacturer')}
+                    placeholder="e.g. EyeGlaze Ltd"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+
+                {/* Warranty */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Warranty</label>
+                  <input
+                    type="text"
+                    {...register('warranty')}
+                    placeholder="e.g. 1 Year Brand Warranty"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+
+                {/* Return Policy */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Return Policy</label>
+                  <input
+                    type="text"
+                    {...register('returnPolicy')}
+                    placeholder="e.g. 14-Day Returnable"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+
+                {/* Delivery Info */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Delivery Info</label>
+                  <input
+                    type="text"
+                    {...register('deliveryInfo')}
+                    placeholder="e.g. 5-7 Days Delivery"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* SECTION 4: MEASUREMENTS */}
-          {!(isSunglasses || (isPowerSunglasses && isReading)) && (
+          {!isContactLenses && (
             <>
               <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 4: Measurements & Fit</h2>

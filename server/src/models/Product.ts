@@ -121,6 +121,8 @@ export interface IProduct extends Document {
   countryOfOrigin?: string;
   manufacturer?: string;
   warranty?: string;
+  returnPolicy?: string;
+  deliveryInfo?: string;
   frameHeight?: number;
   pdCompatibility?: string;
   faceShapeCompatibility?: string[];
@@ -370,6 +372,8 @@ const ProductSchema = new Schema<IProduct>(
     countryOfOrigin: { type: String },
     manufacturer: { type: String },
     warranty: { type: String },
+    returnPolicy: { type: String, default: '14-Day Returnable' },
+    deliveryInfo: { type: String, default: '5-7 Days Delivery' },
     frameHeight: { type: Number },
     pdCompatibility: { type: String },
     faceShapeCompatibility: [String],

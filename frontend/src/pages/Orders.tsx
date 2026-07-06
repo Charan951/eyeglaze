@@ -19,27 +19,8 @@ interface Order {
   items: OrderItemRow[];
 }
 
-const mockOrders: Order[] = [
-  {
-    _id: 'ord1',
-    orderId: 'EGO-20260616-0001',
-    createdAt: '2026-06-16T10:00:00Z',
-    status: 'processing',
-    total: 1298,
-    items: [{ name: 'Matte Square Frame', sku: 'EG-2041', color: 'Matte Black' }],
-  },
-  {
-    _id: 'ord2',
-    orderId: 'EGO-20260610-0002',
-    createdAt: '2026-06-10T14:30:00Z',
-    status: 'delivered',
-    total: 799,
-    items: [{ name: 'Classic Aviator', sku: 'EG-3012', color: 'Gold' }],
-  },
-];
-
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,7 +29,7 @@ export default function OrdersPage() {
       .then(res => {
         if (!active) return;
         const data = res.data?.orders;
-        if (data?.length) setOrders(data);
+        setOrders(data || []);
       })
       .catch(() => {})
       .finally(() => active && setLoading(false));

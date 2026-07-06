@@ -65,6 +65,83 @@ export default function CheckoutPage() {
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
 
+  const isMember = user?.membershipActive || addGoldMembership;
+
+  // Recalculate frame prices and BOGO
+  let oneRupeeFramesCount = 0;
+  const buy1Get1Items: { framePrice: number; lensPrice: number }[] = [];
+
+  const itemsWithPricing = items.map(item => {
+    let framePrice = item.framePrice;
+    
+    // Member Price / ₹1 Frame check
+    if (item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && oneRupeeFramesCount < 2) {
+      framePrice = 1;
+      oneRupeeFramesCount += item.qty;
+    } else if (item.product?.memberPrice !== undefined && isMember) {
+      framePrice = item.product.memberPrice;
+    } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
+      framePrice = item.product.nonMemberPrice;
+    }
+
+    if (item.product?.buy1Get1) {
+      for (let index = 0; index < item.qty; index++) {
+        buy1Get1Items.push({ framePrice, lensPrice: item.lensPrice });
+      }
+    }
+
+    return {
+      ...item,
+      framePriceCalculated: framePrice,
+    };
+  });
+
+  // Calculate BOGO discount
+  let bogoDiscount = 0;
+  if (buy1Get1Items.length >= 2) {
+    buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
+    const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
+      const currentTotal = current.framePrice + current.lensPrice;
+      const lowestTotal = lowest.framePrice + lowest.lensPrice;
+      return currentTotal < lowestTotal ? current : lowest;
+    });
+    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
+  }
+
+  // 1. Total Item Price (undiscounted)
+  const itemsSubtotal = itemsWithPricing.reduce((s, i) => {
+    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    return s + (originalFramePrice + i.lensPrice) * i.qty;
+  }, 0);
+
+  // 2. Actual Subtotal (discounted by product discounts)
+  const actualSubtotal = itemsWithPricing.reduce((s, i) => s + (i.framePriceCalculated + i.lensPrice) * i.qty, 0);
+
+  // 3. Product/Membership discount
+  const productDiscounts = itemsWithPricing.reduce((s, i) => {
+    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    return s + Math.max(0, originalFramePrice - i.framePriceCalculated) * i.qty;
+  }, 0);
+
+  // 4. Fitting Fee (Fixed 199 if any item has a lens)
+  const hasLens = itemsWithPricing.some(item => (item.lensPrice && item.lensPrice > 0) || item.lens);
+  const fittingFeeTotal = hasLens ? 199 : 0;
+
+  const delivery = isMember ? 0 : 99;
+  const membershipFee = addGoldMembership ? 129 : 0;
+  const totalDiscount = discount + bogoDiscount + productDiscounts;
+  
+  const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
+
+  // Wallet deduction: up to wallet balance, not more than remaining amount
+  let walletAmount = 0;
+  if (useWallet && user?.walletBalance) {
+    const remainingAfterDiscount = Math.max(0, totalBeforeDiscount - totalDiscount);
+    walletAmount = Math.min(user.walletBalance, remainingAfterDiscount);
+  }
+  
+  const total = Math.max(0, totalBeforeDiscount - totalDiscount - walletAmount);
+
   // Fetch active coupons
   useEffect(() => {
     api.get('/coupons')
@@ -84,7 +161,7 @@ export default function CheckoutPage() {
     try {
       const res = await api.post('/coupons/validate', {
         code: code.trim().toUpperCase(),
-        cartTotal: itemsSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
       });
 
       if (res.data.valid) {
@@ -176,71 +253,14 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, []);
 
-  const isMember = user?.membershipActive || addGoldMembership;
 
-  // Recalculate frame prices and BOGO
-  let oneRupeeFramesCount = 0;
-  const buy1Get1Items: { framePrice: number; lensPrice: number }[] = [];
-
-  const itemsWithPricing = items.map(item => {
-    let framePrice = item.framePrice;
-    
-    // Member Price / ₹1 Frame check
-    if (item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && oneRupeeFramesCount < 2) {
-      framePrice = 1;
-      oneRupeeFramesCount += item.qty;
-    } else if (item.product?.memberPrice !== undefined && isMember) {
-      framePrice = item.product.memberPrice;
-    } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
-      framePrice = item.product.nonMemberPrice;
-    }
-
-    if (item.product?.buy1Get1) {
-      for (let index = 0; index < item.qty; index++) {
-        buy1Get1Items.push({ framePrice, lensPrice: item.lensPrice });
-      }
-    }
-
-    return {
-      ...item,
-      framePriceCalculated: framePrice,
-    };
-  });
-
-  // Calculate BOGO discount
-  let bogoDiscount = 0;
-  if (buy1Get1Items.length >= 2) {
-    buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
-    const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
-      const currentTotal = current.framePrice + current.lensPrice;
-      const lowestTotal = lowest.framePrice + lowest.lensPrice;
-      return currentTotal < lowestTotal ? current : lowest;
-    });
-    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
-  }
-
-  const itemsSubtotal = itemsWithPricing.reduce((s, i) => s + (i.framePriceCalculated + i.lensPrice) * i.qty, 0);
-  const fittingFeeTotal = itemsWithPricing.reduce((s, i) => s + i.fittingCharge * i.qty, 0);
-  const delivery = isMember ? 0 : 99;
-  const membershipFee = addGoldMembership ? 129 : 0;
-  
-  const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee - bogoDiscount;
-
-  // Wallet deduction: up to wallet balance, not more than remaining amount
-  let walletAmount = 0;
-  if (useWallet && user?.walletBalance) {
-    const remainingAfterDiscount = Math.max(0, totalBeforeDiscount - discount);
-    walletAmount = Math.min(user.walletBalance, remainingAfterDiscount);
-  }
-  
-  const total = Math.max(0, totalBeforeDiscount - discount - walletAmount);
 
   // Auto re-validate coupon if pricing updates
   useEffect(() => {
     if (appliedCoupon) {
       api.post('/coupons/validate', {
         code: appliedCoupon,
-        cartTotal: itemsSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
       }).then(res => {
         if (res.data.valid) {
           setDiscount(res.data.discount);
@@ -256,7 +276,7 @@ export default function CheckoutPage() {
         setCouponSuccess('');
       });
     }
-  }, [addGoldMembership, itemsSubtotal, fittingFeeTotal, bogoDiscount]);
+  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount]);
 
   // Load Razorpay Checkout script dynamically
   useEffect(() => {
@@ -682,9 +702,9 @@ export default function CheckoutPage() {
             <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
               {itemsWithPricing.map(item => (
                 <div key={item.id} className="flex gap-3 text-xs border-b border-[#2A2A2D]/50 pb-3 last:border-b-0 last:pb-0">
-                  <div className="w-12 h-12 bg-[#222] border border-[#2A2A2D] rounded flex items-center justify-center flex-shrink-0">
+                  <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none flex items-center justify-center flex-shrink-0">
                     {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
                     ) : (
                       <span className="text-xl">👓</span>
                     )}
@@ -787,10 +807,17 @@ export default function CheckoutPage() {
                 <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
               </div>
 
+              {productDiscounts > 0 && (
+                <div className="flex justify-between text-xs text-green-400">
+                  <span>Product Discount</span>
+                  <span className="font-bold">-₹{productDiscounts}</span>
+                </div>
+              )}
+
               {bogoDiscount > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-green-400">Buy 1 Get 1 Discount</span>
-                  <span className="text-green-400 font-bold">-₹{bogoDiscount}</span>
+                <div className="flex justify-between text-xs text-green-400">
+                  <span>Buy 1 Get 1 Discount</span>
+                  <span className="font-bold">-₹{bogoDiscount}</span>
                 </div>
               )}
 

@@ -135,13 +135,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _pincodeCtrl.text = addr.pincode ?? '';
   }
 
-  double get _subtotal => _items.fold(0, (s, i) => s + i.totalPrice);
+  double get _subtotal => _items.fold(0.0, (s, i) {
+        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
+        return s + (originalFramePrice + (i.lensPrice ?? 0.0)) * i.qty;
+      });
+
+  double get _productDiscount => _items.fold(0.0, (s, i) {
+        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
+        final diff = originalFramePrice - i.framePrice;
+        return s + (diff > 0.0 ? diff : 0.0) * i.qty;
+      });
+
+  double get _fittingFee => _items.any((i) => (i.lensPrice ?? 0.0) > 0.0 || i.lensType != null) ? 199.0 : 0.0;
+
   double get _delivery {
     final user = context.read<AuthService>().currentUser;
     if (user != null && user.membershipActive == true) return 0.0;
     return _items.isNotEmpty ? 99.0 : 0.0;
   }
-  double get _total => _subtotal + _delivery;
+  double get _total => _subtotal + _fittingFee + _delivery - _productDiscount;
 
   double get _walletDeduction {
     if (!_useWallet) return 0.0;
@@ -168,7 +180,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final auth = context.read<AuthService>();
       final api = ApiService(auth);
-      final res = await api.validateCoupon(code, _total);
+      final res = await api.validateCoupon(code, _subtotal + _fittingFee - _productDiscount);
       if (res['valid'] == true) {
         setState(() {
           _couponApplied = true;
@@ -967,8 +979,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const Divider(color: AppColors.border),
                     const SizedBox(height: 6),
-                    _PriceSummaryRow(label: 'Subtotal', value: '₹${_subtotal.toInt()}'),
-                    _PriceSummaryRow(label: 'Shipping & Delivery', value: '₹${_delivery.toInt()}'),
+                    _PriceSummaryRow(label: 'Total Item Price', value: '₹${_subtotal.toInt()}'),
+                    if (_fittingFee > 0)
+                      _PriceSummaryRow(label: 'Fitting Fee', value: '₹${_fittingFee.toInt()}'),
+                    _PriceSummaryRow(label: 'Shipping & Delivery', value: _delivery == 0 ? 'FREE' : '₹${_delivery.toInt()}'),
+                    if (_productDiscount > 0)
+                      _PriceSummaryRow(
+                        label: 'Product Discount',
+                        value: '-₹${_productDiscount.toInt()}',
+                        valueColor: AppColors.success,
+                      ),
                     if (_couponApplied && _couponDiscount > 0)
                       _PriceSummaryRow(
                         label: 'Coupon Discount ($_appliedCouponCode)',
@@ -985,7 +1005,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Text('Total Amount', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                        const Text('Total Payable', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
                         const Spacer(),
                         Text('₹${_finalTotal.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 18)),
                       ],

@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/users', label: 'Users', icon: '👥' },
   { href: '/admin/tickets', label: 'Support Tickets', icon: '🎫' },
   { href: '/admin/homepage-videos', label: 'Home Videos', icon: '🎥' },
+  { href: '/admin/reels', label: 'Home Reels', icon: '📱' },
   { href: '/admin/coupons', label: 'Coupons', icon: '🏷️' },
 ];
 

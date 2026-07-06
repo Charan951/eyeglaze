@@ -939,7 +939,7 @@ export default function UserLayout() {
         <Outlet />
       </main>
 
-      {!isCustomerPage && location.pathname !== '/lens' && location.pathname !== '/checkout' && location.pathname !== '/cart' && <Footer />}
+      {isHomePage && <Footer />}
     </div>
   );
 }

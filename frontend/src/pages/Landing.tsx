@@ -26,6 +26,20 @@ export default function LandingPage() {
 
   const iconsCarouselRef = useRef<HTMLDivElement>(null);
 
+  const showcaseCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollShowcaseLeft = () => {
+    if (showcaseCarouselRef.current) {
+      showcaseCarouselRef.current.scrollBy({ left: -320, behavior: 'smooth' });
+    }
+  };
+
+  const scrollShowcaseRight = () => {
+    if (showcaseCarouselRef.current) {
+      showcaseCarouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
+    }
+  };
+
   const scrollIconsLeft = () => {
     if (iconsCarouselRef.current) {
       iconsCarouselRef.current.scrollBy({ left: -320, behavior: 'smooth' });
@@ -75,6 +89,7 @@ export default function LandingPage() {
 
   // Videos States
   const [videos, setVideos] = useState<any[]>([]);
+  const [reels, setReels] = useState<any[]>([]);
 
   // Fetch homepage videos on mount
   useEffect(() => {
@@ -86,6 +101,22 @@ export default function LandingPage() {
       })
       .catch((err) => {
         console.error('Error fetching homepage videos:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Fetch homepage reels on mount
+  useEffect(() => {
+    let active = true;
+    api.get('/reels')
+      .then((res) => {
+        if (!active) return;
+        setReels(res.data);
+      })
+      .catch((err) => {
+        console.error('Error fetching reels:', err);
       });
     return () => {
       active = false;
@@ -238,6 +269,16 @@ export default function LandingPage() {
   const [shapeModalTitle, setShapeModalTitle] = useState('');
   const [shapeModalCategory, setShapeModalCategory] = useState('');
   const [shapeModalGender, setShapeModalGender] = useState('');
+
+  // Reels modal states
+  const [selectedReel, setSelectedReel] = useState<any | null>(null);
+  const [isReelModalOpen, setIsReelModalOpen] = useState(false);
+  const [playingReelId, setPlayingReelId] = useState<string | null>(null);
+  const [clickedReelId, setClickedReelId] = useState<string | null>(null);
+
+  // Showcase modal states
+  const [selectedShowcaseVideo, setSelectedShowcaseVideo] = useState<any | null>(null);
+  const [isShowcaseModalOpen, setIsShowcaseModalOpen] = useState(false);
 
   // Lock body scroll on mobile when menus are open
   useEffect(() => {
@@ -580,8 +621,8 @@ export default function LandingPage() {
         keywords="eyeglaze, eye glaze, luxury glasses, home eye test, prescription eyeglasses, custom lenses, sunglasses"
       />
       
-      {/* Main Body - Desktop View Layout */}
-      <div className="hidden md:block w-full py-6 space-y-12">
+      {/* Main Body - Shared Layout */}
+      <div className="w-full py-6 space-y-12">
         
         {/* Hero Section - Full View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
@@ -1335,6 +1376,121 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* EyeGlaze Reels Section */}
+        {reels && reels.length > 0 ? (
+          <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Reels</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Trending styles, lookbooks and details</span>
+            </div>
+
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth">
+              {reels.map((reel) => (
+                <div 
+                  key={reel._id || reel.id}
+                  onClick={(e) => {
+                    const isClicked = clickedReelId === reel._id;
+                    const videoEl = e.currentTarget.querySelector('video');
+                    
+                    // Pause and mute all other videos
+                    const allVideos = document.querySelectorAll('video');
+                    allVideos.forEach(v => {
+                      if (v !== videoEl) {
+                        v.pause();
+                        v.muted = true;
+                      }
+                    });
+
+                    if (isClicked) {
+                      setClickedReelId(null);
+                      setPlayingReelId(null);
+                      if (videoEl) {
+                        videoEl.pause();
+                        videoEl.muted = true;
+                      }
+                    } else {
+                      setClickedReelId(reel._id);
+                      setPlayingReelId(reel._id);
+                      if (videoEl) {
+                        videoEl.muted = false; // Unmute to allow audio!
+                        videoEl.play().catch(() => {});
+                      }
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (clickedReelId && clickedReelId !== reel._id) return;
+                    setPlayingReelId(reel._id);
+                    const videoEl = e.currentTarget.querySelector('video');
+                    if (videoEl) {
+                      videoEl.muted = clickedReelId === reel._id ? false : true;
+                      videoEl.play().catch(() => {});
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (clickedReelId === reel._id) return; // Keep playing if clicked!
+                    setPlayingReelId(null);
+                    const videoEl = e.currentTarget.querySelector('video');
+                    if (videoEl) {
+                      videoEl.pause();
+                      videoEl.muted = true;
+                    }
+                  }}
+                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-3 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[160px] md:w-[220px] flex-shrink-0 cursor-pointer group relative"
+                >
+                  <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                    {/* The Logo Cover Overlay */}
+                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                      {/* Logo emblem */}
+                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
+                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
+                      </div>
+                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
+                    </div>
+
+                    {isDirectVideo(reel.videoUrl) ? (
+                      <video
+                        src={reel.videoUrl}
+                        className="w-full h-full object-cover"
+                        loop
+                        playsInline
+                        autoPlay={playingReelId === reel._id}
+                      />
+                    ) : (
+                      <iframe
+                        title={reel.title}
+                        className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                        src={
+                          playingReelId === reel._id
+                            ? clickedReelId === reel._id
+                              ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                              : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                            : getEmbedUrl(reel.videoUrl)
+                        }
+                        allow="autoplay; encrypted-media"
+                      />
+                    )}
+                    {/* Dark gradient overlay at the bottom for title */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-3 gap-1">
+                      <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                      {reel.description && (
+                        <p className="text-gray-400 text-[8px] md:text-[9.5px] leading-relaxed line-clamp-2 font-medium">
+                          {reel.description}
+                        </p>
+                      )}
+                    </div>
+                    {/* Play Badge Overlay */}
+                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity bg-black/25 ${playingReelId === reel._id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white text-sm">
+                        ▶
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {/* EyeGlaze Showcase Section */}
         {videos && videos.length > 0 ? (
           <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
@@ -1343,40 +1499,87 @@ export default function LandingPage() {
               <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-              {videos.map((vid) => (
-                <div 
-                  key={vid._id || vid.id}
-                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-4 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-full"
-                >
-                  <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                    {isDirectVideo(vid.videoUrl) ? (
-                      <video
-                        src={vid.videoUrl}
-                        className="w-full h-full object-cover"
-                        controls
-                        playsInline
-                      />
-                    ) : (
-                      <iframe
-                        title={vid.title}
-                        className="w-full h-full"
-                        src={getEmbedUrl(vid.videoUrl)}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    )}
+            <div className="relative w-full group/showcase-carousel">
+              {/* Left navigation arrow */}
+              <button 
+                onClick={scrollShowcaseLeft}
+                className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/showcase-carousel:opacity-100 hidden md:flex"
+                aria-label="Previous Showcase Video"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* Right navigation arrow */}
+              <button 
+                onClick={scrollShowcaseRight}
+                className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/showcase-carousel:opacity-100 hidden md:flex"
+                aria-label="Next Showcase Video"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* Showcase Carousel Container */}
+              <div 
+                ref={showcaseCarouselRef}
+                className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full pb-4"
+              >
+                {videos.map((vid) => (
+                  <div 
+                    key={vid._id || vid.id}
+                    onClick={() => {
+                      setSelectedShowcaseVideo(vid);
+                      setIsShowcaseModalOpen(true);
+                    }}
+                    className="flex-shrink-0 w-[70vw] sm:w-[250px] md:w-[280px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col justify-between cursor-pointer"
+                  >
+                    <div className="aspect-[4/3] w-full overflow-hidden bg-[#131314] relative flex items-center justify-center p-0 border-b border-[#2A2A2D]/40">
+                      {isDirectVideo(vid.videoUrl) ? (
+                        <video
+                          src={vid.videoUrl}
+                          className="w-full h-full object-cover pointer-events-none"
+                          muted
+                          loop
+                          playsInline
+                        />
+                      ) : (
+                        <iframe
+                          title={vid.title}
+                          className="w-full h-full pointer-events-none border-none"
+                          src={getEmbedUrl(vid.videoUrl)}
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-40 group-hover:opacity-20 transition-opacity" />
+                      {/* Play overlay button on center */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity">
+                        <div className="w-10 h-10 rounded-full bg-black/55 border border-white/20 flex items-center justify-center text-white text-xs">
+                          ▶
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 flex flex-col gap-1.5 flex-1 justify-between">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[#D4A04D] text-[10px] font-bold uppercase tracking-wider">CUSTOMER STORY</span>
+                        <h3 className="text-white text-xs font-bold truncate">{vid.title}</h3>
+                        {vid.description && (
+                          <p className="text-gray-400 text-[10px] leading-relaxed mt-1 font-semibold line-clamp-2">
+                            {vid.description}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        className="w-full mt-3 border border-[#2A2A2D] group-hover:border-[#D4A04D] text-white group-hover:text-black group-hover:bg-[#D4A04D] text-[10px] font-bold py-2 rounded-lg transition-all"
+                      >
+                        WATCH SHOWCASE
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1 px-1">
-                    <span className="text-white text-xs font-bold uppercase tracking-wide">{vid.title}</span>
-                    {vid.description && (
-                      <p className="text-gray-400 text-[10px] leading-relaxed font-semibold">
-                        {vid.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
         ) : (
@@ -2402,6 +2605,132 @@ export default function LandingPage() {
             >
               View All Shapes
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reels Modal Player */}
+      {isReelModalOpen && selectedReel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            onClick={() => {
+              setIsReelModalOpen(false);
+              setSelectedReel(null);
+            }} 
+            className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer" 
+          />
+          <div className="relative bg-[#0E0E0E] border border-[#2A2A2D] w-full max-w-sm aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl z-10 animate-scale-up flex flex-col justify-between">
+            {/* Header overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center z-20">
+              <h3 className="text-white text-xs font-bold uppercase tracking-wider truncate max-w-[80%]">
+                {selectedReel.title}
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsReelModalOpen(false);
+                  setSelectedReel(null);
+                }} 
+                className="text-white hover:text-gray-300 p-1.5 rounded-full bg-black/40 hover:bg-black/60 transition-colors border-none cursor-pointer"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video content */}
+            <div className="flex-1 w-full h-full bg-black relative">
+              {isDirectVideo(selectedReel.videoUrl) ? (
+                <video
+                  src={selectedReel.videoUrl}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  controls
+                  loop
+                  playsInline
+                />
+              ) : (
+                <iframe
+                  title={selectedReel.title}
+                  className="w-full h-full border-none"
+                  src={`${getEmbedUrl(selectedReel.videoUrl)}?autoplay=1`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+
+            {/* Description overlay */}
+            {selectedReel.description && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent z-20 flex flex-col gap-1">
+                <p className="text-gray-200 text-[10px] md:text-xs leading-relaxed font-semibold">
+                  {selectedReel.description}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Widescreen Showcase Modal Player */}
+      {isShowcaseModalOpen && selectedShowcaseVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            onClick={() => {
+              setIsShowcaseModalOpen(false);
+              setSelectedShowcaseVideo(null);
+            }} 
+            className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer" 
+          />
+          <div className="relative bg-[#0E0E0E] border border-[#2A2A2D] w-full max-w-2xl aspect-video rounded-2xl overflow-hidden shadow-2xl z-10 animate-scale-up flex flex-col justify-between">
+            {/* Header overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center z-20">
+              <h3 className="text-white text-xs md:text-sm font-bold uppercase tracking-wider truncate max-w-[85%]">
+                {selectedShowcaseVideo.title}
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsShowcaseModalOpen(false);
+                  setSelectedShowcaseVideo(null);
+                }} 
+                className="text-white hover:text-gray-300 p-1.5 rounded-full bg-black/40 hover:bg-black/60 transition-colors border-none cursor-pointer"
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video content */}
+            <div className="flex-1 w-full h-full bg-black relative">
+              {isDirectVideo(selectedShowcaseVideo.videoUrl) ? (
+                <video
+                  src={selectedShowcaseVideo.videoUrl}
+                  className="w-full h-full object-contain"
+                  autoPlay
+                  controls
+                  loop
+                  playsInline
+                />
+              ) : (
+                <iframe
+                  title={selectedShowcaseVideo.title}
+                  className="w-full h-full border-none"
+                  src={`${getEmbedUrl(selectedShowcaseVideo.videoUrl)}?autoplay=1`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+
+            {/* Description overlay */}
+            {selectedShowcaseVideo.description && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent z-20 flex flex-col gap-1">
+                <p className="text-gray-200 text-[10px] md:text-xs leading-relaxed font-semibold">
+                  {selectedShowcaseVideo.description}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

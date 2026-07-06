@@ -66,7 +66,6 @@ class CartItem {
   double get totalPrice {
     double total = framePrice;
     if (lensPrice != null) total += lensPrice!;
-    if (fittingCharge != null) total += fittingCharge!;
     return total * qty;
   }
 

@@ -61,6 +61,8 @@ export default function CartPage() {
   const [addGoldMembership, setAddGoldMembership] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
+  const [showItemPriceDropdown, setShowItemPriceDropdown] = useState(false);
+  const [showDiscountDropdown, setShowDiscountDropdown] = useState(false);
 
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState('');
@@ -165,20 +167,38 @@ export default function CartPage() {
     bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
   }
 
-  const itemsSubtotal = itemsWithPricing.reduce((s, i) => s + (i.framePriceCalculated + i.lensPrice) * i.qty, 0);
-  const fittingFeeTotal = itemsWithPricing.reduce((s, i) => s + i.fittingCharge * i.qty, 0);
+  // 1. Total Item Price (undiscounted)
+  const itemsSubtotal = itemsWithPricing.reduce((s, i) => {
+    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    return s + (originalFramePrice + i.lensPrice) * i.qty;
+  }, 0);
+
+  // 2. Actual Subtotal (discounted by product discounts)
+  const actualSubtotal = itemsWithPricing.reduce((s, i) => s + (i.framePriceCalculated + i.lensPrice) * i.qty, 0);
+
+  // 3. Product/Membership discount
+  const productDiscounts = itemsWithPricing.reduce((s, i) => {
+    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    return s + Math.max(0, originalFramePrice - i.framePriceCalculated) * i.qty;
+  }, 0);
+
+  // 4. Fitting Fee (Fixed 199 if any item has a lens)
+  const hasLens = itemsWithPricing.some(item => (item.lensPrice && item.lensPrice > 0) || item.lens);
+  const fittingFeeTotal = hasLens ? 199 : 0;
+
   const delivery = isMember ? 0 : 99;
   const membershipFee = addGoldMembership ? 129 : 0;
+  const totalDiscount = discount + bogoDiscount + productDiscounts;
   
-  const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee - bogoDiscount;
-  const total = Math.max(0, totalBeforeDiscount - discount);
+  const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
+  const total = Math.max(0, totalBeforeDiscount - totalDiscount);
 
   // Auto re-validate coupon if pricing updates
   useEffect(() => {
     if (appliedCoupon) {
       api.post('/coupons/validate', {
         code: appliedCoupon,
-        cartTotal: itemsSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
       }).then(res => {
         if (res.data.valid) {
           setDiscount(res.data.discount);
@@ -194,7 +214,7 @@ export default function CartPage() {
         setCouponSuccess('');
       });
     }
-  }, [addGoldMembership, itemsSubtotal, fittingFeeTotal, bogoDiscount]);
+  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount]);
 
   const handleApplyCoupon = async (codeToUse?: string) => {
     const code = codeToUse || couponCode;
@@ -204,7 +224,7 @@ export default function CartPage() {
     try {
       const res = await api.post('/coupons/validate', {
         code: code.trim().toUpperCase(),
-        cartTotal: itemsSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
       });
 
       if (res.data.valid) {
@@ -316,11 +336,11 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           {itemsWithPricing.map(item => (
-            <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 flex gap-4">
+            <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4">
               {/* Product Image */}
-              <div className="w-20 h-20 bg-[#222] border border-[#2A2A2D] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+              <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0">
                 {item.image ? (
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                  <img src={item.image} alt={item.name} className="w-full h-full object-contain p-2" />
                 ) : (
                   <span className="text-3xl">👓</span>
                 )}
@@ -354,11 +374,10 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <div className="text-right">
-                <div className="text-white font-bold">₹{(item.framePriceCalculated + item.lensPrice + item.fittingCharge) * item.qty}</div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-white font-bold">₹{(item.framePriceCalculated + item.lensPrice) * item.qty}</div>
                 <div className="text-[#A7A7A7] text-xs mt-1">Frame: ₹{item.framePriceCalculated}</div>
                 {item.lensPrice > 0 && <div className="text-[#A7A7A7] text-xs">Lens: ₹{item.lensPrice}</div>}
-                {item.fittingCharge > 0 && <div className="text-[#A7A7A7] text-xs">Fitting: ₹{item.fittingCharge}</div>}
               </div>
             </div>
           ))}
@@ -450,9 +469,30 @@ export default function CartPage() {
 
             {/* Billing summary */}
             <div className="space-y-3 text-sm mb-4">
-              <div className="flex justify-between">
-                <span className="text-[#A7A7A7]">Total Item Price</span>
-                <span className="text-white">₹{itemsSubtotal}</span>
+              <div>
+                <div 
+                  className="flex justify-between items-center cursor-pointer select-none group"
+                  onClick={() => setShowItemPriceDropdown(!showItemPriceDropdown)}
+                >
+                  <span className="text-[#A7A7A7] flex items-center gap-1 group-hover:text-white transition-colors">
+                    Total Item Price
+                    <span className="text-[10px] text-gray-500">{showItemPriceDropdown ? '▼' : '▶'}</span>
+                  </span>
+                  <span className="text-white font-semibold">₹{itemsSubtotal}</span>
+                </div>
+                {showItemPriceDropdown && (
+                  <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-1.5 text-xs text-[#A7A7A7] border-l border-[#2A2A2D] ml-1">
+                    {itemsWithPricing.map(item => {
+                      const originalFramePrice = item.product?.nonMemberPrice ?? item.product?.price?.selling ?? item.framePrice ?? 1;
+                      return (
+                        <div key={item.id} className="flex justify-between">
+                          <span className="max-w-[70%] truncate">{item.name} (x{item.qty})</span>
+                          <span>₹{(originalFramePrice + item.lensPrice) * item.qty}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               
               {fittingFeeTotal > 0 && (
@@ -467,13 +507,6 @@ export default function CartPage() {
                 <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
               </div>
 
-              {bogoDiscount > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-green-400">Buy 1 Get 1 Discount</span>
-                  <span className="text-green-400 font-bold">-₹{bogoDiscount}</span>
-                </div>
-              )}
-
               {membershipFee > 0 && (
                 <div className="flex justify-between">
                   <span className="text-[#A7A7A7]">Gold Membership Fee</span>
@@ -481,10 +514,40 @@ export default function CartPage() {
                 </div>
               )}
 
-              {discount > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A7A7A7]">Coupon Discount ({appliedCoupon})</span>
-                  <span className="text-[#D4A04D] font-bold">-₹{discount}</span>
+              {totalDiscount > 0 && (
+                <div>
+                  <div 
+                    className="flex justify-between items-center cursor-pointer select-none group font-medium text-green-400"
+                    onClick={() => setShowDiscountDropdown(!showDiscountDropdown)}
+                  >
+                    <span className="flex items-center gap-1 group-hover:text-green-300 transition-colors">
+                      Total Discount
+                      <span className="text-[10px] text-green-400/50">{showDiscountDropdown ? '▼' : '▶'}</span>
+                    </span>
+                    <span className="font-bold">-₹{totalDiscount}</span>
+                  </div>
+                  {showDiscountDropdown && (
+                    <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-1.5 text-xs text-green-400/70 border-l border-green-500/20 ml-1">
+                      {productDiscounts > 0 && (
+                        <div className="flex justify-between">
+                          <span>Product Discount</span>
+                          <span>-₹{productDiscounts}</span>
+                        </div>
+                      )}
+                      {bogoDiscount > 0 && (
+                        <div className="flex justify-between">
+                          <span>Buy 1 Get 1 Offer</span>
+                          <span>-₹{bogoDiscount}</span>
+                        </div>
+                      )}
+                      {discount > 0 && (
+                        <div className="flex justify-between">
+                          <span>Coupon Discount ({appliedCoupon})</span>
+                          <span>-₹{discount}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               

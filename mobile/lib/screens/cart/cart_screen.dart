@@ -16,6 +16,9 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  bool _showItemDropdown = false;
+  bool _showDiscountDropdown = false;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +37,8 @@ class _CartScreenState extends State<CartScreen> {
     final items = cart.items;
     final loading = cart.isLoading;
     final subtotal = cart.subtotal;
+    final productDiscount = cart.productDiscount;
+    final fittingFee = cart.fittingFee;
     final delivery = cart.delivery;
     final total = cart.total;
 
@@ -92,14 +97,107 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                       child: Column(
                         children: [
-                          _PriceRow('Subtotal', '₹${subtotal.toInt()}'),
-                          _PriceRow('Delivery Charge', '₹${delivery.toInt()}'),
+                          // Total Item Price Dropdown
+                          GestureDetector(
+                            onTap: () => setState(() => _showItemDropdown = !_showItemDropdown),
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                children: [
+                                  const Text('Total Item Price', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    _showItemDropdown ? Icons.arrow_drop_down : Icons.arrow_right,
+                                    color: AppColors.muted,
+                                    size: 16,
+                                  ),
+                                  const Spacer(),
+                                  Text('₹${subtotal.toInt()}', style: const TextStyle(color: AppColors.white, fontSize: 14)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_showItemDropdown)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12, bottom: 8),
+                              child: Column(
+                                children: items.map((item) {
+                                  final originalFramePrice = item.product?.nonMemberPrice ?? item.product?.sellingPrice ?? item.framePrice;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${item.product?.name ?? 'Frame'} (x${item.qty})',
+                                            style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '₹${((originalFramePrice + (item.lensPrice ?? 0.0)) * item.qty).toInt()}',
+                                          style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          
+                          if (fittingFee > 0)
+                            _PriceRow('Fitting Fee', '₹${fittingFee.toInt()}'),
+                          
+                          _PriceRow('Shipping & Delivery', delivery == 0 ? 'FREE' : '₹${delivery.toInt()}'),
+                          
+                          // Total Discount Dropdown
+                          if (productDiscount > 0) ...[
+                            GestureDetector(
+                              onTap: () => setState(() => _showDiscountDropdown = !_showDiscountDropdown),
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    const Text('Total Discount', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      _showDiscountDropdown ? Icons.arrow_drop_down : Icons.arrow_right,
+                                      color: AppColors.success,
+                                      size: 16,
+                                    ),
+                                    const Spacer(),
+                                    Text('-₹${productDiscount.toInt()}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_showDiscountDropdown)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 12, bottom: 8),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text('Product Discount', style: TextStyle(color: AppColors.success, fontSize: 11)),
+                                        const Spacer(),
+                                        Text('-₹${productDiscount.toInt()}', style: const TextStyle(color: AppColors.success, fontSize: 11)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          
                           const Divider(color: AppColors.border),
                           Row(
                             children: [
-                              const Text('Total', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                              const Text('Total Payable', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 16)),
                               const Spacer(),
-                              Text('₹${total.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                              Text('₹${total.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 20)),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -162,8 +260,12 @@ class _CartItemCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.product?.name ?? 'Frame', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700)),
-                if (item.selectedColor != null) Text('Color: ${item.selectedColor}', style: AppTextStyles.muted),
+                Text(
+                  '${item.product?.sku ?? ''}${item.product?.sku != null && item.selectedColor != null ? ' · ' : ''}${item.selectedColor ?? ''}',
+                  style: AppTextStyles.muted,
+                ),
                 if (item.lensType != null) ...[
+                  const SizedBox(height: 2),
                   Text('Lens: ${item.lensType}', style: AppTextStyles.muted),
                   if (item.lensSubType != null) Text('Option: ${item.lensSubType}', style: AppTextStyles.muted),
                   if (item.lensQuality != null) Text('Quality: ${item.lensQuality}', style: AppTextStyles.muted),
@@ -186,12 +288,43 @@ class _CartItemCard extends StatelessWidget {
                       ),
                     ),
                 ],
-                const SizedBox(height: 6),
-                Text('₹${item.totalPrice.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: onRemove,
+                  child: const Text(
+                    'Remove',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20), onPressed: onRemove),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '₹${item.totalPrice.toInt()}',
+                style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Frame: ₹${(item.framePrice * item.qty).toInt()}',
+                style: const TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+              if (item.lensPrice != null && item.lensPrice! > 0)
+                Text(
+                  'Lens: ₹${(item.lensPrice! * item.qty).toInt()}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+
+            ],
+          ),
         ],
       ),
     );

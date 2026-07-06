@@ -42,9 +42,9 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
 
   return (
     <div className="block group">
-      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col aspect-square w-full'}`}>
+      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-none overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col w-full'}`}>
         {/* Image wrapper */}
-        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'h-[52%] border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
+        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-square w-full border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
           {product.images?.[0] ? (
             <img 
               src={product.images[0]} 
@@ -87,7 +87,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
         </Link>
 
         {/* Info */}
-        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-4' : 'p-3'}`}>
+        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-4' : 'p-3.5'}`}>
           <div className="space-y-1">
             {/* Top row: Brand & Price */}
             <div className="flex justify-between items-start gap-2">
