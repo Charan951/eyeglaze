@@ -19,10 +19,18 @@ export const getLenses = async (req: Request, res: Response) => {
 
 export const createLens = async (req: Request, res: Response) => {
   try {
-    const { name, lensType, basePrice, status } = req.body;
+    const { name, lensType, basePrice, status, powerPricing } = req.body;
     
     if (basePrice < 0) {
       return res.status(400).json({ message: 'Price cannot be negative' });
+    }
+
+    if (powerPricing && Array.isArray(powerPricing)) {
+      for (const rule of powerPricing) {
+        if (rule.price < 0) {
+          return res.status(400).json({ message: 'Power-based pricing rule price cannot be negative' });
+        }
+      }
     }
 
     const typeExists = await LensType.findById(lensType);
@@ -35,7 +43,7 @@ export const createLens = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Lens name must be unique within a Lens Type' });
     }
 
-    const newLens = new Lens({ name, lensType, basePrice, status });
+    const newLens = new Lens({ name, lensType, basePrice, status, powerPricing });
     await newLens.save();
     
     const populatedLens = await Lens.findById(newLens._id).populate('lensType');
@@ -49,10 +57,18 @@ export const createLens = async (req: Request, res: Response) => {
 export const updateLens = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, lensType, basePrice, status } = req.body;
+    const { name, lensType, basePrice, status, powerPricing } = req.body;
 
     if (basePrice < 0) {
       return res.status(400).json({ message: 'Price cannot be negative' });
+    }
+
+    if (powerPricing && Array.isArray(powerPricing)) {
+      for (const rule of powerPricing) {
+        if (rule.price < 0) {
+          return res.status(400).json({ message: 'Power-based pricing rule price cannot be negative' });
+        }
+      }
     }
 
     const typeExists = await LensType.findById(lensType);
@@ -67,7 +83,7 @@ export const updateLens = async (req: Request, res: Response) => {
 
     const updated = await Lens.findByIdAndUpdate(
       id,
-      { name, lensType, basePrice, status },
+      { name, lensType, basePrice, status, powerPricing },
       { new: true }
     ).populate('lensType');
 

@@ -1,5 +1,13 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IPowerPricing {
+  minSph: number;
+  maxSph: number;
+  minCyl: number;
+  maxCyl: number;
+  price: number;
+}
+
 export interface ILens extends Document {
   name: string;
   lensType: mongoose.Types.ObjectId;
@@ -7,6 +15,7 @@ export interface ILens extends Document {
   memberPrice?: number;
   displayOrder: number;
   status: 'Active' | 'Inactive';
+  powerPricing?: IPowerPricing[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +28,15 @@ const LensSchema = new Schema<ILens>(
     memberPrice: { type: Number, min: 0 },
     displayOrder: { type: Number, default: 0 },
     status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+    powerPricing: [
+      {
+        minSph: { type: Number, required: true },
+        maxSph: { type: Number, required: true },
+        minCyl: { type: Number, required: true },
+        maxCyl: { type: Number, required: true },
+        price: { type: Number, required: true, min: 0 },
+      }
+    ],
   },
   { timestamps: true }
 );

@@ -64,6 +64,8 @@ export default function CheckoutPage() {
   const [addGoldMembership, setAddGoldMembership] = useState(checkoutState.addGoldMembership || false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
+  const [useWallet, setUseWallet] = useState(false);
+  const [isNewAddressActive, setIsNewAddressActive] = useState(false);
 
   const isMember = user?.membershipActive || addGoldMembership;
 
@@ -191,8 +193,6 @@ export default function CheckoutPage() {
   };
 
   // Wallet
-  const [useWallet, setUseWallet] = useState(false);
-  const [isNewAddressActive, setIsNewAddressActive] = useState(false);
 
   // Auto-fill from default saved address if available
   useEffect(() => {

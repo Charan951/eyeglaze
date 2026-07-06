@@ -18,6 +18,7 @@ interface LensOption {
   badge?: string;
   isBestseller?: boolean;
   isRecommended?: boolean;
+  powerPricing?: any[];
 }
 
 interface Product {
@@ -38,6 +39,46 @@ interface Product {
     templeLength?: number;
   };
 }
+
+const parseSafeFloat = (val: any): number => {
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+const getLensPriceForPower = (lens: any, sph: number, cyl: number): number => {
+  if (!lens.powerPricing || lens.powerPricing.length === 0) {
+    return lens.basePrice || lens.price || 0;
+  }
+  
+  const matchingRule = lens.powerPricing.find((rule: any) => {
+    const minS = Math.min(rule.minSph, rule.maxSph);
+    const maxS = Math.max(rule.minSph, rule.maxSph);
+    const minC = Math.min(rule.minCyl, rule.maxCyl);
+    const maxC = Math.max(rule.minCyl, rule.maxCyl);
+    
+    return sph >= minS && sph <= maxS && cyl >= minC && cyl <= maxC;
+  });
+  
+  return matchingRule ? matchingRule.price : (lens.basePrice || lens.price || 0);
+};
+
+const getLensPairPrice = (
+  lens: any,
+  powerMode: string,
+  reSphVal: number,
+  reCylVal: number,
+  leSphVal: number,
+  leCylVal: number
+): number => {
+  if (!lens) return 0;
+  if (powerMode !== 'enter') {
+    return lens.basePrice || lens.price || 0;
+  }
+  const rightPrice = getLensPriceForPower(lens, reSphVal, reCylVal);
+  const leftPrice = getLensPriceForPower(lens, leSphVal, leCylVal);
+  
+  return Math.max(rightPrice, leftPrice);
+};
 
 export default function LensSelection() {
   const [searchParams] = useSearchParams();
@@ -63,8 +104,16 @@ export default function LensSelection() {
         ? (lens.lensType?._id?.toString() || '') 
         : (lens.lensType?.toString() || '');
       if (typeId) {
-        if (minPrices[typeId] === undefined || lens.basePrice < minPrices[typeId]) {
-          minPrices[typeId] = lens.basePrice;
+        const dynamicPrice = getLensPairPrice(
+          lens,
+          powerMode,
+          parseSafeFloat(reSph),
+          parseSafeFloat(reCyl),
+          parseSafeFloat(leSph),
+          parseSafeFloat(leCyl)
+        );
+        if (minPrices[typeId] === undefined || dynamicPrice < minPrices[typeId]) {
+          minPrices[typeId] = dynamicPrice;
         }
       }
     });
@@ -261,8 +310,9 @@ export default function LensSelection() {
               kind: 'quality',
               name: firstLens.name,
               displayName: firstLens.name,
-              price: firstLens.basePrice,
-              features: ['UV Protection', 'Scratch Resistant']
+              price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
+              features: ['UV Protection', 'Scratch Resistant'],
+              powerPricing: firstLens.powerPricing
             } as any);
           }
         } else {
@@ -334,14 +384,34 @@ export default function LensSelection() {
           kind: 'quality',
           name: firstLens.name,
           displayName: firstLens.name,
-          price: firstLens.basePrice,
-          features: ['UV Protection', 'Scratch Resistant']
+          price: getLensPairPrice(
+            firstLens,
+            powerMode,
+            parseSafeFloat(reSph),
+            parseSafeFloat(reCyl),
+            parseSafeFloat(leSph),
+            parseSafeFloat(leCyl)
+          ),
+          features: ['UV Protection', 'Scratch Resistant'],
+          powerPricing: firstLens.powerPricing
         } as any);
       } else {
         setSelectedQuality(null);
       }
     }
-  }, [selectedType, customLenses]);
+  }, [selectedType, customLenses, powerMode, reSph, reCyl, leSph, leCyl]);
+
+  const getCurrentLensPrice = (lens: any) => {
+    if (!lens) return 0;
+    return getLensPairPrice(
+      lens,
+      powerMode,
+      parseSafeFloat(reSph),
+      parseSafeFloat(reCyl),
+      parseSafeFloat(leSph),
+      parseSafeFloat(leCyl)
+    );
+  };
 
   if (loading) {
     return <div className="text-center py-24 text-[#A7A7A7]">Loading Lens Configuration...</div>;
@@ -382,8 +452,6 @@ export default function LensSelection() {
   const filteredLensTypes = mainLensTypes.filter(typeOption => {
     return typeOption.type !== 'zero_power';
   });
-
-  const isZeroPower = false;
 
   const stepsConfig = [
     { step: 1, label: 'POWER' },
@@ -576,7 +644,7 @@ export default function LensSelection() {
 
       const basePrice = selectedType?.type === 'progressive' 
         ? (selectedSubType?.price || 2499)
-        : (selectedQuality?.price || selectedType?.price || 699);
+        : (getCurrentLensPrice(selectedQuality) || selectedType?.price || 699);
 
       // Determine power object based on user's choice, not lens type!
       let powerObj;
@@ -947,7 +1015,7 @@ export default function LensSelection() {
 
             {/* Prescription Form Block */}
             <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
-                {user && savedPrescriptions.length > 0 && powerMode !== 'zero' && (
+                {user && savedPrescriptions.length > 0 && (powerMode as any) !== 'zero' && (
                   <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
                     <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
                       📂 Add Saved Power
@@ -1159,7 +1227,7 @@ export default function LensSelection() {
                 <div className="hidden sm:flex flex-col text-left">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 1 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
-                    {powerMode === 'zero' ? 'Zero Power (Plano)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
+                    {(powerMode as any) === 'zero' ? 'Zero Power (Plano)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
                   </span>
                 </div>
                 
@@ -1343,8 +1411,9 @@ export default function LensSelection() {
                           kind: 'quality',
                           name: lens.name,
                           displayName: lens.name,
-                          price: lens.basePrice,
-                          features: features
+                          price: getCurrentLensPrice(lens),
+                          features: features,
+                          powerPricing: lens.powerPricing
                         } as any)}
                         className={`relative bg-[#131314] border rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
                           isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
@@ -1364,14 +1433,14 @@ export default function LensSelection() {
                             ))}
                           </div>
                         </div>
-
+ 
                         {/* Divider line for mobile */}
                         <div className="w-full border-t border-[#2A2A2D]/50 sm:hidden my-1" />
-
+ 
                         {/* Price and select circle */}
                         <div className="flex items-center sm:flex-col sm:items-end sm:justify-start justify-between shrink-0 gap-3">
                           <div className="flex flex-col sm:items-end text-left sm:text-right">
-                            <span className="text-white font-black text-sm">₹{lens.basePrice}</span>
+                            <span className="text-white font-black text-sm">₹{getCurrentLensPrice(lens)}</span>
                             <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">/ pair</span>
                           </div>
                           <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${

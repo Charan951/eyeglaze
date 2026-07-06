@@ -9,6 +9,14 @@ interface LensType {
   lensCount?: number;
 }
 
+interface PowerPricing {
+  minSph: number;
+  maxSph: number;
+  minCyl: number;
+  maxCyl: number;
+  price: number;
+}
+
 interface Lens {
   _id: string;
   name: string;
@@ -17,6 +25,7 @@ interface Lens {
   memberPrice?: number;
   displayOrder: number;
   status: 'Active' | 'Inactive';
+  powerPricing?: PowerPricing[];
   createdAt: string;
 }
 
@@ -59,6 +68,39 @@ export default function AdminLensesPage() {
 
   const [isLensDrawerOpen, setIsLensDrawerOpen] = useState(false);
   const [editingLens, setEditingLens] = useState<Lens | null>(null);
+  const [powerPricing, setPowerPricing] = useState<PowerPricing[]>([]);
+
+  useEffect(() => {
+    if (isLensDrawerOpen) {
+      if (editingLens) {
+        setPowerPricing(editingLens.powerPricing || []);
+      } else {
+        setPowerPricing([]);
+      }
+    }
+  }, [isLensDrawerOpen, editingLens]);
+
+  const handleAddPowerPricingRule = () => {
+    setPowerPricing([
+      ...powerPricing,
+      { minSph: -4.00, maxSph: 4.00, minCyl: -2.00, maxCyl: 2.00, price: 999 }
+    ]);
+  };
+
+  const handleRemovePowerPricingRule = (idx: number) => {
+    setPowerPricing(powerPricing.filter((_, i) => i !== idx));
+  };
+
+  const handleRuleChange = (idx: number, key: keyof PowerPricing, val: number) => {
+    setPowerPricing(
+      powerPricing.map((rule, i) => {
+        if (i === idx) {
+          return { ...rule, [key]: val };
+        }
+        return rule;
+      })
+    );
+  };
 
   // Notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -166,6 +208,7 @@ export default function AdminLensesPage() {
       lensType: formData.get('lensType') as string,
       basePrice,
       status: formData.get('status') as string,
+      powerPricing,
     };
 
     try {
@@ -195,6 +238,206 @@ export default function AdminLensesPage() {
       showToast(err.response?.data?.message || 'Failed to delete lens', 'error');
     }
   };
+
+  if (isLensDrawerOpen) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0C] p-6 text-left relative flex flex-col">
+        {/* Toast */}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-bold animate-fade-in ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}>
+            {toast.message}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="pb-4 border-b border-[#2A2A2D] mb-6 flex justify-between items-center">
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsLensDrawerOpen(false)}
+              className="text-xs text-[#A7A7A7] hover:text-[#D4A04D] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors bg-transparent border-none p-0 cursor-pointer mb-2"
+            >
+              ← Back to Lens Management
+            </button>
+            <h1 className="text-2xl font-bold text-white uppercase tracking-wide">
+              {editingLens ? 'Edit Lens' : 'Add New Lens'}
+            </h1>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveLens} className="flex-1 flex flex-col space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            {/* Left Column: General Info */}
+            <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 space-y-5">
+              <h2 className="text-sm text-[#D4A04D] font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 mb-2">
+                General Information
+              </h2>
+              
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Lens Name *</label>
+                <input
+                  name="name"
+                  type="text"
+                  required
+                  defaultValue={editingLens?.name || ''}
+                  className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  placeholder="e.g. Standard Anti-Glare"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Lens Type</label>
+                <div className="w-full bg-[#18181A] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white text-sm font-semibold select-none">
+                  {editingLens?.lensType?.name || selectedType?.name || 'Selected Lens Type'}
+                </div>
+                <input
+                  type="hidden"
+                  name="lensType"
+                  value={editingLens?.lensType?._id || selectedTypeId || ''}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Base Price (₹) *</label>
+                <input
+                  name="basePrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  defaultValue={editingLens?.basePrice || ''}
+                  className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Status</label>
+                <select
+                  name="status"
+                  defaultValue={editingLens?.status || 'Active'}
+                  className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right Column: Power-based Pricing */}
+            <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 space-y-4">
+              <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3 mb-2">
+                <h2 className="text-sm text-[#D4A04D] font-extrabold uppercase tracking-wider">
+                  Power-based Pricing (Optional)
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleAddPowerPricingRule}
+                  className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-[#D4A04D] text-[10px] font-extrabold uppercase py-1.5 px-3.5 rounded-xl border border-[#D4A04D]/20 cursor-pointer transition-colors"
+                >
+                  + Add Rule
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                {powerPricing.map((rule, idx) => (
+                  <div key={idx} className="bg-[#1A1A1C] border border-[#2A2A2D] rounded-2xl p-5 space-y-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePowerPricingRule(idx)}
+                      className="absolute top-4 right-4 text-[#A7A7A7] hover:text-red-400 font-black text-sm bg-transparent border-none cursor-pointer transition-colors"
+                    >
+                      ✕
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN SPH</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={rule.minSph}
+                          onChange={(e) => handleRuleChange(idx, 'minSph', Number(e.target.value))}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX SPH</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={rule.maxSph}
+                          onChange={(e) => handleRuleChange(idx, 'maxSph', Number(e.target.value))}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN CYL</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={rule.minCyl}
+                          onChange={(e) => handleRuleChange(idx, 'minCyl', Number(e.target.value))}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX CYL</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={rule.maxCyl}
+                          onChange={(e) => handleRuleChange(idx, 'maxCyl', Number(e.target.value))}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-500 font-bold mb-1.5">PRICE (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={rule.price}
+                        onChange={(e) => handleRuleChange(idx, 'price', Number(e.target.value))}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs font-bold text-[#D4A04D]"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {powerPricing.length === 0 && (
+                  <p className="text-gray-500 text-xs italic text-center py-6">
+                    No power-based prices set. Lens will use Base Price for all prescription powers.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-[#2A2A2D] flex justify-end gap-4">
+            <button
+              type="button"
+              onClick={() => setIsLensDrawerOpen(false)}
+              className="px-6 py-3 text-sm font-bold text-white bg-[#2A2A2D] hover:bg-[#3A3A3D] rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-8 py-3 text-sm font-extrabold text-black bg-[#D4A04D] hover:bg-[#C8923E] rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Save Lens
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] relative">
@@ -402,82 +645,6 @@ export default function AdminLensesPage() {
                   className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2 px-6 rounded-xl text-sm uppercase tracking-wider transition-colors"
                 >
                   Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add/Edit Lens Drawer */}
-      {isLensDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#131314] border-l border-[#2A2A2D] w-full max-w-md h-full flex flex-col shadow-2xl animate-slide-left">
-            <div className="p-6 border-b border-[#2A2A2D]">
-              <h2 className="text-xl font-bold text-white uppercase tracking-wider">{editingLens ? 'Edit' : 'Add'} Lens</h2>
-            </div>
-            <form onSubmit={handleSaveLens} className="flex-1 flex flex-col">
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Lens Name *</label>
-                  <input
-                    name="name"
-                    type="text"
-                    required
-                    defaultValue={editingLens?.name || ''}
-                    className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                    placeholder="e.g. Standard Anti-Glare"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Lens Type</label>
-                  <div className="w-full bg-[#18181A] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm font-semibold select-none">
-                    {editingLens?.lensType?.name || selectedType?.name || 'Selected Lens Type'}
-                  </div>
-                  <input
-                    type="hidden"
-                    name="lensType"
-                    value={editingLens?.lensType?._id || selectedTypeId || ''}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Base Price (₹) *</label>
-                  <input
-                    name="basePrice"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    defaultValue={editingLens?.basePrice || ''}
-                    className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Status</label>
-                  <select
-                    name="status"
-                    defaultValue={editingLens?.status || 'Active'}
-                    className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              <div className="p-6 border-t border-[#2A2A2D] flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsLensDrawerOpen(false)}
-                  className="flex-1 px-4 py-3 text-sm font-bold text-white bg-[#2A2A2D] hover:bg-[#3A3A3D] rounded-xl uppercase tracking-wider transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 text-sm font-extrabold text-black bg-[#D4A04D] hover:bg-[#C8923E] rounded-xl uppercase tracking-wider transition-colors"
-                >
-                  Save Lens
                 </button>
               </div>
             </form>
