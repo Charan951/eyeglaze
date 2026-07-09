@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin/homepage-videos', label: 'Home Videos', icon: '🎥' },
   { href: '/admin/reels', label: 'Home Reels', icon: '📱' },
   { href: '/admin/coupons', label: 'Coupons', icon: '🏷️' },
+  { href: '/admin/banners', label: 'Home Banners', icon: '🖼️' },
 ];
 
 export default function AdminLayout() {

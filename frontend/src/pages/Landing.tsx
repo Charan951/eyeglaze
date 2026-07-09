@@ -6,6 +6,93 @@ import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
 
+function BannerSlider({ items }: { items: any[] }) {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % items.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [items.length]);
+
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="relative w-full h-full group overflow-hidden">
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={current}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="absolute inset-0 w-full h-full"
+        >
+          {items[current].linkUrl ? (
+            <Link to={items[current].linkUrl} className="block w-full h-full">
+              <img
+                src={items[current].imageUrl}
+                alt={items[current].title || 'Banner'}
+                className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02]"
+              />
+            </Link>
+          ) : (
+            <img
+              src={items[current].imageUrl}
+              alt={items[current].title || 'Banner'}
+              className="w-full h-full object-cover"
+            />
+          )}
+
+          {/* Banner Text Overlay */}
+          {(items[current].title || items[current].subtitle) && (
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent flex flex-col justify-center px-6 md:px-12 text-left">
+              <div className="max-w-xs sm:max-w-md md:max-w-lg flex flex-col gap-1 sm:gap-2">
+                {items[current].subtitle && (
+                  <span className="text-[8px] sm:text-[10px] md:text-xs font-bold text-[#D4A04D] uppercase tracking-widest">
+                    {items[current].subtitle}
+                  </span>
+                )}
+                {items[current].title && (
+                  <h4 className="text-xs sm:text-lg md:text-2xl font-serif font-black text-white uppercase tracking-wider leading-tight">
+                    {items[current].title}
+                  </h4>
+                )}
+                {items[current].linkUrl && (
+                  <Link
+                    to={items[current].linkUrl}
+                    className="inline-flex items-center gap-1 text-[8px] sm:text-[10px] md:text-xs font-bold text-white hover:text-[#D4A04D] uppercase tracking-wider mt-1 sm:mt-2 transition-colors self-start"
+                  >
+                    <span>Shop Collection</span>
+                    <span>→</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dots navigation */}
+      {items.length > 1 && (
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1 z-20">
+          {items.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrent(idx)}
+              className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full transition-all duration-300 border-none cursor-pointer p-0 ${
+                current === idx ? 'bg-[#D4A04D] w-2 sm:w-3' : 'bg-white/40'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user, wishlist, checkAuth } = useAuth();
@@ -110,6 +197,30 @@ export default function LandingPage() {
         console.error('Error fetching reels:', err);
       });
   };
+
+  const [banners, setBanners] = useState<any[]>([]);
+
+  const fetchBanners = () => {
+    api.get('/banners')
+      .then((res) => {
+        setBanners(res.data);
+      })
+      .catch((err) => {
+        console.error('Error fetching banners:', err);
+      });
+  };
+
+  // Fetch banners on mount and setup socket listener
+  useEffect(() => {
+    fetchBanners();
+    socket.on('banner_changed', fetchBanners);
+    return () => {
+      socket.off('banner_changed', fetchBanners);
+    };
+  }, []);
+
+  const topBanners = banners.filter((b: any) => b.position === 'top' || b.position === 'eyeglasses_landing' || b.position === 'both' || !b.position);
+  const footerBanners = banners.filter((b: any) => b.position === 'footer' || b.position === 'both');
 
   // Fetch homepage videos on mount and setup socket listener
   useEffect(() => {
@@ -281,6 +392,7 @@ export default function LandingPage() {
   const [isReelModalOpen, setIsReelModalOpen] = useState(false);
   const [playingReelId, setPlayingReelId] = useState<string | null>(null);
   const [clickedReelId, setClickedReelId] = useState<string | null>(null);
+  const [pausedReelId, setPausedReelId] = useState<string | null>(null);
 
   // Showcase modal states
   const [selectedShowcaseVideo, setSelectedShowcaseVideo] = useState<any | null>(null);
@@ -628,7 +740,7 @@ export default function LandingPage() {
       />
       
       {/* Main Body - Shared Layout */}
-      <div className="w-full py-6 space-y-12">
+      <div className="hidden md:block w-full py-6 space-y-8 md:space-y-10">
         
         {/* Hero Section - Full View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
@@ -757,7 +869,7 @@ export default function LandingPage() {
         {/* Shop by Category - Desktop View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
           <section className="flex flex-col gap-8 w-full mt-2">
-            <div className="flex flex-col">
+            <div className="hidden">
               {/* <h2 className="text-lg font-bold uppercase tracking-wider text-white">Shop by Category</h2> */}
               {/* <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mt-0.5">Explore our premium dynamic collections</span> */}
             </div>
@@ -773,6 +885,11 @@ export default function LandingPage() {
                   transition={{ duration: 0.5, delay: catIdx * 0.1 }}
                   className="flex flex-col gap-4"
                 >
+                  {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
+                    <div className="w-full relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#111112] aspect-[4/1] md:aspect-[4.5/1] lg:aspect-[5/1] mb-2">
+                      <BannerSlider items={topBanners} />
+                    </div>
+                  )}
                   <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
                   <div className={`grid gap-6 w-full ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
                     {subOptions.map((item, idx) => (
@@ -809,7 +926,7 @@ export default function LandingPage() {
       {/* ================= MOBILE LAYOUT (Mockup Style) ================= */}
       <div className="block md:hidden w-full bg-black text-white pb-6 font-sans">
         {/* Mobile Main Body */}
-        <div className="px-4 py-5 space-y-6">
+        <div className="px-4 py-5 space-y-4">
           
           {/* Hero Slider Card */}
           <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 min-h-[170px] flex items-center justify-between overflow-hidden shadow-xl">
@@ -906,8 +1023,8 @@ export default function LandingPage() {
           </div>
 
           {/* Shop by Category - Mobile View */}
-          <div className="space-y-6 pb-4">
-            <div className="flex flex-col">
+          <div className="space-y-3 pb-4">
+            <div className="hidden">
               <h2 className="text-[10px] font-black text-white tracking-widest uppercase">Shop by Category</h2>
               <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">Explore our premium dynamic collections</span>
             </div>
@@ -916,6 +1033,11 @@ export default function LandingPage() {
               const subOptions = getCategorySubOptions(cat);
               return (
                 <div key={cat._id || cat.slug} className="space-y-3">
+                  {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
+                    <div className="w-full relative overflow-hidden rounded-xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] mb-2">
+                      <BannerSlider items={topBanners} />
+                    </div>
+                  )}
                   <h3 className="text-[10px] font-black text-white tracking-widest uppercase">{cat.name}</h3>
                   <div className={`grid gap-2 ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
                     {subOptions.map((item, idx) => (
@@ -1410,6 +1532,7 @@ export default function LandingPage() {
                     if (isClicked) {
                       setClickedReelId(null);
                       setPlayingReelId(null);
+                      setPausedReelId(reel._id);
                       if (videoEl) {
                         videoEl.pause();
                         videoEl.muted = true;
@@ -1417,13 +1540,15 @@ export default function LandingPage() {
                     } else {
                       setClickedReelId(reel._id);
                       setPlayingReelId(reel._id);
+                      setPausedReelId(null);
                       if (videoEl) {
                         videoEl.muted = false; // Unmute to allow audio!
                         videoEl.play().catch(() => {});
                       }
                     }
                   }}
-                  onMouseEnter={(e) => {
+                  onPointerEnter={(e) => {
+                    if (pausedReelId === reel._id) return;
                     if (clickedReelId && clickedReelId !== reel._id) return;
                     setPlayingReelId(reel._id);
                     const videoEl = e.currentTarget.querySelector('video');
@@ -1432,7 +1557,8 @@ export default function LandingPage() {
                       videoEl.play().catch(() => {});
                     }
                   }}
-                  onMouseLeave={(e) => {
+                  onPointerLeave={(e) => {
+                    setPausedReelId(null);
                     if (clickedReelId === reel._id) return; // Keep playing if clicked!
                     setPlayingReelId(null);
                     const videoEl = e.currentTarget.querySelector('video');
@@ -1459,7 +1585,7 @@ export default function LandingPage() {
                         className="w-full h-full object-cover"
                         loop
                         playsInline
-                        autoPlay={playingReelId === reel._id}
+                        muted={clickedReelId !== reel._id}
                       />
                     ) : (
                       <iframe
@@ -1716,6 +1842,13 @@ export default function LandingPage() {
           </div>
         </section>
 
+
+        {/* Footer Banner Slider */}
+        {footerBanners.length > 0 && (
+          <div className="w-full relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] md:aspect-[4.5/1] lg:aspect-[5/1] mt-8 mb-2">
+            <BannerSlider items={footerBanners} />
+          </div>
+        )}
 
       </div> {/* END SHARED PAGE CONTENT */}
 

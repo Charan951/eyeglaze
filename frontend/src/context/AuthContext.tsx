@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handleAuthLogout = () => {
+      localStorage.removeItem('eyeglaze_logged_in');
       setUser(null);
       setWishlist([]);
       setCartCount(0);
@@ -141,11 +142,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = useCallback(async () => {
+    if (localStorage.getItem('eyeglaze_logged_in') !== 'true') {
+      setUser(null);
+      setWishlist([]);
+      try {
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+        setCartCount(cartItems.length);
+      } catch {
+        setCartCount(0);
+      }
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await api.get('/auth/me');
       const userData = res.data?.user || res.data || null;
       setUser(userData);
       if (userData) {
+        localStorage.setItem('eyeglaze_logged_in', 'true');
         const initialWishlist = (userData.wishlist || []).map((w: any) => 
           typeof w === 'object' && w?._id ? w._id.toString() : w.toString()
         );
@@ -158,17 +174,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cartItems = cartRes.data?.items || cartRes.data?.cart?.items || [];
         setCartCount(cartItems.length);
       } else {
+        localStorage.removeItem('eyeglaze_logged_in');
         setWishlist([]);
         const guestCartStr = localStorage.getItem('guest_cart');
         const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
         setCartCount(cartItems.length);
       }
     } catch {
+      localStorage.removeItem('eyeglaze_logged_in');
       setUser(null);
       setWishlist([]);
-      const guestCartStr = localStorage.getItem('guest_cart');
-      const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
-      setCartCount(cartItems.length);
+      try {
+        const guestCartStr = localStorage.getItem('guest_cart');
+        const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
+        setCartCount(cartItems.length);
+      } catch {
+        setCartCount(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -179,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuth]);
 
   const login = async (u: AuthUser) => {
+    localStorage.setItem('eyeglaze_logged_in', 'true');
     setUser(u);
     if (u) {
       const initialWishlist = (u.wishlist as any[] || []).map((w: any) => 
@@ -197,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     } finally {
+      localStorage.removeItem('eyeglaze_logged_in');
       setUser(null);
       setWishlist([]);
       setCartCount(0);

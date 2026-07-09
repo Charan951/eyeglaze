@@ -53,6 +53,7 @@ import AdminNavigationMenuBuilder from './pages/admin/categories/menu-builder';
 import AdminHomepageVideos from './pages/admin/HomepageVideos';
 import AdminReels from './pages/admin/Reels';
 import AdminCoupons from './pages/admin/Coupons';
+import AdminBanners from './pages/admin/Banners';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -333,6 +334,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminCoupons />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/banners"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminBanners />
                 </ProtectedRoute>
               }
             />
