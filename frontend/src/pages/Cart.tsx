@@ -260,28 +260,7 @@ export default function CartPage() {
     setCouponSuccess('');
   };
 
-  const updateQty = async (item: CartItem, qty: number) => {
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, qty } : i));
-    
-    if (!user) {
-      const guestCartStr = localStorage.getItem('guest_cart');
-      const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
-      const idx = cart.findIndex((i: any) => i.id === item.id);
-      if (idx >= 0) {
-        cart[idx].qty = qty;
-        localStorage.setItem('guest_cart', JSON.stringify(cart));
-      }
-      await fetchCartCount();
-      return;
-    }
 
-    try {
-      await api.put(`/cart/${item._id || item.id}`, { qty });
-      await fetchCartCount();
-    } catch {
-      // ignore
-    }
-  };
 
   const handleRepeat = async (item: CartItem) => {
     if (!user) {

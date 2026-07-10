@@ -6,7 +6,7 @@ import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
 
-function BannerSlider({ items, objectFit = 'object-cover' }: { items: any[], objectFit?: 'object-cover' | 'object-fill' }) {
+function BannerSlider({ items, objectFit = 'object-cover' }: { items: any[], objectFit?: string }) {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
@@ -855,8 +855,8 @@ export default function LandingPage() {
                     className="flex flex-col gap-4"
                   >
                   {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
-                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] sm:h-[160px] mb-2">
-                      <BannerSlider items={topBanners} objectFit="object-fill" />
+                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-black aspect-[3.5/1] mb-2">
+                      <BannerSlider items={topBanners} objectFit="object-contain bg-black" />
                     </div>
                   )}
                   <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
@@ -1001,8 +1001,8 @@ export default function LandingPage() {
                 </motion.div>
 
                 {categoryBanners.length > 0 && (
-                  <div className="my-4 w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] sm:h-[160px]">
-                    <BannerSlider items={categoryBanners} objectFit="object-fill" />
+                  <div className="my-4 w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-black aspect-[3.5/1]">
+                    <BannerSlider items={categoryBanners} objectFit="object-contain bg-black" />
                   </div>
                 )}
 
@@ -1095,7 +1095,6 @@ export default function LandingPage() {
             {categories.map((cat) => {
               const subOptions = getCategorySubOptions(cat);
               const catSlug = cat.slug.toLowerCase();
-              const categoryReels = getReelsForCategory(cat.slug);
               const categoryBanners = banners.filter((b: any) => b.position === `after_category:${cat.slug}` && b.isActive && b.showOnMobile !== false);
               return (
                 <Fragment key={cat._id || cat.slug}>
@@ -1896,8 +1895,8 @@ export default function LandingPage() {
 
         {/* Desktop Footer Banner Slider */}
         {footerBanners.length > 0 && (
-          <div className="hidden md:block w-full relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] md:aspect-[4.5/1] lg:aspect-[5/1] mt-8 mb-2">
-            <BannerSlider items={footerBanners} objectFit="object-fill" />
+          <div className="hidden md:block w-full relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-800 bg-black aspect-[3.5/1] mt-8 mb-2">
+            <BannerSlider items={footerBanners} objectFit="object-contain bg-black" />
           </div>
         )}
 
