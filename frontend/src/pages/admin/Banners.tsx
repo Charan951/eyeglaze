@@ -11,12 +11,14 @@ interface Banner {
   position: string;
   displayOrder: number;
   isActive: boolean;
+  showOnMobile: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export default function AdminBanners() {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -29,6 +31,7 @@ export default function AdminBanners() {
   const [position, setPosition] = useState('eyeglasses_landing');
   const [displayOrder, setDisplayOrder] = useState<number>(0);
   const [isActive, setIsActive] = useState(true);
+  const [showOnMobile, setShowOnMobile] = useState(true);
 
   // Edit states
   const [isEditing, setIsEditing] = useState(false);
@@ -74,7 +77,17 @@ export default function AdminBanners() {
 
   useEffect(() => {
     fetchBanners();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/categories');
+      setCategories(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  };
 
   const fetchBanners = async () => {
     setLoading(true);
@@ -105,6 +118,7 @@ export default function AdminBanners() {
     setPosition('eyeglasses_landing');
     setDisplayOrder(0);
     setIsActive(true);
+    setShowOnMobile(true);
     setIsEditing(false);
     setEditingId(null);
     setUploadProgress('');
@@ -128,6 +142,7 @@ export default function AdminBanners() {
       position: position.trim() || 'eyeglasses_landing',
       displayOrder,
       isActive,
+      showOnMobile,
     };
 
     try {
@@ -156,6 +171,7 @@ export default function AdminBanners() {
     setPosition(banner.position || 'eyeglasses_landing');
     setDisplayOrder(banner.displayOrder);
     setIsActive(banner.isActive);
+    setShowOnMobile(banner.showOnMobile !== undefined ? banner.showOnMobile : true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -324,11 +340,16 @@ export default function AdminBanners() {
                 <option value="eyeglasses_landing">Top Banner (Above Eyeglasses)</option>
                 <option value="footer">Footer Banner (Above Footer)</option>
                 <option value="both">Both Placements</option>
+                {categories.map((cat) => (
+                  <option key={cat._id} value={`after_category:${cat.slug}`}>
+                    After {cat.name} Category
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Order & Status */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider">
                   Display Order
@@ -338,12 +359,12 @@ export default function AdminBanners() {
                   min={0}
                   value={displayOrder}
                   onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
-                  className="bg-[#181818] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-lg p-2.5 focus:outline-none"
+                  className="bg-[#181818] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-lg p-2.5 focus:outline-none w-full"
                 />
               </div>
 
-              <div className="flex flex-col justify-end">
-                <label className="flex items-center gap-2.5 text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider cursor-pointer py-3 select-none">
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex items-center gap-2.5 text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider cursor-pointer py-2.5 select-none">
                   <input
                     type="checkbox"
                     checked={isActive}
@@ -351,6 +372,16 @@ export default function AdminBanners() {
                     className="rounded border-[#2A2A2D] text-[#D4A04D] focus:ring-0 focus:ring-offset-0 bg-[#181818]"
                   />
                   <span>Is Active</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider cursor-pointer py-2.5 select-none">
+                  <input
+                    type="checkbox"
+                    checked={showOnMobile}
+                    onChange={(e) => setShowOnMobile(e.target.checked)}
+                    className="rounded border-[#2A2A2D] text-[#D4A04D] focus:ring-0 focus:ring-offset-0 bg-[#181818]"
+                  />
+                  <span>Visible on Mobile</span>
                 </label>
               </div>
             </div>
@@ -426,10 +457,25 @@ export default function AdminBanners() {
                   {/* Info Box */}
                   <div className="p-4 flex-1 flex flex-col justify-between gap-3">
                     <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-[#D4A04D] font-mono font-bold">Order: {banner.displayOrder}</span>
                         <span className="text-[10px] bg-zinc-800 text-gray-300 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
-                          {banner.position === 'eyeglasses_landing' ? 'Top' : banner.position === 'footer' ? 'Footer' : banner.position === 'both' ? 'Both' : banner.position}
+                          {banner.position === 'eyeglasses_landing'
+                            ? 'Top'
+                            : banner.position === 'footer'
+                            ? 'Footer'
+                            : banner.position === 'both'
+                            ? 'Both'
+                            : banner.position.startsWith('after_category:')
+                            ? `After ${banner.position.replace('after_category:', '').toUpperCase()}`
+                            : banner.position}
+                        </span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                          banner.showOnMobile === false 
+                            ? 'bg-amber-500/10 text-amber-400' 
+                            : 'bg-indigo-500/10 text-indigo-400'
+                        }`}>
+                          {banner.showOnMobile === false ? '💻 Desktop Only' : '📱 Mobile & Desktop'}
                         </span>
                       </div>
                       <h3 className="text-sm font-bold text-white">{banner.title || 'Untitled Banner'}</h3>

@@ -484,37 +484,21 @@ export default function LensSelection() {
   });
 
   const stepsConfig = [
-    { step: 1, label: 'POWER' },
-    { step: 2, label: 'LENS TYPE' },
-    { step: 3, label: 'QUALITY' }
+    { step: 1, label: 'LENS TYPE' },
+    { step: 2, label: 'QUALITY' },
+    { step: 3, label: 'POWER' }
   ];
 
   // Navigation Handlers
   const handleNext = () => {
     if (currentStep === 1) {
-      // Validate Power Step
-      if (powerMode === 'enter') {
-        const hasAstigmatismRE = parseFloat(reCyl) !== 0;
-        const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-        if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-          alert('Please enter AXIS for astigmatism (when CYL is not 0)');
-          return;
-        }
-      } else if (powerMode === 'upload') {
-        if (uploadingPrescription) {
-          alert('Please wait for the prescription file to finish uploading.');
-          return;
-        }
-        if (!uploadedFileUrl) {
-          alert('Please select and upload a prescription file first.');
-          return;
-        }
-      }
+      if (!selectedType) return;
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (!selectedType) return;
-      if (selectedType?.type === 'progressive' && !selectedSubType) {
-        return;
+      if (selectedType?.type === 'progressive') {
+        if (!selectedSubType) return;
+      } else {
+        if (!selectedQuality) return;
       }
       setCurrentStep(3);
     }
@@ -993,31 +977,33 @@ export default function LensSelection() {
               
               {/* Bottom Row: Selections and Edit links */}
               <div className="space-y-3">
-                {/* Power Selection */}
-                <div className="flex items-start justify-between w-full text-xs">
-                  <div className="flex items-start gap-4 flex-1 pr-4">
-                    <span className="text-gray-500 font-medium whitespace-nowrap">Power Selection:</span>
-                    <span className="text-[#D4A04D] font-bold leading-normal text-left">
-                      {powerMode === 'enter' ? 'Manual Prescription' : 'Uploaded Prescription'}
-                    </span>
+                {/* Lens Type Selection (shown in Step 2 and 3) */}
+                {selectedType && (
+                  <div className="flex items-start justify-between w-full text-xs">
+                    <div className="flex items-start gap-4 flex-1 pr-4">
+                      <span className="text-gray-500 font-medium whitespace-nowrap">Lens Type:</span>
+                      <span className="text-[#D4A04D] font-bold leading-normal text-left">
+                        {selectedType?.displayName} {selectedSubType ? `(${selectedSubType.displayName})` : ''}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => setCurrentStep(1)} 
+                      className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
+                    >
+                      Edit
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => setCurrentStep(1)} 
-                    className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
-                  >
-                    Edit
-                  </button>
-                </div>
+                )}
 
-                {/* Lens Type Selection (only shown in Step 3) */}
-                {currentStep === 3 && selectedType && (
+                {/* Lens Quality Selection (only shown in Step 3) */}
+                {currentStep === 3 && (selectedQuality || selectedSubType) && (
                   <>
                     <div className="w-full border-t border-[#2A2A2D]/20 my-1" />
                     <div className="flex items-start justify-between w-full text-xs">
                       <div className="flex items-start gap-4 flex-1 pr-4">
-                        <span className="text-gray-500 font-medium whitespace-nowrap">Lens Type:</span>
+                        <span className="text-gray-500 font-medium whitespace-nowrap">Lens Quality:</span>
                         <span className="text-[#D4A04D] font-bold leading-normal text-left">
-                          {selectedType?.displayName} {selectedSubType ? `(${selectedSubType.displayName})` : ''}
+                          {selectedQuality?.displayName || selectedSubType?.displayName}
                         </span>
                       </div>
                       <button 
@@ -1034,8 +1020,8 @@ export default function LensSelection() {
           )
         )}
 
-        {/* ================= STEP 1: ENTER POWER ================= */}
-        {currentStep === 1 && (
+        {/* ================= STEP 3: ENTER POWER ================= */}
+        {currentStep === 3 && (
           <div className="space-y-6 animate-fade-in">
             {/* Header Block */}
             <div className="text-left">
@@ -1255,20 +1241,27 @@ export default function LensSelection() {
               <div className="flex items-center justify-between gap-4">
                 {/* Selection Summary (Desktop only) */}
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 1 of 3</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 3 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
                     {(powerMode as any) === 'zero' ? 'Zero Power (Plano)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
                   </span>
                 </div>
                 
                 {/* Navigation Buttons */}
-                <div className="w-full sm:w-auto sm:min-w-[240px]">
+                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
                   <button
-                    onClick={handleNext}
-                    className="w-full bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)] hover:shadow-[0_6px_20px_rgba(212,160,77,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_10px_rgba(212,160,77,0.2)]"
+                    onClick={handleBack}
+                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
                   >
-                    <span>CONTINUE TO LENS TYPE</span>
-                    <span className="text-xs">→</span>
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmAndAdd}
+                    disabled={submitting}
+                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
+                  >
+                    <span>{submitting ? 'PROCESSING...' : 'CONTINUE TO CART'}</span>
+                    {!submitting && <span className="text-xs">→</span>}
                   </button>
                 </div>
               </div>
@@ -1276,8 +1269,8 @@ export default function LensSelection() {
           </div>
         )}
 
-        {/* ================= STEP 2: SELECT LENS TYPE ================= */}
-        {currentStep === 2 && (
+        {/* ================= STEP 1: SELECT LENS TYPE ================= */}
+        {currentStep === 1 && (
           <div className="space-y-6 animate-fade-in">
             <div className="text-left">
               <h1 className="text-lg font-black text-white uppercase tracking-wider">Buy With Lens</h1>
@@ -1353,24 +1346,18 @@ export default function LensSelection() {
               <div className="flex items-center justify-between gap-4">
                 {/* Left side: Selection summary */}
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Step 2 of 3</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Step 1 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
                     {selectedType ? selectedType.displayName : 'None'}
                   </span>
                 </div>
                 
                 {/* Right side: Button */}
-                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
-                  <button
-                    onClick={handleBack}
-                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
-                  >
-                    Back
-                  </button>
+                <div className="w-full sm:w-auto sm:min-w-[240px]">
                   <button
                     onClick={handleNext}
                     disabled={!selectedType}
-                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
+                    className="w-full bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)] hover:shadow-[0_6px_20px_rgba(212,160,77,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_10px_rgba(212,160,77,0.2)]"
                   >
                     <span>CONTINUE TO QUALITY</span>
                     <span className="text-xs">→</span>
@@ -1381,8 +1368,8 @@ export default function LensSelection() {
           </div>
         )}
 
-        {/* ================= STEP 3: SELECT LENS QUALITY ================= */}
-        {currentStep === 3 && selectedType && (
+        {/* ================= STEP 2: SELECT LENS QUALITY ================= */}
+        {currentStep === 2 && selectedType && (
           <div className="space-y-6 animate-fade-in">
             <div className="text-left">
               <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Lens Quality</h1>
@@ -1607,7 +1594,7 @@ export default function LensSelection() {
               <div className="flex items-center justify-between gap-4">
                 {/* Selection Summary (Desktop only) */}
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 3 of 3</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 2 of 3</span>
                   <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
                     {selectedQuality ? selectedQuality.displayName : (selectedSubType ? selectedSubType.displayName : 'Quality Selection')}
                   </span>
@@ -1622,12 +1609,12 @@ export default function LensSelection() {
                     Back
                   </button>
                   <button
-                    onClick={handleConfirmAndAdd}
-                    disabled={submitting}
+                    onClick={handleNext}
+                    disabled={selectedType?.type === 'progressive' ? !selectedSubType : !selectedQuality}
                     className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
                   >
-                    <span>{submitting ? 'PROCESSING...' : 'CONTINUE TO CART'}</span>
-                    {!submitting && <span className="text-xs">→</span>}
+                    <span>CONTINUE TO POWER</span>
+                    <span className="text-xs">→</span>
                   </button>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +6,7 @@ import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
 
-function BannerSlider({ items }: { items: any[] }) {
+function BannerSlider({ items, objectFit = 'object-cover' }: { items: any[], objectFit?: 'object-cover' | 'object-fill' }) {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
@@ -35,14 +35,14 @@ function BannerSlider({ items }: { items: any[] }) {
               <img
                 src={items[current].imageUrl}
                 alt={items[current].title || 'Banner'}
-                className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02]"
+                className={`w-full h-full ${objectFit} transition-transform duration-700 hover:scale-[1.02]`}
               />
             </Link>
           ) : (
             <img
               src={items[current].imageUrl}
               alt={items[current].title || 'Banner'}
-              className="w-full h-full object-cover"
+              className={`w-full h-full ${objectFit}`}
             />
           )}
 
@@ -221,6 +221,8 @@ export default function LandingPage() {
 
   const topBanners = banners.filter((b: any) => b.position === 'top' || b.position === 'eyeglasses_landing' || b.position === 'both' || !b.position);
   const footerBanners = banners.filter((b: any) => b.position === 'footer' || b.position === 'both');
+  const mobileTopBanners = topBanners.filter((b: any) => b.showOnMobile !== false);
+  const mobileFooterBanners = footerBanners.filter((b: any) => b.showOnMobile !== false);
 
   // Fetch homepage videos on mount and setup socket listener
   useEffect(() => {
@@ -373,6 +375,24 @@ export default function LandingPage() {
     const ext = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
     const cleanUrl = lower.split('?')[0];
     return ext.some(e => cleanUrl.endsWith(e)) || lower.includes('/uploads/') || lower.includes('/stream/');
+  };
+
+  const getReelsForCategory = (catSlug: string) => {
+    if (!reels || reels.length === 0) return [];
+    const slug = catSlug.toLowerCase();
+    if (slug === 'eyeglasses') {
+      return reels.filter(r => {
+        const text = `${r.title} ${r.description || ''}`.toLowerCase();
+        return text.includes('glass') || text.includes('frame') || text.includes('spectacle') || text.includes('eye') || !text.includes('contact');
+      });
+    }
+    if (slug === 'contact-lenses') {
+      return reels.filter(r => {
+        const text = `${r.title} ${r.description || ''}`.toLowerCase();
+        return text.includes('contact') || text.includes('lens') || text.includes('solution') || text.includes('lenses');
+      });
+    }
+    return [];
   };
 
   // Modal States
@@ -812,60 +832,6 @@ export default function LandingPage() {
           </section>
         </div>
 
-        {/* Feature Badges Strip - Full View */}
-        <section className="border-y border-[#2A2A2D] py-4 bg-[#0E0E0E] w-full">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
-            <div className="grid grid-cols-4 divide-x divide-[#2A2A2D] text-center w-full">
-              
-              {/* 100% Authentic */}
-              <div className="flex flex-col items-center justify-center px-1">
-                <span className="text-[#D4A04D] mb-1.5">
-                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </span>
-                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">100%</span>
-                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Authentic</span>
-              </div>
-
-              {/* Premium Quality */}
-              <div className="flex flex-col items-center justify-center px-1">
-                <span className="text-[#D4A04D] mb-1.5">
-                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </span>
-                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Premium</span>
-                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Quality</span>
-              </div>
-
-              {/* 7 Days Return */}
-              <div className="flex flex-col items-center justify-center px-1">
-                <span className="text-[#D4A04D] mb-1.5">
-                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-                  </svg>
-                </span>
-                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">7 Days</span>
-                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Return</span>
-              </div>
-
-              {/* Free Shipping */}
-              <div className="flex flex-col items-center justify-center px-1">
-                <span className="text-[#D4A04D] mb-1.5">
-                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
-                  </svg>
-                </span>
-                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Free</span>
-                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Shipping</span>
-              </div>
-
-            </div>
-          </div>
-        </section>
-
         {/* Shop by Category - Desktop View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
           <section className="flex flex-col gap-8 w-full mt-2">
@@ -876,28 +842,31 @@ export default function LandingPage() {
 
             {categories.map((cat, catIdx) => {
               const subOptions = getCategorySubOptions(cat);
+              const catSlug = cat.slug.toLowerCase();
+              const categoryReels = getReelsForCategory(cat.slug);
+              const categoryBanners = banners.filter((b: any) => b.position === `after_category:${cat.slug}` && b.isActive);
               return (
-                <motion.div 
-                  key={cat._id || cat.slug} 
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ duration: 0.5, delay: catIdx * 0.1 }}
-                  className="flex flex-col gap-4"
-                >
+                <Fragment key={cat._id || cat.slug}>
+                  <motion.div 
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-100px" }}
+                    transition={{ duration: 0.5, delay: catIdx * 0.1 }}
+                    className="flex flex-col gap-4"
+                  >
                   {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
-                    <div className="w-full relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#111112] aspect-[4/1] md:aspect-[4.5/1] lg:aspect-[5/1] mb-2">
-                      <BannerSlider items={topBanners} />
+                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] sm:h-[160px] mb-2">
+                      <BannerSlider items={topBanners} objectFit="object-fill" />
                     </div>
                   )}
                   <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
-                  <div className={`grid gap-6 w-full ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                  <div className={`grid gap-6 ${subOptions.length === 3 ? 'grid-cols-3 max-w-3xl' : 'grid-cols-4 max-w-4xl'} mx-auto w-full`}>
                     {subOptions.map((item, idx) => (
                       <Link 
                         key={idx} 
                         to={item.to}
                         onClick={(e) => handleSubOptionClick(e, item, cat)}
-                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-square overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
                       >
                         <img 
                           src={item.img} 
@@ -915,9 +884,152 @@ export default function LandingPage() {
                       </Link>
                     ))}
                   </div>
+
+                  {/* Reels Section under Eyeglasses & Contact Lens */}
+                  {(catSlug === 'eyeglasses' || catSlug === 'contact-lenses') && categoryReels.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-4 border-t border-zinc-800/80 pt-6">
+                      <div className="flex flex-col gap-0.5">
+                        <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{cat.name} Reels</h4>
+                        <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Trending styles, lookbooks and details</span>
+                      </div>
+                      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth">
+                        {categoryReels.map((reel) => (
+                          <div 
+                            key={reel._id || reel.id}
+                            onClick={(e) => {
+                              const isClicked = clickedReelId === reel._id;
+                              const videoEl = e.currentTarget.querySelector('video');
+                              
+                              // Pause and mute all other videos
+                              const allVideos = document.querySelectorAll('video');
+                              allVideos.forEach(v => {
+                                if (v !== videoEl) {
+                                  v.pause();
+                                  v.muted = true;
+                                }
+                              });
+
+                              if (isClicked) {
+                                setClickedReelId(null);
+                                setPlayingReelId(null);
+                                setPausedReelId(reel._id);
+                                if (videoEl) {
+                                  videoEl.pause();
+                                  videoEl.muted = true;
+                                }
+                              } else {
+                                setClickedReelId(reel._id);
+                                setPlayingReelId(reel._id);
+                                setPausedReelId(null);
+                                if (videoEl) {
+                                  videoEl.muted = false;
+                                  videoEl.play().catch(() => {});
+                                }
+                              }
+                            }}
+                            onPointerEnter={(e) => {
+                              if (pausedReelId === reel._id) return;
+                              if (clickedReelId && clickedReelId !== reel._id) return;
+                              setPlayingReelId(reel._id);
+                              const videoEl = e.currentTarget.querySelector('video');
+                              if (videoEl) {
+                                videoEl.muted = clickedReelId === reel._id ? false : true;
+                                videoEl.play().catch(() => {});
+                              }
+                            }}
+                            onPointerLeave={(e) => {
+                              setPausedReelId(null);
+                              if (clickedReelId === reel._id) return;
+                              setPlayingReelId(null);
+                              const videoEl = e.currentTarget.querySelector('video');
+                              if (videoEl) {
+                                videoEl.pause();
+                                videoEl.muted = true;
+                              }
+                            }}
+                            className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2.5 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[130px] md:w-[170px] flex-shrink-0 cursor-pointer group relative"
+                          >
+                            <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                              <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
+                                  <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
+                                </div>
+                                <span className="text-[#D4A04D] text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
+                              </div>
+
+                              {isDirectVideo(reel.videoUrl) ? (
+                                <video
+                                  src={reel.videoUrl}
+                                  className="w-full h-full object-cover"
+                                  loop
+                                  playsInline
+                                  muted={clickedReelId !== reel._id}
+                                />
+                              ) : (
+                                <iframe
+                                  title={reel.title}
+                                  className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                                  src={
+                                    playingReelId === reel._id
+                                      ? clickedReelId === reel._id
+                                        ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                                        : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                                      : getEmbedUrl(reel.videoUrl)
+                                  }
+                                  allow="autoplay; encrypted-media"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-2 md:p-2.5 gap-0.5 md:gap-1">
+                                <span className="text-white text-[8px] md:text-[9.5px] font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                                {reel.description && (
+                                  <p className="text-gray-400 text-[6.5px] md:text-[7.5px] leading-relaxed line-clamp-2 font-medium">
+                                    {reel.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className={`absolute inset-0 flex items-center justify-center transition-opacity bg-black/25 ${playingReelId === reel._id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+                                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white text-sm">
+                                  ▶
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
-              );
-            })}
+
+                {categoryBanners.length > 0 && (
+                  <div className="my-4 w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] sm:h-[160px]">
+                    <BannerSlider items={categoryBanners} objectFit="object-fill" />
+                  </div>
+                )}
+
+                {catSlug === 'sunglasses' && (
+                  <div className="my-4 w-full">
+                    {/* Card 1 - Special Promo Full Width */}
+                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 sm:p-6 flex items-center justify-between min-h-[110px] sm:min-h-[160px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
+                      <div className="flex flex-col gap-1 sm:gap-2 max-w-[60%] sm:max-w-[55%] z-10">
+                        <span className="text-white text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">Special Promo</span>
+                        <h3 className="text-[#D4A04D] text-xs sm:text-2xl font-extrabold leading-none sm:leading-tight">UP TO 50% OFF</h3>
+                        <p className="text-gray-400 text-[8px] sm:text-xs font-semibold leading-tight line-clamp-1 sm:line-clamp-none">On Selected Sunglasses</p>
+                        <button 
+                          onClick={() => navigate('/products?category=sunglasses')}
+                          className="mt-1.5 sm:mt-3 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] sm:text-[10px] font-bold uppercase py-1 px-2.5 sm:py-2 sm:px-4 rounded transition-all duration-300 cursor-pointer"
+                        >
+                          SHOP NOW
+                        </button>
+                      </div>
+                      <div className="w-2/5 md:w-1/2 h-full absolute right-0 top-0 bottom-0">
+                        <img src="/images/promo_sunglasses.png" alt="Promo Sunglasses" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
           </section>
         </div>
       </div>
@@ -973,55 +1085,6 @@ export default function LandingPage() {
             <span className="w-1 h-1 bg-zinc-700 rounded-full transition-all duration-300" />
           </div>
 
-          {/* Feature Badges Grid */}
-          <div className="grid grid-cols-4 border border-zinc-800/80 bg-[#070707] rounded-xl py-3.5 divide-x divide-zinc-800/60 shadow-md">
-            
-            {/* 100% Authentic */}
-            <div className="flex flex-col items-center justify-center text-center px-1">
-              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-white text-[8.5px] font-black leading-tight">100%</span>
-              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">AUTHENTIC</span>
-            </div>
-
-            {/* Premium Quality */}
-            <div className="flex flex-col items-center justify-center text-center px-1">
-              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-white text-[8.5px] font-black leading-tight">Premium</span>
-              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">QUALITY</span>
-            </div>
-
-            {/* 7 Days Return */}
-            <div className="flex flex-col items-center justify-center text-center px-1">
-              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-                </svg>
-              </div>
-              <span className="text-white text-[8.5px] font-black leading-tight">7 Days</span>
-              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">RETURN</span>
-            </div>
-
-            {/* Free Shipping */}
-            <div className="flex flex-col items-center justify-center text-center px-1">
-              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
-                </svg>
-              </div>
-              <span className="text-white text-[8.5px] font-black leading-tight">Free</span>
-              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">SHIPPING</span>
-            </div>
-
-          </div>
-
           {/* Shop by Category - Mobile View */}
           <div className="space-y-3 pb-4">
             <div className="hidden">
@@ -1031,21 +1094,25 @@ export default function LandingPage() {
 
             {categories.map((cat) => {
               const subOptions = getCategorySubOptions(cat);
+              const catSlug = cat.slug.toLowerCase();
+              const categoryReels = getReelsForCategory(cat.slug);
+              const categoryBanners = banners.filter((b: any) => b.position === `after_category:${cat.slug}` && b.isActive && b.showOnMobile !== false);
               return (
-                <div key={cat._id || cat.slug} className="space-y-3">
-                  {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
-                    <div className="w-full relative overflow-hidden rounded-xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] mb-2">
-                      <BannerSlider items={topBanners} />
+                <Fragment key={cat._id || cat.slug}>
+                  <div className="space-y-3">
+                  {cat.slug.toLowerCase() === 'eyeglasses' && mobileTopBanners.length > 0 && (
+                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] mb-2">
+                      <BannerSlider items={mobileTopBanners} objectFit="object-cover" />
                     </div>
                   )}
                   <h3 className="text-[10px] font-black text-white tracking-widest uppercase">{cat.name}</h3>
-                  <div className={`grid gap-2 ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                  <div className={`grid gap-2 ${subOptions.length === 3 ? 'grid-cols-3 max-w-sm' : 'grid-cols-4 max-w-md'} mx-auto w-full`}>
                     {subOptions.map((item, idx) => (
                       <Link 
                         key={idx} 
                         to={item.to}
                         onClick={(e) => handleSubOptionClick(e, item, cat)}
-                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
+                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-square overflow-hidden group shadow-md flex flex-col justify-end"
                       >
                         <img 
                           src={item.img} 
@@ -1063,15 +1130,149 @@ export default function LandingPage() {
                       </Link>
                     ))}
                   </div>
+
+
                 </div>
-              );
-            })}
+
+                {categoryBanners.length > 0 && (
+                  <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-[#131314] h-[110px] mt-2 mb-1">
+                    <BannerSlider items={categoryBanners} objectFit="object-cover" />
+                  </div>
+                )}
+
+                {catSlug === 'sunglasses' && (
+                  <div className="my-2 w-full">
+                    {/* Card 1 - Special Promo Full Width */}
+                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 flex items-center justify-between min-h-[110px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
+                      <div className="flex flex-col gap-1 max-w-[60%] z-10">
+                        <span className="text-white text-[7px] font-bold tracking-widest uppercase">Special Promo</span>
+                        <h3 className="text-[#D4A04D] text-xs font-extrabold leading-none">UP TO 50% OFF</h3>
+                        <p className="text-gray-400 text-[8px] font-semibold leading-tight line-clamp-1">On Selected Sunglasses</p>
+                        <button 
+                          onClick={() => navigate('/products?category=sunglasses')}
+                          className="mt-1.5 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] font-bold uppercase py-1 px-2.5 rounded transition-all duration-300 cursor-pointer"
+                        >
+                          SHOP NOW
+                        </button>
+                      </div>
+                      <div className="w-2/5 h-full absolute right-0 top-0 bottom-0">
+                        <img src="/images/promo_sunglasses.png" alt="Promo Sunglasses" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
           </div>
 
         </div>
       </div> {/* END MOBILE LAYOUT */}
       {/* ================= SHARED PAGE CONTENT ================= */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full py-6 flex flex-col gap-10 pb-24 md:pb-6">
+        {/* Shop by Frame Shape */}
+        <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">Find Your Signature Shape</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Select a geometry that highlights your face</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 w-full">
+            {[
+              {
+                name: 'Hexagonal',
+                desc: 'Geometric & Bold',
+                slug: 'hexagonal',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <polygon points="10,15 20,6 35,6 45,15 35,24 20,24" />
+                    <polygon points="55,15 65,6 80,6 90,15 80,24 65,24" />
+                    <path d="M45,13 L55,13 M10,13 L3,13 M90,13 L97,13" />
+                  </svg>
+                )
+              },
+              {
+                name: 'Rectangle',
+                desc: 'Classic & Smart',
+                slug: 'rectangle',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="12" y="7" width="30" height="16" rx="2" />
+                    <rect x="58" y="7" width="30" height="16" rx="2" />
+                    <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
+                  </svg>
+                )
+              },
+              {
+                name: 'Round',
+                desc: 'Retro & Artistic',
+                slug: 'round',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="27" cy="15" r="10" />
+                    <circle cx="73" cy="15" r="10" />
+                    <path d="M37,15 L63,15 M17,15 L4,15 M83,15 L96,15" />
+                  </svg>
+                )
+              },
+              {
+                name: 'Aviator',
+                desc: 'Retro & Iconic',
+                slug: 'aviator',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
+                    <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
+                    <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
+                  </svg>
+                )
+              },
+              {
+                name: 'Cat-Eye',
+                desc: 'Sleek & Vintage',
+                slug: 'cateye',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M10,8 C25,8 42,12 40,20 C38,25 25,25 15,18 C8,13 8,8 10,8 Z" />
+                    <path d="M90,8 C75,8 58,12 60,20 C62,25 75,25 85,18 C92,13 92,8 90,8 Z" />
+                    <path d="M40,15 L60,15 M8,9 L3,9 M92,9 L97,9" />
+                  </svg>
+                )
+              },
+              {
+                name: 'Clubmaster',
+                desc: 'Sleek & Professional',
+                slug: 'clubmaster',
+                svg: (
+                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M14,12 C14,18 20,23 28,23 C36,23 42,18 42,12" strokeWidth="1.2" />
+                    <path d="M58,12 C58,18 64,23 72,23 C80,23 86,18 86,12" strokeWidth="1.2" />
+                    <path d="M12,12 C12,10 18,7 28,7 C38,7 42,10 42,12" strokeWidth="2.5" fill="none" />
+                    <path d="M88,12 C88,10 82,7 72,7 C62,7 58,10 58,12" strokeWidth="2.5" fill="none" />
+                    <path d="M42,13 L58,13 M12,11 L4,11 M88,11 L96,11" />
+                  </svg>
+                )
+              }
+            ].map((shape) => (
+              <Link
+                key={shape.slug}
+                to={`/products?shape=${shape.slug}`}
+                className="bg-[#121212] border border-[#2A2A2D] rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/50 transition-all duration-300 group cursor-pointer"
+              >
+                <div className="h-10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
+                  {shape.svg}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-white text-xs font-bold tracking-wider group-hover:text-[#D4A04D] transition-colors">{shape.name}</span>
+                  <span className="text-gray-500 text-[9px] font-semibold">{shape.desc}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {/* Featured Products Section - Full View */}
         <section className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]">
           <div className="flex items-center justify-between">
@@ -1185,28 +1386,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Promo Section - Full View */}
-        <section className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
-          
-          {/* Card 1 */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 sm:p-6 flex items-center justify-between min-h-[110px] sm:min-h-[160px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
-            <div className="flex flex-col gap-1 sm:gap-2 max-w-[60%] sm:max-w-[55%] z-10">
-              <span className="text-white text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">Special Promo</span>
-              <h3 className="text-[#D4A04D] text-xs sm:text-2xl font-extrabold leading-none sm:leading-tight">UP TO 50% OFF</h3>
-              <p className="text-gray-400 text-[8px] sm:text-xs font-semibold leading-tight line-clamp-1 sm:line-clamp-none">On Selected Sunglasses</p>
-              <button 
-                onClick={() => navigate('/products?category=sunglasses')}
-                className="mt-1.5 sm:mt-3 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] sm:text-[10px] font-bold uppercase py-1 px-2.5 sm:py-2 sm:px-4 rounded transition-all duration-300 cursor-pointer"
-              >
-                SHOP NOW
-              </button>
-            </div>
-            <div className="w-2/5 md:w-1/2 h-full absolute right-0 top-0 bottom-0">
-              <img src="/images/promo_sunglasses.png" alt="Promo Sunglasses" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-          </div>
-
-          {/* Card 2 */}
+        {/* New Arrivals Section */}
+        <section className="w-full pt-8 border-t border-[#1C1C1E] flex flex-col gap-6">
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 sm:p-6 flex items-center justify-between min-h-[110px] sm:min-h-[160px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
             <div className="flex flex-col gap-1 sm:gap-2 max-w-[60%] sm:max-w-[55%] z-10">
               <span className="text-[#D4A04D] text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">NEW ARRIVALS</span>
@@ -1223,8 +1404,9 @@ export default function LandingPage() {
               <img src="/images/promo_new_arrivals.png" alt="New Arrivals" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             </div>
           </div>
-
         </section>
+
+
         {/* Lenskart-Style Advanced Offers Carousel */}
         <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
           <div className="flex flex-col gap-1">
@@ -1306,108 +1488,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Shop by Frame Shape */}
-        <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">Find Your Signature Shape</h2>
-              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Select a geometry that highlights your face</span>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 w-full">
-            {[
-              {
-                name: 'Hexagonal',
-                desc: 'Geometric & Bold',
-                slug: 'hexagonal',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <polygon points="10,15 20,6 35,6 45,15 35,24 20,24" />
-                    <polygon points="55,15 65,6 80,6 90,15 80,24 65,24" />
-                    <path d="M45,13 L55,13 M10,13 L3,13 M90,13 L97,13" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Rectangle',
-                desc: 'Classic & Smart',
-                slug: 'rectangle',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <rect x="12" y="7" width="30" height="16" rx="2" />
-                    <rect x="58" y="7" width="30" height="16" rx="2" />
-                    <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Round',
-                desc: 'Retro & Artistic',
-                slug: 'round',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="27" cy="15" r="10" />
-                    <circle cx="73" cy="15" r="10" />
-                    <path d="M37,15 L63,15 M17,15 L4,15 M83,15 L96,15" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Aviator',
-                desc: 'Retro & Iconic',
-                slug: 'aviator',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
-                    <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
-                    <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Cat-Eye',
-                desc: 'Sleek & Vintage',
-                slug: 'cateye',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M10,8 C25,8 42,12 40,20 C38,25 25,25 15,18 C8,13 8,8 10,8 Z" />
-                    <path d="M90,8 C75,8 58,12 60,20 C62,25 75,25 85,18 C92,13 92,8 90,8 Z" />
-                    <path d="M40,15 L60,15 M8,9 L3,9 M92,9 L97,9" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Clubmaster',
-                desc: 'Sleek & Professional',
-                slug: 'clubmaster',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M14,12 C14,18 20,23 28,23 C36,23 42,18 42,12" strokeWidth="1.2" />
-                    <path d="M58,12 C58,18 64,23 72,23 C80,23 86,18 86,12" strokeWidth="1.2" />
-                    <path d="M12,12 C12,10 18,7 28,7 C38,7 42,10 42,12" strokeWidth="2.5" fill="none" />
-                    <path d="M88,12 C88,10 82,7 72,7 C62,7 58,10 58,12" strokeWidth="2.5" fill="none" />
-                    <path d="M42,13 L58,13 M12,11 L4,11 M88,11 L96,11" />
-                  </svg>
-                )
-              }
-            ].map((shape) => (
-              <Link
-                key={shape.slug}
-                to={`/products?shape=${shape.slug}`}
-                className="bg-[#121212] border border-[#2A2A2D] rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/50 transition-all duration-300 group cursor-pointer"
-              >
-                <div className="h-10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
-                  {shape.svg}
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-white text-xs font-bold tracking-wider group-hover:text-[#D4A04D] transition-colors">{shape.name}</span>
-                  <span className="text-gray-500 text-[9px] font-semibold">{shape.desc}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* As Seen On / Trendsetter Showcase */}
         <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
@@ -1503,125 +1584,6 @@ export default function LandingPage() {
             </button>
           </div>
         </section>
-
-        {/* EyeGlaze Reels Section */}
-        {reels && reels.length > 0 ? (
-          <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Reels</h2>
-              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Trending styles, lookbooks and details</span>
-            </div>
-
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth">
-              {reels.map((reel) => (
-                <div 
-                  key={reel._id || reel.id}
-                  onClick={(e) => {
-                    const isClicked = clickedReelId === reel._id;
-                    const videoEl = e.currentTarget.querySelector('video');
-                    
-                    // Pause and mute all other videos
-                    const allVideos = document.querySelectorAll('video');
-                    allVideos.forEach(v => {
-                      if (v !== videoEl) {
-                        v.pause();
-                        v.muted = true;
-                      }
-                    });
-
-                    if (isClicked) {
-                      setClickedReelId(null);
-                      setPlayingReelId(null);
-                      setPausedReelId(reel._id);
-                      if (videoEl) {
-                        videoEl.pause();
-                        videoEl.muted = true;
-                      }
-                    } else {
-                      setClickedReelId(reel._id);
-                      setPlayingReelId(reel._id);
-                      setPausedReelId(null);
-                      if (videoEl) {
-                        videoEl.muted = false; // Unmute to allow audio!
-                        videoEl.play().catch(() => {});
-                      }
-                    }
-                  }}
-                  onPointerEnter={(e) => {
-                    if (pausedReelId === reel._id) return;
-                    if (clickedReelId && clickedReelId !== reel._id) return;
-                    setPlayingReelId(reel._id);
-                    const videoEl = e.currentTarget.querySelector('video');
-                    if (videoEl) {
-                      videoEl.muted = clickedReelId === reel._id ? false : true;
-                      videoEl.play().catch(() => {});
-                    }
-                  }}
-                  onPointerLeave={(e) => {
-                    setPausedReelId(null);
-                    if (clickedReelId === reel._id) return; // Keep playing if clicked!
-                    setPlayingReelId(null);
-                    const videoEl = e.currentTarget.querySelector('video');
-                    if (videoEl) {
-                      videoEl.pause();
-                      videoEl.muted = true;
-                    }
-                  }}
-                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-3 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[160px] md:w-[220px] flex-shrink-0 cursor-pointer group relative"
-                >
-                  <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                    {/* The Logo Cover Overlay */}
-                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                      {/* Logo emblem */}
-                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
-                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
-                      </div>
-                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
-                    </div>
-
-                    {isDirectVideo(reel.videoUrl) ? (
-                      <video
-                        src={reel.videoUrl}
-                        className="w-full h-full object-cover"
-                        loop
-                        playsInline
-                        muted={clickedReelId !== reel._id}
-                      />
-                    ) : (
-                      <iframe
-                        title={reel.title}
-                        className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
-                        src={
-                          playingReelId === reel._id
-                            ? clickedReelId === reel._id
-                              ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
-                              : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
-                            : getEmbedUrl(reel.videoUrl)
-                        }
-                        allow="autoplay; encrypted-media"
-                      />
-                    )}
-                    {/* Dark gradient overlay at the bottom for title */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-3 gap-1">
-                      <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-wide truncate">{reel.title}</span>
-                      {reel.description && (
-                        <p className="text-gray-400 text-[8px] md:text-[9.5px] leading-relaxed line-clamp-2 font-medium">
-                          {reel.description}
-                        </p>
-                      )}
-                    </div>
-                    {/* Play Badge Overlay */}
-                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity bg-black/25 ${playingReelId === reel._id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white text-sm">
-                        ▶
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         {/* EyeGlaze Showcase Section */}
         {videos && videos.length > 0 ? (
@@ -1842,11 +1804,107 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Mobile-Only Vertical Reels Section (after EYEGLAZE CLINIC @ HOME / FAQ) */}
+        {reels && reels.length > 0 && (
+          <section className="block md:hidden w-full py-6 border-t border-[#1C1C1E] space-y-4">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-[10px] font-black text-white tracking-widest uppercase">EyeGlaze Reels</h2>
+              <span className="text-[8px] text-gray-500 font-semibold uppercase tracking-wider">Trending styles, lookbooks and details</span>
+            </div>
+            
+            <div className="flex flex-col gap-4 items-center w-full">
+              {reels.map((reel) => (
+                <div 
+                  key={reel._id || reel.id}
+                  onClick={(e) => {
+                    const isClicked = clickedReelId === reel._id;
+                    const videoEl = e.currentTarget.querySelector('video');
+                    
+                    const allVideos = document.querySelectorAll('video');
+                    allVideos.forEach(v => {
+                      if (v !== videoEl) {
+                        v.pause();
+                        v.muted = true;
+                      }
+                    });
 
-        {/* Footer Banner Slider */}
+                    if (isClicked) {
+                      setClickedReelId(null);
+                      setPlayingReelId(null);
+                      setPausedReelId(reel._id);
+                      if (videoEl) {
+                        videoEl.pause();
+                        videoEl.muted = true;
+                      }
+                    } else {
+                      setClickedReelId(reel._id);
+                      setPlayingReelId(reel._id);
+                      setPausedReelId(null);
+                      if (videoEl) {
+                        videoEl.muted = false;
+                        videoEl.play().catch(() => {});
+                      }
+                    }
+                  }}
+                  className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden p-2.5 flex flex-col gap-2.5 shadow-lg w-full max-w-[340px] cursor-pointer group relative"
+                >
+                  <div className="aspect-[9/16] w-full rounded-lg overflow-hidden bg-black border border-[#2A2A2D] relative">
+                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
+                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
+                      </div>
+                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
+                    </div>
+
+                    {isDirectVideo(reel.videoUrl) ? (
+                      <video
+                        src={reel.videoUrl}
+                        className="w-full h-full object-cover"
+                        loop
+                        playsInline
+                        muted={clickedReelId !== reel._id}
+                      />
+                    ) : (
+                      <iframe
+                        title={reel.title}
+                        className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                        src={
+                          playingReelId === reel._id
+                            ? clickedReelId === reel._id
+                              ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                              : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                            : getEmbedUrl(reel.videoUrl)
+                        }
+                        allow="autoplay; encrypted-media"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-3 gap-1">
+                      <span className="text-white text-[10px] sm:text-xs font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                      {reel.description && (
+                        <p className="text-gray-400 text-[8px] sm:text-[9.5px] leading-relaxed line-clamp-2 font-medium">
+                          {reel.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+
+        {/* Desktop Footer Banner Slider */}
         {footerBanners.length > 0 && (
-          <div className="w-full relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] md:aspect-[4.5/1] lg:aspect-[5/1] mt-8 mb-2">
-            <BannerSlider items={footerBanners} />
+          <div className="hidden md:block w-full relative overflow-hidden rounded-xl md:rounded-2xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] md:aspect-[4.5/1] lg:aspect-[5/1] mt-8 mb-2">
+            <BannerSlider items={footerBanners} objectFit="object-fill" />
+          </div>
+        )}
+
+        {/* Mobile Footer Banner Slider */}
+        {mobileFooterBanners.length > 0 && (
+          <div className="block md:hidden w-full relative overflow-hidden rounded-xl border border-zinc-800 bg-[#111112] aspect-[3/1] sm:aspect-[3.5/1] mt-8 mb-2">
+            <BannerSlider items={mobileFooterBanners} objectFit="object-cover" />
           </div>
         )}
 

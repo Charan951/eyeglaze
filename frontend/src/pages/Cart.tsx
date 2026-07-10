@@ -17,6 +17,9 @@ interface CartItem {
   fittingCharge: number;
   qty: number;
   image?: string;
+  lensType?: string;
+  lensSubType?: string;
+  lensQuality?: string;
   lensPayload?: any;
   power?: any;
   product?: any;
@@ -54,6 +57,7 @@ const mockItems: CartItem[] = [
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { user, fetchCartCount } = useAuth();
   const navigate = useNavigate();
 
@@ -114,6 +118,9 @@ export default function CartPage() {
           image: item.product?.images?.[0] || item.image || '',
           product: item.product,
           power: item.power,
+          lensType: item.lensType,
+          lensSubType: item.lensSubType,
+          lensQuality: item.lensQuality,
         }));
         setItems(mapped);
       })
@@ -122,7 +129,7 @@ export default function CartPage() {
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [user]);
+  }, [user, refreshKey]);
 
   const isMember = user?.membershipActive || addGoldMembership;
 
@@ -276,6 +283,51 @@ export default function CartPage() {
     }
   };
 
+  const handleRepeat = async (item: CartItem) => {
+    if (!user) {
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+      const idx = cart.findIndex((i: any) => i.id === item.id);
+      if (idx >= 0) {
+        const duplicatedItem = {
+          ...cart[idx],
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          qty: 1
+        };
+        cart.splice(idx + 1, 0, duplicatedItem);
+        localStorage.setItem('guest_cart', JSON.stringify(cart));
+        setItems(cart);
+      }
+      await fetchCartCount();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const lensObj = item.lensType ? {
+        lensType: item.lensType,
+        lensSubType: item.lensSubType,
+        lensQuality: item.lensQuality,
+        lensPrice: item.lensPrice,
+        power: item.power,
+      } : undefined;
+
+      await api.post('/cart', {
+        productId: item.productId,
+        color: item.color,
+        qty: 1,
+        lens: lensObj,
+        forceNew: true
+      });
+
+      await fetchCartCount();
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error('Failed to repeat cart item:', err);
+      setLoading(false);
+    }
+  };
+
   const remove = async (item: CartItem) => {
     setItems(prev => prev.filter(i => i.id !== item.id));
 
@@ -347,7 +399,14 @@ export default function CartPage() {
               </div>
 
               <div className="flex-1">
-                <div className="text-white font-semibold">{item.name}</div>
+                <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
+                  {item.name}
+                  {item.qty > 1 && (
+                    <span className="bg-[#D4A04D]/10 text-[#D4A04D] text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#D4A04D]/35">
+                      Qty: {item.qty}
+                    </span>
+                  )}
+                </div>
                 <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
                 {item.lens && (
                   <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
@@ -359,18 +418,18 @@ export default function CartPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-4 mt-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateQty(item, Math.max(1, item.qty - 1))}
-                      className="w-7 h-7 bg-[#2A2A2D] rounded text-white hover:bg-[#D4A04D] hover:text-black transition-colors text-sm"
-                    >−</button>
-                    <span className="text-white w-6 text-center">{item.qty}</span>
-                    <button
-                      onClick={() => updateQty(item, item.qty + 1)}
-                      className="w-7 h-7 bg-[#2A2A2D] rounded text-white hover:bg-[#D4A04D] hover:text-black transition-colors text-sm"
-                    >+</button>
-                  </div>
-                  <button onClick={() => remove(item)} className="text-red-400 text-xs hover:underline">Remove</button>
+                  <button
+                    onClick={() => handleRepeat(item)}
+                    className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
+                  >
+                    Repeat
+                  </button>
+                  <button
+                    onClick={() => remove(item)}
+                    className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
 

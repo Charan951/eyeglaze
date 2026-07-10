@@ -98,7 +98,7 @@ export async function addToCart(req: Request, res: Response) {
   try {
     await connectDB();
     const body = req.body || {};
-    const { productId, color, qty = 1, lens } = body;
+    const { productId, color, qty = 1, lens, forceNew = false } = body;
 
     if (!productId) {
       return res.status(400).json({ error: 'productId is required' });
@@ -115,12 +115,14 @@ export async function addToCart(req: Request, res: Response) {
       cart = new Cart({ user: req.user!.userId, items: [] });
     }
 
-    const existingIdx = cart.items.findIndex(
-      (item: any) =>
-        item.product.toString() === productId &&
-        item.color === color &&
-        item.lensType === (lens?.lensType || null)
-    );
+    const existingIdx = forceNew
+      ? -1
+      : cart.items.findIndex(
+          (item: any) =>
+            item.product.toString() === productId &&
+            item.color === color &&
+            item.lensType === (lens?.lensType || null)
+        );
 
     // Fitting Charge Engine
     let fittingCharge = 0;

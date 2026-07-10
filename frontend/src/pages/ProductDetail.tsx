@@ -173,7 +173,7 @@ export default function ProductDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
-  const [quantity, setQuantity] = useState(1);
+  const quantity = 1;
 
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
@@ -186,18 +186,9 @@ export default function ProductDetailPage() {
   const [playingReelId, setPlayingReelId] = useState<string | null>(null);
   const [clickedReelId, setClickedReelId] = useState<string | null>(null);
   const reelsCarouselRefReal = useRef<HTMLDivElement>(null);
+  const reelsCarouselRefMobile = useRef<HTMLDivElement>(null);
 
-  const scrollReelsLeft = () => {
-    if (reelsCarouselRefReal.current) {
-      reelsCarouselRefReal.current.scrollBy({ left: -240, behavior: 'smooth' });
-    }
-  };
 
-  const scrollReelsRight = () => {
-    if (reelsCarouselRefReal.current) {
-      reelsCarouselRefReal.current.scrollBy({ left: 240, behavior: 'smooth' });
-    }
-  };
 
   const getEmbedUrl = (url: string) => {
     if (!url) return '';
@@ -349,6 +340,10 @@ export default function ProductDetailPage() {
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  // Accordion States for Restructured Product Page
+  const [showFaqAccordion, setShowFaqAccordion] = useState(true);
+  const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(0);
 
   // AI Chat States
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
@@ -830,106 +825,408 @@ export default function ProductDetailPage() {
       />
       <div className="grid md:grid-cols-2 gap-10">
         
-        {/* Image Gallery */}
-        <div>
-          {/* Main Image Container */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center mb-4 relative overflow-hidden group">
-            <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-none p-4" />
-            
-            <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
-              {product.isBestseller && (
-                <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                  BESTSELLER
-                </span>
-              )}
-              {product.isPremium && (
-                <span className="bg-black/75 border border-[#D4A04D] text-[#D4A04D] text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                  PREMIUM
-                </span>
-              )}
-              {product.buy1Get1 && (
-                <span className="bg-pink-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                  BUY 1 GET 1
-                </span>
-              )}
-              {product.oneRupeeFrameOffer && (
-                <span className="bg-green-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                  ₹1 FRAME OFFER
-                </span>
-              )}
-              {product.offerBadges?.map((badge, idx) => (
-                <span key={idx} className="bg-purple-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                  {badge}
-                </span>
-              ))}
+        {/* Left Column (Image Gallery & Media & Accordions) */}
+        <div className="space-y-6">
+          {/* Image Gallery Container */}
+          <div className="flex flex-col md:flex-row gap-4 items-stretch">
+            {/* Products photos vertical text and vertical thumbnails on Desktop */}
+            <div className="hidden md:flex flex-col items-center select-none w-16 shrink-0 border-r border-[#2A2A2D]/40 pr-3">
+              <div className="[writing-mode:vertical-lr] rotate-180 uppercase text-[9px] font-black tracking-widest text-[#727275] mb-4 mt-2">
+                Products photos
+              </div>
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[380px] scrollbar-none pb-2">
+                {productImages.map((img, i) => {
+                  const isSelected = activeImageIndex === i;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setActiveImageIndex(i)}
+                      className={`bg-[#131314] border rounded-none w-11 h-11 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#D4A04D] transition-colors overflow-hidden ${
+                        isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
+                      }`}
+                    >
+                      <img src={img} alt={`${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-0.5" />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            
-            {/* 360° overlay */}
-            {product.image360 && (
-              <div className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
-                <span>360°</span>
-                <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-                </svg>
-              </div>
-            )}
-            {/* Product Video overlay */}
-            {product.productVideo && (
-              <div className="absolute bottom-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
-                <span>VIDEO</span>
-                <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-            )}
 
-            {/* Left/Right Overlaid navigation buttons */}
-            <button 
-              onClick={prevImage} 
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
-              aria-label="Previous image"
-            >
-              &lt;
-            </button>
-            <button 
-              onClick={nextImage} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
-              aria-label="Next image"
-            >
-              &gt;
-            </button>
+            {/* Main image content */}
+            <div className="flex-1">
+              <div className="bg-[#131314] border border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center mb-4 relative overflow-hidden group w-full">
+                <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-none p-4" />
+                
+                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
+                  {product.isBestseller && (
+                    <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      BESTSELLER
+                    </span>
+                  )}
+                  {product.isPremium && (
+                    <span className="bg-black/75 border border-[#D4A04D] text-[#D4A04D] text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      PREMIUM
+                    </span>
+                  )}
+                  {product.buy1Get1 && (
+                    <span className="bg-pink-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      BUY 1 GET 1
+                    </span>
+                  )}
+                  {product.oneRupeeFrameOffer && (
+                    <span className="bg-green-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      ₹1 FRAME OFFER
+                    </span>
+                  )}
+                  {product.offerBadges?.map((badge, idx) => (
+                    <span key={idx} className="bg-purple-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+                
+                {/* 360° overlay */}
+                {product.image360 && (
+                  <div className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                    <span>360°</span>
+                    <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                    </svg>
+                  </div>
+                )}
+                {/* Product Video overlay */}
+                {product.productVideo && (
+                  <div className="absolute bottom-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                    <span>VIDEO</span>
+                    <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                )}
 
-            {/* Carousel dots overlay */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-              {productImages.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveImageIndex(idx)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                    activeImageIndex === idx ? 'bg-[#D4A04D] w-4' : 'bg-gray-600'
-                  }`}
-                  aria-label={`Go to slide ${idx + 1}`}
-                />
-              ))}
+                {/* Left/Right Overlaid navigation buttons */}
+                <button 
+                  onClick={prevImage} 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
+                  aria-label="Previous image"
+                >
+                  &lt;
+                </button>
+                <button 
+                  onClick={nextImage} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
+                  aria-label="Next image"
+                >
+                  &gt;
+                </button>
+
+                {/* Carousel dots overlay */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                  {productImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                        activeImageIndex === idx ? 'bg-[#D4A04D] w-4' : 'bg-gray-600'
+                      }`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Mobile Only Horizontal Thumbnails */}
+              <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {productImages.map((img, i) => {
+                  const isSelected = activeImageIndex === i;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setActiveImageIndex(i)}
+                      className={`bg-[#131314] border rounded-none w-14 h-14 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#D4A04D] transition-colors overflow-hidden ${
+                        isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
+                      }`}
+                    >
+                      <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-none p-1" />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Thumbnails */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {productImages.map((img, i) => {
-              const isSelected = activeImageIndex === i;
-              return (
-                <div
-                  key={i}
-                  onClick={() => setActiveImageIndex(i)}
-                  className={`bg-[#131314] border rounded-none w-14 h-14 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#D4A04D] transition-colors overflow-hidden ${
-                    isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
-                  }`}
+          {/* EyeGlaze Reels Section */}
+          {reels && reels.length > 0 && (
+            <div className="hidden md:block border-t border-[#2A2A2D]/40 pt-6">
+              <div className="flex flex-col gap-0.5 mb-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">EyeGlaze Reels</h3>
+                <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
+              </div>
+              
+              <div className="relative w-full group/reels-carousel">
+                {/* Reels Carousel Container */}
+                <div 
+                  ref={reelsCarouselRefReal}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-none w-full flex-nowrap scroll-smooth"
                 >
-                  <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-none p-1" />
+                  {reels.map((reel) => (
+                    <div 
+                      key={reel._id || reel.id}
+                      onClick={(e) => {
+                        const isClicked = clickedReelId === reel._id;
+                        const videoEl = e.currentTarget.querySelector('video');
+                        
+                        // Pause and mute all other videos
+                        const allVideos = document.querySelectorAll('video');
+                        allVideos.forEach(v => {
+                          if (v !== videoEl) {
+                            v.pause();
+                            v.muted = true;
+                          }
+                        });
+
+                        if (isClicked) {
+                          setClickedReelId(null);
+                          setPlayingReelId(null);
+                          if (videoEl) {
+                            videoEl.pause();
+                            videoEl.muted = true;
+                          }
+                        } else {
+                          setClickedReelId(reel._id);
+                          setPlayingReelId(reel._id);
+                          if (videoEl) {
+                            videoEl.muted = false;
+                            videoEl.play().catch(() => {});
+                          }
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        if (clickedReelId && clickedReelId !== reel._id) return;
+                        setPlayingReelId(reel._id);
+                        const videoEl = e.currentTarget.querySelector('video');
+                        if (videoEl) {
+                          videoEl.muted = clickedReelId === reel._id ? false : true;
+                          videoEl.play().catch(() => {});
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (clickedReelId === reel._id) return;
+                        setPlayingReelId(null);
+                        const videoEl = e.currentTarget.querySelector('video');
+                        if (videoEl) {
+                          videoEl.pause();
+                          videoEl.muted = true;
+                        }
+                      }}
+                      className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[120px] md:w-[130px] flex-shrink-0 cursor-pointer group relative"
+                    >
+                      <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                        <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                          <div className="w-8 h-8 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg">
+                            <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
+                          </div>
+                          <span className="text-[#D4A04D] text-[8px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
+                        </div>
+
+                        {isDirectVideo(reel.videoUrl) ? (
+                          <video
+                            src={reel.videoUrl}
+                            className="w-full h-full object-cover"
+                            loop
+                            playsInline
+                            autoPlay={playingReelId === reel._id}
+                          />
+                        ) : (
+                          <iframe
+                            title={reel.title}
+                            className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                            src={
+                              playingReelId === reel._id
+                                ? clickedReelId === reel._id
+                                  ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                                  : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                                : getEmbedUrl(reel.videoUrl)
+                            }
+                            allow="autoplay; encrypted-media"
+                          />
+                        )}
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-2 gap-0.5">
+                          <span className="text-white text-[9px] font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            </div>
+          )}
+
+          {/* Styling Ideas Section (2x2 grid of remaining 4 images) */}
+          <div className="hidden md:block border-t border-[#2A2A2D]/40 pt-6">
+            <div className="flex flex-col gap-0.5 mb-4">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">Styling Ideas</h3>
+              <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">How to style and match your eyewear</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3.5">
+              {[
+                { title: 'Cool Vibe', index: 0 },
+                { title: 'Artistic Space', index: 1 },
+                { title: 'Chic Gaze', index: 2 },
+                { title: 'Studio Vision', index: 3 }
+              ].map((style) => {
+                const fallbackImages = [
+                  '/images/men_eyeglasses.png',
+                  '/images/women_eyeglasses.png',
+                  '/images/kids_eyeglasses.png',
+                  '/images/hero_model.png'
+                ];
+                // Use remaining product images (starting from index 1) or fallbacks
+                const imageSrc = productImages[style.index + 1] || fallbackImages[style.index];
+                
+                return (
+                  <div key={style.title} className="bg-[#131314] border border-[#2A2A2D]/80 rounded-xl relative overflow-hidden group aspect-[4/3] flex items-center justify-center">
+                    <img 
+                      src={imageSrc} 
+                      alt={style.title} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    />
+                    
+                    {/* Badge Overlay */}
+                    <div className="absolute top-2 left-2 z-10">
+                      <span className="bg-black/75 border border-[#2A2A2D] text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                        {style.title}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Product Details Section (Simple, not dropdown) */}
+          <div className="hidden md:block border-t border-[#2A2A2D]/40 pt-6">
+            <div className="border border-[#2A2A2D] rounded-xl bg-[#131314] overflow-hidden">
+              {/* Header */}
+              <div className="p-4 border-b border-[#2A2A2D] text-left font-bold text-xs uppercase tracking-wider text-white select-none">
+                Product Details
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-5 text-[11px] text-gray-400">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-gray-500 font-bold block mb-1 text-[9px] uppercase tracking-wider">About the Product</span>
+                    <p className="text-white leading-relaxed font-medium">
+                      {product.longDescription || product.description || 'Premium designer eyeglasses hand-crafted with durable, lightweight materials for ultimate comfort and clarity.'}
+                    </p>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                      <span className="text-gray-500 font-medium">Product ID:</span>
+                      <span className="text-white font-bold">{product._id?.substring(0, 8).toUpperCase() || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                      <span className="text-gray-500 font-medium">Model No:</span>
+                      <span className="text-white font-bold">{product.sku}</span>
+                    </div>
+                    {product.category !== 'contact-lenses' && (
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500 font-medium">Frame Size:</span>
+                        <span className="text-white font-bold">{selectedSize}</span>
+                      </div>
+                    )}
+                    {activeDimensions?.frameWidth && product.category !== 'contact-lenses' && (
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500 font-medium">Frame Width:</span>
+                        <span className="text-white font-bold">{activeDimensions.frameWidth} mm</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {product.category !== 'contact-lenses' && hasAnySpecs && (
+                  <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
+                    <span className="text-gray-500 font-bold block text-[9px] uppercase tracking-wider">Specifications</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                      {displaySpecs.frameType && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Type:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameType}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.frameShape && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Shape:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameShape}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.material && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Material:</span>
+                          <strong className="text-white font-bold">{displaySpecs.material}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.primaryColor && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Color:</span>
+                          <strong className="text-white font-bold">{displaySpecs.primaryColor}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.secondaryColor && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Secondary Color:</span>
+                          <strong className="text-white font-bold">{displaySpecs.secondaryColor}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.frameWeight && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Weight:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameWeight}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.countryOfOrigin && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Country of Origin:</span>
+                          <strong className="text-white font-bold">{displaySpecs.countryOfOrigin}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.warranty && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Warranty:</span>
+                          <strong className="text-white font-bold">{displaySpecs.warranty}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    {product.frame?.featureTags && product.frame.featureTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {product.frame.featureTags.map(tag => (
+                          <span key={tag} className="flex items-center gap-1 bg-[#1A1A1C] border border-[#2A2A2D] text-gray-300 text-[9px] font-bold px-2.5 py-1 rounded-md">
+                            <span className="text-[#D4A04D] text-[9px]">✔</span> {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex items-center gap-1.5 text-gray-400 text-[10px] font-medium leading-none">
+                      <span className="text-green-500 font-extrabold text-xs">✓</span>
+                      <span>Compatible with:</span>
+                      <span className="text-white font-bold">
+                        {[
+                          product.compatible?.prescription && 'Prescription Lenses',
+                          product.compatible?.bluecut && 'Blue Cut',
+                          product.compatible?.zeropower && 'Zero Power',
+                          product.compatible?.progressive && 'Progressive',
+                        ].filter(Boolean).join(' • ') || 'Standard Lenses'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -986,65 +1283,36 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-           {/* Pricing Card */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-col">
-                <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                  {product.category === 'contact-lenses' ? 'Contact Lens Price' : 'Frame Starting'}
-                </span>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  {/* Mobile responsive / Single Price: Show custom selling price */}
-                  <span className="text-3xl font-black text-white md:hidden">
+            {/* Pricing Info */}
+            <div className="flex flex-col gap-1 py-1">
+              <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+                {product.category === 'contact-lenses' ? 'Contact Lens Price' : 'Frame Starting'}
+              </span>
+              <div className="flex items-baseline gap-2.5 flex-wrap">
+                {/* Member / Non-Member Prices */}
+                {product.category !== 'contact-lenses' && product.memberPrice && (
+                  <span className="text-3xl font-black text-[#D4A04D]">
+                    ₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span>
+                  </span>
+                )}
+                {product.category !== 'contact-lenses' && product.nonMemberPrice && (
+                  <span className="text-2xl font-black text-white">
+                    ₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span>
+                  </span>
+                )}
+                
+                {/* Fallback/Main price for contact lenses or when member prices are not available */}
+                {(product.category === 'contact-lenses' || !product.memberPrice || !product.nonMemberPrice) && (
+                  <span className="text-3xl font-black text-white">
                     ₹{sellingPrice}
                   </span>
-
-                  {/* Desktop view: Show member/non-member prices if available (Only for non-contact lenses) */}
-                  {product.category !== 'contact-lenses' && product.memberPrice && (
-                    <span className="hidden md:inline text-3xl font-black text-[#D4A04D]">
-                      ₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span>
-                    </span>
-                  )}
-                  {product.category !== 'contact-lenses' && product.nonMemberPrice && (
-                    <span className="hidden md:inline text-2xl font-black text-white">
-                      ₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span>
-                    </span>
-                  )}
-                  
-                  {/* Fallback/Main price for contact lenses or when member prices are not available */}
-                  {(product.category === 'contact-lenses' || !product.memberPrice || !product.nonMemberPrice) && (
-                    <span className="hidden md:inline text-3xl font-black text-white">
-                      ₹{sellingPrice}
-                    </span>
-                  )}
-                  <span className="hidden md:inline text-gray-600 text-sm line-through">₹{product.price.original}</span>
-                  <span className="hidden md:inline bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
-                    {discount}% OFF
-                  </span>
-                </div>
+                )}
+                <span className="text-gray-600 text-sm line-through">₹{product.price.original}</span>
+                <span className="bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
+                  {discount}% OFF
+                </span>
               </div>
             </div>
-
-            {/* Quantity Selector */}
-            <div className="flex items-center justify-between pt-0 md:pt-3 border-none md:border-t md:border-[#2A2A2D]">
-              <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Quantity</span>
-              <div className="flex items-center gap-2 bg-[#0E0E0E] border border-[#2A2A2D] rounded-lg">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-8 h-8 flex items-center justify-center text-white hover:text-[#D4A04D] cursor-pointer"
-                >
-                  -
-                </button>
-                <span className="text-white font-bold text-sm w-8 text-center">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-8 h-8 flex items-center justify-center text-white hover:text-[#D4A04D] cursor-pointer"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
 
 
 
@@ -1159,85 +1427,7 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Frame Details Box */}
-          {product.category !== 'contact-lenses' && product.category !== 'sunglasses' && product.category !== 'power-sunglasses' && hasAnySpecs && (
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 flex flex-col gap-4">
-              <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Frame Details & Specifications</span>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                {displaySpecs.frameType && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Frame Type:</span>
-                    <strong className="text-white font-bold">{displaySpecs.frameType}</strong>
-                  </div>
-                )}
-                {displaySpecs.frameShape && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Frame Shape:</span>
-                    <strong className="text-white font-bold">{displaySpecs.frameShape}</strong>
-                  </div>
-                )}
-                {displaySpecs.material && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Material:</span>
-                    <strong className="text-white font-bold">{displaySpecs.material}</strong>
-                  </div>
-                )}
-                {displaySpecs.primaryColor && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Frame Color:</span>
-                    <strong className="text-white font-bold">{displaySpecs.primaryColor}</strong>
-                  </div>
-                )}
-                {displaySpecs.secondaryColor && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Secondary Color:</span>
-                    <strong className="text-white font-bold">{displaySpecs.secondaryColor}</strong>
-                  </div>
-                )}
-                {displaySpecs.frameWeight && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Weight:</span>
-                    <strong className="text-white font-bold">{displaySpecs.frameWeight}</strong>
-                  </div>
-                )}
-                {displaySpecs.countryOfOrigin && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Country of Origin:</span>
-                    <strong className="text-white font-bold">{displaySpecs.countryOfOrigin}</strong>
-                  </div>
-                )}
-                {displaySpecs.warranty && (
-                  <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
-                    <span className="text-gray-500">Warranty:</span>
-                    <strong className="text-white font-bold">{displaySpecs.warranty}</strong>
-                  </div>
-                )}
-              </div>
-              
-              {product.frame?.featureTags && product.frame.featureTags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1 border-t border-[#2A2A2D]/40 pt-3">
-                  {product.frame.featureTags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1 bg-[#1A1A1C] border border-[#2A2A2D] text-gray-300 text-[9px] font-bold px-2.5 py-1 rounded-md">
-                      <span className="text-[#D4A04D] text-[9px]">✔</span> {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
 
-              <div className="border-t border-[#2A2A2D]/40 pt-3 flex items-center gap-1.5 text-[#A7A7A7] text-[10px] font-medium leading-none">
-                <span className="text-green-500 font-extrabold text-xs">✓</span>
-                <span>Compatible with:</span>
-                <span className="text-white font-bold">
-                  {[
-                    product.compatible?.prescription && 'Prescription Lenses',
-                    product.compatible?.bluecut && 'Blue Cut',
-                    product.compatible?.zeropower && 'Zero Power',
-                    product.compatible?.progressive && 'Progressive',
-                  ].filter(Boolean).join(' • ') || 'Standard Lenses'}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Reading Glasses Selector (Special Power -> Reading) */}
           {product.category === 'power-sunglasses' && product.subCategory === 'reading' && product.readingPowers && product.readingPowers.length > 0 && (
@@ -1412,20 +1602,341 @@ export default function ProductDetailPage() {
               )}
             </>
           )}
-        </div>
-      </div>
 
-      {/* Product Description & Details Section */}
-      {(product.longDescription || product.description) && (
-        <div className="mt-12 border-t border-[#2A2A2D] pt-10">
-          <h2 className="text-xl font-bold text-white mb-3">Product Description</h2>
-          <div className="text-gray-400 text-sm leading-relaxed max-w-4xl space-y-4">
-            {(product.longDescription || product.description)?.split('\n').map((paragraph, idx) => (
-              <p key={idx}>{paragraph}</p>
-            ))}
+          {/* Mobile-Only Styling Ideas, Product Details and Reels wrapper (Above FAQ) */}
+          <div className="block md:hidden space-y-6 border-t border-[#2A2A2D]/40 pt-6 mt-6">
+            
+            {/* EyeGlaze Reels Section */}
+            {reels && reels.length > 0 && (
+              <div>
+                <div className="flex flex-col gap-0.5 mb-4">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest">EyeGlaze Reels</h3>
+                  <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
+                </div>
+                
+                <div className="relative w-full group/reels-carousel">
+                  <div 
+                    ref={reelsCarouselRefMobile}
+                    className="flex gap-3 overflow-x-auto pb-2 scrollbar-none w-full flex-nowrap scroll-smooth"
+                  >
+                    {reels.map((reel) => (
+                      <div 
+                        key={reel._id || reel.id}
+                        onClick={(e) => {
+                          const isClicked = clickedReelId === reel._id;
+                          const videoEl = e.currentTarget.querySelector('video');
+                          
+                          // Pause and mute all other videos
+                          const allVideos = document.querySelectorAll('video');
+                          allVideos.forEach(v => {
+                            if (v !== videoEl) {
+                              v.pause();
+                              v.muted = true;
+                            }
+                          });
+
+                          if (isClicked) {
+                            setClickedReelId(null);
+                            setPlayingReelId(null);
+                            if (videoEl) {
+                              videoEl.pause();
+                              videoEl.muted = true;
+                            }
+                          } else {
+                            setClickedReelId(reel._id);
+                            setPlayingReelId(reel._id);
+                            if (videoEl) {
+                              videoEl.muted = false;
+                              videoEl.play().catch(() => {});
+                            }
+                          }
+                        }}
+                        onMouseEnter={(e) => {
+                          if (clickedReelId && clickedReelId !== reel._id) return;
+                          setPlayingReelId(reel._id);
+                          const videoEl = e.currentTarget.querySelector('video');
+                          if (videoEl) {
+                            videoEl.muted = clickedReelId === reel._id ? false : true;
+                            videoEl.play().catch(() => {});
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (clickedReelId === reel._id) return;
+                          setPlayingReelId(null);
+                          const videoEl = e.currentTarget.querySelector('video');
+                          if (videoEl) {
+                            videoEl.pause();
+                            videoEl.muted = true;
+                          }
+                        }}
+                        className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[120px] md:w-[130px] flex-shrink-0 cursor-pointer group relative"
+                      >
+                        <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                          <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
+                            <div className="w-8 h-8 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg">
+                              <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
+                            </div>
+                            <span className="text-[#D4A04D] text-[8px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
+                          </div>
+
+                          {isDirectVideo(reel.videoUrl) ? (
+                            <video
+                              src={reel.videoUrl}
+                              className="w-full h-full object-cover"
+                              loop
+                              playsInline
+                              autoPlay={playingReelId === reel._id}
+                            />
+                          ) : (
+                            <iframe
+                              title={reel.title}
+                              className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
+                              src={
+                                playingReelId === reel._id
+                                  ? clickedReelId === reel._id
+                                    ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
+                                    : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
+                                  : getEmbedUrl(reel.videoUrl)
+                              }
+                              allow="autoplay; encrypted-media"
+                            />
+                          )}
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-2 gap-0.5">
+                            <span className="text-white text-[9px] font-bold uppercase tracking-wide truncate">{reel.title}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Styling Ideas Section (2x2 grid of remaining 4 images) */}
+            <div>
+              <div className="flex flex-col gap-0.5 mb-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">Styling Ideas</h3>
+                <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">How to style and match your eyewear</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3.5">
+                {[
+                  { title: 'Cool Vibe', index: 0 },
+                  { title: 'Artistic Space', index: 1 },
+                  { title: 'Chic Gaze', index: 2 },
+                  { title: 'Studio Vision', index: 3 }
+                ].map((style) => {
+                  const fallbackImages = [
+                    '/images/men_eyeglasses.png',
+                    '/images/women_eyeglasses.png',
+                    '/images/kids_eyeglasses.png',
+                    '/images/hero_model.png'
+                  ];
+                  const imageSrc = productImages[style.index + 1] || fallbackImages[style.index];
+                  
+                  return (
+                    <div key={style.title} className="bg-[#131314] border border-[#2A2A2D]/80 rounded-xl relative overflow-hidden group aspect-[4/3] flex items-center justify-center">
+                      <img 
+                        src={imageSrc} 
+                        alt={style.title} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                      />
+                      <div className="absolute top-2 left-2 z-10">
+                        <span className="bg-black/75 border border-[#2A2A2D] text-white text-[9px] font-black px-2.5 py-0.5 rounded uppercase tracking-wider">
+                          {style.title}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Product Details Section (Simple, not dropdown) */}
+            <div className="border border-[#2A2A2D] rounded-xl bg-[#131314] overflow-hidden">
+              {/* Header */}
+              <div className="p-4 border-b border-[#2A2A2D] text-left font-bold text-xs uppercase tracking-wider text-white select-none">
+                Product Details
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-5 text-[11px] text-gray-400">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-gray-500 font-bold block mb-1 text-[9px] uppercase tracking-wider">About the Product</span>
+                    <p className="text-white leading-relaxed font-medium">
+                      {product.longDescription || product.description || 'Premium designer eyeglasses hand-crafted with durable, lightweight materials for ultimate comfort and clarity.'}
+                    </p>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                      <span className="text-gray-500 font-medium">Product ID:</span>
+                      <span className="text-white font-bold">{product._id?.substring(0, 8).toUpperCase() || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                      <span className="text-gray-500 font-medium">Model No:</span>
+                      <span className="text-white font-bold">{product.sku}</span>
+                    </div>
+                    {product.category !== 'contact-lenses' && (
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500 font-medium">Frame Size:</span>
+                        <span className="text-white font-bold">{selectedSize}</span>
+                      </div>
+                    )}
+                    {activeDimensions?.frameWidth && product.category !== 'contact-lenses' && (
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500 font-medium">Frame Width:</span>
+                        <span className="text-white font-bold">{activeDimensions.frameWidth} mm</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {product.category !== 'contact-lenses' && hasAnySpecs && (
+                  <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
+                    <span className="text-gray-500 font-bold block text-[9px] uppercase tracking-wider">Specifications</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                      {displaySpecs.frameType && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Type:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameType}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.frameShape && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Shape:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameShape}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.material && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Material:</span>
+                          <strong className="text-white font-bold">{displaySpecs.material}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.primaryColor && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Frame Color:</span>
+                          <strong className="text-white font-bold">{displaySpecs.primaryColor}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.secondaryColor && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Secondary Color:</span>
+                          <strong className="text-white font-bold">{displaySpecs.secondaryColor}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.frameWeight && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Weight:</span>
+                          <strong className="text-white font-bold">{displaySpecs.frameWeight}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.countryOfOrigin && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Country of Origin:</span>
+                          <strong className="text-white font-bold">{displaySpecs.countryOfOrigin}</strong>
+                        </div>
+                      )}
+                      {displaySpecs.warranty && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Warranty:</span>
+                          <strong className="text-white font-bold">{displaySpecs.warranty}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    {product.frame?.featureTags && product.frame.featureTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {product.frame.featureTags.map(tag => (
+                          <span key={tag} className="flex items-center gap-1 bg-[#1A1A1C] border border-[#2A2A2D] text-gray-300 text-[9px] font-bold px-2.5 py-1 rounded-md">
+                            <span className="text-[#D4A04D] text-[9px]">✔</span> {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex items-center gap-1.5 text-gray-400 text-[10px] font-medium leading-none">
+                      <span className="text-green-500 font-extrabold text-xs">✓</span>
+                      <span>Compatible with:</span>
+                      <span className="text-white font-bold">
+                        {[
+                          product.compatible?.prescription && 'Prescription Lenses',
+                          product.compatible?.bluecut && 'Blue Cut',
+                          product.compatible?.zeropower && 'Zero Power',
+                          product.compatible?.progressive && 'Progressive',
+                        ].filter(Boolean).join(' • ') || 'Standard Lenses'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Frequently Asked Questions Accordion */}
+          <div className="border border-[#2A2A2D] rounded-xl bg-[#131314] overflow-hidden mt-6">
+            <button
+              type="button"
+              onClick={() => setShowFaqAccordion(!showFaqAccordion)}
+              className="w-full flex items-center justify-between p-4 text-left font-bold text-xs uppercase tracking-wider text-white select-none cursor-pointer hover:bg-[#1C1C1E] transition-colors"
+            >
+              <span>Frequently asked questions</span>
+              <span className={`transform transition-transform duration-200 text-[#D4A04D] text-[9px] ${showFaqAccordion ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </button>
+            
+            {showFaqAccordion && (
+              <div className="p-4 border-t border-[#2A2A2D] space-y-3">
+                {[
+                  {
+                    q: "Can I track my order?",
+                    a: "Yes, go to My Orders > Track Order for real-time updates."
+                  },
+                  {
+                    q: "I received a wrong or damaged item. What should I do?",
+                    a: "Please contact our customer support team immediately. We will arrange a free replacement."
+                  },
+                  {
+                    q: "Can I return or exchange my glasses?",
+                    a: "Yes, we offer a 14-day hassle-free return and exchange policy on all frames."
+                  },
+                  {
+                    q: "How do I initiate a return?",
+                    a: "Go to your Profile > Orders, click 'Return/Exchange' next to your item, and select a reason."
+                  },
+                  {
+                    q: "Is there a warranty on my purchase?",
+                    a: "Yes, all our frames come with a 1-year comprehensive warranty covering manufacturing defects."
+                  }
+                ].map((faq, idx) => {
+                  const isOpen = activeFaqIndex === idx;
+                  return (
+                    <div key={idx} className="border-b border-[#2A2A2D]/40 pb-2.5 last:border-0 last:pb-0">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
+                        className="w-full flex items-center justify-between text-left text-xs font-bold text-white py-1 hover:text-[#D4A04D] transition-colors select-none cursor-pointer"
+                      >
+                        <span>{faq.q}</span>
+                        <span className="text-[#D4A04D] text-[9px]">{isOpen ? '▲' : '▼'}</span>
+                      </button>
+                      {isOpen && (
+                        <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed font-medium">
+                          {faq.a}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Related Products Section */}
       <div className="mt-12 border-t border-[#2A2A2D] pt-10">
@@ -1442,149 +1953,6 @@ export default function ProductDetailPage() {
           <div className="text-[#A7A7A7] text-sm italic py-4">No similar products found.</div>
         )}
       </div>
-
-      {/* EyeGlaze Reels Section (Above Reviews) */}
-      {reels && reels.length > 0 && (
-        <div className="mt-12 border-t border-[#2A2A2D] pt-10">
-          <div className="flex flex-col gap-1 mb-6">
-            <h2 className="text-xl font-bold text-white uppercase tracking-wider">EyeGlaze Reels</h2>
-            <p className="text-[#A7A7A7] text-xs font-medium uppercase tracking-wider">Trending styles, lookbooks and details</p>
-          </div>
-
-          <div className="relative w-full group/reels-carousel">
-            {/* Left navigation arrow */}
-            <button 
-              onClick={scrollReelsLeft}
-              className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/reels-carousel:opacity-100 hidden md:flex"
-              aria-label="Previous Reel"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-
-            {/* Right navigation arrow */}
-            <button 
-              onClick={scrollReelsRight}
-              className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/reels-carousel:opacity-100 hidden md:flex"
-              aria-label="Next Reel"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Reels Carousel Container */}
-            <div 
-              ref={reelsCarouselRefReal}
-              className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth"
-            >
-              {reels.map((reel) => (
-                <div 
-                  key={reel._id || reel.id}
-                  onClick={(e) => {
-                    const isClicked = clickedReelId === reel._id;
-                    const videoEl = e.currentTarget.querySelector('video');
-                    
-                    // Pause and mute all other videos
-                    const allVideos = document.querySelectorAll('video');
-                    allVideos.forEach(v => {
-                      if (v !== videoEl) {
-                        v.pause();
-                        v.muted = true;
-                      }
-                    });
-
-                    if (isClicked) {
-                      setClickedReelId(null);
-                      setPlayingReelId(null);
-                      if (videoEl) {
-                        videoEl.pause();
-                        videoEl.muted = true;
-                      }
-                    } else {
-                      setClickedReelId(reel._id);
-                      setPlayingReelId(reel._id);
-                      if (videoEl) {
-                        videoEl.muted = false; // Unmute to allow audio!
-                        videoEl.play().catch(() => {});
-                      }
-                    }
-                  }}
-                  onMouseEnter={(e) => {
-                    if (clickedReelId && clickedReelId !== reel._id) return;
-                    setPlayingReelId(reel._id);
-                    const videoEl = e.currentTarget.querySelector('video');
-                    if (videoEl) {
-                      videoEl.muted = clickedReelId === reel._id ? false : true;
-                      videoEl.play().catch(() => {});
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (clickedReelId === reel._id) return; // Keep playing if clicked!
-                    setPlayingReelId(null);
-                    const videoEl = e.currentTarget.querySelector('video');
-                    if (videoEl) {
-                      videoEl.pause();
-                      videoEl.muted = true;
-                    }
-                  }}
-                  className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-3 flex flex-col gap-3 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[160px] md:w-[220px] flex-shrink-0 cursor-pointer group relative"
-                >
-                  <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                    {/* The Logo Cover Overlay */}
-                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                      {/* Logo emblem */}
-                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
-                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
-                      </div>
-                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
-                    </div>
-
-                    {isDirectVideo(reel.videoUrl) ? (
-                      <video
-                        src={reel.videoUrl}
-                        className="w-full h-full object-cover"
-                        loop
-                        playsInline
-                        autoPlay={playingReelId === reel._id}
-                      />
-                    ) : (
-                      <iframe
-                        title={reel.title}
-                        className={`w-full h-full border-none ${playingReelId === reel._id ? '' : 'pointer-events-none'}`}
-                        src={
-                          playingReelId === reel._id
-                            ? clickedReelId === reel._id
-                              ? `${getEmbedUrl(reel.videoUrl)}?autoplay=1`
-                              : `${getEmbedUrl(reel.videoUrl)}?autoplay=1&mute=1`
-                            : getEmbedUrl(reel.videoUrl)
-                        }
-                        allow="autoplay; encrypted-media"
-                      />
-                    )}
-                    {/* Dark gradient overlay at the bottom for title */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-85 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-3 gap-1">
-                      <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-wide truncate">{reel.title}</span>
-                      {reel.description && (
-                        <p className="text-gray-400 text-[8px] md:text-[9.5px] leading-relaxed line-clamp-2 font-medium">
-                          {reel.description}
-                        </p>
-                      )}
-                    </div>
-                    {/* Play Badge Overlay */}
-                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity bg-black/25 ${playingReelId === reel._id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white text-sm">
-                        ▶
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reviews Section */}
       <div className="mt-12 border-t border-[#2A2A2D] pt-10">

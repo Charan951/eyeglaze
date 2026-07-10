@@ -8,6 +8,7 @@ export interface IBanner extends Document {
   position: string;
   displayOrder: number;
   isActive: boolean;
+  showOnMobile: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ const BannerSchema = new Schema<IBanner>(
     position: { type: String, default: 'eyeglasses_landing' },
     displayOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
+    showOnMobile: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

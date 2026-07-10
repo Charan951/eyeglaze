@@ -601,12 +601,6 @@ export default function UserLayout() {
               )}
             </div>
 
-            {/* Desktop Left Tagline (FREE SHIPPING • 7-DAY RETURNS) */}
-            <div className="hidden xl:flex items-center gap-1.5 text-[9px] text-gray-500 tracking-widest uppercase font-bold select-none">
-              <span>Free Shipping</span>
-              <span className="w-1 h-1 bg-[#D4A04D] rounded-full" />
-              <span>7-Day Returns</span>
-            </div>
 
             {/* Logo - Centered on both Mobile and Desktop */}
             <Link to="/" className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center select-none text-center">
@@ -615,7 +609,7 @@ export default function UserLayout() {
             </Link>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-3.5 md:gap-6 z-10">
+            <div className="flex items-center gap-3.5 md:gap-6 z-10 ml-auto">
               {/* Search Icon (for smaller screens) */}
               {location.pathname !== '/' && (
                 <button 
