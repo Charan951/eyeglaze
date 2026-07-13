@@ -59,6 +59,7 @@ export interface IOrder extends Document {
   internalNotes: { note: string; addedBy?: mongoose.Types.ObjectId; addedAt: Date }[];
   isFlagged: boolean;
   membershipAdded?: boolean;
+  bogoApplied?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -148,6 +149,7 @@ const OrderSchema = new Schema<IOrder>(
     ],
     isFlagged: { type: Boolean, default: false },
     membershipAdded: { type: Boolean, default: false },
+    bogoApplied: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

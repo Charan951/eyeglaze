@@ -270,7 +270,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       {
         'icon': Icons.redeem_outlined,
         'title': 'Buy 1 Get 1',
-        'desc': 'Exclusive BOGO offers on select products',
+        'desc': 'Exclusive Buy One Get One offers on select products',
       },
       {
         'icon': Icons.support_agent_outlined,

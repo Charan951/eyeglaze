@@ -63,6 +63,7 @@ export default function CartPage() {
 
   // Lenskart Interactive Checkout states inside Cart
   const [addGoldMembership, setAddGoldMembership] = useState(false);
+  const [hasUsedBogoThisMonth, setHasUsedBogoThisMonth] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
   const [showItemPriceDropdown, setShowItemPriceDropdown] = useState(false);
@@ -73,6 +74,7 @@ export default function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState('');
   const [couponSuccess, setCouponSuccess] = useState('');
+  const [userRemovedCoupon, setUserRemovedCoupon] = useState(false);
 
   // Fetch active coupons
   useEffect(() => {
@@ -100,6 +102,7 @@ export default function CartPage() {
     api.get('/cart')
       .then(res => {
         if (!active) return;
+        setHasUsedBogoThisMonth(!!res.data?.cart?.hasUsedBogoThisMonth);
         const cartItems = res.data?.items || res.data?.cart?.items || [];
         const mapped = cartItems.map((item: any) => ({
           id: item._id || item.id,
@@ -125,7 +128,10 @@ export default function CartPage() {
         setItems(mapped);
       })
       .catch(() => {
-        if (active) setItems(mockItems);
+        if (active) {
+          setItems(mockItems);
+          setHasUsedBogoThisMonth(false);
+        }
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
@@ -135,7 +141,7 @@ export default function CartPage() {
 
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
-  const buy1Get1Items: { framePrice: number; lensPrice: number }[] = [];
+  const buy1Get1Items: { id: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
@@ -150,20 +156,28 @@ export default function CartPage() {
       framePrice = item.product.nonMemberPrice;
     }
 
-    if (item.product?.buy1Get1) {
-      for (let index = 0; index < item.qty; index++) {
-        buy1Get1Items.push({ framePrice, lensPrice: item.lensPrice });
-      }
-    }
-
     return {
       ...item,
       framePriceCalculated: framePrice,
     };
   });
 
+  // Populate BOGO items with unique key per quantity index
+  itemsWithPricing.forEach(item => {
+    if ((isMember && !hasUsedBogoThisMonth) || item.product?.buy1Get1) {
+      for (let index = 0; index < item.qty; index++) {
+        buy1Get1Items.push({
+          id: `${item._id || item.id}_${index}`,
+          framePrice: item.framePriceCalculated,
+          lensPrice: item.lensPrice || 0
+        });
+      }
+    }
+  });
+
   // Calculate BOGO discount
   let bogoDiscount = 0;
+  let freeItemUniqueKey = '';
   if (buy1Get1Items.length >= 2) {
     buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
     const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
@@ -172,7 +186,10 @@ export default function CartPage() {
       return currentTotal < lowestTotal ? current : lowest;
     });
     bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
+    freeItemUniqueKey = lowestPriceItem.id;
   }
+
+  const isBogoActive = isMember && buy1Get1Items.length >= 2;
 
   // 1. Total Item Price (undiscounted)
   const itemsSubtotal = itemsWithPricing.reduce((s, i) => {
@@ -189,9 +206,12 @@ export default function CartPage() {
     return s + Math.max(0, originalFramePrice - i.framePriceCalculated) * i.qty;
   }, 0);
 
-  // 4. Fitting Fee (Fixed 199 if any item has a lens)
-  const hasLens = itemsWithPricing.some(item => (item.lensPrice && item.lensPrice > 0) || item.lens);
-  const fittingFeeTotal = hasLens ? 199 : 0;
+  // 4. Fitting Fee: 99 for one product with lens, 199 for more than one
+  const lensItemsCount = itemsWithPricing.reduce((count, item) => {
+    const hasLens = (item.lensPrice && item.lensPrice > 0) || item.lens;
+    return count + (hasLens ? item.qty : 0);
+  }, 0);
+  const fittingFeeTotal = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
   const delivery = isMember ? 0 : 99;
   const membershipFee = addGoldMembership ? 129 : 0;
@@ -200,12 +220,56 @@ export default function CartPage() {
   const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
   const total = Math.max(0, totalBeforeDiscount - totalDiscount);
 
+  const renderedItems: any[] = [];
+  itemsWithPricing.forEach(item => {
+    for (let index = 0; index < item.qty; index++) {
+      renderedItems.push({
+        ...item,
+        qty: 1,
+        uniqueKey: `${item._id || item.id}_${index}`,
+      });
+    }
+  });
+
+  if (addGoldMembership && !user?.membershipActive) {
+    renderedItems.push({
+      id: 'gold_membership_pseudo',
+      name: 'EyeGlaze Membership',
+      sku: 'MEMBERSHIP-GOLD-1YR',
+      color: 'Gold',
+      qty: 1,
+      framePriceCalculated: 129,
+      lensPrice: 0,
+      image: '',
+      isPseudo: true,
+      uniqueKey: 'gold_membership_pseudo',
+    } as any);
+  }
+
   // Auto re-validate coupon if pricing updates
   useEffect(() => {
+    if (isBogoActive) {
+      if (appliedCoupon) {
+        setDiscount(0);
+        setAppliedCoupon(null);
+        setCouponSuccess('');
+        setCouponError('Standard coupons cannot be combined with Buy 1 Get 1 Membership offer.');
+      }
+      return;
+    }
+
     if (appliedCoupon) {
       api.post('/coupons/validate', {
         code: appliedCoupon,
-        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        addGoldMembership,
+        items: itemsWithPricing.map(item => ({
+          productId: item.product?._id || item.product?.id || item.productId || item.id,
+          qty: item.qty,
+          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          category: item.product?.category,
+          brand: item.product?.brand,
+        }))
       }).then(res => {
         if (res.data.valid) {
           setDiscount(res.data.discount);
@@ -221,17 +285,60 @@ export default function CartPage() {
         setCouponSuccess('');
       });
     }
-  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount]);
+  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount, isBogoActive]);
+
+  // Auto-apply best coupon if none is applied and user hasn't manually removed it
+  useEffect(() => {
+    if (isBogoActive) {
+      return;
+    }
+    if (!appliedCoupon && !userRemovedCoupon && itemsWithPricing.length > 0) {
+      const itemsPayload = itemsWithPricing.map(item => ({
+        productId: item.product?._id || item.product?.id || item.productId || item.id,
+        qty: item.qty,
+        price: item.framePriceCalculated ?? item.framePrice ?? 1,
+        category: item.product?.category,
+        brand: item.product?.brand,
+      }));
+
+      api.post('/coupons/auto-apply', {
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        addGoldMembership,
+        items: itemsPayload
+      }).then(res => {
+        if (res.data.valid && res.data.discountAmount > 0) {
+          setDiscount(res.data.discountAmount);
+          setAppliedCoupon(res.data.coupon?.code || null);
+          setCouponSuccess(res.data.message || 'Auto-applied the best coupon!');
+          setCouponError('');
+        }
+      }).catch(err => {
+        console.error('Failed to auto-apply best coupon:', err);
+      });
+    }
+  }, [appliedCoupon, userRemovedCoupon, items.length, actualSubtotal, fittingFeeTotal, bogoDiscount, addGoldMembership]);
 
   const handleApplyCoupon = async (codeToUse?: string) => {
+    if (isBogoActive) {
+      setCouponError('Standard coupons cannot be combined with Buy 1 Get 1 Membership offer.');
+      return;
+    }
     const code = codeToUse || couponCode;
-    if (!code.trim()) return;
+    if (!code || !code.trim()) return;
     setCouponError('');
     setCouponSuccess('');
     try {
       const res = await api.post('/coupons/validate', {
         code: code.trim().toUpperCase(),
-        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount
+        cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
+        addGoldMembership,
+        items: itemsWithPricing.map(item => ({
+          productId: item.product?._id || item.product?.id || item.productId || item.id,
+          qty: item.qty,
+          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          category: item.product?.category,
+          brand: item.product?.brand,
+        }))
       });
 
       if (res.data.valid) {
@@ -258,6 +365,7 @@ export default function CartPage() {
     setCouponCode('');
     setCouponError('');
     setCouponSuccess('');
+    setUserRemovedCoupon(true);
   };
 
 
@@ -308,19 +416,31 @@ export default function CartPage() {
   };
 
   const remove = async (item: CartItem) => {
-    setItems(prev => prev.filter(i => i.id !== item.id));
-
     if (!user) {
       const guestCartStr = localStorage.getItem('guest_cart');
       const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
-      const updated = cart.filter((i: any) => i.id !== item.id);
-      localStorage.setItem('guest_cart', JSON.stringify(updated));
-      await fetchCartCount();
+      const idx = cart.findIndex((i: any) => i.id === item.id || i._id === item._id);
+      if (idx >= 0) {
+        if (cart[idx].qty > 1) {
+          cart[idx].qty -= 1;
+        } else {
+          cart.splice(idx, 1);
+        }
+        localStorage.setItem('guest_cart', JSON.stringify(cart));
+        setRefreshKey(prev => prev + 1);
+        await fetchCartCount();
+      }
       return;
     }
 
     try {
-      await api.delete(`/cart/${item._id || item.id}`);
+      const originalItem = items.find(i => i._id === item._id || i.id === item.id);
+      if (originalItem && originalItem.qty > 1) {
+        await api.put(`/cart/${item._id || item.id}`, { qty: originalItem.qty - 1 });
+      } else {
+        await api.delete(`/cart/${item._id || item.id}`);
+      }
+      setRefreshKey(prev => prev + 1);
       await fetchCartCount();
     } catch {
       // ignore
@@ -366,144 +486,135 @@ export default function CartPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {itemsWithPricing.map(item => (
-            <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4">
-              {/* Product Image */}
-              <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0">
-                {item.image ? (
-                  <img src={item.image} alt={item.name} className="w-full h-full object-contain p-2" />
-                ) : (
-                  <span className="text-3xl">👓</span>
-                )}
-              </div>
+          {renderedItems.map(item => {
+            if (item.isPseudo) {
+              return (
+                <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4 animate-fade-in">
+                  {/* Product Image */}
+                  <div className="w-36 h-36 bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border border-[#D4A04D]/35 rounded-none overflow-hidden flex flex-col items-center justify-center flex-shrink-0 relative p-3 text-center">
+                    <span className="text-[#D4A04D] font-serif font-black tracking-wider text-xs leading-none">EYEGLAZE</span>
+                    <span className="text-[#A7A7A7] text-[8px] font-bold uppercase tracking-widest mt-1">MEMBERSHIP</span>
+                  </div>
 
-              <div className="flex-1">
-                <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
-                  {item.name}
-                  {item.qty > 1 && (
-                    <span className="bg-[#D4A04D]/10 text-[#D4A04D] text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#D4A04D]/35">
-                      Qty: {item.qty}
-                    </span>
+                  <div className="flex-1">
+                    <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
+                      {item.name}
+                    </div>
+                    <div className="text-[#A7A7A7] text-xs mt-2">
+                      Buy 1 Get 1 Free On Over 5000+ Items, Applicable Everywhere
+                    </div>
+                    <div className="flex items-center gap-4 mt-4">
+                      <button
+                        onClick={() => setAddGoldMembership(false)}
+                        className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Remove
+                      </button>
+                      <span className="text-[#A7A7A7] text-xs">Know More</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-white font-bold">₹129</div>
+                    <div className="text-[#A7A7A7] text-[10px] line-through mt-1">₹600</div>
+                  </div>
+                </div>
+              );
+            }
+
+            const isFreeThisItem = item.uniqueKey === freeItemUniqueKey;
+
+            return (
+              <div key={item.uniqueKey || item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4 relative">
+                {/* Product Image */}
+                <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 relative">
+                  {isFreeThisItem && (
+                    <div className="absolute top-0 left-0 bg-[#00A86B] text-white font-black text-[8px] uppercase tracking-wider px-2 py-0.5 z-10 rounded-br shadow-md">
+                      FREE
+                    </div>
+                  )}
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <span className="text-3xl">👓</span>
                   )}
                 </div>
-                <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
-                {item.lens && (
-                  <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
-                )}
-                {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                  <div className="text-[#D4A04D] text-xs mt-0.5 font-bold">
-                    Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
-                    {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+
+                <div className="flex-1">
+                  <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
+                    {item.name}
                   </div>
-                )}
-                <div className="flex items-center gap-4 mt-3">
-                  <button
-                    onClick={() => handleRepeat(item)}
-                    className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
-                  >
-                    Repeat
-                  </button>
-                  <button
-                    onClick={() => remove(item)}
-                    className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
-                  >
-                    Remove
-                  </button>
+                  <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
+                  {item.lens && (
+                    <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
+                  )}
+                  {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                    <div className="text-[#D4A04D] text-xs mt-0.5 font-bold">
+                      Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
+                      {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4 mt-3">
+                    <button
+                      onClick={() => handleRepeat(item)}
+                      className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
+                    >
+                      Repeat
+                    </button>
+                    <button
+                      onClick={() => remove(item)}
+                      className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {isFreeThisItem && (
+                    <div className="mt-3 bg-green-500/10 border border-green-500/25 rounded-lg px-3 py-1.5 text-[10px] text-green-400 flex items-center gap-1.5 w-fit font-medium">
+                      <span>✓</span>
+                      <span>This Product is Free with EyeGlaze Membership!</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-right flex-shrink-0">
+                  <div className="text-white font-bold">
+                    {isFreeThisItem ? (
+                      <>
+                        <span className="line-through text-xs font-normal text-gray-500 mr-1.5">₹{item.framePriceCalculated + item.lensPrice}</span>
+                        <span className="text-green-400">Free</span>
+                      </>
+                    ) : (
+                      `₹${(item.framePriceCalculated + item.lensPrice) * item.qty}`
+                    )}
+                  </div>
+                  <div className="text-[#A7A7A7] text-xs mt-1">
+                    Frame: {isFreeThisItem ? (
+                      <>
+                        <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
+                        <span className="text-green-400 font-semibold ml-1">Free</span>
+                      </>
+                    ) : `₹${item.framePriceCalculated}`}
+                  </div>
+                  {item.lensPrice > 0 && (
+                    <div className="text-[#A7A7A7] text-xs">
+                      Lens: {isFreeThisItem ? (
+                        <>
+                          <span className="line-through text-gray-500">₹{item.lensPrice}</span>
+                          <span className="text-green-400 font-semibold ml-1">Free</span>
+                        </>
+                      ) : `₹${item.lensPrice}`}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <div className="text-right flex-shrink-0">
-                <div className="text-white font-bold">₹{(item.framePriceCalculated + item.lensPrice) * item.qty}</div>
-                <div className="text-[#A7A7A7] text-xs mt-1">Frame: ₹{item.framePriceCalculated}</div>
-                {item.lensPrice > 0 && <div className="text-[#A7A7A7] text-xs">Lens: ₹{item.lensPrice}</div>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Order Summary */}
-        <div className="space-y-4">
-          {/* Gold Membership Card */}
-          {!user?.membershipActive && (
-            <div className={`bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${
-              addGoldMembership 
-                ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.15)] bg-[#1e1911]' 
-                : 'border-[#D4A04D]/30'
-            }`}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest bg-[#D4A04D]/10 px-1.5 py-0.5 rounded border border-[#D4A04D]/30">
-                      Gold Member
-                    </span>
-                  </div>
-                  <span className="text-white text-xs font-bold mt-2 leading-snug">
-                    Add Gold Max Membership and Avail Buy 1 Get 1 Free + 10% Cashback
-                  </span>
-                  <span className="text-gray-500 text-[9px] mt-1 font-medium">
-                    Get member benefits instantly on this order · ₹129 / year
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAddGoldMembership(!addGoldMembership)}
-                  className={`w-8 h-8 rounded-full border-none cursor-pointer flex items-center justify-center transition-all flex-shrink-0 ${
-                    addGoldMembership 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-[#D4A04D] text-black hover:scale-105'
-                  }`}
-                  title={addGoldMembership ? "Remove Gold Membership" : "Add Gold Membership"}
-                >
-                  {addGoldMembership ? '✓' : '→'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 sticky top-28 space-y-4">
+        <div className="space-y-4 sticky top-28 self-start">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 space-y-4">
             <h2 className="text-white font-bold text-lg mb-4">Order Summary</h2>
-
-            {/* Apply Coupon Card */}
-            <div className="border-b border-[#2A2A2D]/60 pb-4 mb-4">
-              <label className="text-white font-bold text-xs uppercase tracking-wide block mb-2">Apply Coupon</label>
-              <div 
-                onClick={() => setIsCouponModalOpen(true)}
-                className={`bg-[#0B0B0C] border hover:border-gray-500 rounded-xl p-3 cursor-pointer transition-all flex items-center justify-between ${
-                  appliedCoupon ? 'border-green-500/50 bg-green-500/5' : 'border-[#2A2A2D]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="text-lg">🎫</div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-white font-bold text-xs uppercase tracking-wide">
-                      {appliedCoupon ? `Coupon: ${appliedCoupon}` : 'Apply Coupon'}
-                    </span>
-                    <span className="text-[#A7A7A7] text-[10px] mt-0.5">
-                      {appliedCoupon ? `Saved ₹${discount}!` : 'Check available offers'}
-                    </span>
-                  </div>
-                </div>
-                {appliedCoupon ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveCoupon();
-                    }}
-                    className="text-red-400 hover:text-red-300 font-extrabold text-[10px] uppercase tracking-wider bg-transparent border-none cursor-pointer p-1"
-                  >
-                    Remove
-                  </button>
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-[#2A2A2D] hover:bg-gray-700 flex items-center justify-center text-white text-xs">
-                    →
-                  </div>
-                )}
-              </div>
-
-              {couponError && <p className="text-red-400 text-[10px] mt-1.5">{couponError}</p>}
-              {couponSuccess && <p className="text-green-400 text-[10px] mt-1.5">{couponSuccess}</p>}
-            </div>
 
             {/* Billing summary */}
             <div className="space-y-3 text-sm mb-4">
@@ -532,25 +643,6 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
-              
-              {fittingFeeTotal > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-[#A7A7A7]">Fitting Fee</span>
-                  <span className="text-white">₹{fittingFeeTotal}</span>
-                </div>
-              )}
-              
-              <div className="flex justify-between">
-                <span className="text-[#A7A7A7]">Shipping & Delivery</span>
-                <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
-              </div>
-
-              {membershipFee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-[#A7A7A7]">Gold Membership Fee</span>
-                  <span className="text-white">₹{membershipFee}</span>
-                </div>
-              )}
 
               {totalDiscount > 0 && (
                 <div>
@@ -589,26 +681,139 @@ export default function CartPage() {
                 </div>
               )}
               
+              {fittingFeeTotal > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[#A7A7A7]">Fitting Fee</span>
+                  <span className="text-white">₹{fittingFeeTotal}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between">
+                <span className="text-[#A7A7A7]">Shipping & Delivery</span>
+                <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
+              </div>
+
+              {membershipFee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[#A7A7A7]">Gold Membership Fee</span>
+                  <span className="text-white">₹{membershipFee}</span>
+                </div>
+              )}
+              
               <div className="border-t border-[#2A2A2D] pt-3 flex justify-between font-bold">
                 <span className="text-white">Total Payable</span>
                 <span className="text-[#D4A04D] text-lg">₹{total}</span>
               </div>
             </div>
-
-            <button
-              onClick={handleCheckout}
-              className="block bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full border-none cursor-pointer"
-            >
-              Proceed to Checkout →
-            </button>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#A7A7A7] text-center">
-              <div>100% Secure</div>
-              <div>1 Year Warranty</div>
-              <div>Easy Returns</div>
-              <div>Fast Delivery</div>
-            </div>
           </div>
+
+          {/* Gold Membership Card */}
+          {!user?.membershipActive && (
+            <div className={`bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${
+              addGoldMembership 
+                ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.15)] bg-[#1e1911]' 
+                : 'border-[#D4A04D]/30'
+            }`}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col text-left">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest bg-[#D4A04D]/10 px-1.5 py-0.5 rounded border border-[#D4A04D]/30">
+                      Gold Member
+                    </span>
+                  </div>
+                  <span className="text-white text-xs font-bold mt-2 leading-snug">
+                    {addGoldMembership ? 'EyeGlaze Membership added' : 'Add EyeGlaze Membership and Avail Buy 1 Get 1 Free + 10% Cashback'}
+                  </span>
+                  <span className="text-gray-500 text-[9px] mt-1 font-medium">
+                    {addGoldMembership ? 'Add 2nd Pair for Free' : 'Get member benefits instantly on this order · ₹129 / year'}
+                  </span>
+                </div>
+                {addGoldMembership ? (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-[#D4A04D] text-[10px] font-bold">Choose Now</span>
+                    <button
+                      type="button"
+                      onClick={() => setAddGoldMembership(!addGoldMembership)}
+                      className="w-8 h-8 rounded-full border-none cursor-pointer flex items-center justify-center bg-green-500 text-white transition-all"
+                      title="Remove Gold Membership"
+                    >
+                      ✓
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddGoldMembership(!addGoldMembership)}
+                    className="w-8 h-8 rounded-full border-none cursor-pointer flex items-center justify-center bg-[#D4A04D] text-black hover:scale-105 transition-all flex-shrink-0"
+                    title="Add Gold Membership"
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {hasUsedBogoThisMonth && isMember && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-2.5 text-amber-300 text-xs">
+              <div className="text-base mt-0.5">⚠️</div>
+              <div className="text-left">
+                <span className="font-extrabold text-[10px] uppercase tracking-wide block">Monthly BOGO Limit Reached</span>
+                <span className="text-[10px] text-amber-300/80 block mt-0.5 leading-normal">
+                  Members are eligible for only one Buy 1 Get 1 free offer per month. Your monthly limit has been reached.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Apply Coupon Card */}
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 space-y-3">
+            <label className="text-white font-bold text-xs uppercase tracking-wide block">Apply Coupon</label>
+            <div 
+              onClick={() => setIsCouponModalOpen(true)}
+              className={`bg-[#0B0B0C] border hover:border-gray-500 rounded-xl p-3.5 cursor-pointer transition-all flex items-center justify-between ${
+                appliedCoupon ? 'border-green-500/50 bg-green-500/5' : 'border-[#2A2A2D]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="text-lg">🎫</div>
+                <div className="flex flex-col text-left">
+                  <span className="text-white font-bold text-xs uppercase tracking-wide">
+                    {appliedCoupon ? `Coupon: ${appliedCoupon}` : 'Apply Coupon'}
+                  </span>
+                  <span className="text-[#A7A7A7] text-[10px] mt-0.5">
+                    {appliedCoupon ? `Saved ₹${discount}!` : 'Check available offers'}
+                  </span>
+                </div>
+              </div>
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveCoupon();
+                  }}
+                  className="text-red-400 hover:text-red-300 font-extrabold text-[10px] uppercase tracking-wider bg-transparent border-none cursor-pointer p-1"
+                >
+                  Remove
+                </button>
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-[#2A2A2D] hover:bg-gray-700 flex items-center justify-center text-white text-xs">
+                  →
+                </div>
+              )}
+            </div>
+
+            {couponError && <p className="text-red-400 text-[10px] mt-1">{couponError}</p>}
+            {couponSuccess && <p className="text-green-400 text-[10px] mt-1">{couponSuccess}</p>}
+          </div>
+
+          <button
+            onClick={handleCheckout}
+            className="block bg-[#D4A04D] text-black font-bold uppercase py-4 rounded-xl text-center hover:opacity-90 transition-opacity w-full border-none cursor-pointer"
+          >
+            Proceed to Checkout →
+          </button>
         </div>
       </div>
 

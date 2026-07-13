@@ -1239,8 +1239,13 @@ export default function AddProductWizard() {
     const isValid = await trigger(['name', 'slug', 'category', 'mrp', 'sellingPrice']);
     if (!isValid) {
       showToast('Product Name, Slug, Category, and Pricing are required to save as Draft', 'error');
-      // Scroll to first error
+      // Scroll to first error and popup alert
       setTimeout(() => {
+        const errorList = Object.entries(errors)
+          .map(([field, err]) => `• ${field}: ${(err as any)?.message || 'Invalid value'}`)
+          .join('\n');
+        alert(`Draft cannot be saved. Required fields are missing:\n\n${errorList || 'Product Name, Slug, Category, and Pricing.'}`);
+
         const firstErrorField = document.querySelector('.border-red-500');
         if (firstErrorField) {
           firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1259,8 +1264,13 @@ export default function AddProductWizard() {
     const isValid = await trigger();
     
     if (!isValid) {
-      // Scroll to the first error field
+      // Scroll to the first error field and popup alert
       setTimeout(() => {
+        const errorList = Object.entries(errors)
+          .map(([field, err]) => `• ${field}: ${(err as any)?.message || 'Invalid value'}`)
+          .join('\n');
+        alert(`Please fix the following validation errors before publishing:\n\n${errorList || 'Check the highlighted fields.'}`);
+
         const firstErrorField = document.querySelector('.border-red-500');
         if (firstErrorField) {
           firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3032,38 +3042,14 @@ export default function AddProductWizard() {
           <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 6: Memberships & Offers</h2>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 select-none bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('eligibleForGold')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Eligible For Gold</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('eligibleForPlatinum')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Eligible For Platinum</span>
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
                   <input type="checkbox" {...register('buy1Get1')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Buy 1 Get 1 (BOGO)</span>
+                  <span>Buy 1 Get 1 (Buy One Get One)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
                   <input type="checkbox" {...register('oneRupeeFrameOffer')} className="w-4 h-4 accent-[#D4A04D]" />
                   <span>₹1 Frame Offer</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('couponEligible')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Coupon Eligible</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('rewardEligible')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Reward Points Eligible</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('familySharing')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Family Sharing</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
-                  <input type="checkbox" {...register('exclusiveProduct')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Exclusive Launch</span>
                 </label>
               </div>
 
@@ -3071,39 +3057,11 @@ export default function AddProductWizard() {
                 <div className="border-t border-[#2A2A2D]/60 pt-6 space-y-4">
                   <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">₹1 Frame Offer Conditions</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40">
                     <label className="flex items-center gap-2 cursor-pointer text-xs font-bold select-none pt-4">
                       <input type="checkbox" {...register('oneRupeeOfferConditions.membershipRequired')} className="w-4 h-4 accent-[#D4A04D]" />
                       <span>Membership Required</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold select-none pt-4">
-                      <input type="checkbox" {...register('oneRupeeOfferConditions.premiumLensRequired')} className="w-4 h-4 accent-[#D4A04D]" />
-                      <span>Premium Lens Required</span>
-                    </label>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Minimum Cart Value (₹)</label>
-                      <input
-                        type="number"
-                        {...register('oneRupeeOfferConditions.minCartValue', { valueAsNumber: true })}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Campaign Start Date</label>
-                      <input
-                        type="date"
-                        {...register('oneRupeeOfferConditions.campaignStartDate')}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Campaign End Date</label>
-                      <input
-                        type="date"
-                        {...register('oneRupeeOfferConditions.campaignEndDate')}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-xs focus:outline-none"
-                      />
-                    </div>
                     <div>
                       <label className="text-gray-400 text-[10px] font-bold uppercase block mb-1">Max Usage count per User</label>
                       <input

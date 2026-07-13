@@ -24,7 +24,7 @@ export default function Membership() {
     {
       icon: '🎉',
       title: 'Buy 1 Get 1 Free',
-      description: 'BOGO offer on all gold membership frames'
+      description: 'Buy One Get One offer on all gold membership frames'
     },
     {
       icon: '💰',
@@ -122,7 +122,7 @@ export default function Membership() {
     <div className="space-y-8">
       <SEO 
         title="EyeGlaze Gold Membership"
-        description="Upgrade to EyeGlaze Gold Membership and unlock exclusive benefits including ₹1 frames, BOGO offers, 5% cashback, and more!"
+        description="Upgrade to EyeGlaze Gold Membership and unlock exclusive benefits including ₹1 frames, Buy One Get One offers, 5% cashback, and more!"
         keywords="eyeglaze gold membership, premium eyewear benefits, exclusive offers"
       />
 

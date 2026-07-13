@@ -16,6 +16,10 @@ export interface ILens extends Document {
   displayOrder: number;
   status: 'Active' | 'Inactive';
   powerPricing?: IPowerPricing[];
+  minSph?: number;
+  maxSph?: number;
+  minCyl?: number;
+  maxCyl?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,10 @@ const LensSchema = new Schema<ILens>(
     memberPrice: { type: Number, min: 0 },
     displayOrder: { type: Number, default: 0 },
     status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+    minSph: { type: Number, default: -20 },
+    maxSph: { type: Number, default: 20 },
+    minCyl: { type: Number, default: -6 },
+    maxCyl: { type: Number, default: 6 },
     powerPricing: [
       {
         minSph: { type: Number, required: true },

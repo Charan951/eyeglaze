@@ -7,14 +7,15 @@ import {
   autoApplyBestCoupon,
 } from '../controllers/coupons.controller';
 import { validate } from '../middleware/validate';
-import { validateCouponSchema } from '../validations/coupon.validation';
+import { validateCouponSchema, autoApplyCouponSchema } from '../validations/coupon.validation';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
 
 router.get('/', getActiveCoupons);
 router.post('/validate', validate(validateCouponSchema), validateCoupon);
-router.post('/auto-apply', validate(validateCouponSchema), autoApplyBestCoupon);
-router.get('/my', getMyCoupons);
-router.get('/history', getCouponHistory);
+router.post('/auto-apply', validate(autoApplyCouponSchema), autoApplyBestCoupon);
+router.get('/my', requireAuth, getMyCoupons);
+router.get('/history', requireAuth, getCouponHistory);
 
 export default router;

@@ -6,7 +6,7 @@ import path from 'path';
 import { connectDB } from './config/mongodb';
 import { Product } from './models/Product';
 
-import { requireAuth } from './middleware/requireAuth';
+import { requireAuth, optionalAuth } from './middleware/requireAuth';
 import { requireAdmin } from './middleware/requireAdmin';
 
 import authRoutes from './routes/auth.routes';
@@ -160,7 +160,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/cart', requireAuth, cartRoutes);
 app.use('/api/orders', requireAuth, ordersRoutes);
 app.use('/api/prescriptions', requireAuth, prescriptionsRoutes);
-app.use('/api/coupons', requireAuth, couponsRoutes);
+app.use('/api/coupons', optionalAuth, couponsRoutes);
 app.use('/api/wishlist', requireAuth, wishlistRoutes);
 app.use('/api/tickets', requireAuth, ticketsRoutes);
 

@@ -234,7 +234,7 @@ export default function AccountPage() {
               ) : (
                 <div className="mt-2 space-y-2">
                   <p className="text-[#A7A7A7] text-sm">
-                    Unlock exclusive benefits: ₹1 frames, BOGO offers, cashback & more!
+                    Unlock exclusive benefits: ₹1 frames, Buy One Get One offers, cashback & more!
                   </p>
                   <ul className="text-xs text-gray-400 space-y-1">
                     <li>• ₹1 frames on select products</li>

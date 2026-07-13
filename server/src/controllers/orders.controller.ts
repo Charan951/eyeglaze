@@ -50,6 +50,21 @@ export async function createOrder(req: Request, res: Response) {
 
     const isMemberNow = user.membershipActive || activateMembership;
 
+    // Check if user already had a BOGO order this calendar month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const bogoOrderThisMonth = await Order.findOne({
+      user: req.user!.userId,
+      bogoApplied: true,
+      createdAt: { $gte: startOfMonth },
+      status: { $ne: 'cancelled' },
+      paymentStatus: { $ne: 'failed' }
+    });
+
+    const bogoAllowedForMember = !bogoOrderThisMonth;
+
     // Recalculate pricing server-side with business logic
     let subtotal = 0;
     let totalFittingCharge = 0;
@@ -86,12 +101,13 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       // Collect buy1Get1 items
-      if (item.product?.buy1Get1) {
-        buy1Get1Items.push({ framePrice, lensPrice });
+      if ((isMemberNow && bogoAllowedForMember) || item.product?.buy1Get1) {
+        for (let i = 0; i < item.qty; i++) {
+          buy1Get1Items.push({ framePrice, lensPrice });
+        }
       }
 
       subtotal += (framePrice + lensPrice) * item.qty;
-      totalFittingCharge += fittingCharge * item.qty;
 
       return {
         product: item.product,
@@ -109,6 +125,16 @@ export async function createOrder(req: Request, res: Response) {
         appliedOffers,
       };
     });
+
+    // Calculate total fitting charge dynamically: 99 for one product with lens, 199 for more than one
+    let lensItemsCount = 0;
+    cart.items.forEach((item: any) => {
+      if (item.lensType || (item.lensPrice && item.lensPrice > 0)) {
+        lensItemsCount += item.qty;
+      }
+    });
+
+    totalFittingCharge = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
     // Apply 1+1 Offer
     if (buy1Get1Items.length >= 2) {
@@ -204,6 +230,7 @@ export async function createOrder(req: Request, res: Response) {
       statusHistory: [{ status: 'pending', timestamp: new Date() }],
       estimatedDelivery,
       membershipAdded: activateMembership && !user.membershipActive,
+      bogoApplied: onePlusOneDiscount > 0,
     });
 
     await order.save();

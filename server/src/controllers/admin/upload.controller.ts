@@ -18,11 +18,13 @@ export async function uploadImage(req: Request, res: Response) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Compress using sharp before uploading
-    // Resize to max width 800px, compress to 80% quality JPEG
+    // Crop and resize to exactly 1024x1024 to match default website assets
     const compressedBuffer = await sharp(file.buffer)
-      .resize({ width: 800, withoutEnlargement: true })
-      .jpeg({ quality: 80 })
+      .resize(1024, 1024, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 85 })
       .toBuffer();
 
     if (!isS3Configured) {

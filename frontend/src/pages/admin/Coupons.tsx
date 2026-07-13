@@ -196,12 +196,14 @@ export default function AdminCouponsPage() {
   }, []);
 
   const openCreateDrawer = () => {
+    setError('');
+    setSuccess('');
     setEditingId(null);
     setCode('');
     setName('');
     setDescription('');
     setBadge('');
-    setDiscountType('percent');
+    setDiscountType('flat');
     setCouponType('Standard');
     setDiscountValue(0);
     setMinOrderValue(0);
@@ -234,6 +236,8 @@ export default function AdminCouponsPage() {
   };
 
   const openEditDrawer = (coupon: CouponItem) => {
+    setError('');
+    setSuccess('');
     setEditingId(coupon._id);
     setCode(coupon.code);
     setName(coupon.name || '');
@@ -280,34 +284,34 @@ export default function AdminCouponsPage() {
 
     const payload = {
       code: code.trim().toUpperCase(),
-      name: name.trim(),
+      name: code.trim().toUpperCase(),
       description: description.trim(),
-      badge: badge.trim() || undefined,
+      badge: undefined,
       discountType,
       couponType,
       discountValue,
       minOrderValue: minOrderValue || undefined,
-      maxDiscount: maxDiscount || undefined,
+      maxDiscount: undefined,
       validFrom: validFrom ? new Date(validFrom).toISOString() : undefined,
       validTo: validTo ? new Date(validTo).toISOString() : undefined,
       isActive,
       
       autoApply,
-      priority,
+      priority: 0,
       stackable,
       exclusive,
       usageLimitPerUser,
       usageLimitTotal,
       countryRestrictions: countries ? countries.split(',').map(s => s.trim()) : [],
-      stateRestrictions: states ? states.split(',').map(s => s.trim()) : [],
+      stateRestrictions: [],
       cityRestrictions: cities ? cities.split(',').map(s => s.trim()) : [],
       membershipRequired,
       newUserOnly,
       firstPurchaseOnly,
-      paymentMethodRestrictions: paymentRestrictions ? paymentRestrictions.split(',').map(s => s.trim()) : [],
+      paymentMethodRestrictions: [],
       shippingMethodRestrictions: shippingRestrictions ? shippingRestrictions.split(',').map(s => s.trim()) : [],
-      applicableCategories: categories ? categories.split(',').map(s => s.trim()) : [],
-      applicableBrands: brands ? brands.split(',').map(s => s.trim()) : [],
+      applicableCategories: [],
+      applicableBrands: [],
       buyQty,
       getQty,
     };
@@ -479,10 +483,7 @@ export default function AdminCouponsPage() {
             >
               <option value="">All Types</option>
               <option value="Standard">Standard Coupon</option>
-              <option value="BOGO">BOGO Offer</option>
-              <option value="Cashback">Cashback Coupon</option>
-              <option value="Birthday">Birthday Coupon</option>
-              <option value="Referral">Referral Coupon</option>
+              <option value="BOGO">Buy One Get One Offer</option>
               <option value="FirstOrder">First Order</option>
             </select>
 
@@ -791,6 +792,11 @@ export default function AdminCouponsPage() {
             {/* Form Content */}
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+                {error && (
+                  <div className="bg-red-900/20 border border-red-500/40 text-red-300 p-4 rounded-xl text-xs font-bold">
+                    {error}
+                  </div>
+                )}
                 
                 {/* General Information */}
                 <div>
@@ -812,7 +818,13 @@ export default function AdminCouponsPage() {
                       <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Campaign Classification *</label>
                       <select
                         value={couponType}
-                        onChange={e => setCouponType(e.target.value)}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setCouponType(val);
+                          if (val === 'Standard') {
+                            setDiscountType('flat');
+                          }
+                        }}
                         className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none appearance-none pr-8 bg-no-repeat bg-[right_12px_center] cursor-pointer"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23D4A04D' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
@@ -820,37 +832,9 @@ export default function AdminCouponsPage() {
                         }}
                       >
                         <option value="Standard">Standard Coupon</option>
-                        <option value="BOGO">BOGO Offer</option>
-                        <option value="Cashback">Cashback Campaign</option>
-                        <option value="Birthday">Birthday Coupon</option>
-                        <option value="Referral">Referral Coupon</option>
+                        <option value="BOGO">Buy One Get One Offer</option>
                         <option value="FirstOrder">First Order Promotion</option>
-                        <option value="FlashSale">Flash Sale Coupon</option>
                       </select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Campaign Name *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Festival Season discount 20%"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Badge Title</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Bestseller, Welcome"
-                        value={badge}
-                        onChange={e => setBadge(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
                     </div>
                   </div>
 
@@ -870,13 +854,14 @@ export default function AdminCouponsPage() {
                 {/* Calculation settings */}
                 <div>
                   <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider border-b border-[#2A2A2D] pb-1.5 mb-4">2. Calculation Parameters</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Discount Type *</label>
                       <select
                         value={discountType}
+                        disabled={couponType === 'Standard'}
                         onChange={e => setDiscountType(e.target.value as any)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none appearance-none pr-8 bg-no-repeat bg-[right_12px_center] cursor-pointer"
+                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none appearance-none pr-8 bg-no-repeat bg-[right_12px_center] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23D4A04D' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                           backgroundSize: '1.25rem',
@@ -884,7 +869,7 @@ export default function AdminCouponsPage() {
                       >
                         <option value="percent">Percentage (%)</option>
                         <option value="flat">Flat Cash (₹)</option>
-                        <option value="bogo">BOGO (Buy 1 Get 1)</option>
+                        <option value="bogo">Buy One Get One</option>
                         <option value="buy_x_get_y">Buy X Get Y Free</option>
                         <option value="free_shipping">Free Shipping</option>
                         <option value="cashback">Wallet Cashback</option>
@@ -901,17 +886,6 @@ export default function AdminCouponsPage() {
                         value={discountValue}
                         onChange={e => setDiscountValue(Number(e.target.value))}
                         className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Max Discount Cap (₹)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        disabled={discountType === 'flat' || discountType === 'bogo' || discountType === 'free_shipping'}
-                        value={maxDiscount}
-                        onChange={e => setMaxDiscount(Number(e.target.value))}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none disabled:opacity-40"
                       />
                     </div>
                   </div>
@@ -941,32 +915,20 @@ export default function AdminCouponsPage() {
                         />
                       </div>
                       <p className="col-span-2 text-[10px] text-gray-500 font-medium">
-                        💡 Suggestion: Restrict BOGO items in Section 4 below by category, brand, or specific products.
+                        💡 Suggestion: Restrict Buy One Get One items in Section 4 below by category, brand, or specific products.
                       </p>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Min Order Value (₹)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={minOrderValue}
-                        onChange={e => setMinOrderValue(Number(e.target.value))}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Priority Order (0 is Lowest)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={priority}
-                        onChange={e => setPriority(Number(e.target.value))}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
+                  <div className="mt-4">
+                    <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Min Order Value (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={minOrderValue}
+                      onChange={e => setMinOrderValue(Number(e.target.value))}
+                      className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    />
                   </div>
                 </div>
 
@@ -1049,52 +1011,6 @@ export default function AdminCouponsPage() {
                       />
                       <span className="text-white text-[10px] font-bold uppercase select-none">VIP Members Only</span>
                     </label>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Applicable Brands (Comma separated)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Ray-Ban, Oakley"
-                        value={brands}
-                        onChange={e => setBrands(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Applicable Categories (Comma separated)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Eyeglasses, Sunglasses"
-                        value={categories}
-                        onChange={e => setCategories(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Payment Method Constraints</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. credit_card, UPI"
-                        value={paymentRestrictions}
-                        onChange={e => setPaymentRestrictions(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">State Restrictions (Comma separated)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Delhi, Maharashtra"
-                        value={states}
-                        onChange={e => setStates(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
                   </div>
                 </div>
 

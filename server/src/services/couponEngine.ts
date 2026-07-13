@@ -15,6 +15,7 @@ export interface CartItem {
 export interface ValidationContext {
   cartTotal: number;
   items: CartItem[];
+  addGoldMembership?: boolean;
   paymentMethod?: string;
   shippingMethod?: string;
   location?: {
@@ -91,7 +92,8 @@ export class CouponEngine {
     }
     
     // 6. User Status & Restrictions
-    if (coupon.membershipRequired && (!user || !user.membershipActive)) {
+    const hasMembership = (user && user.membershipActive) || context.addGoldMembership;
+    if (coupon.membershipRequired && !hasMembership) {
       reasons.push('This coupon requires an active VIP Gold Membership');
     }
     
@@ -134,10 +136,16 @@ export class CouponEngine {
         }
       }
     } else {
-      // If user specific rules exist but guest checkout
-      if (coupon.membershipRequired || coupon.newUserOnly || coupon.firstPurchaseOnly || coupon.existingUserOnly || coupon.userSpecific) {
-        reasons.push('You must be logged in to apply this coupon');
+      if (coupon.existingUserOnly) {
+        reasons.push('This coupon is only valid for existing customers');
       }
+    }
+    
+    // 6.5 Membership BOGO + Standard Coupon combination check
+    const isMemberNow = user?.membershipActive || context.addGoldMembership;
+    const eligibleProductsCount = context.items?.reduce((acc, item) => acc + item.qty, 0) || 0;
+    if (isMemberNow && eligibleProductsCount >= 2 && coupon.couponType === 'Standard') {
+      reasons.push('Standard coupons cannot be combined with Buy 1 Get 1 Membership offer');
     }
     
     // 7. Cart Value Constraints
@@ -186,7 +194,7 @@ export class CouponEngine {
       if (coupon.discountType === 'bogo') {
         const required = (coupon.buyQty || 1) + (coupon.getQty || 1);
         if (totalEligibleQty < required) {
-          reasons.push(`BOGO Incomplete: Add ${required - totalEligibleQty} more eligible product(s) to get one FREE!`);
+          reasons.push(`Buy One Get One Incomplete: Add ${required - totalEligibleQty} more eligible product(s) to get one FREE!`);
         }
       } else if (coupon.discountType === 'buy_x_get_y') {
         const required = (coupon.buyQty || 2) + (coupon.getQty || 1);
@@ -403,11 +411,14 @@ export class CouponEngine {
   ): Promise<ValidationResult> {
     const now = new Date();
     
-    // Find all auto-apply active coupons
+    // Find all auto-apply active coupons: autoApply checked OR standard coupons
     const coupons = await Coupon.find({
       isActive: true,
       isDeleted: false,
-      autoApply: true,
+      $or: [
+        { autoApply: true },
+        { couponType: 'Standard' }
+      ],
       $and: [
         { $or: [{ validFrom: { $exists: false } }, { validFrom: null }, { validFrom: { $lte: now } }] },
         { $or: [{ validTo: { $exists: false } }, { validTo: null }, { validTo: { $gte: now } }] },

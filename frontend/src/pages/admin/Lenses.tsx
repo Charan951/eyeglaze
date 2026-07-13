@@ -27,6 +27,10 @@ interface Lens {
   displayOrder: number;
   status: 'Active' | 'Inactive';
   powerPricing?: PowerPricing[];
+  minSph?: number;
+  maxSph?: number;
+  minCyl?: number;
+  maxCyl?: number;
   createdAt: string;
 }
 
@@ -69,39 +73,6 @@ export default function AdminLensesPage() {
 
   const [isLensDrawerOpen, setIsLensDrawerOpen] = useState(false);
   const [editingLens, setEditingLens] = useState<Lens | null>(null);
-  const [powerPricing, setPowerPricing] = useState<PowerPricing[]>([]);
-
-  useEffect(() => {
-    if (isLensDrawerOpen) {
-      if (editingLens) {
-        setPowerPricing(editingLens.powerPricing || []);
-      } else {
-        setPowerPricing([]);
-      }
-    }
-  }, [isLensDrawerOpen, editingLens]);
-
-  const handleAddPowerPricingRule = () => {
-    setPowerPricing([
-      ...powerPricing,
-      { minSph: -4.00, maxSph: 4.00, minCyl: -2.00, maxCyl: 2.00, price: 999 }
-    ]);
-  };
-
-  const handleRemovePowerPricingRule = (idx: number) => {
-    setPowerPricing(powerPricing.filter((_, i) => i !== idx));
-  };
-
-  const handleRuleChange = (idx: number, key: keyof PowerPricing, val: number) => {
-    setPowerPricing(
-      powerPricing.map((rule, i) => {
-        if (i === idx) {
-          return { ...rule, [key]: val };
-        }
-        return rule;
-      })
-    );
-  };
 
   // Notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -228,7 +199,11 @@ export default function AdminLensesPage() {
       lensType: formData.get('lensType') as string,
       basePrice,
       status: formData.get('status') as string,
-      powerPricing,
+      minSph: Number(formData.get('minSph')),
+      maxSph: Number(formData.get('maxSph')),
+      minCyl: Number(formData.get('minCyl')),
+      maxCyl: Number(formData.get('maxCyl')),
+      powerPricing: [],
     };
 
     try {
@@ -345,96 +320,64 @@ export default function AdminLensesPage() {
               </div>
             </div>
 
-            {/* Right Column: Power-based Pricing */}
+            {/* Right Column: Prescription Power Limits */}
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 space-y-4">
               <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3 mb-2">
                 <h2 className="text-sm text-[#D4A04D] font-extrabold uppercase tracking-wider">
-                  Power-based Pricing (Optional)
+                  Prescription Power Limits
                 </h2>
-                <button
-                  type="button"
-                  onClick={handleAddPowerPricingRule}
-                  className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-[#D4A04D] text-[10px] font-extrabold uppercase py-1.5 px-3.5 rounded-xl border border-[#D4A04D]/20 cursor-pointer transition-colors"
-                >
-                  + Add Rule
-                </button>
               </div>
 
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                {powerPricing.map((rule, idx) => (
-                  <div key={idx} className="bg-[#1A1A1C] border border-[#2A2A2D] rounded-2xl p-5 space-y-4 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePowerPricingRule(idx)}
-                      className="absolute top-4 right-4 text-[#A7A7A7] hover:text-red-400 font-black text-sm bg-transparent border-none cursor-pointer transition-colors"
-                    >
-                      ✕
-                    </button>
+              <div className="space-y-4">
+                <p className="text-gray-500 text-[10px] italic">
+                  Define the range of prescription values (SPH & CYL) within which this lens can be selected.
+                </p>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN SPH</label>
-                        <input
-                          type="number"
-                          step="0.25"
-                          value={rule.minSph}
-                          onChange={(e) => handleRuleChange(idx, 'minSph', Number(e.target.value))}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX SPH</label>
-                        <input
-                          type="number"
-                          step="0.25"
-                          value={rule.maxSph}
-                          onChange={(e) => handleRuleChange(idx, 'maxSph', Number(e.target.value))}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN CYL</label>
-                        <input
-                          type="number"
-                          step="0.25"
-                          value={rule.minCyl}
-                          onChange={(e) => handleRuleChange(idx, 'minCyl', Number(e.target.value))}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX CYL</label>
-                        <input
-                          type="number"
-                          step="0.25"
-                          value={rule.maxCyl}
-                          onChange={(e) => handleRuleChange(idx, 'maxCyl', Number(e.target.value))}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-500 font-bold mb-1.5">PRICE (₹)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={rule.price}
-                        onChange={(e) => handleRuleChange(idx, 'price', Number(e.target.value))}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs font-bold text-[#D4A04D]"
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN SPH</label>
+                    <input
+                      name="minSph"
+                      type="number"
+                      step="0.25"
+                      defaultValue={editingLens ? (editingLens.minSph ?? -20) : -20}
+                      className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
+                    />
                   </div>
-                ))}
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX SPH</label>
+                    <input
+                      name="maxSph"
+                      type="number"
+                      step="0.25"
+                      defaultValue={editingLens ? (editingLens.maxSph ?? 20) : 20}
+                      className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
+                    />
+                  </div>
+                </div>
 
-                {powerPricing.length === 0 && (
-                  <p className="text-gray-500 text-xs italic text-center py-6">
-                    No power-based prices set. Lens will use Base Price for all prescription powers.
-                  </p>
-                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MIN CYL</label>
+                    <input
+                      name="minCyl"
+                      type="number"
+                      step="0.25"
+                      defaultValue={editingLens ? (editingLens.minCyl ?? -6) : -6}
+                      className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-bold mb-1.5">MAX CYL</label>
+                    <input
+                      name="maxCyl"
+                      type="number"
+                      step="0.25"
+                      defaultValue={editingLens ? (editingLens.maxCyl ?? 6) : 6}
+                      className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

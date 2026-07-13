@@ -139,9 +139,11 @@ export default function LandingPage() {
     }
   };
 
+  const [banners, setBanners] = useState<any[]>([]);
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
-  const slides = [
+  const heroBanners = banners.filter((b: any) => b.position === 'hero' && b.isActive);
+  const slides = heroBanners.length > 0 ? heroBanners : [
     {
       subtitle: 'SEE THE WORLD',
       title: 'CLEARER. SHARPER. YOU.',
@@ -164,7 +166,14 @@ export default function LandingPage() {
       setActiveSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [slides.length]);
+
+  // Safely reset activeSlide if it goes out of bounds when slides update
+  useEffect(() => {
+    if (activeSlide >= slides.length) {
+      setActiveSlide(0);
+    }
+  }, [slides.length, activeSlide]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -198,7 +207,7 @@ export default function LandingPage() {
       });
   };
 
-  const [banners, setBanners] = useState<any[]>([]);
+
 
   const fetchBanners = () => {
     api.get('/banners')
@@ -540,7 +549,7 @@ export default function LandingPage() {
       code: 'GLAZEBOGO',
       bgGradient: 'from-[#6E4E1C]/40 via-[#1C150E] to-[#0B0B0C]',
       borderColor: 'border-[#D4A04D]/30',
-      badge: 'BOGO Offer'
+      badge: 'Buy One Get One Offer'
     },
     {
       title: 'GET FIRST FRAME FREE',
@@ -764,7 +773,7 @@ export default function LandingPage() {
         
         {/* Hero Section - Full View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
-          <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] min-h-[260px] sm:min-h-[420px] md:min-h-[520px] flex items-center w-full shadow-2xl">
+          <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] aspect-[16/9] w-full flex items-center shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent z-10" />
             
             {/* Hero text */}
@@ -780,27 +789,27 @@ export default function LandingPage() {
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div className="w-5 sm:w-8 h-[2px] bg-[#D4A04D]" />
-                    <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide].subtitle}</span>
+                    <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide]?.subtitle}</span>
                   </div>
                   
                   <h1 className="text-sm sm:text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                    {slides[activeSlide].title}
+                    {slides[activeSlide]?.title}
                   </h1>
                   
                   <p className="text-gray-400 text-[8px] sm:text-sm md:text-base line-clamp-2 sm:line-clamp-none">
-                    {slides[activeSlide].description}
+                    {slides[activeSlide]?.description}
                   </p>
                   
                   <button 
-                    onClick={() => navigate('/products')} 
+                    onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
                     className="mt-1 sm:mt-2 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-semibold tracking-wider text-[8px] sm:text-xs uppercase py-1.5 px-3 sm:py-3 sm:px-6 rounded-md sm:rounded-lg transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
                   >
-                    {slides[activeSlide].buttonText} 
+                    {slides[activeSlide]?.buttonText || 'SHOP NOW'} 
                     <span className="group-hover:translate-x-1 transition-transform">→</span>
                   </button>
                 </motion.div>
               </AnimatePresence>
-
+ 
               {/* Slide dots */}
               <div className="flex gap-1.5 mt-2 sm:mt-6">
                 {slides.map((_, i) => (
@@ -813,19 +822,19 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
-
+ 
             {/* Banner image */}
             <div className="absolute right-0 top-0 bottom-0 w-1/2 md:w-3/5 h-full overflow-hidden">
               <AnimatePresence mode="wait">
                 <motion.img 
                   key={activeSlide}
-                  src={slides[activeSlide].image} 
+                  src={slides[activeSlide]?.imageUrl || slides[activeSlide]?.image} 
                   alt="Premium Eyewear Model" 
                   initial={{ opacity: 0, scale: 1.05 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.6, ease: "easeInOut" }}
-                  className="w-full h-full object-cover object-center scale-100" 
+                  className="w-full h-full object-cover object-right scale-100" 
                 />
               </AnimatePresence>
             </div>
@@ -1041,49 +1050,79 @@ export default function LandingPage() {
         <div className="px-4 py-5 space-y-4">
           
           {/* Hero Slider Card */}
-          <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 min-h-[170px] flex items-center justify-between overflow-hidden shadow-xl">
+          <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 aspect-[16/9] w-full flex items-center justify-between overflow-hidden shadow-xl">
             {/* Background design */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,160,77,0.04),transparent_60%)] pointer-events-none" />
             
             {/* Text details (Left) */}
-            <div className="flex flex-col items-start max-w-[55%] z-10 space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-[1px] bg-[#D4A04D]" />
-                <span className="text-[#D4A04D] text-[8px] font-extrabold tracking-wider uppercase">SEE THE WORLD</span>
-              </div>
-              
-              <h1 className="text-md sm:text-lg font-black text-white leading-tight tracking-wide">
-                CLEARER. SHARPER.<br />YOU.
-              </h1>
-              
-              <p className="text-gray-400 text-[9px] leading-relaxed font-medium">
-                Premium Eyewear for Every Version of You.
-              </p>
-              
-              <button 
-                onClick={() => navigate('/products')} 
-                className="mt-1 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold tracking-wider text-[8px] uppercase py-1 px-3 rounded-lg transition-all flex items-center gap-1 bg-transparent cursor-pointer"
-              >
-                <span>SHOP NOW</span>
-                <span className="text-[9px] font-bold">→</span>
-              </button>
+            <div className="flex flex-col items-start max-w-[55%] z-10 space-y-1.5 w-full">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeSlide}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col items-start space-y-1.5 w-full text-left"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-[1px] bg-[#D4A04D]" />
+                    <span className="text-[#D4A04D] text-[8px] font-extrabold tracking-wider uppercase">
+                      {slides[activeSlide]?.subtitle}
+                    </span>
+                  </div>
+                  
+                  <h1 className="text-sm font-black text-white leading-tight tracking-wide uppercase line-clamp-2">
+                    {slides[activeSlide]?.title}
+                  </h1>
+                  
+                  <p className="text-gray-400 text-[9px] leading-relaxed line-clamp-2 font-medium">
+                    {slides[activeSlide]?.description}
+                  </p>
+                  
+                  <button 
+                    onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
+                    className="mt-1 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold tracking-wider text-[8px] uppercase py-1 px-3 rounded-lg transition-all flex items-center gap-1 bg-transparent cursor-pointer"
+                  >
+                    <span>{slides[activeSlide]?.buttonText || 'SHOP NOW'}</span>
+                    <span className="text-[9px] font-bold">→</span>
+                  </button>
+                </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* Model Image (Right) */}
             <div className="absolute right-0 bottom-0 top-0 w-[45%] h-full flex items-end">
-              <img 
-                src="/images/hero_model.png" 
-                alt="Model" 
-                className="w-full h-full object-cover object-center translate-y-1"
-              />
+              <AnimatePresence mode="wait">
+                <motion.img 
+                  key={activeSlide}
+                  src={slides[activeSlide]?.imageUrl || slides[activeSlide]?.image} 
+                  alt="Model" 
+                  initial={{ opacity: 0, scale: 1.05 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4 }}
+                  className="w-full h-full object-cover object-center translate-y-1"
+                />
+              </AnimatePresence>
             </div>
           </div>
 
           {/* Slider Pagination Dots */}
-          <div className="flex justify-center items-center gap-1.5 mt-1">
-            <span className="w-4 h-1 bg-[#D4A04D] rounded-full transition-all duration-300" />
-            <span className="w-1 h-1 bg-zinc-700 rounded-full transition-all duration-300" />
-          </div>
+          {slides.length > 1 && (
+            <div className="flex justify-center items-center gap-1.5 mt-1">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveSlide(i)}
+                  className={`border-none p-0 cursor-pointer transition-all duration-300 rounded-full h-1 ${
+                    activeSlide === i ? 'bg-[#D4A04D] w-4' : 'bg-zinc-700 w-1'
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Shop by Category - Mobile View */}
           <div className="space-y-3 pb-4">

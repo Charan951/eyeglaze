@@ -14,7 +14,7 @@ export async function getAdminBanners(req: Request, res: Response) {
 
 export async function createBanner(req: Request, res: Response) {
   try {
-    const { title, subtitle, imageUrl, linkUrl, position, displayOrder, isActive, showOnMobile } = req.body;
+    const { title, subtitle, imageUrl, linkUrl, position, displayOrder, isActive, showOnMobile, description, buttonText } = req.body;
     if (!imageUrl) {
       return res.status(400).json({ error: 'imageUrl is required' });
     }
@@ -28,6 +28,8 @@ export async function createBanner(req: Request, res: Response) {
       displayOrder: displayOrder || 0,
       isActive: isActive !== undefined ? isActive : true,
       showOnMobile: showOnMobile !== undefined ? showOnMobile : true,
+      description,
+      buttonText,
     });
 
     await banner.save();
@@ -46,7 +48,7 @@ export async function createBanner(req: Request, res: Response) {
 export async function updateBanner(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { title, subtitle, imageUrl, linkUrl, position, displayOrder, isActive, showOnMobile } = req.body;
+    const { title, subtitle, imageUrl, linkUrl, position, displayOrder, isActive, showOnMobile, description, buttonText } = req.body;
 
     const banner = await Banner.findById(id);
     if (!banner) {
@@ -61,6 +63,8 @@ export async function updateBanner(req: Request, res: Response) {
     if (displayOrder !== undefined) banner.displayOrder = displayOrder;
     if (isActive !== undefined) banner.isActive = isActive;
     if (showOnMobile !== undefined) banner.showOnMobile = showOnMobile;
+    if (description !== undefined) banner.description = description;
+    if (buttonText !== undefined) banner.buttonText = buttonText;
 
     await banner.save();
     try {

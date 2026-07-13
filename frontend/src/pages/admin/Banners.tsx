@@ -12,6 +12,8 @@ interface Banner {
   displayOrder: number;
   isActive: boolean;
   showOnMobile: boolean;
+  description?: string;
+  buttonText?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +28,8 @@ export default function AdminBanners() {
   // Form states
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [buttonText, setButtonText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [position, setPosition] = useState('eyeglasses_landing');
@@ -113,6 +117,8 @@ export default function AdminBanners() {
   const resetForm = () => {
     setTitle('');
     setSubtitle('');
+    setDescription('');
+    setButtonText('');
     setImageUrl('');
     setLinkUrl('');
     setPosition('eyeglasses_landing');
@@ -137,6 +143,8 @@ export default function AdminBanners() {
     const payload = {
       title: title.trim() || undefined,
       subtitle: subtitle.trim() || undefined,
+      description: description.trim() || undefined,
+      buttonText: buttonText.trim() || undefined,
       imageUrl: imageUrl.trim(),
       linkUrl: linkUrl.trim() || undefined,
       position: position.trim() || 'eyeglasses_landing',
@@ -166,6 +174,8 @@ export default function AdminBanners() {
     setEditingId(banner._id);
     setTitle(banner.title || '');
     setSubtitle(banner.subtitle || '');
+    setDescription(banner.description || '');
+    setButtonText(banner.buttonText || '');
     setImageUrl(banner.imageUrl);
     setLinkUrl(banner.linkUrl || '');
     setPosition(banner.position || 'eyeglasses_landing');
@@ -262,6 +272,33 @@ export default function AdminBanners() {
               />
             </div>
 
+            {/* Description */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider">
+                Description / Content (Optional / For Hero)
+              </label>
+              <textarea
+                placeholder="e.g., Uncompromising quality meets timeless luxury."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="bg-[#181818] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-lg p-2.5 focus:outline-none min-h-[60px]"
+              />
+            </div>
+
+            {/* Button Text */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider">
+                Button Text (Optional / For Hero)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., EXPLORE ALL"
+                value={buttonText}
+                onChange={(e) => setButtonText(e.target.value)}
+                className="bg-[#181818] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-lg p-2.5 focus:outline-none"
+              />
+            </div>
+
             {/* Image Link or Upload */}
             <div className="flex flex-col gap-1">
               <label className="text-[#A7A7A7] text-xs font-semibold uppercase tracking-wider">
@@ -337,6 +374,7 @@ export default function AdminBanners() {
                 className="bg-[#181818] border border-[#2A2A2D] focus:border-[#D4A04D] text-xs text-white rounded-lg p-2.5 focus:outline-none cursor-pointer"
                 required
               >
+                <option value="hero">Hero Slider (Top of Page)</option>
                 <option value="eyeglasses_landing">Top Banner (Above Eyeglasses)</option>
                 <option value="footer">Footer Banner (Above Footer)</option>
                 <option value="both">Both Placements</option>
@@ -466,6 +504,8 @@ export default function AdminBanners() {
                             ? 'Footer'
                             : banner.position === 'both'
                             ? 'Both'
+                            : banner.position === 'hero'
+                            ? 'Hero'
                             : banner.position.startsWith('after_category:')
                             ? `After ${banner.position.replace('after_category:', '').toUpperCase()}`
                             : banner.position}
@@ -480,6 +520,12 @@ export default function AdminBanners() {
                       </div>
                       <h3 className="text-sm font-bold text-white">{banner.title || 'Untitled Banner'}</h3>
                       {banner.subtitle && <p className="text-xs text-gray-400">{banner.subtitle}</p>}
+                      {banner.description && <p className="text-xs text-gray-500 italic mt-0.5">{banner.description}</p>}
+                      {banner.buttonText && (
+                        <div className="text-[10px] text-gray-400 mt-1">
+                          🔘 Button: <span className="text-white font-medium">{banner.buttonText}</span>
+                        </div>
+                      )}
                       {banner.linkUrl && (
                         <div className="text-[10px] text-gray-500 font-mono mt-1 truncate">
                           🔗 Link: <span className="text-[#D4A04D]">{banner.linkUrl}</span>

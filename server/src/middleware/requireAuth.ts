@@ -30,4 +30,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+export function optionalAuth(req: Request, res: Response, next: NextFunction) {
+  const token = getToken(req);
+  if (token) {
+    const payload = verifyAccessToken(token);
+    if (payload) {
+      req.user = payload;
+    }
+  }
+  next();
+}
+
 export { getToken };

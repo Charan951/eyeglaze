@@ -68,6 +68,28 @@ export const validateCouponSchema = z.object({
   body: z.object({
     code: z.string().min(1).toUpperCase(),
     cartTotal: z.number().nonnegative(),
+    addGoldMembership: z.boolean().optional(),
+    items: z.array(z.object({
+      productId: zObjectId,
+      qty: z.number().int().positive(),
+      price: z.number().nonnegative(),
+      category: z.string().optional(),
+      brand: z.string().optional(),
+    })).optional(),
+    paymentMethod: z.string().optional(),
+    shippingMethod: z.string().optional(),
+    location: z.object({
+      country: z.string().optional(),
+      state: z.string().optional(),
+      city: z.string().optional(),
+    }).optional(),
+  }),
+});
+
+export const autoApplyCouponSchema = z.object({
+  body: z.object({
+    cartTotal: z.number().nonnegative(),
+    addGoldMembership: z.boolean().optional(),
     items: z.array(z.object({
       productId: zObjectId,
       qty: z.number().int().positive(),

@@ -20,6 +20,10 @@ interface LensOption {
   isBestseller?: boolean;
   isRecommended?: boolean;
   powerPricing?: any[];
+  minSph?: number;
+  maxSph?: number;
+  minCyl?: number;
+  maxCyl?: number;
 }
 
 interface Product {
@@ -316,7 +320,11 @@ export default function LensSelection() {
                 displayName: firstLens.name,
                 price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
                 features: ['UV Protection', 'Scratch Resistant'],
-                powerPricing: firstLens.powerPricing
+                powerPricing: firstLens.powerPricing,
+                minSph: firstLens.minSph,
+                maxSph: firstLens.maxSph,
+                minCyl: firstLens.minCyl,
+                maxCyl: firstLens.maxCyl
               } as any);
             }
           } else {
@@ -423,7 +431,11 @@ export default function LensSelection() {
             parseSafeFloat(leCyl)
           ),
           features: ['UV Protection', 'Scratch Resistant'],
-          powerPricing: firstLens.powerPricing
+          powerPricing: firstLens.powerPricing,
+          minSph: firstLens.minSph,
+          maxSph: firstLens.maxSph,
+          minCyl: firstLens.minCyl,
+          maxCyl: firstLens.maxCyl
         } as any);
       } else {
         setSelectedQuality(null);
@@ -604,6 +616,34 @@ export default function LensSelection() {
       if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
         alert('Please enter AXIS for astigmatism (when CYL is not 0)');
         return;
+      }
+
+      const targetLens = selectedQuality || selectedSubType;
+      if (targetLens) {
+        const minSph = targetLens.minSph !== undefined ? targetLens.minSph : -20;
+        const maxSph = targetLens.maxSph !== undefined ? targetLens.maxSph : 20;
+        const minCyl = targetLens.minCyl !== undefined ? targetLens.minCyl : -6;
+        const maxCyl = targetLens.maxCyl !== undefined ? targetLens.maxCyl : 6;
+
+        const reSphVal = parseFloat(reSph) || 0;
+        const reCylVal = parseFloat(reCyl) || 0;
+        const leSphVal = parseFloat(leSph) || 0;
+        const leCylVal = parseFloat(leCyl) || 0;
+
+        const isReSphOutOfRange = reSphVal < Math.min(minSph, maxSph) || reSphVal > Math.max(minSph, maxSph);
+        const isReCylOutOfRange = reCylVal < Math.min(minCyl, maxCyl) || reCylVal > Math.max(minCyl, maxCyl);
+        const isLeSphOutOfRange = leSphVal < Math.min(minSph, maxSph) || leSphVal > Math.max(minSph, maxSph);
+        const isLeCylOutOfRange = leCylVal < Math.min(minCyl, maxCyl) || leCylVal > Math.max(minCyl, maxCyl);
+
+        if (isReSphOutOfRange || isReCylOutOfRange || isLeSphOutOfRange || isLeCylOutOfRange) {
+          alert(
+            `Your prescription power is out of range for the selected lens "${targetLens.displayName || targetLens.name}".\n\n` +
+            `Allowed SPH Range: [${Math.min(minSph, maxSph).toFixed(2)}, ${Math.max(minSph, maxSph).toFixed(2)}]\n` +
+            `Allowed CYL Range: [${Math.min(minCyl, maxCyl).toFixed(2)}, ${Math.max(minCyl, maxCyl).toFixed(2)}]\n\n` +
+            `Please select another lens.`
+          );
+          return;
+        }
       }
     } else if (powerMode === 'upload') {
       if (uploadingPrescription) {
@@ -1430,7 +1470,11 @@ export default function LensSelection() {
                           displayName: lens.name,
                           price: getCurrentLensPrice(lens),
                           features: features,
-                          powerPricing: lens.powerPricing
+                          powerPricing: lens.powerPricing,
+                          minSph: lens.minSph,
+                          maxSph: lens.maxSph,
+                          minCyl: lens.minCyl,
+                          maxCyl: lens.maxCyl
                         } as any)}
                         className={`relative bg-[#131314] border rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
                           isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'

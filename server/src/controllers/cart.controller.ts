@@ -4,6 +4,7 @@ import { Cart } from '../models/Cart';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
+import { Order } from '../models/Order';
 
 export async function getCart(req: Request, res: Response) {
   try {
@@ -49,7 +50,32 @@ export async function getCart(req: Request, res: Response) {
 
     // Check 1+1 Offer
     let onePlusOneDiscount = 0;
-    const buy1Get1Items = processedItems.filter((item: any) => item.product?.buy1Get1);
+    const isMemberNow = user?.membershipActive || cart.addGoldMembership;
+
+    // Check if user already had a BOGO order this calendar month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const bogoOrderThisMonth = await Order.findOne({
+      user: req.user!.userId,
+      bogoApplied: true,
+      createdAt: { $gte: startOfMonth },
+      status: { $ne: 'cancelled' },
+      paymentStatus: { $ne: 'failed' }
+    });
+
+    const bogoAllowedForMember = !bogoOrderThisMonth;
+
+    const buy1Get1Items: any[] = [];
+    processedItems.forEach((item: any) => {
+      if ((isMemberNow && bogoAllowedForMember) || item.product?.buy1Get1) {
+        for (let i = 0; i < item.qty; i++) {
+          buy1Get1Items.push(item);
+        }
+      }
+    });
+
     if (buy1Get1Items.length >= 2) {
       // Sort by price (descending) to get the highest price first
       buy1Get1Items.sort((a: any, b: any) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
@@ -60,19 +86,37 @@ export async function getCart(req: Request, res: Response) {
         return currentTotal < lowestTotal ? current : lowest;
       });
       onePlusOneDiscount = lowestPriceItem.framePrice + (lowestPriceItem.lensPrice || 0);
-      lowestPriceItem.appliedOffers.push('1+1 Offer');
+      
+      const targetItem = processedItems.find((item: any) => 
+        (item.product?._id || item.product?.id || '').toString() === (lowestPriceItem.product?._id || lowestPriceItem.product?.id || '').toString()
+      );
+      if (targetItem) {
+        if (!targetItem.appliedOffers) targetItem.appliedOffers = [];
+        if (!targetItem.appliedOffers.includes('1+1 Offer')) {
+          targetItem.appliedOffers.push('1+1 Offer');
+        }
+      }
     }
 
     // Calculate totals
     let subtotal = 0;
-    let totalFittingCharge = 0;
     let totalDeliveryCharge = 0;
 
     processedItems.forEach((item: any) => {
       subtotal += (item.framePrice + (item.lensPrice || 0)) * item.qty;
-      totalFittingCharge += (item.fittingCharge || 0) * item.qty;
       totalDeliveryCharge += (item.deliveryCharge || (user?.membershipActive ? 0 : 99)) * item.qty;
     });
+
+    // Calculate total fitting charge dynamically: 99 for one product with lens, 199 for more than one
+    let lensItemsCount = 0;
+    processedItems.forEach((item: any) => {
+      const hasLens = item.lensType || (item.lensPrice && item.lensPrice > 0);
+      if (hasLens) {
+        lensItemsCount += item.qty;
+      }
+    });
+
+    const totalFittingCharge = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
     // Delivery charge: members free, non-members 99 (one charge per order, not per item)
     totalDeliveryCharge = user?.membershipActive ? 0 : 99;
@@ -84,7 +128,8 @@ export async function getCart(req: Request, res: Response) {
       totalFittingCharge,
       totalDeliveryCharge,
       onePlusOneDiscount,
-      total: Math.max(0, subtotal + totalFittingCharge + totalDeliveryCharge - onePlusOneDiscount)
+      total: Math.max(0, subtotal + totalFittingCharge + totalDeliveryCharge - onePlusOneDiscount),
+      hasUsedBogoThisMonth: !bogoAllowedForMember
     };
 
     return res.status(200).json({ cart: cartWithOffers });
