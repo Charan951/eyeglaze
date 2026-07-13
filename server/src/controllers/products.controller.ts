@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
-import { clearCachePattern } from '../middleware/cache';
 import { Product } from '../models/Product';
 import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
@@ -225,7 +224,6 @@ export async function createProduct(req: Request, res: Response) {
 
     const product = new Product(body);
     await product.save();
-    await clearCachePattern('cache:/api/products*');
     return res.status(201).json(product);
   } catch (error) {
     console.error('POST product error:', error);
@@ -341,7 +339,6 @@ export async function updateProduct(req: Request, res: Response) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    await clearCachePattern('cache:/api/products*');
     return res.status(200).json(product);
   } catch (error) {
     console.error('PUT product error:', error);
@@ -355,7 +352,6 @@ export async function deleteProduct(req: Request, res: Response) {
     const id = req.params.id as string;
 
     await Product.findByIdAndUpdate(id, { isActive: false });
-    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('DELETE product error:', error);

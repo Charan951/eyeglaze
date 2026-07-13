@@ -5,7 +5,6 @@ import path from 'path';
 import fs from 'fs';
 
 import { connectDB } from './config/mongodb';
-import { connectRedis } from './config/redis';
 import { startInMemoryMongoDB } from './config/inMemoryMongo';
 import { seedDatabase } from './lib/seedDatabase';
 import { initSocket } from './lib/socket';
@@ -48,7 +47,6 @@ async function main() {
     }
     
     await connectDB();
-    await connectRedis();
     await seedDatabase();
 
     const server = http.createServer(app);
