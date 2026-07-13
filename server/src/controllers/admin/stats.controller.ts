@@ -18,17 +18,20 @@ export async function getAdminStats(_req: Request, res: Response) {
       ordersToday,
       ordersWeek,
       ordersMonth,
+      totalOrders,
       revenueToday,
       revenueWeek,
       revenueMonth,
       pendingOrders,
       newCustomersWeek,
+      totalUsers,
       products,
       recentOrders,
     ] = await Promise.all([
       Order.countDocuments({ createdAt: { $gte: startOfDay } }),
       Order.countDocuments({ createdAt: { $gte: startOfWeek } }),
       Order.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      Order.countDocuments(),
       Order.aggregate([
         { $match: { createdAt: { $gte: startOfDay }, paymentStatus: 'paid' } },
         { $group: { _id: null, total: { $sum: '$total' } } },
@@ -43,6 +46,7 @@ export async function getAdminStats(_req: Request, res: Response) {
       ]),
       Order.countDocuments({ status: 'pending' }),
       User.countDocuments({ createdAt: { $gte: startOfWeek }, role: { $in: ['user', 'customer'] } }),
+      User.countDocuments({ role: { $in: ['user', 'customer'] } }),
       Product.find({ isActive: true }).select('colors'),
       Order.find().sort({ createdAt: -1 }).limit(10).populate('user', 'name email mobile phone'),
     ]);
@@ -50,8 +54,10 @@ export async function getAdminStats(_req: Request, res: Response) {
     // Calculate low stock
     let lowStock = 0;
     for (const product of products) {
-      for (const color of product.colors) {
-        if (color.stock < 10) lowStock++;
+      if (product.colors && Array.isArray(product.colors)) {
+        for (const color of product.colors) {
+          if (color.stock < 10) lowStock++;
+        }
       }
     }
 
@@ -60,6 +66,7 @@ export async function getAdminStats(_req: Request, res: Response) {
         today: ordersToday,
         week: ordersWeek,
         month: ordersMonth,
+        total: totalOrders,
       },
       revenue: {
         today: revenueToday[0]?.total || 0,
@@ -69,6 +76,8 @@ export async function getAdminStats(_req: Request, res: Response) {
       pending: pendingOrders,
       lowStock,
       newCustomers: newCustomersWeek,
+      totalCustomers: totalUsers,
+      products: products.length,
       recentOrders,
     });
   } catch (error) {

@@ -138,9 +138,9 @@ export default function AdminProductsPage() {
               </thead>
               <tbody className="divide-y divide-[#2A2A2D]/40">
                 {products.map(p => (
-                  <tr key={p._id} className="hover:bg-[#1C1C1E] transition-colors">
+                  <tr key={p._id} className="hover:bg-[#1C1C1E] transition-colors cursor-pointer" onClick={() => openEdit(p)}>
                     <td className="px-5 py-4">
-                      <div className="text-white font-semibold">{p.name}</div>
+                      <div className="text-white font-semibold hover:text-[#D4A04D] transition-colors">{p.name}</div>
                       <div className="flex gap-2 mt-1">
                         {p.isBestseller && <span className="text-[9px] bg-[#D4A04D]/10 text-[#D4A04D] border border-[#D4A04D]/20 px-1.5 py-0.5 rounded font-extrabold uppercase">★ Bestseller</span>}
                         {p.frameType && <span className="text-[9px] bg-[#222] text-gray-400 px-1.5 py-0.5 rounded border border-[#2A2A2D]">{p.frameType}</span>}
@@ -153,7 +153,10 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-5 py-4">
                       <button
-                        onClick={() => toggleActive(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleActive(p);
+                        }}
                         className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${p.isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
                       >
                         {p.isActive ? 'Active' : 'Inactive'}
@@ -161,8 +164,8 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex gap-3 font-bold text-xs">
-                        <button onClick={() => openEdit(p)} className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer">Edit</button>
-                        <button onClick={() => deleteProduct(p._id)} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer">Edit</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteProduct(p._id); }} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
                       </div>
                     </td>
                   </tr>

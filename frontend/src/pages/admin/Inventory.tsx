@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 interface ColorStock {
   name: string;
@@ -96,15 +97,26 @@ export default function InventoryPage() {
 
   useEffect(() => {
     let active = true;
-    api.get('/admin/inventory')
-      .then(res => {
-        if (!active) return;
-        const data = res.data?.items || res.data?.inventory;
-        if (data?.length) setItems(data);
-      })
-      .catch(() => {})
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    const fetchInventory = () => {
+      api.get('/admin/inventory')
+        .then(res => {
+          if (!active) return;
+          setItems(res.data.inventory || res.data || []);
+        })
+        .catch(() => {})
+        .finally(() => active && setLoading(false));
+    };
+
+    fetchInventory();
+
+    socket.on('product_changed', fetchInventory);
+    socket.on('order_changed', fetchInventory);
+
+    return () => {
+      active = false;
+      socket.off('product_changed', fetchInventory);
+      socket.off('order_changed', fetchInventory);
+    };
   }, []);
 
   const toggleActive = async (id: string) => {
@@ -152,7 +164,6 @@ export default function InventoryPage() {
             <thead>
               <tr className="text-[#A7A7A7] text-xs uppercase border-b border-[#2A2A2D]">
                 <th className="text-left px-5 py-3">Product</th>
-                <th className="text-left px-5 py-3">SKU</th>
                 <th className="text-left px-5 py-3">Colors / Stock</th>
                 <th className="text-left px-5 py-3">Sold</th>
                 <th className="text-left px-5 py-3">Active</th>
@@ -164,7 +175,6 @@ export default function InventoryPage() {
                 return (
                   <tr key={itemId} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D]/40 transition-colors">
                     <td className="px-5 py-4 text-white font-semibold">{item.name}</td>
-                    <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs">{item.sku}</td>
                     <td className="px-5 py-4">
                       {editingItemId === itemId ? (
                         <div className="space-y-3 min-w-[280px]">

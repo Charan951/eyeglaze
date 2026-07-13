@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import api from '../lib/api';
+import { socket } from '../lib/socket';
 
 export interface AuthUser {
   _id: string;
@@ -16,7 +17,10 @@ export interface AuthUser {
   wishlist?: any[];
   membershipActive?: boolean;
   membershipExpiry?: string | Date;
-  [key: string]: unknown;
+  oneRupeeOfferUsed?: boolean;
+  oneRupeeOfferCount?: number;
+  previousOrderCount?: number;
+  [key: string]: any;
 }
 
 interface AuthContextValue {
@@ -199,6 +203,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Manage socket.io user-specific room connections
+  useEffect(() => {
+    if (user && user._id) {
+      socket.emit('join_user_room', user._id.toString());
+      return () => {
+        socket.emit('leave_user_room', user._id.toString());
+      };
+    }
+  }, [user]);
+
+  // Sync cart count when cart changes in another tab/device via Socket.io
+  useEffect(() => {
+    const handleCartChanged = () => {
+      fetchCartCount();
+    };
+    socket.on('cart_changed', handleCartChanged);
+    return () => {
+      socket.off('cart_changed', handleCartChanged);
+    };
+  }, [fetchCartCount]);
+
+  // Sync guest cart count across tabs via storage events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'guest_cart') {
+        fetchCartCount();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [fetchCartCount]);
 
   const login = async (u: AuthUser) => {
     localStorage.setItem('eyeglaze_logged_in', 'true');

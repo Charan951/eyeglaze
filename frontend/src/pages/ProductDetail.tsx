@@ -237,6 +237,18 @@ export default function ProductDetailPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleProductChange = (data: any) => {
+      if (data && data.product && (data.product._id === id || data.product.sku === id)) {
+        setProduct(data.product);
+      }
+    };
+    socket.on('product_changed', handleProductChange);
+    return () => {
+      socket.off('product_changed', handleProductChange);
+    };
+  }, [id]);
+
   // Custom Power & Pricing states
   const [selectedReadingPower, setSelectedReadingPower] = useState<string>('');
   const [selectedContactPower, setSelectedContactPower] = useState<string>('');
@@ -868,16 +880,7 @@ export default function ProductDetailPage() {
                       PREMIUM
                     </span>
                   )}
-                  {product.buy1Get1 && (
-                    <span className="bg-pink-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                      BUY 1 GET 1
-                    </span>
-                  )}
-                  {product.oneRupeeFrameOffer && (
-                    <span className="bg-green-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
-                      ₹1 FRAME OFFER
-                    </span>
-                  )}
+
                   {product.offerBadges?.map((badge, idx) => (
                     <span key={idx} className="bg-purple-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
                       {badge}

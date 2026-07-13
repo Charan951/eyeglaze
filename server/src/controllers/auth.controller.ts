@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
+import { Order } from '../models/Order';
 import {
   generateOTP,
   hashOTP,
@@ -54,6 +55,17 @@ export async function sendOTP(req: Request, res: Response) {
     }
 
     await connectDB();
+
+    let existingUser;
+    if (phoneNum) {
+      existingUser = await User.findOne({ $or: [{ phone: phoneNum }, { mobile: phoneNum }] });
+    } else {
+      existingUser = await User.findOne({ email: email.toLowerCase() });
+    }
+
+    if (existingUser && existingUser.isBlocked) {
+      return res.status(403).json({ error: 'Your account has been blocked. Please contact support.' });
+    }
 
     const otp = generateOTP();
     const otpHash = await hashOTP(otp);
@@ -108,6 +120,10 @@ export async function verifyOTP(req: Request, res: Response) {
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account has been blocked. Please contact support.' });
     }
 
     if (!user.otp || !user.otpExpiry) {
@@ -219,6 +235,10 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account has been blocked. Please contact support.' });
+    }
+
     if (!user.password) {
       return res.status(400).json({ error: 'This account does not have a password set. Please log in using OTP.' });
     }
@@ -323,6 +343,12 @@ export async function getMe(req: Request, res: Response) {
       await User.findByIdAndUpdate(req.user!.userId, { wishlist: existingIds });
     }
 
+    const previousOrderCount = await Order.countDocuments({
+      user: user._id,
+      status: { $ne: 'cancelled' },
+      paymentStatus: 'paid'
+    });
+
     return res.status(200).json({
       user: {
         id: user._id,
@@ -339,6 +365,9 @@ export async function getMe(req: Request, res: Response) {
         savedCards: user.savedCards ?? [],
         linkedWallets: user.linkedWallets ?? [],
         transactions: user.transactions ?? [],
+        oneRupeeOfferUsed: user.oneRupeeOfferUsed,
+        oneRupeeOfferCount: user.oneRupeeOfferCount ?? 0,
+        previousOrderCount
       },
     });
   } catch (error) {
@@ -396,8 +425,8 @@ export async function updateProfile(req: Request, res: Response) {
 
 export async function addAddress(req: Request, res: Response) {
   try {
-    const { fullName, mobile, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
-    if (!fullName || !mobile || !pincode || !line1 || !city || !state) {
+    const { fullName, mobile, alternativeNumber, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
+    if (!fullName || !mobile || !alternativeNumber || !pincode || !line1 || !city || !state) {
       return res.status(400).json({ error: 'Required fields are missing' });
     }
     await connectDB();
@@ -416,6 +445,7 @@ export async function addAddress(req: Request, res: Response) {
     user.addresses.push({
       fullName,
       mobile,
+      alternativeNumber,
       pincode,
       line1,
       line2,
@@ -436,7 +466,7 @@ export async function addAddress(req: Request, res: Response) {
 export async function updateAddress(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { fullName, mobile, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
+    const { fullName, mobile, alternativeNumber, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
     await connectDB();
     const user = await User.findById(req.user!.userId);
     if (!user) {
@@ -450,6 +480,12 @@ export async function updateAddress(req: Request, res: Response) {
 
     if (fullName !== undefined) address.fullName = fullName;
     if (mobile !== undefined) address.mobile = mobile;
+    if (alternativeNumber !== undefined) {
+      if (!alternativeNumber) {
+        return res.status(400).json({ error: 'Alternative number is required' });
+      }
+      address.alternativeNumber = alternativeNumber;
+    }
     if (pincode !== undefined) address.pincode = pincode;
     if (line1 !== undefined) address.line1 = line1;
     if (line2 !== undefined) address.line2 = line2;

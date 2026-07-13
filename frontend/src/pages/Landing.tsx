@@ -774,10 +774,31 @@ export default function LandingPage() {
         {/* Hero Section - Full View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
           <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] aspect-[16/9] w-full flex items-center shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent z-10" />
+            {/* Banner image (Full background) */}
+            <div 
+              className={`absolute inset-0 w-full h-full overflow-hidden z-0 ${slides[activeSlide]?.linkUrl ? 'cursor-pointer' : ''}`}
+              onClick={() => slides[activeSlide]?.linkUrl && navigate(slides[activeSlide]?.linkUrl)}
+            >
+              <AnimatePresence mode="wait">
+                <motion.img 
+                  key={activeSlide}
+                  src={slides[activeSlide]?.imageUrl || slides[activeSlide]?.image} 
+                  alt="Premium Eyewear Model" 
+                  initial={{ opacity: 0, scale: 1.05 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.6, ease: "easeInOut" }}
+                  className="w-full h-full object-cover object-center scale-100" 
+                />
+              </AnimatePresence>
+            </div>
+            {/* Dark gradient overlay for text readability */}
+            {(slides[activeSlide]?.title || slides[activeSlide]?.subtitle || slides[activeSlide]?.description) && (
+              <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/55 to-transparent z-10 pointer-events-none" />
+            )}
             
             {/* Hero text */}
-            <div className="relative z-20 px-4 py-6 sm:px-6 md:px-12 max-w-[55%] md:max-w-lg flex flex-col items-start gap-2 sm:gap-4">
+            <div className="relative z-20 px-4 py-6 sm:px-6 md:px-12 max-w-[65%] md:max-w-xl flex flex-col items-start gap-2 sm:gap-4">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeSlide}
@@ -787,26 +808,34 @@ export default function LandingPage() {
                   transition={{ duration: 0.4, ease: "easeOut" }}
                   className="flex flex-col items-start gap-2 sm:gap-4"
                 >
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="w-5 sm:w-8 h-[2px] bg-[#D4A04D]" />
-                    <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide]?.subtitle}</span>
-                  </div>
+                  {slides[activeSlide]?.subtitle && (
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-5 sm:w-8 h-[2px] bg-[#D4A04D]" />
+                      <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide]?.subtitle}</span>
+                    </div>
+                  )}
                   
-                  <h1 className="text-sm sm:text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                    {slides[activeSlide]?.title}
-                  </h1>
+                  {slides[activeSlide]?.title && (
+                    <h1 className="text-sm sm:text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                      {slides[activeSlide]?.title}
+                    </h1>
+                  )}
                   
-                  <p className="text-gray-400 text-[8px] sm:text-sm md:text-base line-clamp-2 sm:line-clamp-none">
-                    {slides[activeSlide]?.description}
-                  </p>
+                  {slides[activeSlide]?.description && (
+                    <p className="text-gray-400 text-[8px] sm:text-sm md:text-base line-clamp-2 sm:line-clamp-none">
+                      {slides[activeSlide]?.description}
+                    </p>
+                  )}
                   
-                  <button 
-                    onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
-                    className="mt-1 sm:mt-2 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-semibold tracking-wider text-[8px] sm:text-xs uppercase py-1.5 px-3 sm:py-3 sm:px-6 rounded-md sm:rounded-lg transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
-                  >
-                    {slides[activeSlide]?.buttonText || 'SHOP NOW'} 
-                    <span className="group-hover:translate-x-1 transition-transform">→</span>
-                  </button>
+                  {slides[activeSlide]?.buttonText && (
+                    <button 
+                      onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
+                      className="mt-1 sm:mt-2 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-semibold tracking-wider text-[8px] sm:text-xs uppercase py-1.5 px-3 sm:py-3 sm:px-6 rounded-md sm:rounded-lg transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
+                    >
+                      {slides[activeSlide]?.buttonText} 
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </button>
+                  )}
                 </motion.div>
               </AnimatePresence>
  
@@ -821,22 +850,6 @@ export default function LandingPage() {
                   />
                 ))}
               </div>
-            </div>
- 
-            {/* Banner image */}
-            <div className="absolute right-0 top-0 bottom-0 w-1/2 md:w-3/5 h-full overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.img 
-                  key={activeSlide}
-                  src={slides[activeSlide]?.imageUrl || slides[activeSlide]?.image} 
-                  alt="Premium Eyewear Model" 
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.6, ease: "easeInOut" }}
-                  className="w-full h-full object-cover object-right scale-100" 
-                />
-              </AnimatePresence>
             </div>
           </section>
         </div>
@@ -1050,49 +1063,12 @@ export default function LandingPage() {
         <div className="px-4 py-5 space-y-4">
           
           {/* Hero Slider Card */}
-          <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 aspect-[16/9] w-full flex items-center justify-between overflow-hidden shadow-xl">
-            {/* Background design */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,160,77,0.04),transparent_60%)] pointer-events-none" />
-            
-            {/* Text details (Left) */}
-            <div className="flex flex-col items-start max-w-[55%] z-10 space-y-1.5 w-full">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeSlide}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col items-start space-y-1.5 w-full text-left"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-[1px] bg-[#D4A04D]" />
-                    <span className="text-[#D4A04D] text-[8px] font-extrabold tracking-wider uppercase">
-                      {slides[activeSlide]?.subtitle}
-                    </span>
-                  </div>
-                  
-                  <h1 className="text-sm font-black text-white leading-tight tracking-wide uppercase line-clamp-2">
-                    {slides[activeSlide]?.title}
-                  </h1>
-                  
-                  <p className="text-gray-400 text-[9px] leading-relaxed line-clamp-2 font-medium">
-                    {slides[activeSlide]?.description}
-                  </p>
-                  
-                  <button 
-                    onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
-                    className="mt-1 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold tracking-wider text-[8px] uppercase py-1 px-3 rounded-lg transition-all flex items-center gap-1 bg-transparent cursor-pointer"
-                  >
-                    <span>{slides[activeSlide]?.buttonText || 'SHOP NOW'}</span>
-                    <span className="text-[9px] font-bold">→</span>
-                  </button>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Model Image (Right) */}
-            <div className="absolute right-0 bottom-0 top-0 w-[45%] h-full flex items-end">
+          <div className="relative bg-[#111] border border-zinc-800 rounded-2xl p-5 aspect-[16/9] w-full flex items-center overflow-hidden shadow-xl">
+            {/* Model Image (Full width background) */}
+            <div 
+              className={`absolute inset-0 w-full h-full overflow-hidden z-0 ${slides[activeSlide]?.linkUrl ? 'cursor-pointer' : ''}`}
+              onClick={() => slides[activeSlide]?.linkUrl && navigate(slides[activeSlide]?.linkUrl)}
+            >
               <AnimatePresence mode="wait">
                 <motion.img 
                   key={activeSlide}
@@ -1102,8 +1078,58 @@ export default function LandingPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.4 }}
-                  className="w-full h-full object-cover object-center translate-y-1"
+                  className="w-full h-full object-cover object-center"
                 />
+              </AnimatePresence>
+            </div>
+
+            {/* Dark overlay for readability */}
+            {(slides[activeSlide]?.title || slides[activeSlide]?.subtitle || slides[activeSlide]?.description) && (
+              <div className="absolute inset-0 bg-black/60 z-10 pointer-events-none" />
+            )}
+            
+            {/* Text details (Left) */}
+            <div className="flex flex-col items-start max-w-[70%] z-20 space-y-1.5 w-full">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeSlide}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col items-start space-y-1.5 w-full text-left"
+                >
+                  {slides[activeSlide]?.subtitle && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-[1px] bg-[#D4A04D]" />
+                      <span className="text-[#D4A04D] text-[8px] font-extrabold tracking-wider uppercase">
+                        {slides[activeSlide]?.subtitle}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {slides[activeSlide]?.title && (
+                    <h1 className="text-sm font-black text-white leading-tight tracking-wide uppercase line-clamp-2">
+                      {slides[activeSlide]?.title}
+                    </h1>
+                  )}
+                  
+                  {slides[activeSlide]?.description && (
+                    <p className="text-gray-400 text-[9px] leading-relaxed line-clamp-2 font-medium">
+                      {slides[activeSlide]?.description}
+                    </p>
+                  )}
+                  
+                  {slides[activeSlide]?.buttonText && (
+                    <button 
+                      onClick={() => navigate(slides[activeSlide]?.linkUrl || '/products')} 
+                      className="mt-1 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold tracking-wider text-[8px] uppercase py-1 px-3 rounded-lg transition-all flex items-center gap-1 bg-transparent cursor-pointer"
+                    >
+                      <span>{slides[activeSlide]?.buttonText}</span>
+                      <span className="text-[9px] font-bold">→</span>
+                    </button>
+                  )}
+                </motion.div>
               </AnimatePresence>
             </div>
           </div>

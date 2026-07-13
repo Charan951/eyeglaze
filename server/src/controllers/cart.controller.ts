@@ -5,6 +5,7 @@ import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
 import { Order } from '../models/Order';
+import { getIO } from '../lib/socket';
 
 export async function getCart(req: Request, res: Response) {
   try {
@@ -20,16 +21,27 @@ export async function getCart(req: Request, res: Response) {
 
     // Fetch user for eligibility checks
     const user = await User.findById(req.user!.userId);
+    const previousOrderCount = user ? await Order.countDocuments({
+      user: req.user!.userId,
+      status: { $ne: 'cancelled' }
+    }) : 0;
 
     // Process cart items with business logic
+    let oneRupeeFramesApplied = 0;
+    const remainingOneRupeeFrames = Math.max(0, 2 - (user?.oneRupeeOfferCount ?? 0));
+
     const processedItems = cart.items.map((item: any) => {
       let framePrice = item.product?.price?.selling ?? item.framePrice ?? 0;
       let appliedOffers: string[] = [];
       let isOneRupeeFrame = false;
 
-      // Check ₹1 Frame eligibility
-      if (item.product?.oneRupeeFrameOffer && user?.membershipActive && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2) {
-        framePrice = 1;
+      // Check ₹1 Frame eligibility - only after first order
+      if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
+        const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
+        const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
+        const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
+        framePrice = totalFramePriceForQty / item.qty;
+        oneRupeeFramesApplied += allowed;
         isOneRupeeFrame = true;
         appliedOffers.push('₹1 Frame');
       } else if (item.product?.memberPrice && user?.membershipActive) {
@@ -69,7 +81,7 @@ export async function getCart(req: Request, res: Response) {
 
     const buy1Get1Items: any[] = [];
     processedItems.forEach((item: any) => {
-      if ((isMemberNow && bogoAllowedForMember) || item.product?.buy1Get1) {
+      if (bogoAllowedForMember && (isMemberNow || item.product?.buy1Get1)) {
         for (let i = 0; i < item.qty; i++) {
           buy1Get1Items.push(item);
         }
@@ -211,6 +223,11 @@ export async function addToCart(req: Request, res: Response) {
 
     cart.updatedAt = new Date();
     await cart.save();
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('cart_changed', { action: 'add', cart });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
 
     return res.status(200).json({ success: true, cart });
   } catch (error) {
@@ -241,6 +258,11 @@ export async function updateCartItem(req: Request, res: Response) {
 
     cart.updatedAt = new Date();
     await cart.save();
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('cart_changed', { action: 'update', cart });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(200).json({ success: true, cart });
   } catch (error) {
     console.error('PUT cart item error:', error);
@@ -261,6 +283,11 @@ export async function removeCartItem(req: Request, res: Response) {
     ) as typeof cart.items;
     cart.updatedAt = new Date();
     await cart.save();
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('cart_changed', { action: 'remove' });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
 
     return res.status(200).json({ success: true });
   } catch (error) {

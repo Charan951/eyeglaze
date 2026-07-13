@@ -4,6 +4,7 @@ export interface IAddress {
   _id?: mongoose.Types.ObjectId;
   fullName: string;
   mobile: string;
+  alternativeNumber?: string;
   pincode: string;
   line1: string;
   line2?: string;
@@ -42,6 +43,7 @@ export interface ITransaction {
 export interface IUser extends Document {
   phone?: string;
   mobile?: string;
+  alternativeNumber?: string;
   countryCode: string;
   email?: string;
   password?: string;
@@ -67,6 +69,7 @@ export interface IUser extends Document {
   passwordResetExpires?: Date;
   loginAttempts: number;
   lockUntil?: Date;
+  isBlocked?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +77,7 @@ export interface IUser extends Document {
 const AddressSchema = new Schema<IAddress>({
   fullName: String,
   mobile: String,
+  alternativeNumber: String,
   pincode: String,
   line1: String,
   line2: String,
@@ -150,6 +154,7 @@ const UserSchema = new Schema<IUser>(
     passwordResetExpires: { type: Date },
     loginAttempts: { type: Number, default: 0, required: true },
     lockUntil: { type: Date },
+    isBlocked: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

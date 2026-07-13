@@ -341,8 +341,8 @@ export default function AdminBanners() {
                 </label>
 
                 {imageUrl && (
-                  <div className="relative rounded-lg overflow-hidden border border-[#2A2A2D] aspect-[3/1] bg-black">
-                    <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <div className="relative rounded-lg overflow-hidden border border-[#2A2A2D] aspect-[3/1] bg-black flex items-center justify-center">
+                    <img src={imageUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
                   </div>
                 )}
               </div>
@@ -477,11 +477,11 @@ export default function AdminBanners() {
                   }`}
                 >
                   {/* Aspect Image */}
-                  <div className="w-full md:w-60 bg-black aspect-[3/1.2] md:aspect-[3/1.5] relative border-b md:border-b-0 md:border-r border-[#2A2A2D] shrink-0">
+                  <div className="w-full md:w-60 bg-black aspect-[3/1.2] md:aspect-[3/1.5] relative border-b md:border-b-0 md:border-r border-[#2A2A2D] shrink-0 flex items-center justify-center">
                     <img
                       src={banner.imageUrl}
                       alt={banner.title || 'Banner'}
-                      className="w-full h-full object-cover"
+                      className="max-w-full max-h-full object-contain"
                     />
                     {!banner.isActive && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">

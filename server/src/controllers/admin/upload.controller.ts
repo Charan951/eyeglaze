@@ -18,11 +18,13 @@ export async function uploadImage(req: Request, res: Response) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Crop and resize to exactly 1024x1024 to match default website assets
+    // Compress and optionally resize while maintaining the original aspect ratio (max 2048px on either dimension)
     const compressedBuffer = await sharp(file.buffer)
-      .resize(1024, 1024, {
-        fit: 'cover',
-        position: 'center'
+      .resize({
+        width: 2048,
+        height: 2048,
+        fit: 'inside',
+        withoutEnlargement: true
       })
       .jpeg({ quality: 85 })
       .toBuffer();

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
+import { socket } from '../lib/socket';
 
 interface CartItem {
   id: string;
@@ -68,6 +69,7 @@ export default function CartPage() {
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
   const [showItemPriceDropdown, setShowItemPriceDropdown] = useState(false);
   const [showDiscountDropdown, setShowDiscountDropdown] = useState(false);
+  const [isMembershipDetailsOpen, setIsMembershipDetailsOpen] = useState(false);
 
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState('');
@@ -78,13 +80,32 @@ export default function CartPage() {
 
   // Fetch active coupons
   useEffect(() => {
-    api.get('/coupons')
-      .then(res => {
-        setActiveCoupons(res.data?.coupons || []);
-      })
-      .catch(err => {
-        console.error('Failed to fetch coupons:', err);
-      });
+    const fetchCoupons = () => {
+      api.get('/coupons')
+        .then(res => {
+          setActiveCoupons(res.data?.coupons || []);
+        })
+        .catch(err => {
+          console.error('Failed to fetch coupons:', err);
+        });
+    };
+    fetchCoupons();
+
+    socket.on('coupon_changed', fetchCoupons);
+    return () => {
+      socket.off('coupon_changed', fetchCoupons);
+    };
+  }, []);
+
+  // Listen to real-time cart changes from backend
+  useEffect(() => {
+    const handleCartChanged = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    socket.on('cart_changed', handleCartChanged);
+    return () => {
+      socket.off('cart_changed', handleCartChanged);
+    };
   }, []);
 
   useEffect(() => {
@@ -141,15 +162,20 @@ export default function CartPage() {
 
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
+  const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
   const buy1Get1Items: { id: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
     
-    // Member Price / ₹1 Frame check
-    if (item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && oneRupeeFramesCount < 2) {
-      framePrice = 1;
-      oneRupeeFramesCount += item.qty;
+    // Member Price / ₹1 Frame check - only after first order
+    const previousOrderCount = user?.previousOrderCount ?? 0;
+    if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
+      const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
+      const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
+      const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
+      framePrice = totalFramePriceForQty / item.qty;
+      oneRupeeFramesCount += allowed;
     } else if (item.product?.memberPrice !== undefined && isMember) {
       framePrice = item.product.memberPrice;
     } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
@@ -164,7 +190,7 @@ export default function CartPage() {
 
   // Populate BOGO items with unique key per quantity index
   itemsWithPricing.forEach(item => {
-    if ((isMember && !hasUsedBogoThisMonth) || item.product?.buy1Get1) {
+    if (!hasUsedBogoThisMonth && (isMember || item.product?.buy1Get1)) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           id: `${item._id || item.id}_${index}`,
@@ -266,7 +292,7 @@ export default function CartPage() {
         items: itemsWithPricing.map(item => ({
           productId: item.product?._id || item.product?.id || item.productId || item.id,
           qty: item.qty,
-          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
         }))
@@ -296,7 +322,7 @@ export default function CartPage() {
       const itemsPayload = itemsWithPricing.map(item => ({
         productId: item.product?._id || item.product?.id || item.productId || item.id,
         qty: item.qty,
-        price: item.framePriceCalculated ?? item.framePrice ?? 1,
+        price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
         category: item.product?.category,
         brand: item.product?.brand,
       }));
@@ -335,7 +361,7 @@ export default function CartPage() {
         items: itemsWithPricing.map(item => ({
           productId: item.product?._id || item.product?.id || item.productId || item.id,
           qty: item.qty,
-          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
         }))
@@ -724,8 +750,15 @@ export default function CartPage() {
                   <span className="text-white text-xs font-bold mt-2 leading-snug">
                     {addGoldMembership ? 'EyeGlaze Membership added' : 'Add EyeGlaze Membership and Avail Buy 1 Get 1 Free + 10% Cashback'}
                   </span>
-                  <span className="text-gray-500 text-[9px] mt-1 font-medium">
+                  <span className="text-gray-500 text-[9px] mt-1 font-medium flex items-center gap-2">
                     {addGoldMembership ? 'Add 2nd Pair for Free' : 'Get member benefits instantly on this order · ₹129 / year'}
+                    <button
+                      type="button"
+                      onClick={() => setIsMembershipDetailsOpen(true)}
+                      className="text-[#D4A04D] hover:underline text-[9px] font-bold tracking-wider uppercase bg-transparent border-none p-0 cursor-pointer ml-1"
+                    >
+                      View Details
+                    </button>
                   </span>
                 </div>
                 {addGoldMembership ? (
@@ -902,6 +935,102 @@ export default function CartPage() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Membership Details Modal */}
+      {isMembershipDetailsOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#131314] border border-[#D4A04D]/35 rounded-xl w-full max-w-md p-6 relative flex flex-col shadow-[0_0_50px_rgba(212,160,77,0.15)] animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-[#2A2A2D]">
+              <div className="flex items-center gap-2">
+                <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-widest bg-[#D4A04D]/10 px-2 py-1 rounded border border-[#D4A04D]/35">
+                  Gold Member
+                </span>
+                <h3 className="text-white font-bold text-base">Membership Benefits</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMembershipDetailsOpen(false)}
+                className="text-[#A7A7A7] hover:text-white font-bold text-sm bg-transparent border-none cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Benefits List */}
+            <div className="mt-4 space-y-4 text-left">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#D4A04D]/10 border border-[#D4A04D]/30 flex items-center justify-center flex-shrink-0 text-[#D4A04D] font-bold text-xs">
+                  1
+                </div>
+                <div>
+                  <h4 className="text-white font-bold text-sm">Buy 1 Get 1 Free</h4>
+                  <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                    Buy any frame with lens and get the second frame + lens of equal or lesser value absolutely free. Usable once per calendar month.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#D4A04D]/10 border border-[#D4A04D]/30 flex items-center justify-center flex-shrink-0 text-[#D4A04D] font-bold text-xs">
+                  2
+                </div>
+                <div>
+                  <h4 className="text-white font-bold text-sm">₹1 Frame Offer (2 Times Lifetime)</h4>
+                  <p className="text-gray-400 text-xs mt-1 leading-relaxed text-gray-300">
+                    Get up to 2 premium frames for just ₹1 each! <span className="text-[#D4A04D] font-bold">Note: This offer is unlocked and becomes active on subsequent orders after your very first order is completed.</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#D4A04D]/10 border border-[#D4A04D]/30 flex items-center justify-center flex-shrink-0 text-[#D4A04D] font-bold text-xs">
+                  3
+                </div>
+                <div>
+                  <h4 className="text-white font-bold text-sm">10% Instant Cashback</h4>
+                  <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                    Earn 10% cashback directly in your wallet on every order. Save it for your future purchases or add-ons.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#D4A04D]/10 border border-[#D4A04D]/30 flex items-center justify-center flex-shrink-0 text-[#D4A04D] font-bold text-xs">
+                  4
+                </div>
+                <div>
+                  <h4 className="text-white font-bold text-sm">Free Shipping & Delivery</h4>
+                  <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                    Enjoy zero delivery charges or shipping fees on all purchases for the entire duration of your membership.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Price Footer */}
+            <div className="mt-6 pt-4 border-t border-[#2A2A2D] flex items-center justify-between">
+              <div>
+                <span className="text-[#A7A7A7] text-[10px] uppercase font-bold tracking-wider">Annual Price</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[#D4A04D] text-lg font-black">₹129</span>
+                  <span className="text-gray-500 text-xs line-through">₹600</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddGoldMembership(true);
+                  setIsMembershipDetailsOpen(false);
+                }}
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase px-4 py-2.5 rounded-lg transition-colors cursor-pointer border-none"
+              >
+                Add Membership
+              </button>
             </div>
           </div>
         </div>

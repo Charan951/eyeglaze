@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
+import { clearCachePattern } from '../middleware/cache';
 import { Product } from '../models/Product';
 import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
@@ -224,6 +225,7 @@ export async function createProduct(req: Request, res: Response) {
 
     const product = new Product(body);
     await product.save();
+    await clearCachePattern('cache:/api/products*');
     return res.status(201).json(product);
   } catch (error) {
     console.error('POST product error:', error);
@@ -290,7 +292,17 @@ export async function getProductById(req: Request, res: Response) {
       });
 
       unmatchedPricing.forEach((o: any) => {
-        const matchingType = allLensTypes.find(t => t.name.toLowerCase() === o.lensCategory.toLowerCase());
+        // Prioritize matching types from product's compatible lensTypes first
+        let matchingType = (product.lensTypes || []).find((t: any) => {
+          const typeName = typeof t === 'object' ? t.name : '';
+          return typeName.toLowerCase() === o.lensCategory.toLowerCase();
+        });
+
+        // Fallback to searching all active lens types
+        if (!matchingType) {
+          matchingType = allLensTypes.find(t => t.name.toLowerCase() === o.lensCategory.toLowerCase());
+        }
+
         customLenses.push({
           _id: `custom-${o._id || new mongoose.Types.ObjectId()}`,
           name: o.lensName,
@@ -298,7 +310,11 @@ export async function getProductById(req: Request, res: Response) {
           memberPrice: o.goldPrice,
           status: o.status || 'Active',
           isProductSpecific: true,
-          lensType: matchingType ? { _id: matchingType._id, name: matchingType.name } : undefined
+          lensType: matchingType ? { _id: matchingType._id || matchingType, name: (matchingType as any).name } : undefined,
+          minSph: o.minSph !== undefined ? o.minSph : -20,
+          maxSph: o.maxSph !== undefined ? o.maxSph : 20,
+          minCyl: o.minCyl !== undefined ? o.minCyl : -6,
+          maxCyl: o.maxCyl !== undefined ? o.maxCyl : 6,
         });
       });
     }
@@ -325,6 +341,7 @@ export async function updateProduct(req: Request, res: Response) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json(product);
   } catch (error) {
     console.error('PUT product error:', error);
@@ -338,6 +355,7 @@ export async function deleteProduct(req: Request, res: Response) {
     const id = req.params.id as string;
 
     await Product.findByIdAndUpdate(id, { isActive: false });
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('DELETE product error:', error);

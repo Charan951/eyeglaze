@@ -53,6 +53,7 @@ export async function getAdminCoupons(req: Request, res: Response) {
     const skip = (Number(page) - 1) * Number(limit);
     const total = await Coupon.countDocuments(query);
     const coupons = await Coupon.find(query)
+      .populate('userSpecific', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));

@@ -97,7 +97,11 @@ const wizardSchema = z.object({
     goldPrice: z.number(),
     platinumPrice: z.number(),
     priority: z.number().default(0),
-    status: z.enum(['Active', 'Inactive']).default('Active')
+    status: z.enum(['Active', 'Inactive']).default('Active'),
+    minSph: z.number().optional(),
+    maxSph: z.number().optional(),
+    minCyl: z.number().optional(),
+    maxCyl: z.number().optional()
   })).default([]),
 
   // Thickness
@@ -441,6 +445,10 @@ export default function AddProductWizard() {
   const [showAddCustomLensForm, setShowAddCustomLensForm] = useState<string | null>(null);
   const [customLensName, setCustomLensName] = useState('');
   const [customLensPrice, setCustomLensPrice] = useState('');
+  const [customLensMinSph, setCustomLensMinSph] = useState('-20');
+  const [customLensMaxSph, setCustomLensMaxSph] = useState('20');
+  const [customLensMinCyl, setCustomLensMinCyl] = useState('-6');
+  const [customLensMaxCyl, setCustomLensMaxCyl] = useState('6');
 
   // Autosave tracking
   const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
@@ -522,6 +530,25 @@ export default function AddProductWizard() {
     prevCategoryRef.current = selectedCategory || '';
   }, [selectedCategory, loadingMeta, setValue]);
 
+  // Fetch available lens types when category changes
+  useEffect(() => {
+    if (loadingMeta) return;
+
+    async function fetchLensTypes() {
+      if (!selectedCategory) {
+        setAvailableLensTypes([]);
+        return;
+      }
+      try {
+        const res = await api.get(`/admin/lens-types?category=${selectedCategory}`);
+        setAvailableLensTypes(res.data.lensTypes || []);
+      } catch (err) {
+        console.error('Failed to fetch lens types for category:', err);
+      }
+    }
+    fetchLensTypes();
+  }, [selectedCategory, loadingMeta]);
+
   // For power-sunglasses (Special Power), force sellWithLens to false and sellAsFrame to true
   useEffect(() => {
     if (isPowerSunglasses) {
@@ -570,9 +597,6 @@ export default function AddProductWizard() {
       try {
         const treeRes = await api.get('/admin/categories/tree');
         setCategoryTree(treeRes.data.tree || []);
-
-        const lensTypesRes = await api.get('/admin/lens-types');
-        setAvailableLensTypes(lensTypesRes.data.lensTypes || []);
 
         if (id) {
           setIsEditMode(true);
@@ -2665,6 +2689,7 @@ export default function AddProductWizard() {
                             onChange={(e) => {
                               if (e.target.checked) {
                                 setValue('lensTypes', [...currentTypes, type._id]);
+                                setActiveLensTypeTab(type._id);
                               } else {
                                 setValue('lensTypes', currentTypes.filter(id => id !== type._id));
                               }
@@ -2734,7 +2759,11 @@ export default function AddProductWizard() {
                           name: pl.lensName,
                           basePrice: pl.regularPrice,
                           status: pl.status || 'Active',
-                          isProductSpecific: true
+                          isProductSpecific: true,
+                          minSph: pl.minSph !== undefined ? pl.minSph : -20,
+                          maxSph: pl.maxSph !== undefined ? pl.maxSph : 20,
+                          minCyl: pl.minCyl !== undefined ? pl.minCyl : -6,
+                          maxCyl: pl.maxCyl !== undefined ? pl.maxCyl : 6
                         }))
                       ];
 
@@ -2754,6 +2783,10 @@ export default function AddProductWizard() {
                                   setShowAddCustomLensForm(prev => prev === activeLensTypeTab ? null : activeLensTypeTab);
                                   setCustomLensName('');
                                   setCustomLensPrice('');
+                                  setCustomLensMinSph('-20');
+                                  setCustomLensMaxSph('20');
+                                  setCustomLensMinCyl('-6');
+                                  setCustomLensMaxCyl('6');
                                 }}
                                 className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase tracking-wider rounded-lg px-3 py-1.5 transition-colors cursor-pointer border-none"
                               >
@@ -2774,6 +2807,10 @@ export default function AddProductWizard() {
                                   <tr className="text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D]/40 pb-2">
                                     <th className="py-3 px-4">Lens Name</th>
                                     <th className="py-3 px-4">Base Price</th>
+                                    <th className="py-3 px-4">Min SPH</th>
+                                    <th className="py-3 px-4">Max SPH</th>
+                                    <th className="py-3 px-4">Min CYL</th>
+                                    <th className="py-3 px-4">Max CYL</th>
                                     <th className="py-3 px-4">Status</th>
                                     <th className="py-3 px-4 text-right">Actions</th>
                                   </tr>
@@ -2803,6 +2840,46 @@ export default function AddProductWizard() {
                                           />
                                         </div>
                                       </td>
+                                      {/* Min SPH */}
+                                      <td className="py-3 px-4">
+                                        <input
+                                          type="number"
+                                          step="0.25"
+                                          value={customLensMinSph}
+                                          onChange={(e) => setCustomLensMinSph(e.target.value)}
+                                          className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                        />
+                                      </td>
+                                      {/* Max SPH */}
+                                      <td className="py-3 px-4">
+                                        <input
+                                          type="number"
+                                          step="0.25"
+                                          value={customLensMaxSph}
+                                          onChange={(e) => setCustomLensMaxSph(e.target.value)}
+                                          className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                        />
+                                      </td>
+                                      {/* Min CYL */}
+                                      <td className="py-3 px-4">
+                                        <input
+                                          type="number"
+                                          step="0.25"
+                                          value={customLensMinCyl}
+                                          onChange={(e) => setCustomLensMinCyl(e.target.value)}
+                                          className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                        />
+                                      </td>
+                                      {/* Max CYL */}
+                                      <td className="py-3 px-4">
+                                        <input
+                                          type="number"
+                                          step="0.25"
+                                          value={customLensMaxCyl}
+                                          onChange={(e) => setCustomLensMaxCyl(e.target.value)}
+                                          className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                                        />
+                                      </td>
                                       <td className="py-3 px-4">
                                         <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
                                           Custom
@@ -2816,6 +2893,10 @@ export default function AddProductWizard() {
                                               setShowAddCustomLensForm(null);
                                               setCustomLensName('');
                                               setCustomLensPrice('');
+                                              setCustomLensMinSph('-20');
+                                              setCustomLensMaxSph('20');
+                                              setCustomLensMinCyl('-6');
+                                              setCustomLensMaxCyl('6');
                                             }}
                                             className="text-gray-400 hover:text-white font-bold bg-transparent border-none cursor-pointer text-xs"
                                           >
@@ -2832,6 +2913,16 @@ export default function AddProductWizard() {
                                               const price = parseFloat(customLensPrice);
                                               if (isNaN(price) || price < 0) {
                                                 showToast('Please enter a valid price!', 'error');
+                                                return;
+                                              }
+
+                                              const minSphVal = parseFloat(customLensMinSph);
+                                              const maxSphVal = parseFloat(customLensMaxSph);
+                                              const minCylVal = parseFloat(customLensMinCyl);
+                                              const maxCylVal = parseFloat(customLensMaxCyl);
+
+                                              if (isNaN(minSphVal) || isNaN(maxSphVal) || isNaN(minCylVal) || isNaN(maxCylVal)) {
+                                                showToast('Please enter valid numbers for prescription limits!', 'error');
                                                 return;
                                               }
 
@@ -2853,12 +2944,20 @@ export default function AddProductWizard() {
                                                 goldPrice: Math.round(price * 0.9),
                                                 platinumPrice: Math.round(price * 0.8),
                                                 priority: 0,
-                                                status: 'Active' as const
+                                                status: 'Active' as const,
+                                                minSph: minSphVal,
+                                                maxSph: maxSphVal,
+                                                minCyl: minCylVal,
+                                                maxCyl: maxCylVal,
                                               });
                                               setValue('dynamicLensPricing', currentPricing);
                                               setShowAddCustomLensForm(null);
                                               setCustomLensName('');
                                               setCustomLensPrice('');
+                                              setCustomLensMinSph('-20');
+                                              setCustomLensMaxSph('20');
+                                              setCustomLensMinCyl('-6');
+                                              setCustomLensMaxCyl('6');
                                               showToast('Product-specific lens added successfully!', 'success');
                                             }}
                                             className="text-[#D4A04D] hover:text-[#C8923E] font-bold bg-transparent border-none cursor-pointer text-xs"
@@ -2915,6 +3014,7 @@ export default function AddProductWizard() {
                                                   const newPrice = parseFloat(valStr);
                                                   if (!isNaN(newPrice)) {
                                                     const updatedItem = {
+                                                      ...(idx >= 0 ? currentPricing[idx] : {}),
                                                       lensName: lens.name,
                                                       lensCategory: typeDetails.name,
                                                       regularPrice: newPrice,
@@ -2940,6 +3040,94 @@ export default function AddProductWizard() {
                                               </span>
                                             )}
                                           </div>
+                                        </td>
+                                        {/* Min SPH */}
+                                        <td className="py-3 px-4">
+                                          <input
+                                            type="number"
+                                            step="0.25"
+                                            value={lens.isProductSpecific ? (override?.minSph ?? -20) : (lens.minSph ?? -20)}
+                                            disabled={!lens.isProductSpecific || isExcluded}
+                                            onChange={(e) => {
+                                              const valStr = e.target.value;
+                                              const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                              const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                              if (idx >= 0) {
+                                                currentPricing[idx] = {
+                                                  ...currentPricing[idx],
+                                                  minSph: valStr === '' ? -20 : parseFloat(valStr)
+                                                };
+                                                setValue('dynamicLensPricing', currentPricing);
+                                              }
+                                            }}
+                                            className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          />
+                                        </td>
+                                        {/* Max SPH */}
+                                        <td className="py-3 px-4">
+                                          <input
+                                            type="number"
+                                            step="0.25"
+                                            value={lens.isProductSpecific ? (override?.maxSph ?? 20) : (lens.maxSph ?? 20)}
+                                            disabled={!lens.isProductSpecific || isExcluded}
+                                            onChange={(e) => {
+                                              const valStr = e.target.value;
+                                              const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                              const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                              if (idx >= 0) {
+                                                currentPricing[idx] = {
+                                                  ...currentPricing[idx],
+                                                  maxSph: valStr === '' ? 20 : parseFloat(valStr)
+                                                };
+                                                setValue('dynamicLensPricing', currentPricing);
+                                              }
+                                            }}
+                                            className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          />
+                                        </td>
+                                        {/* Min CYL */}
+                                        <td className="py-3 px-4">
+                                          <input
+                                            type="number"
+                                            step="0.25"
+                                            value={lens.isProductSpecific ? (override?.minCyl ?? -6) : (lens.minCyl ?? -6)}
+                                            disabled={!lens.isProductSpecific || isExcluded}
+                                            onChange={(e) => {
+                                              const valStr = e.target.value;
+                                              const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                              const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                              if (idx >= 0) {
+                                                currentPricing[idx] = {
+                                                  ...currentPricing[idx],
+                                                  minCyl: valStr === '' ? -6 : parseFloat(valStr)
+                                                };
+                                                setValue('dynamicLensPricing', currentPricing);
+                                              }
+                                            }}
+                                            className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          />
+                                        </td>
+                                        {/* Max CYL */}
+                                        <td className="py-3 px-4">
+                                          <input
+                                            type="number"
+                                            step="0.25"
+                                            value={lens.isProductSpecific ? (override?.maxCyl ?? 6) : (lens.maxCyl ?? 6)}
+                                            disabled={!lens.isProductSpecific || isExcluded}
+                                            onChange={(e) => {
+                                              const valStr = e.target.value;
+                                              const currentPricing = [...(formValues.dynamicLensPricing || [])];
+                                              const idx = currentPricing.findIndex((item: any) => item.lensName === lens.name);
+                                              if (idx >= 0) {
+                                                currentPricing[idx] = {
+                                                  ...currentPricing[idx],
+                                                  maxCyl: valStr === '' ? 6 : parseFloat(valStr)
+                                                };
+                                                setValue('dynamicLensPricing', currentPricing);
+                                              }
+                                            }}
+                                            className="w-16 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          />
                                         </td>
                                         <td className="py-3 px-4">
                                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${

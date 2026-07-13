@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { Ticket } from '../models/Ticket';
+import { getIO } from '../lib/socket';
 
 export async function createTicket(req: Request, res: Response) {
   try {
@@ -46,6 +47,11 @@ export async function createTicket(req: Request, res: Response) {
     });
 
     await ticket.save();
+    try {
+      getIO().emit('ticket_changed', { action: 'create', ticket });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
 
     return res.status(201).json({ ticket });
   } catch (error) {

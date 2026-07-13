@@ -91,12 +91,12 @@ input::placeholder, textarea::placeholder {
   color: #A7A7A7;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-none::-webkit-scrollbar {
+/* Hide scrollbar globally for Chrome, Safari and Opera */
+::-webkit-scrollbar {
   display: none;
 }
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-none {
+/* Hide scrollbar globally for IE, Edge and Firefox */
+* {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }

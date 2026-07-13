@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import SEO from '../components/SEO';
 import api from '../lib/api';
+import { socket } from '../lib/socket';
 
 interface SupportTicket {
   id: string;
@@ -29,32 +30,39 @@ export default function SupportContact() {
 
   useEffect(() => {
     let active = true;
-    api.get('/tickets')
-      .then((res) => {
-        if (!active) return;
-        const fetched = (res.data?.tickets || []).map((t: any) => ({
-          id: t.ticketId,
-          _id: t._id,
-          category: t.category,
-          subject: t.subject,
-          orderNumber: t.orderNumber,
-          message: t.message,
-          status: t.status,
-          adminResponse: t.adminResponse,
-          createdAt: t.createdAt,
-        }));
-        setTickets(fetched);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch support tickets:', err);
-        if (active) setError('Failed to retrieve ticket history. Please check back later.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const fetchTickets = () => {
+      api.get('/tickets')
+        .then((res) => {
+          if (!active) return;
+          const fetched = (res.data?.tickets || []).map((t: any) => ({
+            id: t.ticketId,
+            _id: t._id,
+            category: t.category,
+            subject: t.subject,
+            orderNumber: t.orderNumber,
+            message: t.message,
+            status: t.status,
+            adminResponse: t.adminResponse,
+            createdAt: t.createdAt,
+          }));
+          setTickets(fetched);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch support tickets:', err);
+          if (active) setError('Failed to retrieve ticket history. Please check back later.');
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    };
+
+    fetchTickets();
+
+    socket.on('ticket_changed', fetchTickets);
 
     return () => {
       active = false;
+      socket.off('ticket_changed', fetchTickets);
     };
   }, []);
 

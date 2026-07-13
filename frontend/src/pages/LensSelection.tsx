@@ -99,7 +99,70 @@ export default function LensSelection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const getMappedLensTypesFromProduct = (prod: any, lensesList: any[]): LensOption[] => {
+  // Stepper State (1: LENS TYPE, 2: POWER, 3: QUALITY, 4: CHECKOUT)
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Selections State
+  const [selectedType, setSelectedType] = useState<LensOption | null>(null);
+  const [selectedSubType, setSelectedSubType] = useState<LensOption | null>(null); // Progressive sub-tier (Step 2)
+  const [selectedQuality, setSelectedQuality] = useState<LensOption | null>(null); // Quality/Coatings tier (Step 3)
+
+  // Power Input State
+  const [powerMode, setPowerMode] = useState<'enter' | 'upload' | 'zero'>('enter');
+  const [prescriptionFileName, setPrescriptionFileName] = useState('');
+  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
+  const [uploadingPrescription, setUploadingPrescription] = useState(false);
+  const [prescriptionName, setPrescriptionName] = useState('');
+  const [prescriptionFileToUpload, setPrescriptionFileToUpload] = useState<File | null>(null);
+  
+  // Matches defaults in screenshots
+  const [reSph, setReSph] = useState('-1.25');
+  const [reCyl, setReCyl] = useState('-0.50');
+  const [reAxis, setReAxis] = useState('180');
+  const [reAdd, setReAdd] = useState('0.00');
+
+  const [leSph, setLeSph] = useState('-1.75');
+  const [leCyl, setLeCyl] = useState('-0.75');
+  const [leAxis, setLeAxis] = useState('170');
+  const [leAdd, setLeAdd] = useState('0.00');
+
+  // Checkout States
+  const [submitting, setSubmitting] = useState(false);
+
+  // Saved Prescriptions State
+  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState('');
+
+  // Custom Validation Overlay Modal State
+  const [validationModal, setValidationModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    allowedSphRange: string;
+    allowedCylRange: string;
+    currentSph: string;
+    currentCyl: string;
+    selectedLensName: string;
+    suggestions: any[];
+  }>({
+    isOpen: false,
+    message: '',
+    allowedSphRange: '',
+    allowedCylRange: '',
+    currentSph: '',
+    currentCyl: '',
+    selectedLensName: '',
+    suggestions: []
+  });
+
+  const getMappedLensTypesFromProduct = useCallback((
+    prod: any,
+    lensesList: any[],
+    pMode: string,
+    rSph: string,
+    rCyl: string,
+    lSph: string,
+    lCyl: string
+  ): LensOption[] => {
     if (!prod || !prod.lensTypes) return [];
     
     // Group custom lenses by their type ID or name to find the minimum/starting price
@@ -111,11 +174,11 @@ export default function LensSelection() {
       if (typeId) {
         const dynamicPrice = getLensPairPrice(
           lens,
-          powerMode,
-          parseSafeFloat(reSph),
-          parseSafeFloat(reCyl),
-          parseSafeFloat(leSph),
-          parseSafeFloat(leCyl)
+          pMode,
+          parseSafeFloat(rSph),
+          parseSafeFloat(rCyl),
+          parseSafeFloat(lSph),
+          parseSafeFloat(lCyl)
         );
         if (minPrices[typeId] === undefined || dynamicPrice < minPrices[typeId]) {
           minPrices[typeId] = dynamicPrice;
@@ -144,7 +207,10 @@ export default function LensSelection() {
       } else if (lowercaseName.includes('photochromic')) {
         type = 'photochromic';
         description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
-      } else if (lowercaseName.includes('with power')) {
+      } else if (lowercaseName.includes('zero power')) {
+        type = 'zero_power';
+        description = 'Clear lenses for everyday wear with no prescription.';
+      } else if (lowercaseName.includes('power')) {
         type = 'single_vision';
         description = 'Prescription lenses tailored to your power requirements.';
       }
@@ -162,41 +228,7 @@ export default function LensSelection() {
         isBestseller: lowercaseName.includes('with power') || lowercaseName.includes('zero power')
       };
     }).filter((t: any) => t.name);
-  };
-
-  // Stepper State (1: LENS TYPE, 2: POWER, 3: QUALITY, 4: CHECKOUT)
-  const [currentStep, setCurrentStep] = useState(1);
-  
-  // Selections State
-  const [selectedType, setSelectedType] = useState<LensOption | null>(null);
-  const [selectedSubType, setSelectedSubType] = useState<LensOption | null>(null); // Progressive sub-tier (Step 2)
-  const [selectedQuality, setSelectedQuality] = useState<LensOption | null>(null); // Quality/Coatings tier (Step 3)
-
-  // Power Input State
-  const [powerMode, setPowerMode] = useState<'enter' | 'upload'>('enter');
-  const [prescriptionFileName, setPrescriptionFileName] = useState('');
-  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
-  const [uploadingPrescription, setUploadingPrescription] = useState(false);
-  const [prescriptionName, setPrescriptionName] = useState('');
-  const [prescriptionFileToUpload, setPrescriptionFileToUpload] = useState<File | null>(null);
-  
-  // Matches defaults in screenshots
-  const [reSph, setReSph] = useState('-1.25');
-  const [reCyl, setReCyl] = useState('-0.50');
-  const [reAxis, setReAxis] = useState('180');
-  const [reAdd, setReAdd] = useState('0.00');
-
-  const [leSph, setLeSph] = useState('-1.75');
-  const [leCyl, setLeCyl] = useState('-0.75');
-  const [leAxis, setLeAxis] = useState('170');
-  const [leAdd, setLeAdd] = useState('0.00');
-
-  // Checkout States
-  const [submitting, setSubmitting] = useState(false);
-
-  // Saved Prescriptions State
-  const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
-  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState('');
+  }, []);
 
   const formatValue = (val?: number) => {
     if (val === undefined || isNaN(val)) return '0.00';
@@ -282,76 +314,172 @@ export default function LensSelection() {
       setError('');
     }
 
-    // Fetch product details & lens options
-    Promise.all([
-      api.get(`/products/${productId}`),
-      api.get('/lens-options')
-    ])
-      .then(([prodRes, lensRes]) => {
+    // Fetch product details first, then use category to fetch lens types & lenses
+    api.get(`/products/${productId}`)
+      .then(async (prodRes) => {
         const prod = prodRes.data.product || prodRes.data;
         setProduct(prod);
+
+        const category = prod.category || 'eyeglasses';
         
-        const types: LensOption[] = lensRes.data.lensTypes || [];
-        const qualities: LensOption[] = lensRes.data.lensQualities || [];
-        setLensTypes(types);
-        setLensQualities(qualities);
+        try {
+          const lensOptionsRes = await api.get(`/lens-options?category=${category}`);
 
-        const customLensesList = prodRes.data.lenses || [];
-        setCustomLenses(customLensesList);
+          const dbLensTypes = lensOptionsRes.data.lensTypes || [];
+          const dbLenses = lensOptionsRes.data.lenses || [];
 
-        const mappedTypes = getMappedLensTypesFromProduct(prod, customLensesList);
-        if (isInitial) {
-          if (customLensesList.length > 0 && mappedTypes.length > 0) {
-            // Auto-select first compatible lens type as default
-            const defaultType = mappedTypes.find((t: LensOption) => t.type === 'single_vision') || mappedTypes[0];
-            setSelectedType(defaultType);
+          // Map dbLensTypes to LensOption structure
+          const mappedDbTypes: LensOption[] = dbLensTypes.map((t: any) => {
+            const lowercaseName = t.name.toLowerCase();
+            let type = 'zero_power';
+            let description = 'Clear lenses for everyday wear with no prescription.';
             
-            // Auto-select first lens under this default type
-            const lensesForDefault = customLensesList.filter((lens: any) => {
-              const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id : lens.lensType;
-              return typeId === defaultType._id;
+            if (lowercaseName.includes('single vision')) {
+              type = 'single_vision';
+              description = 'Single vision lenses corrected for distance or reading.';
+            } else if (lowercaseName.includes('progressive')) {
+              type = 'progressive';
+              description = 'Multifocal lenses for clear vision at all distances.';
+            } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+              type = 'bluecut';
+              description = 'Protects eyes from harmful blue light emitted by digital screens.';
+            } else if (lowercaseName.includes('photochromic')) {
+              type = 'photochromic';
+              description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
+            } else if (lowercaseName.includes('zero power')) {
+              type = 'zero_power';
+              description = 'Clear lenses for everyday wear with no prescription.';
+            } else if (lowercaseName.includes('power')) {
+              type = 'single_vision';
+              description = 'Prescription lenses tailored to your power requirements.';
+            }
+
+            return {
+              _id: t._id,
+              kind: 'type',
+              type,
+              displayName: t.name,
+              name: t.name,
+              description,
+              price: t.startingPrice || t.price || 999,
+              startingPrice: t.startingPrice || t.price || 999,
+              features: t.features || [],
+              isBestseller: lowercaseName.includes('with power') || lowercaseName.includes('zero power')
+            };
+          });
+
+          setLensTypes(mappedDbTypes);
+
+          // Map dbLenses to qualities structure
+          const mappedDbQualities: LensOption[] = dbLenses.map((l: any) => ({
+            _id: l._id,
+            kind: 'quality',
+            name: l.name,
+            displayName: l.name,
+            price: l.basePrice || l.price || 0,
+            features: ['UV Protection', 'Scratch Resistant'],
+            powerPricing: l.powerPricing,
+            minSph: l.minSph,
+            maxSph: l.maxSph,
+            minCyl: l.minCyl,
+            maxCyl: l.maxCyl
+          }));
+          setLensQualities(mappedDbQualities);
+
+          const productLenses = prodRes.data.lenses || [];
+          let customLensesList = productLenses;
+
+          if (customLensesList.length === 0) {
+            // Filter global lenses to only those belonging to the category's lens types
+            const typeIds = dbLensTypes.map((t: any) => t._id.toString());
+            customLensesList = dbLenses.filter((l: any) => {
+              const tId = typeof l.lensType === 'object' ? l.lensType?._id?.toString() : l.lensType?.toString();
+              return typeIds.includes(tId);
             });
-            if (lensesForDefault.length > 0) {
-              const firstLens = lensesForDefault[0];
-              setSelectedQuality({
-                _id: firstLens._id,
-                kind: 'quality',
-                name: firstLens.name,
-                displayName: firstLens.name,
-                price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
-                features: ['UV Protection', 'Scratch Resistant'],
-                powerPricing: firstLens.powerPricing,
-                minSph: firstLens.minSph,
-                maxSph: firstLens.maxSph,
-                minCyl: firstLens.minCyl,
-                maxCyl: firstLens.maxCyl
-              } as any);
-            }
-          } else {
-            // Fallback legacy behavior
-            if (types.length > 0) {
-              const sv = types.find((t: LensOption) => t.type === 'single_vision') || types[0];
-              setSelectedType(sv);
-            }
-            if (qualities.length > 0) {
-              const rec = qualities.find((q: LensOption) => q.isRecommended) || qualities[0];
-              setSelectedQuality(rec);
+          }
+          setCustomLenses(customLensesList);
+
+          const mappedTypes = getMappedLensTypesFromProduct(prod, customLensesList, 'enter', '-1.25', '-0.50', '-1.75', '-0.75');
+
+          if (isInitial) {
+            if (customLensesList.length > 0 && mappedTypes.length > 0) {
+              const defaultType = mappedTypes.find((t: LensOption) => t.type === 'single_vision') || mappedTypes[0];
+              setSelectedType(defaultType);
+              if (defaultType.type === 'zero_power') {
+                setPowerMode('zero');
+              } else {
+                setPowerMode('enter');
+              }
+
+              const lensesForDefault = customLensesList.filter((lens: any) => {
+                const typeId = typeof lens.lensType === 'object' ? lens.lensType?._id?.toString() : lens.lensType?.toString();
+                return typeId === defaultType._id.toString();
+              });
+              if (lensesForDefault.length > 0) {
+                const firstLens = lensesForDefault[0];
+                setSelectedQuality({
+                  _id: firstLens._id,
+                  kind: 'quality',
+                  name: firstLens.name,
+                  displayName: firstLens.name,
+                  price: getLensPairPrice(firstLens, 'enter', -1.25, -0.50, -1.75, -0.75),
+                  features: ['UV Protection', 'Scratch Resistant'],
+                  powerPricing: firstLens.powerPricing,
+                  minSph: firstLens.minSph,
+                  maxSph: firstLens.maxSph,
+                  minCyl: firstLens.minCyl,
+                  maxCyl: firstLens.maxCyl
+                } as any);
+              }
+            } else {
+              if (mappedDbTypes.length > 0) {
+                const sv = mappedDbTypes.find((t: LensOption) => t.type === 'single_vision') || mappedDbTypes[0];
+                setSelectedType(sv);
+                if (sv.type === 'zero_power') {
+                  setPowerMode('zero');
+                } else {
+                  setPowerMode('enter');
+                }
+              }
             }
           }
+
+        } catch (err) {
+          console.error('Failed to fetch lens types/lenses:', err);
+          setError('Failed to load lens options.');
         }
       })
       .catch((err) => {
-        console.error('Failed to load lens selection data:', err);
-        if (isInitial) {
-          setError('Failed to load lens options or product details.');
-        }
+        console.error('Failed to load product details:', err);
+        setError('Failed to load product details.');
       })
       .finally(() => {
         if (isInitial) {
           setLoading(false);
         }
       });
-  }, [productId]);
+  }, [productId, getMappedLensTypesFromProduct]);
+
+  // Filter types by compatibility
+  const compatibleTypes = lensTypes.filter(opt => {
+    if (!product || !product.compatible) return true;
+    const { compatible } = product;
+
+    if (opt.type === 'single_vision') return compatible.prescription;
+    if (opt.type === 'progressive') return compatible.progressive || compatible.prescription;
+    if (opt.type === 'zero_power') return compatible.zeropower;
+    if (opt.type === 'bluecut') return compatible.bluecut;
+    if (opt.type === 'photochromic') return true;
+
+    return true;
+  });
+
+  const mainLensTypes = customLenses.length > 0 
+    ? getMappedLensTypesFromProduct(product, customLenses, powerMode, reSph, reCyl, leSph, leCyl)
+    : compatibleTypes.filter(t => !t.subType);
+  const currentSubTypes = compatibleTypes.filter(t => t.type === selectedType?.type && t.subType);
+  
+  const filteredLensTypes = mainLensTypes;
 
   useEffect(() => {
     fetchLensSelectionData(true);
@@ -374,23 +502,32 @@ export default function LensSelection() {
 
   // Set default power mode
   useEffect(() => {
-    setPowerMode('enter');
+    if (selectedType?.type === 'zero_power') {
+      setPowerMode('zero');
+    } else {
+      setPowerMode('enter');
+    }
   }, [product]);
 
-  // Auto-select lens type when powerMode changes
+  // Auto-select lens type if current selection is invalid
   useEffect(() => {
     if (!product || mainLensTypes.length === 0) return;
     
-    const allowedTypes = mainLensTypes.filter(t => t.type !== 'zero_power');
+    const allowedTypes = mainLensTypes;
 
     if (allowedTypes.length > 0) {
       const isCurrentAllowed = selectedType && allowedTypes.some(t => t._id === selectedType._id);
       if (!isCurrentAllowed) {
         const defaultType = allowedTypes.find(t => t.type === 'single_vision') || allowedTypes[0];
         setSelectedType(defaultType);
+        if (defaultType.type === 'zero_power') {
+          setPowerMode('zero');
+        } else {
+          setPowerMode('enter');
+        }
       }
     }
-  }, [powerMode, product, lensTypes]);
+  }, [product, lensTypes, mainLensTypes]);
 
   // Handle progressive sub-type defaults
   useEffect(() => {
@@ -472,29 +609,6 @@ export default function LensSelection() {
     );
   }
 
-  // Filter types by compatibility
-  const compatibleTypes = lensTypes.filter(opt => {
-    if (!product.compatible) return true;
-    const { compatible } = product;
-
-    if (opt.type === 'single_vision') return compatible.prescription;
-    if (opt.type === 'progressive') return compatible.progressive || compatible.prescription;
-    if (opt.type === 'zero_power') return compatible.zeropower;
-    if (opt.type === 'bluecut') return compatible.bluecut;
-    if (opt.type === 'photochromic') return true;
-
-    return true;
-  });
-
-  const mainLensTypes = customLenses.length > 0 
-    ? getMappedLensTypesFromProduct(product, customLenses)
-    : compatibleTypes.filter(t => !t.subType);
-  const currentSubTypes = compatibleTypes.filter(t => t.type === selectedType?.type && t.subType);
-  
-  const filteredLensTypes = mainLensTypes.filter(typeOption => {
-    return typeOption.type !== 'zero_power';
-  });
-
   const stepsConfig = [
     { step: 1, label: 'LENS TYPE' },
     { step: 2, label: 'QUALITY' },
@@ -507,7 +621,9 @@ export default function LensSelection() {
       if (!selectedType) return;
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (selectedType?.type === 'progressive') {
+      if (customLenses.length > 0) {
+        if (!selectedQuality) return;
+      } else if (selectedType?.type === 'progressive') {
         if (!selectedSubType) return;
       } else {
         if (!selectedQuality) return;
@@ -608,54 +724,7 @@ export default function LensSelection() {
 
 
 
-  const handleConfirmAndAdd = async () => {
-    // Check validation for both enter and upload modes, regardless of lens type
-    if (powerMode === 'enter') {
-      const hasAstigmatismRE = parseFloat(reCyl) !== 0;
-      const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-      if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-        alert('Please enter AXIS for astigmatism (when CYL is not 0)');
-        return;
-      }
-
-      const targetLens = selectedQuality || selectedSubType;
-      if (targetLens) {
-        const minSph = targetLens.minSph !== undefined ? targetLens.minSph : -20;
-        const maxSph = targetLens.maxSph !== undefined ? targetLens.maxSph : 20;
-        const minCyl = targetLens.minCyl !== undefined ? targetLens.minCyl : -6;
-        const maxCyl = targetLens.maxCyl !== undefined ? targetLens.maxCyl : 6;
-
-        const reSphVal = parseFloat(reSph) || 0;
-        const reCylVal = parseFloat(reCyl) || 0;
-        const leSphVal = parseFloat(leSph) || 0;
-        const leCylVal = parseFloat(leCyl) || 0;
-
-        const isReSphOutOfRange = reSphVal < Math.min(minSph, maxSph) || reSphVal > Math.max(minSph, maxSph);
-        const isReCylOutOfRange = reCylVal < Math.min(minCyl, maxCyl) || reCylVal > Math.max(minCyl, maxCyl);
-        const isLeSphOutOfRange = leSphVal < Math.min(minSph, maxSph) || leSphVal > Math.max(minSph, maxSph);
-        const isLeCylOutOfRange = leCylVal < Math.min(minCyl, maxCyl) || leCylVal > Math.max(minCyl, maxCyl);
-
-        if (isReSphOutOfRange || isReCylOutOfRange || isLeSphOutOfRange || isLeCylOutOfRange) {
-          alert(
-            `Your prescription power is out of range for the selected lens "${targetLens.displayName || targetLens.name}".\n\n` +
-            `Allowed SPH Range: [${Math.min(minSph, maxSph).toFixed(2)}, ${Math.max(minSph, maxSph).toFixed(2)}]\n` +
-            `Allowed CYL Range: [${Math.min(minCyl, maxCyl).toFixed(2)}, ${Math.max(minCyl, maxCyl).toFixed(2)}]\n\n` +
-            `Please select another lens.`
-          );
-          return;
-        }
-      }
-    } else if (powerMode === 'upload') {
-      if (uploadingPrescription) {
-        alert('Please wait for the prescription file to finish uploading.');
-        return;
-      }
-      if (!uploadedFileUrl) {
-        alert('Please select and upload a prescription file first.');
-        return;
-      }
-    }
-
+  const executeAddToCart = async (lensObj: any) => {
     setSubmitting(true);
     try {
       let finalUploadedUrl = uploadedFileUrl;
@@ -698,7 +767,14 @@ export default function LensSelection() {
 
       const basePrice = selectedType?.type === 'progressive' 
         ? (selectedSubType?.price || 2499)
-        : (getCurrentLensPrice(selectedQuality) || selectedType?.price || 699);
+        : (getLensPairPrice(
+            lensObj,
+            powerMode,
+            parseSafeFloat(reSph),
+            parseSafeFloat(reCyl),
+            parseSafeFloat(leSph),
+            parseSafeFloat(leCyl)
+          ) || selectedType?.price || 699);
 
       // Determine power object based on user's choice, not lens type!
       let powerObj;
@@ -718,7 +794,7 @@ export default function LensSelection() {
       const lensPayload = {
         lensType: selectedType?.displayName || selectedType?.name,
         lensSubType: selectedSubType?.displayName || selectedSubType?.name || undefined,
-        lensQuality: selectedQuality?.displayName || 'Standard Coating',
+        lensQuality: lensObj?.displayName || lensObj?.name || 'Standard Coating',
         lensPrice: basePrice,
         fittingCharge: 199,
         power: powerObj
@@ -749,7 +825,7 @@ export default function LensSelection() {
           name: product.name,
           sku: product.sku,
           lens: `${selectedType?.displayName || selectedType?.name}${
-            selectedSubType ? ` (${selectedSubType.displayName})` : ` (${selectedQuality?.displayName || 'Standard Coating'})`
+            selectedSubType ? ` (${selectedSubType.displayName})` : ` (${lensObj?.displayName || 'Standard Coating'})`
           }`,
           framePrice: product.price?.selling ?? 1,
           lensPrice: basePrice,
@@ -781,6 +857,103 @@ export default function LensSelection() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSelectSuggestedLens = (suggestedLens: any) => {
+    setSelectedQuality({
+      _id: suggestedLens._id,
+      kind: 'quality',
+      name: suggestedLens.name,
+      displayName: suggestedLens.name,
+      price: getLensPairPrice(
+        suggestedLens,
+        powerMode,
+        parseSafeFloat(reSph),
+        parseSafeFloat(reCyl),
+        parseSafeFloat(leSph),
+        parseSafeFloat(leCyl)
+      ),
+      features: ['UV Protection', 'Scratch Resistant'],
+      powerPricing: suggestedLens.powerPricing,
+      minSph: suggestedLens.minSph,
+      maxSph: suggestedLens.maxSph,
+      minCyl: suggestedLens.minCyl,
+      maxCyl: suggestedLens.maxCyl
+    } as any);
+
+    setValidationModal(prev => ({ ...prev, isOpen: false }));
+    executeAddToCart(suggestedLens);
+  };
+
+  const handleConfirmAndAdd = async () => {
+    // Check validation for both enter and upload modes, regardless of lens type
+    if (powerMode === 'enter') {
+      const hasAstigmatismRE = parseFloat(reCyl) !== 0;
+      const hasAstigmatismLE = parseFloat(leCyl) !== 0;
+      if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
+        alert('Please enter AXIS for astigmatism (when CYL is not 0)');
+        return;
+      }
+
+      const targetLens = selectedQuality || selectedSubType;
+      if (targetLens) {
+        const minSph = targetLens.minSph !== undefined ? targetLens.minSph : -20;
+        const maxSph = targetLens.maxSph !== undefined ? targetLens.maxSph : 20;
+        const minCyl = targetLens.minCyl !== undefined ? targetLens.minCyl : -6;
+        const maxCyl = targetLens.maxCyl !== undefined ? targetLens.maxCyl : 6;
+
+        const reSphVal = parseFloat(reSph) || 0;
+        const reCylVal = parseFloat(reCyl) || 0;
+        const leSphVal = parseFloat(leSph) || 0;
+        const leCylVal = parseFloat(leCyl) || 0;
+
+        const isReSphOutOfRange = reSphVal < Math.min(minSph, maxSph) || reSphVal > Math.max(minSph, maxSph);
+        const isReCylOutOfRange = reCylVal < Math.min(minCyl, maxCyl) || reCylVal > Math.max(minCyl, maxCyl);
+        const isLeSphOutOfRange = leSphVal < Math.min(minSph, maxSph) || leSphVal > Math.max(minSph, maxSph);
+        const isLeCylOutOfRange = leCylVal < Math.min(minCyl, maxCyl) || leCylVal > Math.max(minCyl, maxCyl);
+
+        if (isReSphOutOfRange || isReCylOutOfRange || isLeSphOutOfRange || isLeCylOutOfRange) {
+          // Find alternative lenses in the SAME category that support this power range!
+          const list = customLenses.length > 0 ? customLenses : lensQualities;
+          const suggestions = list.filter((lens: any) => {
+            const lMinSph = lens.minSph !== undefined ? lens.minSph : -20;
+            const lMaxSph = lens.maxSph !== undefined ? lens.maxSph : 20;
+            const lMinCyl = lens.minCyl !== undefined ? lens.minCyl : -6;
+            const lMaxCyl = lens.maxCyl !== undefined ? lens.maxCyl : 6;
+
+            return (
+              reSphVal >= Math.min(lMinSph, lMaxSph) && reSphVal <= Math.max(lMinSph, lMaxSph) &&
+              reCylVal >= Math.min(lMinCyl, lMaxCyl) && reCylVal <= Math.max(lMinCyl, lMaxCyl) &&
+              leSphVal >= Math.min(lMinSph, lMaxSph) && leSphVal <= Math.max(lMinSph, lMaxSph) &&
+              leCylVal >= Math.min(lMinCyl, lMaxCyl) && leCylVal <= Math.max(lMinCyl, lMaxCyl)
+            );
+          });
+
+          setValidationModal({
+            isOpen: true,
+            message: `Your prescription power is out of range for the selected lens "${targetLens.displayName || targetLens.name}".`,
+            allowedSphRange: `[${Math.min(minSph, maxSph).toFixed(2)}, ${Math.max(minSph, maxSph).toFixed(2)}]`,
+            allowedCylRange: `[${Math.min(minCyl, maxCyl).toFixed(2)}, ${Math.max(minCyl, maxCyl).toFixed(2)}]`,
+            currentSph: `R: ${reSphVal > 0 ? '+' : ''}${reSphVal.toFixed(2)} / L: ${leSphVal > 0 ? '+' : ''}${leSphVal.toFixed(2)}`,
+            currentCyl: `R: ${reCylVal > 0 ? '+' : ''}${reCylVal.toFixed(2)} / L: ${leCylVal > 0 ? '+' : ''}${leCylVal.toFixed(2)}`,
+            selectedLensName: targetLens.displayName || targetLens.name,
+            suggestions
+          });
+          return;
+        }
+      }
+    } else if (powerMode === 'upload') {
+      if (uploadingPrescription) {
+        alert('Please wait for the prescription file to finish uploading.');
+        return;
+      }
+      if (!uploadedFileUrl) {
+        alert('Please select and upload a prescription file first.');
+        return;
+      }
+    }
+
+    executeAddToCart(selectedQuality);
   };
 
 
@@ -1091,188 +1264,205 @@ export default function LensSelection() {
                   </div>
                 )}
 
-                {/* Segmented Control Tabs */}
-                <div className="flex bg-[#0B0B0C] border border-[#2A2A2D]/80 rounded-xl p-1">
-                  <button
-                    onClick={() => setPowerMode('enter')}
-                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
-                      powerMode === 'enter' 
-                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
-                        : 'text-gray-500 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Enter Manually
-                  </button>
-                  <button
-                    onClick={() => setPowerMode('upload')}
-                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
-                      powerMode === 'upload' 
-                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
-                        : 'text-gray-500 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Upload
-                  </button>
-                </div>
-
-                {/* Manual entry view */}
-                {powerMode === 'enter' && (
-                  <div className="space-y-6 pt-2 text-left animate-fade-in">
-                    <div>
-                      <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType?.displayName || 'Prescription Lenses'}</h4>
-                      <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
-                    </div>
-
-                    {user && savedPrescriptions.length === 0 && (
-                      <p className="text-gray-500 text-[9px] mt-2 italic">
-                        ℹ️ Power entered manually will be saved to your account dashboard for future orders.
-                      </p>
-                    )}
-
-                    {/* Grid */}
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-5 gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
-                        <div className="text-left" />
-                        <div>SPH (Sphere)</div>
-                        <div>CYL (Cylinder)</div>
-                        <div>AXIS</div>
-                        <div>ADD</div>
-                      </div>
-
-                      {/* Right Eye Row */}
-                      <div className="grid grid-cols-5 gap-2 items-center text-center">
-                        <div className="text-white text-xs font-black text-left">R (Right)</div>
-                        <div>
-                          <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                              <option key={v} value={v}>{v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            <option value="0.00">0.00</option>
-                            {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                              <option key={power} value={power.replace('+', '')}>{power}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Left Eye Row */}
-                      <div className="grid grid-cols-5 gap-2 items-center text-center">
-                        <div className="text-white text-xs font-black text-left">L (Left)</div>
-                        <div>
-                          <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
-                              <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                              <option key={v} value={v}>{v}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                            <option value="0.00">0.00</option>
-                            {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                              <option key={power} value={power.replace('+', '')}>{power}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {user && (
-                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
-                          Save this Power as (Optional)
-                        </label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
-                          value={prescriptionName}
-                          onChange={e => setPrescriptionName(e.target.value)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* File upload view */}
-                {powerMode === 'upload' && (
-                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-xl p-5 text-center space-y-4 animate-fade-in">
-                    <div className="text-3xl text-[#D4A04D] animate-bounce">📁</div>
-                    <h3 className="text-white font-bold text-xs">Upload Prescription Photo</h3>
-                    <p className="text-gray-500 text-[10px] max-w-xs mx-auto leading-relaxed">
-                      Drag & drop or click below to upload a clear image of your doctor's prescription.
+                {powerMode === 'zero' ? (
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-6 text-center space-y-4 py-8 animate-fade-in">
+                    <div className="text-4xl text-[#D4A04D] text-center">👓</div>
+                    <h3 className="text-white font-black text-sm uppercase tracking-wider text-center">Zero Power Lenses Selected</h3>
+                    <p className="text-gray-500 text-xs max-w-sm mx-auto leading-relaxed text-center">
+                      These lenses are designed for cosmetic use or digital screen protection and do not require any prescription power.
                     </p>
-                    <div className="pt-1">
-                      <label className="inline-block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4.5 py-2.5 rounded-lg transition-colors cursor-pointer tracking-wider">
-                        {uploadingPrescription ? 'UPLOADING...' : 'Browse File'}
-                        <input type="file" accept="image/*,application/pdf" onChange={handleUploadChange} className="hidden" disabled={uploadingPrescription} />
-                      </label>
-                    </div>
-                    {prescriptionFileName && (
-                      <div className="text-green-400 text-[10px] font-semibold mt-1">
-                        ✓ Selected: {prescriptionFileName} {uploadingPrescription && '(Processing compression & uploading...)'}
+                    <div className="text-center">
+                      <div className="inline-block bg-[#D4A04D]/10 border border-[#D4A04D]/35 text-[#D4A04D] text-[10px] font-extrabold uppercase px-4 py-2 rounded-lg tracking-wider">
+                        ✓ Ready to add to cart
                       </div>
-                    )}
-                    {uploadedFileUrl && (
-                      <div className="mt-2 flex flex-col items-center gap-2">
-                        {uploadedFileUrl.toLowerCase().endsWith('.pdf') || uploadedFileUrl.includes('.pdf') || uploadedFileUrl.startsWith('data:application/pdf') ? (
-                          <div className="text-xs text-[#D4A04D] bg-[#1A1A1C] border border-[#2A2A2D] rounded-lg px-3 py-2 flex items-center gap-1.5">
-                            <span>📄</span> PDF Document Selected
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Segmented Control Tabs */}
+                    <div className="flex bg-[#0B0B0C] border border-[#2A2A2D]/80 rounded-xl p-1">
+                      <button
+                        onClick={() => setPowerMode('enter')}
+                        className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                          powerMode === 'enter' 
+                            ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                            : 'text-gray-500 hover:text-white bg-transparent'
+                        }`}
+                      >
+                        Enter Manually
+                      </button>
+                      <button
+                        onClick={() => setPowerMode('upload')}
+                        className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                          powerMode === 'upload' 
+                            ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                            : 'text-gray-500 hover:text-white bg-transparent'
+                        }`}
+                      >
+                        Upload
+                      </button>
+                    </div>
+
+                    {/* Manual entry view */}
+                    {powerMode === 'enter' && (
+                      <div className="space-y-6 pt-2 text-left animate-fade-in">
+                        <div>
+                          <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType?.displayName || 'Prescription Lenses'}</h4>
+                          <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
+                        </div>
+
+                        {user && savedPrescriptions.length === 0 && (
+                          <p className="text-gray-500 text-[9px] mt-2 italic">
+                            ℹ️ Power entered manually will be saved to your account dashboard for future orders.
+                          </p>
+                        )}
+
+                        {/* Grid */}
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-5 gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
+                            <div className="text-left" />
+                            <div>SPH (Sphere)</div>
+                            <div>CYL (Cylinder)</div>
+                            <div>AXIS</div>
+                            <div>ADD</div>
                           </div>
-                        ) : (
-                          <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-[#2A2A2D]">
-                            <img src={uploadedFileUrl} alt="Prescription Preview" className="w-full h-full object-cover" />
+
+                          {/* Right Eye Row */}
+                          <div className="grid grid-cols-5 gap-2 items-center text-center">
+                            <div className="text-white text-xs font-black text-left">R (Right)</div>
+                            <div>
+                              <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                                  <option key={v} value={v}>{v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="0.00">0.00</option>
+                                {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                  <option key={power} value={power.replace('+', '')}>{power}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Left Eye Row */}
+                          <div className="grid grid-cols-5 gap-2 items-center text-center">
+                            <div className="text-white text-xs font-black text-left">L (Left)</div>
+                            <div>
+                              <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                                  <option key={v} value={v}>{v}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="0.00">0.00</option>
+                                {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                  <option key={power} value={power.replace('+', '')}>{power}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {user && (
+                          <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
+                            <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
+                              Save this Power as (Optional)
+                            </label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
+                              value={prescriptionName}
+                              onChange={e => setPrescriptionName(e.target.value)}
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                            />
                           </div>
                         )}
                       </div>
                     )}
-                    
-                    {user && uploadedFileUrl && (
-                      <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
-                          Save this Prescription as (Optional)
-                        </label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
-                          value={prescriptionName}
-                          onChange={e => setPrescriptionName(e.target.value)}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                        />
+
+                    {/* File upload view */}
+                    {powerMode === 'upload' && (
+                      <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-xl p-5 text-center space-y-4 animate-fade-in">
+                        <div className="text-3xl text-[#D4A04D] animate-bounce">📁</div>
+                        <h3 className="text-white font-bold text-xs">Upload Prescription Photo</h3>
+                        <p className="text-gray-500 text-[10px] max-w-xs mx-auto leading-relaxed">
+                          Drag & drop or click below to upload a clear image of your doctor's prescription.
+                        </p>
+                        <div className="pt-1">
+                          <label className="inline-block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4.5 py-2.5 rounded-lg transition-colors cursor-pointer tracking-wider">
+                            {uploadingPrescription ? 'UPLOADING...' : 'Browse File'}
+                            <input type="file" accept="image/*,application/pdf" onChange={handleUploadChange} className="hidden" disabled={uploadingPrescription} />
+                          </label>
+                        </div>
+                        {prescriptionFileName && (
+                          <div className="text-green-400 text-[10px] font-semibold mt-1">
+                            ✓ Selected: {prescriptionFileName} {uploadingPrescription && '(Processing compression & uploading...)'}
+                          </div>
+                        )}
+                        {uploadedFileUrl && (
+                          <div className="mt-2 flex flex-col items-center gap-2">
+                            {uploadedFileUrl.toLowerCase().endsWith('.pdf') || uploadedFileUrl.includes('.pdf') || uploadedFileUrl.startsWith('data:application/pdf') ? (
+                              <div className="text-xs text-[#D4A04D] bg-[#1A1A1C] border border-[#2A2A2D] rounded-lg px-3 py-2 flex items-center gap-1.5">
+                                <span>📄</span> PDF Document Selected
+                              </div>
+                            ) : (
+                              <div className="relative group w-24 h-24 rounded-lg overflow-hidden border border-[#2A2A2D]">
+                                <img src={uploadedFileUrl} alt="Prescription Preview" className="w-full h-full object-cover" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {user && uploadedFileUrl && (
+                          <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
+                            <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
+                              Save this Prescription as (Optional)
+                            </label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
+                              value={prescriptionName}
+                              onChange={e => setPrescriptionName(e.target.value)}
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
 
@@ -1331,6 +1521,11 @@ export default function LensSelection() {
                     key={typeOption._id}
                     onClick={() => {
                       setSelectedType(typeOption);
+                      if (typeOption.type === 'zero_power') {
+                        setPowerMode('zero');
+                      } else {
+                        setPowerMode('enter');
+                      }
                     }}
                     className={`relative bg-[#131314]/90 border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-center justify-between ${
                       isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
@@ -1654,7 +1849,11 @@ export default function LensSelection() {
                   </button>
                   <button
                     onClick={handleNext}
-                    disabled={selectedType?.type === 'progressive' ? !selectedSubType : !selectedQuality}
+                    disabled={
+                      customLenses.length > 0 
+                        ? !selectedQuality 
+                        : (selectedType?.type === 'progressive' ? !selectedSubType : !selectedQuality)
+                    }
                     className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
                   >
                     <span>CONTINUE TO POWER</span>
@@ -1668,6 +1867,109 @@ export default function LensSelection() {
 
       </div>
 
+      {/* CUSTOM PRESCRIPTION RANGE VALIDATION OVERLAY MODAL */}
+      {validationModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-zoom-in text-left">
+            
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-[#2A2A2D]/80 pb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-white font-black text-base uppercase tracking-wider">Prescription Out of Range</h3>
+                <p className="text-red-400/90 text-xs font-bold mt-0.5">Selected Lens: {validationModal.selectedLensName}</p>
+              </div>
+            </div>
+
+            {/* Error Body Details */}
+            <div className="space-y-4 text-xs">
+              <p className="text-[#A7A7A7] leading-relaxed">
+                The prescription values you entered are not supported by the selected lens. Below are the range limits of this lens:
+              </p>
+
+              {/* Comparison Grid */}
+              <div className="grid grid-cols-2 gap-4 bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4">
+                <div className="space-y-1">
+                  <span className="text-gray-500 font-extrabold uppercase text-[9px] tracking-wider block">Allowed SPH Limit</span>
+                  <span className="text-white font-bold text-sm">{validationModal.allowedSphRange}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-500 font-extrabold uppercase text-[9px] tracking-wider block">Your Entered SPH</span>
+                  <span className="text-red-400 font-extrabold text-sm">{validationModal.currentSph}</span>
+                </div>
+                <div className="w-full col-span-2 border-t border-[#2A2A2D]/40 my-1" />
+                <div className="space-y-1">
+                  <span className="text-gray-500 font-extrabold uppercase text-[9px] tracking-wider block">Allowed CYL Limit</span>
+                  <span className="text-white font-bold text-sm">{validationModal.allowedCylRange}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-500 font-extrabold uppercase text-[9px] tracking-wider block">Your Entered CYL</span>
+                  <span className="text-red-400 font-extrabold text-sm">{validationModal.currentCyl}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Suggestions Block */}
+            <div className="space-y-3.5 pt-2">
+              <h4 className="text-[#D4A04D] font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <span>💡</span> Compatible Lenses Found ({validationModal.suggestions.length})
+              </h4>
+              
+              {validationModal.suggestions.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {validationModal.suggestions.map((sug: any) => {
+                    const dynamicPrice = getLensPairPrice(
+                      sug,
+                      powerMode,
+                      parseSafeFloat(reSph),
+                      parseSafeFloat(reCyl),
+                      parseSafeFloat(leSph),
+                      parseSafeFloat(leCyl)
+                    );
+                    return (
+                      <div 
+                        key={sug._id} 
+                        className="bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl p-3 flex items-center justify-between gap-4 hover:border-[#D4A04D]/40 transition-colors"
+                      >
+                        <div className="text-left space-y-1 flex-1">
+                          <div className="text-white text-xs font-bold">{sug.name}</div>
+                          <div className="text-gray-500 text-[10px]">
+                            Range: SPH [{sug.minSph} to {sug.maxSph}], CYL [{sug.minCyl} to {sug.maxCyl}]
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-white font-black text-xs">₹{dynamicPrice}</span>
+                          <button
+                            onClick={() => handleSelectSuggestedLens(sug)}
+                            className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-3 py-1.5 rounded-lg border-none cursor-pointer tracking-wider transition-colors shadow-[0_2px_8px_rgba(212,160,77,0.15)] animate-none"
+                          >
+                            Select & Cart
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-xs italic bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl p-4 text-center">
+                  Unfortunately, no other lenses support your entered power. Please edit your power values or contact support.
+                </p>
+              )}
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="flex items-center gap-3 pt-4 border-t border-[#2A2A2D]/80">
+              <button
+                onClick={() => setValidationModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 bg-[#1A1A1C] hover:bg-[#252528] border border-[#2A2A2D] text-white font-extrabold uppercase py-3 px-4 rounded-xl text-xs tracking-wider transition-colors cursor-pointer text-center"
+              >
+                Close & Edit Power
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

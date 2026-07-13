@@ -46,7 +46,19 @@ export function initSocket(server: http.Server) {
   });
 
   io.on('connection', (socket) => {
-    // Quietly handle connection
+    // Join a user-specific room
+    socket.on('join_user_room', (userId: string) => {
+      if (userId) {
+        socket.join(`user-${userId}`);
+      }
+    });
+
+    // Leave a user-specific room
+    socket.on('leave_user_room', (userId: string) => {
+      if (userId) {
+        socket.leave(`user-${userId}`);
+      }
+    });
     
     socket.on('disconnect', () => {
       // Quietly handle disconnection

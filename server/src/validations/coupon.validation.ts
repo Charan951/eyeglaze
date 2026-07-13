@@ -19,6 +19,7 @@ export const createCouponSchema = z.object({
     validFrom: z.string().datetime({ offset: true }).or(z.string().date()).optional().transform(val => val ? new Date(val) : undefined),
     validTo: z.string().datetime({ offset: true }).or(z.string().date()).optional().transform(val => val ? new Date(val) : undefined),
     isActive: z.boolean().optional(),
+    userSpecific: zObjectId.optional().nullable(),
     
     autoApply: z.boolean().optional(),
     priority: z.number().int().optional(),

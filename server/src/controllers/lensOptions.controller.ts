@@ -1,11 +1,21 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../config/mongodb';
 import { LensOption } from '../models/LensOption';
+import { LensType } from '../models/LensType';
+import { Lens } from '../models/Lens';
 
 export async function getLensOptions(req: Request, res: Response) {
   try {
     await connectDB();
     const kind = req.query.kind as string | undefined;
+    const category = req.query.category as string | undefined;
+
+    if (category) {
+      const lensTypes = await LensType.find({ category, status: 'Active' }).sort({ createdAt: -1 });
+      const typeIds = lensTypes.map(t => t._id);
+      const lenses = await Lens.find({ lensType: { $in: typeIds }, status: 'Active' }).populate('lensType').sort({ createdAt: -1 });
+      return res.status(200).json({ lensTypes, lenses });
+    }
 
     const query: Record<string, unknown> = { isActive: true };
     if (kind) query.kind = kind;

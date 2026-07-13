@@ -138,6 +138,10 @@ export interface IProduct extends Document {
     platinumPrice: number;
     priority: number;
     status: 'Active' | 'Inactive';
+    minSph?: number;
+    maxSph?: number;
+    minCyl?: number;
+    maxCyl?: number;
   }>;
 
   // Step 7: Thickness Pricing
@@ -390,6 +394,10 @@ const ProductSchema = new Schema<IProduct>(
         platinumPrice: { type: Number, required: true },
         priority: { type: Number, default: 0 },
         status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+        minSph: { type: Number, default: -20 },
+        maxSph: { type: Number, default: 20 },
+        minCyl: { type: Number, default: -6 },
+        maxCyl: { type: Number, default: 6 },
       },
     ],
 

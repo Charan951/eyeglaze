@@ -36,6 +36,7 @@ interface CouponItem {
   applicableBrands?: string[];
   buyQty?: number;
   getQty?: number;
+  userSpecific?: any;
 }
 
 interface AnalyticsItem {
@@ -116,6 +117,33 @@ export default function AdminCouponsPage() {
   const [isActive, setIsActive] = useState(true);
   const [buyQty, setBuyQty] = useState<number>(1); // Added for BOGO
   const [getQty, setGetQty] = useState<number>(1); // Added for BOGO
+
+  const [userSpecific, setUserSpecific] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ _id: string; name: string; email: string } | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+
+  const handleUserSearch = async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+    setUserSearchLoading(true);
+    try {
+      const res = await api.get('/admin/users', {
+        params: {
+          search: query,
+          limit: 10,
+        }
+      });
+      setUserSearchResults(res.data.users || []);
+    } catch (err) {
+      console.error('Failed to search users:', err);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
   
   // Advanced Form Fields
   const [autoApply, setAutoApply] = useState(false);
@@ -205,6 +233,10 @@ export default function AdminCouponsPage() {
     setBadge('');
     setDiscountType('flat');
     setCouponType('Standard');
+    setUserSpecific(null);
+    setSelectedUser(null);
+    setUserSearchQuery('');
+    setUserSearchResults([]);
     setDiscountValue(0);
     setMinOrderValue(0);
     setMaxDiscount(0);
@@ -273,6 +305,21 @@ export default function AdminCouponsPage() {
     setShippingRestrictions(coupon.shippingMethodRestrictions?.join(', ') || '');
     setCategories(coupon.applicableCategories?.join(', ') || '');
     setBrands(coupon.applicableBrands?.join(', ') || '');
+
+    if (coupon.userSpecific) {
+      if (typeof coupon.userSpecific === 'object' && coupon.userSpecific !== null) {
+        setSelectedUser(coupon.userSpecific);
+        setUserSpecific(coupon.userSpecific._id);
+      } else {
+        setSelectedUser({ _id: coupon.userSpecific, name: 'Selected User', email: '' });
+        setUserSpecific(coupon.userSpecific);
+      }
+    } else {
+      setSelectedUser(null);
+      setUserSpecific(null);
+    }
+    setUserSearchQuery('');
+    setUserSearchResults([]);
     
     setIsDrawerOpen(true);
   };
@@ -281,6 +328,11 @@ export default function AdminCouponsPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (couponType === 'Referral' && !userSpecific) {
+      setError('Target customer is required for Referral Coupon.');
+      return;
+    }
 
     const payload = {
       code: code.trim().toUpperCase(),
@@ -295,6 +347,7 @@ export default function AdminCouponsPage() {
       validFrom: validFrom ? new Date(validFrom).toISOString() : undefined,
       validTo: validTo ? new Date(validTo).toISOString() : undefined,
       isActive,
+      userSpecific: couponType === 'Referral' ? (userSpecific || undefined) : null,
       
       autoApply,
       priority: 0,
@@ -483,8 +536,8 @@ export default function AdminCouponsPage() {
             >
               <option value="">All Types</option>
               <option value="Standard">Standard Coupon</option>
-              <option value="BOGO">Buy One Get One Offer</option>
-              <option value="FirstOrder">First Order</option>
+              <option value="Refund">Refund Coupon</option>
+              <option value="Referral">Referral Coupon</option>
             </select>
 
             <select
@@ -832,11 +885,77 @@ export default function AdminCouponsPage() {
                         }}
                       >
                         <option value="Standard">Standard Coupon</option>
-                        <option value="BOGO">Buy One Get One Offer</option>
-                        <option value="FirstOrder">First Order Promotion</option>
+                        <option value="Refund">Refund Coupon</option>
+                        <option value="Referral">Referral Coupon</option>
                       </select>
                     </div>
                   </div>
+
+                  {couponType === 'Referral' && (
+                    <div className="mt-4 bg-[#18181B]/40 border border-[#2A2A2D] p-4 rounded-xl space-y-3">
+                      <div>
+                        <label className="text-[#D4A04D] text-[10px] font-black uppercase tracking-wider block mb-1.5">Target Customer (Name or Email) *</label>
+                        {selectedUser ? (
+                          <div className="flex items-center justify-between bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-sm text-white">
+                            <div>
+                              <div className="font-bold">{selectedUser.name}</div>
+                              <div className="text-xs text-gray-400">{selectedUser.email}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedUser(null);
+                                setUserSpecific(null);
+                              }}
+                              className="text-red-400 hover:text-red-300 text-xs font-semibold px-2 py-1 rounded border border-red-500/20 hover:bg-red-500/10 transition-colors"
+                            >
+                              Clear Selection
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="Search customer by name or email..."
+                              value={userSearchQuery}
+                              onChange={(e) => {
+                                setUserSearchQuery(e.target.value);
+                                handleUserSearch(e.target.value);
+                              }}
+                              className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                            />
+                            {userSearchResults.length > 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-[#18181B] border border-[#2A2A2D] rounded-lg shadow-xl max-h-60 overflow-y-auto divide-y divide-[#2A2A2D] scrollbar-thin">
+                                {userSearchResults.map((user: any) => (
+                                  <div
+                                    key={user._id}
+                                    onClick={() => {
+                                      setSelectedUser(user);
+                                      setUserSpecific(user._id);
+                                      setUserSearchQuery('');
+                                      setUserSearchResults([]);
+                                    }}
+                                    className="px-4 py-3 hover:bg-[#222226] cursor-pointer text-sm text-left transition-colors"
+                                  >
+                                    <div className="font-semibold text-white">{user.name}</div>
+                                    <div className="text-xs text-gray-400">{user.email} {user.mobile ? `• ${user.mobile}` : ''}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {userSearchLoading && (
+                              <div className="absolute right-3 top-2.5 text-xs text-gray-500">Searching...</div>
+                            )}
+                            {userSearchQuery && !userSearchLoading && userSearchResults.length === 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-[#18181B] border border-[#2A2A2D] rounded-lg shadow-xl p-3 text-center text-xs text-gray-500">
+                                No customers found.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-4">
                     <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Description / Terms *</label>
@@ -933,86 +1052,90 @@ export default function AdminCouponsPage() {
                 </div>
 
                 {/* Timing & Usage Rules */}
-                <div>
-                  <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider border-b border-[#2A2A2D] pb-1.5 mb-4">3. Date Boundaries & Usage Limits</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Valid From</label>
-                      <input
-                        type="date"
-                        value={validFrom}
-                        onChange={e => setValidFrom(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
+                {couponType !== 'Refund' && (
+                  <div>
+                    <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider border-b border-[#2A2A2D] pb-1.5 mb-4">3. Date Boundaries & Usage Limits</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Valid From</label>
+                        <input
+                          type="date"
+                          value={validFrom}
+                          onChange={e => setValidFrom(e.target.value)}
+                          className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Valid Until</label>
+                        <input
+                          type="date"
+                          value={validTo}
+                          onChange={e => setValidTo(e.target.value)}
+                          className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Valid Until</label>
-                      <input
-                        type="date"
-                        value={validTo}
-                        onChange={e => setValidTo(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Limit Per Customer</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={usageLimitPerUser}
-                        onChange={e => setUsageLimitPerUser(Number(e.target.value))}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Total Usage Limit (0 = Unlimited)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={usageLimitTotal}
-                        onChange={e => setUsageLimitTotal(Number(e.target.value))}
-                        className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                      />
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Limit Per Customer</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={usageLimitPerUser}
+                          onChange={e => setUsageLimitPerUser(Number(e.target.value))}
+                          className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider block mb-1.5">Total Usage Limit (0 = Unlimited)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={usageLimitTotal}
+                          onChange={e => setUsageLimitTotal(Number(e.target.value))}
+                          className="w-full bg-[#18181B] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Target Groups & Restrictions */}
-                <div>
-                  <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider border-b border-[#2A2A2D] pb-1.5 mb-4">4. Target Audiences & Constraints</h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={newUserOnly}
-                        onChange={e => setNewUserOnly(e.target.checked)}
-                        className="accent-[#D4A04D]"
-                      />
-                      <span className="text-white text-[10px] font-bold uppercase select-none">New Users Only</span>
-                    </label>
-                    <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={firstPurchaseOnly}
-                        onChange={e => setFirstPurchaseOnly(e.target.checked)}
-                        className="accent-[#D4A04D]"
-                      />
-                      <span className="text-white text-[10px] font-bold uppercase select-none">First Order Only</span>
-                    </label>
-                    <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={membershipRequired}
-                        onChange={e => setMembershipRequired(e.target.checked)}
-                        className="accent-[#D4A04D]"
-                      />
-                      <span className="text-white text-[10px] font-bold uppercase select-none">VIP Members Only</span>
-                    </label>
+                {couponType !== 'Refund' && (
+                  <div>
+                    <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider border-b border-[#2A2A2D] pb-1.5 mb-4">4. Target Audiences & Constraints</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newUserOnly}
+                          onChange={e => setNewUserOnly(e.target.checked)}
+                          className="accent-[#D4A04D]"
+                        />
+                        <span className="text-white text-[10px] font-bold uppercase select-none">New Users Only</span>
+                      </label>
+                      <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={firstPurchaseOnly}
+                          onChange={e => setFirstPurchaseOnly(e.target.checked)}
+                          className="accent-[#D4A04D]"
+                        />
+                        <span className="text-white text-[10px] font-bold uppercase select-none">First Order Only</span>
+                      </label>
+                      <label className="flex items-center gap-2 bg-[#18181B] border border-[#2A2A2D] p-3 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={membershipRequired}
+                          onChange={e => setMembershipRequired(e.target.checked)}
+                          className="accent-[#D4A04D]"
+                        />
+                        <span className="text-white text-[10px] font-bold uppercase select-none">VIP Members Only</span>
+                      </label>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Additional Settings */}
                 <div>

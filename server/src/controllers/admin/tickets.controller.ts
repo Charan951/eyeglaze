@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../../config/mongodb';
 import { Ticket } from '../../models/Ticket';
+import { getIO } from '../../lib/socket';
 
 export async function adminGetAllTickets(req: Request, res: Response) {
   try {
@@ -36,6 +37,12 @@ export async function adminUpdateTicket(req: Request, res: Response) {
 
     if (!ticket) {
       return res.status(404).json({ error: 'Support ticket not found' });
+    }
+
+    try {
+      getIO().emit('ticket_changed', { action: 'update', ticket });
+    } catch (err) {
+      console.error('Socket emit error:', err);
     }
 
     return res.status(200).json({ ticket });

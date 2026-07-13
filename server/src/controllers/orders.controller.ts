@@ -38,6 +38,10 @@ export async function createOrder(req: Request, res: Response) {
       return res.status(400).json({ error: 'Delivery address is required' });
     }
 
+    if (!deliveryAddress.fullName || !deliveryAddress.mobile || !deliveryAddress.alternativeNumber || !deliveryAddress.line1 || !deliveryAddress.city || !deliveryAddress.state || !deliveryAddress.pincode) {
+      return res.status(400).json({ error: 'All delivery address fields, including Alternative Number, are required' });
+    }
+
     const user = await User.findById(req.user!.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -49,6 +53,11 @@ export async function createOrder(req: Request, res: Response) {
     }
 
     const isMemberNow = user.membershipActive || activateMembership;
+
+    const previousOrderCount = await Order.countDocuments({
+      user: req.user!.userId,
+      status: { $ne: 'cancelled' }
+    });
 
     // Check if user already had a BOGO order this calendar month
     const startOfMonth = new Date();
@@ -70,6 +79,7 @@ export async function createOrder(req: Request, res: Response) {
     let totalFittingCharge = 0;
     let onePlusOneDiscount = 0;
     let oneRupeeFramesUsed = 0;
+    const remainingOneRupeeFrames = Math.max(0, 2 - (user.oneRupeeOfferCount ?? 0));
     const buy1Get1Items: any[] = [];
 
     const orderItems = cart.items.map((item: any) => {
@@ -88,10 +98,13 @@ export async function createOrder(req: Request, res: Response) {
         }
       }
 
-      // Check ₹1 Frame eligibility
-      if (item.product?.oneRupeeFrameOffer && isMemberNow && !user.oneRupeeOfferUsed && oneRupeeFramesUsed < 2) {
-        framePrice = 1;
-        oneRupeeFramesUsed++;
+      // Check ₹1 Frame eligibility - only if active member and after first order
+      if (item.product?.oneRupeeFrameOffer && user.membershipActive && previousOrderCount > 0 && !user.oneRupeeOfferUsed && (user.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesUsed < remainingOneRupeeFrames) {
+        const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesUsed);
+        const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
+        const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
+        framePrice = totalFramePriceForQty / item.qty;
+        oneRupeeFramesUsed += allowed;
         appliedOffers.push('₹1 Frame');
       } else if (item.product?.memberPrice && isMemberNow) {
         framePrice = item.product.memberPrice;
@@ -101,7 +114,7 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       // Collect buy1Get1 items
-      if ((isMemberNow && bogoAllowedForMember) || item.product?.buy1Get1) {
+      if (bogoAllowedForMember && (isMemberNow || item.product?.buy1Get1)) {
         for (let i = 0; i < item.qty; i++) {
           buy1Get1Items.push({ framePrice, lensPrice });
         }
@@ -342,10 +355,14 @@ export async function createOrder(req: Request, res: Response) {
       }
     }
 
-    // Clear cart
     cart.items = [] as typeof cart.items;
     cart.updatedAt = new Date();
     await cart.save();
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('cart_changed', { action: 'clear' });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
 
     return res.status(201).json({ orderId, total, estimatedDelivery, walletUsed: walletToUse });
   } catch (error) {

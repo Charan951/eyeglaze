@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
+import { socket } from '../lib/socket';
 
 interface CartItem {
   id: string;
@@ -50,6 +51,7 @@ export default function CheckoutPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -59,6 +61,7 @@ export default function CheckoutPage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
+  const [alternativeNumber, setAlternativeNumber] = useState('');
   
   const [discount, setDiscount] = useState(checkoutState.discount || 0);
   const [couponCode, setCouponCode] = useState('');
@@ -79,15 +82,20 @@ export default function CheckoutPage() {
 
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
+  const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
   const buy1Get1Items: { uniqueKey: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
     
-    // Member Price / ₹1 Frame check
-    if (item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && oneRupeeFramesCount < 2) {
-      framePrice = 1;
-      oneRupeeFramesCount += item.qty;
+    // Member Price / ₹1 Frame check - only after first order
+    const previousOrderCount = user?.previousOrderCount ?? 0;
+    if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
+      const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
+      const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
+      const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
+      framePrice = totalFramePriceForQty / item.qty;
+      oneRupeeFramesCount += allowed;
     } else if (item.product?.memberPrice !== undefined && isMember) {
       framePrice = item.product.memberPrice;
     } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
@@ -95,7 +103,7 @@ export default function CheckoutPage() {
     }
 
     // Under Gold Membership, ALL items are eligible for BOGO! Otherwise, only items with product.buy1Get1
-    if ((isMember && !hasUsedBogoThisMonth) || item.product?.buy1Get1) {
+    if (!hasUsedBogoThisMonth && (isMember || item.product?.buy1Get1)) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           uniqueKey: `${item._id || item.id}_${index}`,
@@ -212,7 +220,7 @@ export default function CheckoutPage() {
         items: itemsWithPricing.map(item => ({
           productId: item.product?._id || item.product?.id || item._id,
           qty: item.qty,
-          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
         })),
@@ -252,7 +260,7 @@ export default function CheckoutPage() {
         items: itemsWithPricing.map(item => ({
           productId: item.product?._id || item.product?.id || item._id,
           qty: item.qty,
-          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
         })),
@@ -296,6 +304,7 @@ export default function CheckoutPage() {
       if (defaultAddr) {
         setFullName(defaultAddr.fullName || '');
         setMobile(defaultAddr.mobile || '');
+        setAlternativeNumber(defaultAddr.alternativeNumber || '');
         setLine1(defaultAddr.line1 || '');
         setLine2(defaultAddr.line2 || '');
         setCity(defaultAddr.city || '');
@@ -348,6 +357,30 @@ export default function CheckoutPage() {
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
+  }, [refreshTrigger]);
+
+  // Listen to real-time cart and coupon changes
+  useEffect(() => {
+    const handleCartChanged = () => {
+      setRefreshTrigger(prev => prev + 1);
+    };
+    const handleCouponChanged = () => {
+      api.get('/coupons')
+        .then(res => {
+          setActiveCoupons(res.data?.coupons || []);
+        })
+        .catch(err => {
+          console.error('Failed to fetch coupons:', err);
+        });
+    };
+
+    socket.on('cart_changed', handleCartChanged);
+    socket.on('coupon_changed', handleCouponChanged);
+
+    return () => {
+      socket.off('cart_changed', handleCartChanged);
+      socket.off('coupon_changed', handleCouponChanged);
+    };
   }, []);
 
 
@@ -361,7 +394,7 @@ export default function CheckoutPage() {
         items: itemsWithPricing.map(item => ({
           productId: item.product?._id || item.product?.id || item._id,
           qty: item.qty,
-          price: item.framePriceCalculated ?? item.framePrice ?? 1,
+          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
         })),
@@ -409,6 +442,7 @@ export default function CheckoutPage() {
         deliveryAddress: {
           fullName,
           mobile,
+          alternativeNumber: alternativeNumber || undefined,
           line1,
           line2,
           city,
@@ -449,7 +483,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !mobile || !line1 || !city || !state || !pincode) {
+    if (!fullName || !mobile || !alternativeNumber || !line1 || !city || !state || !pincode) {
       alert('Please fill out all required address fields.');
       return;
     }
@@ -589,6 +623,7 @@ export default function CheckoutPage() {
                         if (defaultAddr) {
                           setFullName(defaultAddr.fullName || '');
                           setMobile(defaultAddr.mobile || '');
+                          setAlternativeNumber(defaultAddr.alternativeNumber || '');
                           setLine1(defaultAddr.line1 || '');
                           setLine2(defaultAddr.line2 || '');
                           setCity(defaultAddr.city || '');
@@ -601,6 +636,7 @@ export default function CheckoutPage() {
                       // Switch to empty form for adding new address
                       setFullName('');
                       setMobile('');
+                      setAlternativeNumber('');
                       setLine1('');
                       setLine2('');
                       setCity('');
@@ -640,6 +676,7 @@ export default function CheckoutPage() {
                         onClick={() => {
                           setFullName(addr.fullName || '');
                           setMobile(addr.mobile || '');
+                          setAlternativeNumber(addr.alternativeNumber || '');
                           setLine1(addr.line1 || '');
                           setLine2(addr.line2 || '');
                           setCity(addr.city || '');
@@ -663,7 +700,9 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           <div className="font-bold text-white truncate">{addr.fullName}</div>
-                          <div className="text-[#A7A7A7] text-[10px] mt-0.5">{addr.mobile}</div>
+                          <div className="text-[#A7A7A7] text-[10px] mt-0.5">
+                            {addr.mobile} {addr.alternativeNumber && `· Alt: ${addr.alternativeNumber}`}
+                          </div>
                           <div className="line-clamp-2 text-gray-400 text-[10px] mt-1.5 leading-relaxed">
                             {addr.line1}, {addr.line2 ? `${addr.line2}, ` : ''}{addr.city}, {addr.state} - {addr.pincode}
                           </div>
@@ -697,6 +736,19 @@ export default function CheckoutPage() {
                     pattern="[0-9]{10}"
                     value={mobile}
                     onChange={e => setMobile(e.target.value)}
+                    placeholder="10-digit number"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Alternative Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    pattern="[0-9]{10}"
+                    value={alternativeNumber}
+                    onChange={e => setAlternativeNumber(e.target.value)}
                     placeholder="10-digit number"
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   />

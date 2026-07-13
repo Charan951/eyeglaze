@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
+import {
+  Package,
+  Glasses,
+  Users,
+  IndianRupee,
+  Plus,
+  ClipboardList,
+  BarChart2
+} from 'lucide-react';
 
 interface Stats {
   orders: number;
@@ -11,12 +21,6 @@ interface Stats {
   lowStock: number;
 }
 
-const recentOrders = [
-  { id: 'EGO-20260616-0001', customer: 'Rahul Sharma', total: 1298, status: 'processing', date: '2026-06-16' },
-  { id: 'EGO-20260615-0023', customer: 'Priya Patel', total: 799, status: 'shipped', date: '2026-06-15' },
-  { id: 'EGO-20260615-0019', customer: 'Amit Kumar', total: 2498, status: 'confirmed', date: '2026-06-15' },
-  { id: 'EGO-20260614-0011', customer: 'Sneha Rao', total: 999, status: 'delivered', date: '2026-06-14' },
-];
 
 const statusColors: Record<string, string> = {
   pending: 'text-yellow-400 bg-yellow-400/10',
@@ -31,24 +35,38 @@ const fallbackStats: Stats = { orders: 142, products: 38, users: 520, revenue: 1
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>(fallbackStats);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
     let active = true;
-    api.get('/admin/stats')
-      .then(res => {
-        if (!active) return;
-        const data = res.data;
-        setStats({
-          orders: data.orders?.month ?? 0,
-          products: data.products ?? 0,
-          users: data.newCustomers ?? 0,
-          revenue: data.revenue?.month ?? 0,
-          pendingOrders: data.pending ?? 0,
-          lowStock: data.lowStock ?? 0,
-        });
-      })
-      .catch(() => {});
-    return () => { active = false; };
+    const fetchStats = () => {
+      api.get('/admin/stats')
+        .then(res => {
+          if (!active) return;
+          const data = res.data;
+          setStats({
+            orders: data.orders?.total ?? data.orders?.month ?? 0,
+            products: data.products ?? 0,
+            users: data.totalCustomers ?? data.newCustomers ?? 0,
+            revenue: data.revenue?.month ?? 0,
+            pendingOrders: data.pending ?? 0,
+            lowStock: data.lowStock ?? 0,
+          });
+          setRecentOrders(data.recentOrders || []);
+        })
+        .catch(() => {});
+    };
+
+    fetchStats();
+
+    socket.on('order_changed', fetchStats);
+    socket.on('product_changed', fetchStats);
+
+    return () => {
+      active = false;
+      socket.off('order_changed', fetchStats);
+      socket.off('product_changed', fetchStats);
+    };
   }, []);
 
   return (
@@ -61,15 +79,15 @@ export default function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Orders', value: stats.orders, icon: '📦', sub: `${stats.pendingOrders} pending`, color: 'text-blue-400' },
-          { label: 'Products', value: stats.products, icon: '👓', sub: `${stats.lowStock} low stock`, color: 'text-[#D4A04D]' },
-          { label: 'Users', value: stats.users, icon: '👥', sub: 'registered customers', color: 'text-purple-400' },
-          { label: 'Revenue', value: `₹${stats.revenue.toLocaleString('en-IN')}`, icon: '💰', sub: 'total revenue', color: 'text-green-400' },
-        ].map(({ label, value, icon, sub, color }) => (
-          <div key={label} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5">
+          { label: 'Total Orders', value: stats.orders, icon: Package, sub: `${stats.pendingOrders} pending`, color: 'text-blue-400' },
+          { label: 'Products', value: stats.products, icon: Glasses, sub: `${stats.lowStock} low stock`, color: 'text-[#D4A04D]' },
+          { label: 'Users', value: stats.users, icon: Users, sub: 'registered customers', color: 'text-purple-400' },
+          { label: 'Revenue', value: `₹${stats.revenue.toLocaleString('en-IN')}`, icon: IndianRupee, sub: 'total revenue', color: 'text-green-400' },
+        ].map(({ label, value, icon: Icon, sub, color }) => (
+          <div key={label} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 text-left">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[#A7A7A7] text-sm">{label}</span>
-              <span className="text-2xl">{icon}</span>
+              <Icon className="w-5 h-5 text-[#D4A04D]" />
             </div>
             <div className={`text-3xl font-bold ${color} mb-1`}>{value}</div>
             <div className="text-[#A7A7A7] text-xs">{sub}</div>
@@ -80,12 +98,12 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-3 mb-8">
         {[
-          { label: 'Add Product', href: '/admin/products', icon: '➕' },
-          { label: 'Process Orders', href: '/admin/orders', icon: '📋' },
-          { label: 'View Inventory', href: '/admin/inventory', icon: '📊' },
-        ].map(({ label, href, icon }) => (
-          <Link key={label} to={href} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 text-center hover:border-[#D4A04D] transition-colors">
-            <div className="text-2xl mb-2">{icon}</div>
+          { label: 'Add Product', href: '/admin/products', icon: Plus },
+          { label: 'Process Orders', href: '/admin/orders', icon: ClipboardList },
+          { label: 'View Inventory', href: '/admin/inventory', icon: BarChart2 },
+        ].map(({ label, href, icon: Icon }) => (
+          <Link key={label} to={href} className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 text-center hover:border-[#D4A04D] transition-colors flex flex-col items-center justify-center gap-2">
+            <Icon className="w-6 h-6 text-[#D4A04D] mb-1" />
             <div className="text-white text-sm font-semibold">{label}</div>
           </Link>
         ))}
@@ -109,19 +127,27 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map(order => (
-                <tr key={order.id} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
-                  <td className="px-5 py-3 text-[#D4A04D] font-mono text-xs">{order.id}</td>
-                  <td className="px-5 py-3 text-white">{order.customer}</td>
-                  <td className="px-5 py-3 text-[#A7A7A7]">{order.date}</td>
-                  <td className="px-5 py-3 text-white font-semibold">₹{order.total}</td>
-                  <td className="px-5 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${statusColors[order.status] || 'text-gray-400 bg-gray-400/10'}`}>
-                      {order.status}
-                    </span>
-                  </td>
+              {recentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center text-[#A7A7A7] py-16 italic">No recent orders found</td>
                 </tr>
-              ))}
+              ) : (
+                recentOrders.map(order => (
+                  <tr key={order._id || order.id || order.orderId} className="border-b border-[#2A2A2D] hover:bg-[#2A2A2D] transition-colors">
+                    <td className="px-5 py-3 text-[#D4A04D] font-mono text-xs">{order.orderId || order.orderNumber || order._id}</td>
+                    <td className="px-5 py-3 text-white">{order.address?.fullName || order.user?.name || 'Walk-in Customer'}</td>
+                    <td className="px-5 py-3 text-[#A7A7A7]">
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : (order.date || '')}
+                    </td>
+                    <td className="px-5 py-3 text-white font-semibold">₹{order.total}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${statusColors[order.status] || 'text-gray-400 bg-gray-400/10'}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { socket } from '../../lib/socket';
 
 interface UserInfo {
   _id: string;
@@ -56,6 +57,11 @@ export default function AdminTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
+
+    socket.on('ticket_changed', fetchTickets);
+    return () => {
+      socket.off('ticket_changed', fetchTickets);
+    };
   }, []);
 
   const handleOpenDetailModal = (ticket: AdminTicket) => {

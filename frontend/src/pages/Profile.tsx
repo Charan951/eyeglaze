@@ -10,6 +10,7 @@ interface Address {
   type: 'Home' | 'Work' | 'Other';
   fullName: string;
   mobile: string;
+  alternativeNumber?: string;
   line1: string;
   line2?: string;
   city: string;
@@ -155,6 +156,7 @@ export default function ProfilePage() {
   
   const [formFullName, setFormFullName] = useState('');
   const [formMobile, setFormMobile] = useState('');
+  const [formAlternativeNumber, setFormAlternativeNumber] = useState('');
   const [formPincode, setFormPincode] = useState('');
   const [formLine1, setFormLine1] = useState('');
   const [formLine2, setFormLine2] = useState('');
@@ -217,7 +219,9 @@ export default function ProfilePage() {
   const handleAddAddressClick = () => {
     setEditingAddress(null);
     setFormFullName(user?.name || '');
+    setFormFullName('');
     setFormMobile(user?.phone || user?.mobile || '');
+    setFormAlternativeNumber('');
     setFormPincode('');
     setFormLine1('');
     setFormLine2('');
@@ -232,6 +236,7 @@ export default function ProfilePage() {
     setEditingAddress(addr);
     setFormFullName(addr.fullName);
     setFormMobile(addr.mobile);
+    setFormAlternativeNumber(addr.alternativeNumber || '');
     setFormPincode(addr.pincode);
     setFormLine1(addr.line1);
     setFormLine2(addr.line2 || '');
@@ -244,7 +249,7 @@ export default function ProfilePage() {
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formFullName || !formMobile || !formPincode || !formLine1 || !formCity || !formState) {
+    if (!formFullName || !formMobile || !formAlternativeNumber || !formPincode || !formLine1 || !formCity || !formState) {
       alert('Please fill out all required fields.');
       return;
     }
@@ -254,6 +259,7 @@ export default function ProfilePage() {
       const payload = {
         fullName: formFullName,
         mobile: formMobile,
+        alternativeNumber: formAlternativeNumber || undefined,
         pincode: formPincode,
         line1: formLine1,
         line2: formLine2,
@@ -470,6 +476,17 @@ export default function ProfilePage() {
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
                   />
                 </div>
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Alternative Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={formAlternativeNumber}
+                    onChange={e => setFormAlternativeNumber(e.target.value)}
+                    placeholder="Alternative 10-digit number"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Line 1 (Flat, House, Building) *</label>
                   <input
@@ -626,7 +643,9 @@ export default function ProfilePage() {
                         )}
                       </div>
                       <div className="text-white font-bold text-sm">{addr.fullName}</div>
-                      <div className="text-[#A7A7A7] text-xs mt-1">{addr.mobile}</div>
+                      <div className="text-[#A7A7A7] text-xs mt-1">
+                        {addr.mobile} {addr.alternativeNumber && `· Alt: ${addr.alternativeNumber}`}
+                      </div>
                       <div className="text-gray-400 text-xs mt-2 leading-relaxed">
                         {addr.line1}, {addr.line2 && `${addr.line2}, `}{addr.city}, {addr.state} - {addr.pincode}
                       </div>

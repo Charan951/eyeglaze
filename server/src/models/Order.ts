@@ -29,6 +29,7 @@ export interface IOrder extends Document {
   address: {
     fullName: string;
     mobile: string;
+    alternativeNumber?: string;
     line1: string;
     line2?: string;
     city: string;
@@ -99,6 +100,7 @@ const OrderSchema = new Schema<IOrder>(
     address: {
       fullName: String,
       mobile: String,
+      alternativeNumber: String,
       line1: String,
       line2: String,
       city: String,
