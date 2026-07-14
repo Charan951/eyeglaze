@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Banner } from '../../models/Banner';
+import { clearCachePattern } from '../../middleware/cache';
 import { getIO } from '../../lib/socket';
 
 export async function getAdminBanners(req: Request, res: Response) {
@@ -38,6 +39,7 @@ export async function createBanner(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/banners*');
     return res.status(201).json(banner);
   } catch (error) {
     console.error('Error creating banner:', error);
@@ -72,6 +74,7 @@ export async function updateBanner(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/banners*');
     return res.status(200).json(banner);
   } catch (error) {
     console.error('Error updating banner:', error);
@@ -91,6 +94,7 @@ export async function deleteBanner(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/banners*');
     return res.status(200).json({ message: 'Banner deleted successfully' });
   } catch (error) {
     console.error('Error deleting banner:', error);

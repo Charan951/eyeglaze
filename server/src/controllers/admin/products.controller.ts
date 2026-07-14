@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../../config/mongodb';
 import { Product } from '../../models/Product';
+import { clearCachePattern } from '../../middleware/cache';
 import { Brand } from '../../models/Brand';
 import { Category } from '../../models/Category';
 import { Warehouse } from '../../models/Warehouse';
@@ -158,6 +159,7 @@ export async function createAdminProduct(req: Request, res: Response) {
       console.error('Socket emit error:', err);
     }
 
+    await clearCachePattern('cache:/api/products*');
     return res.status(201).json(product);
   } catch (error: any) {
     console.error('POST admin product error:', error);
@@ -273,6 +275,7 @@ export async function updateAdminProduct(req: Request, res: Response) {
       console.error('Socket emit error:', err);
     }
 
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ product });
   } catch (error: any) {
     console.error('PUT admin product error:', error);
@@ -315,6 +318,7 @@ export async function deleteAdminProduct(req: Request, res: Response) {
       console.error('Socket emit error:', err);
     }
 
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('DELETE admin product error:', error);

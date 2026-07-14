@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { HomepageVideo } from '../../models/HomepageVideo';
+import { clearCachePattern } from '../../middleware/cache';
 import { getIO } from '../../lib/socket';
 
 export async function getAdminHomepageVideos(req: Request, res: Response) {
@@ -51,6 +52,7 @@ export async function createHomepageVideo(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/homepage-videos*');
     return res.status(201).json(video);
   } catch (error) {
     console.error('Error creating homepage video:', error);
@@ -80,6 +82,7 @@ export async function updateHomepageVideo(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/homepage-videos*');
     return res.status(200).json(video);
   } catch (error) {
     console.error('Error updating homepage video:', error);
@@ -99,6 +102,7 @@ export async function deleteHomepageVideo(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/homepage-videos*');
     return res.status(200).json({ message: 'Homepage video deleted successfully' });
   } catch (error) {
     console.error('Error deleting homepage video:', error);

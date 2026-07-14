@@ -5,6 +5,7 @@ import { Product } from '../models/Product';
 import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
 import { LensType } from '../models/LensType';
+import { clearCachePattern } from '../middleware/cache';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -224,6 +225,7 @@ export async function createProduct(req: Request, res: Response) {
 
     const product = new Product(body);
     await product.save();
+    await clearCachePattern('cache:/api/products*');
     return res.status(201).json(product);
   } catch (error) {
     console.error('POST product error:', error);
@@ -339,6 +341,7 @@ export async function updateProduct(req: Request, res: Response) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json(product);
   } catch (error) {
     console.error('PUT product error:', error);
@@ -352,6 +355,7 @@ export async function deleteProduct(req: Request, res: Response) {
     const id = req.params.id as string;
 
     await Product.findByIdAndUpdate(id, { isActive: false });
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('DELETE product error:', error);

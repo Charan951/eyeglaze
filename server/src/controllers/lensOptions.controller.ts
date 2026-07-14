@@ -3,6 +3,7 @@ import { connectDB } from '../config/mongodb';
 import { LensOption } from '../models/LensOption';
 import { LensType } from '../models/LensType';
 import { Lens } from '../models/Lens';
+import { clearCachePattern } from '../middleware/cache';
 
 export async function getLensOptions(req: Request, res: Response) {
   try {
@@ -38,6 +39,7 @@ export async function createLensOption(req: Request, res: Response) {
     const body = req.body || {};
     const option = new LensOption(body);
     await option.save();
+    await clearCachePattern('cache:/api/lens-options*');
     return res.status(201).json(option);
   } catch (error) {
     console.error('POST lens-option error:', error);

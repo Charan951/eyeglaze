@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../../config/mongodb';
 import { Category } from '../../models/Category';
+import { clearCachePattern } from '../../middleware/cache';
 import { SubCategory } from '../../models/SubCategory';
 
 import { CategoryAttribute } from '../../models/CategoryAttribute';
@@ -378,6 +379,8 @@ export async function createCategory(req: Request, res: Response) {
 
     getIO().emit('category_changed', { action: 'create', category: newDoc });
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(201).json({ category: newDoc, attributes: attrDoc, filters: filterDoc, seo: seoDoc });
   } catch (error: any) {
     console.error('CREATE category error:', error);
@@ -486,6 +489,8 @@ export async function updateCategory(req: Request, res: Response) {
 
     getIO().emit('category_changed', { action: 'update', category: updatedDoc });
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ category: updatedDoc });
   } catch (error: any) {
     console.error('UPDATE category error:', error);
@@ -537,6 +542,8 @@ export async function deleteCategory(req: Request, res: Response) {
 
     getIO().emit('category_changed', { action: 'delete', id });
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('DELETE category error:', error);
@@ -577,6 +584,8 @@ export async function restoreCategory(req: Request, res: Response) {
 
     getIO().emit('category_changed', { action: 'restore', id });
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('RESTORE category error:', error);
@@ -673,6 +682,8 @@ export async function duplicateCategory(req: Request, res: Response) {
 
     getIO().emit('category_changed', { action: 'duplicate', category: newDoc });
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(201).json({ category: newDoc });
   } catch (error: any) {
     console.error('DUPLICATE category error:', error);
@@ -779,6 +790,8 @@ export async function importCategoriesFromCSV(req: Request, res: Response) {
 
     if (importedCount > 0) {
       getIO().emit('category_changed', { action: 'import' });
+      await clearCachePattern('cache:/api/categories*');
+      await clearCachePattern('cache:/api/products*');
     }
 
     return res.status(200).json({ success: true, importedCount, skipped });
@@ -844,6 +857,8 @@ export async function updateNavigationMenu(req: Request, res: Response) {
       { upsert: true, returnDocument: 'after' }
     );
 
+    await clearCachePattern('cache:/api/categories*');
+    await clearCachePattern('cache:/api/products*');
     return res.status(200).json({ menu });
   } catch (error: any) {
     console.error('PUT navigation menu error:', error);

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Reel } from '../../models/Reel';
+import { clearCachePattern } from '../../middleware/cache';
 import { getIO } from '../../lib/socket';
 
 export async function getAdminReels(req: Request, res: Response) {
@@ -33,6 +34,7 @@ export async function createReel(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/reels*');
     return res.status(201).json(reel);
   } catch (error) {
     console.error('Error creating reel:', error);
@@ -62,6 +64,7 @@ export async function updateReel(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/reels*');
     return res.status(200).json(reel);
   } catch (error) {
     console.error('Error updating reel:', error);
@@ -81,6 +84,7 @@ export async function deleteReel(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/reels*');
     return res.status(200).json({ message: 'Reel deleted successfully' });
   } catch (error) {
     console.error('Error deleting reel:', error);

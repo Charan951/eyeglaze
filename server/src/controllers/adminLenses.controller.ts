@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Lens } from '../models/Lens';
 import { LensType } from '../models/LensType';
+import { clearCachePattern } from '../middleware/cache';
 import { getIO } from '../lib/socket';
 
 export const getLenses = async (req: Request, res: Response) => {
@@ -53,6 +54,8 @@ export const createLens = async (req: Request, res: Response) => {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/products*');
+    await clearCachePattern('cache:/api/lens-options*');
     res.status(201).json({ lens: populatedLens });
   } catch (error) {
     console.error('Error creating lens:', error);
@@ -99,6 +102,8 @@ export const updateLens = async (req: Request, res: Response) => {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/products*');
+    await clearCachePattern('cache:/api/lens-options*');
     res.json({ lens: updated });
   } catch (error) {
     console.error('Error updating lens:', error);
@@ -116,6 +121,8 @@ export const deleteLens = async (req: Request, res: Response) => {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
+    await clearCachePattern('cache:/api/products*');
+    await clearCachePattern('cache:/api/lens-options*');
     res.json({ message: 'Lens deleted successfully' });
   } catch (error) {
     console.error('Error deleting lens:', error);
