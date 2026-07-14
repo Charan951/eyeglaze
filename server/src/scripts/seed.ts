@@ -742,7 +742,7 @@ async function main() {
       images: ['/images/cat_blue_light.png'],
       price: { original: 1499, selling: 999 },
       category: 'blue_light',
-      gender: 'unisex',
+      gender: ['men', 'women'],
       compatible: { prescription: false, bluecut: true, zeropower: true, progressive: false },
       tags: ['blue light', 'acetate', 'computer glasses', 'screen protection'],
       isBestseller: false,

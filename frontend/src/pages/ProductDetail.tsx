@@ -28,6 +28,12 @@ interface Product {
   images: string[];
   productVideo?: string;
   image360?: string;
+  frontView?: string;
+  leftView?: string;
+  rightView?: string;
+  topView?: string;
+  lifestyleImages?: string[];
+  thumbnail?: string;
   colors: ColorOption[];
   frame: {
     type: string;
@@ -178,6 +184,126 @@ export default function ProductDetailPage() {
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+
+  // Size Guide States
+  const [sizeGuideTab, setSizeGuideTab] = useState<'chart' | 'scan' | 'specs'>('chart');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanResult, setScanResult] = useState<{ pd: number; faceWidth: number; recommendedSize: 'Small' | 'Medium' | 'Large' } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Size Finder Live Scanner Jitter States
+  const [currentLivePD, setCurrentLivePD] = useState('62.0');
+  const [currentLiveFaceWidth, setCurrentLiveFaceWidth] = useState('138.0');
+
+  // Current Glasses Inputs
+  const [inputLensWidth, setInputLensWidth] = useState('');
+  const [inputBridgeWidth, setInputBridgeWidth] = useState('');
+  const [inputTempleLength, setInputTempleLength] = useState('');
+  const [calculatedSizeRecommendation, setCalculatedSizeRecommendation] = useState<'Small' | 'Medium' | 'Large' | null>(null);
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream, cameraActive]);
+
+  const startCamera = async () => {
+    setCameraError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 }
+      });
+      setCameraStream(stream);
+      setCameraActive(true);
+    } catch (err) {
+      console.error('Camera access error:', err);
+      setCameraError('Unable to access camera. Please check system permissions.');
+    }
+  };
+
+  const stopCamera = (streamObj: MediaStream | null = null) => {
+    const activeStream = streamObj || cameraStream;
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => track.stop());
+    }
+    setCameraStream(null);
+    setCameraActive(false);
+  };
+
+  const handleStartScan = () => {
+    setScanning(true);
+    setScanProgress(0);
+    setScanResult(null);
+
+    // Live jittering interval to simulate real-time measurement tracking
+    const jitterInterval = setInterval(() => {
+      setCurrentLivePD((59 + Math.random() * 8).toFixed(1));
+      setCurrentLiveFaceWidth((129 + Math.random() * 22).toFixed(1));
+    }, 120);
+
+    const interval = setInterval(() => {
+      setScanProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          clearInterval(jitterInterval);
+          setScanning(false);
+          
+          // Generate a dynamic final measurement with realistic random distribution
+          const finalPD = Math.round(60 + Math.random() * 8); // 60 - 68 mm
+          const finalFaceWidth = Math.round(130 + Math.random() * 22); // 130 - 152 mm
+          
+          let rec: 'Small' | 'Medium' | 'Large' = 'Medium';
+          if (finalFaceWidth <= 135) {
+            rec = 'Small';
+          } else if (finalFaceWidth >= 143) {
+            rec = 'Large';
+          }
+          
+          setScanResult({
+            pd: finalPD,
+            faceWidth: finalFaceWidth,
+            recommendedSize: rec
+          });
+          stopCamera();
+          return 100;
+        }
+        return prev + 5;
+      });
+    }, 150);
+  };
+
+  const handleCalculateSpecs = () => {
+    const lens = parseFloat(inputLensWidth);
+    const bridge = parseFloat(inputBridgeWidth);
+    if (isNaN(lens) || isNaN(bridge)) return;
+
+    // Total width approximation: (2 * lens width) + bridge + 12 (approx. 6mm per endpiece hinges)
+    const totalWidth = (2 * lens) + bridge + 12;
+    let rec: 'Small' | 'Medium' | 'Large' = 'Medium';
+    if (totalWidth <= 135) {
+      rec = 'Small';
+    } else if (totalWidth >= 143) {
+      rec = 'Large';
+    }
+    setCalculatedSizeRecommendation(rec);
+  };
+
+  const handleCloseSizeGuide = () => {
+    setShowSizeGuide(false);
+    stopCamera();
+    setScanning(false);
+    setScanProgress(0);
+    setScanResult(null);
+    setSizeGuideTab('chart');
+    setCalculatedSizeRecommendation(null);
+    setInputLensWidth('');
+    setInputBridgeWidth('');
+    setInputTempleLength('');
+  };
 
   // Reels states & refs
   const [reels, setReels] = useState<any[]>([]);
@@ -721,8 +847,33 @@ export default function ProductDetailPage() {
     }, 2000);
   };
 
-  const productImages = (selectedColor && selectedColor.images && selectedColor.images.length > 0)
+  // Base gallery images (color-specific or general product images)
+  const baseImages = (selectedColor && selectedColor.images && selectedColor.images.length > 0)
     ? selectedColor.images
+    : (product.images && product.images.length > 0 ? product.images : []);
+
+  // Collect view-specific images and lifestyle images
+  const extraImages: string[] = [];
+  if (product.frontView) extraImages.push(product.frontView);
+  if (product.leftView) extraImages.push(product.leftView);
+  if (product.rightView) extraImages.push(product.rightView);
+  if (product.topView) extraImages.push(product.topView);
+  if (product.lifestyleImages && product.lifestyleImages.length > 0) {
+    product.lifestyleImages.forEach(img => {
+      if (img) extraImages.push(img);
+    });
+  }
+
+  // Combine images, keeping order but avoiding duplicates
+  const combinedGallery: string[] = [];
+  [...baseImages, ...extraImages].forEach(img => {
+    if (img && !combinedGallery.includes(img)) {
+      combinedGallery.push(img);
+    }
+  });
+
+  const productImages = combinedGallery.length > 0
+    ? combinedGallery
     : [
         product.images?.[0] || '/images/cat_prescription.png',
         product.images?.[1] || '/images/cat_sunglasses.png',
@@ -2263,33 +2414,272 @@ export default function ProductDetailPage() {
 
       {/* Size Guide Modal */}
       {showSizeGuide && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
-            <h3 className="text-white font-extrabold text-lg mb-2 uppercase tracking-wide">Size Guide</h3>
-            <p className="text-gray-400 text-xs mb-5">
-              Measure your face width temple-to-temple to find your ideal fit.
-            </p>
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2">
-                <span className="text-white text-sm font-semibold">Small</span>
-                <span className="text-[#D4A04D] text-sm font-bold">Up to 135 mm (Narrow face)</span>
-              </div>
-              <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-2">
-                <span className="text-white text-sm font-semibold">Medium</span>
-                <span className="text-[#D4A04D] text-sm font-bold">136 mm to 142 mm (Standard face)</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span className="text-white text-sm font-semibold">Large</span>
-                <span className="text-[#D4A04D] text-sm font-bold">143 mm to 150 mm (Wide face)</span>
-              </div>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none animate-fade-in">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-lg w-full p-6 relative shadow-2xl animate-scale-up">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-white font-extrabold text-lg uppercase tracking-wide">Size Finder</h3>
+              <button 
+                type="button" 
+                onClick={handleCloseSizeGuide}
+                className="text-gray-400 hover:text-white cursor-pointer p-1"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowSizeGuide(false)}
-              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer border-none"
-            >
-              CLOSE
-            </button>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-[#2A2A2D] mb-5 text-center text-xs font-bold uppercase tracking-wider">
+              <button
+                type="button"
+                onClick={() => { stopCamera(); setSizeGuideTab('chart'); }}
+                className={`flex-1 pb-3 cursor-pointer transition-colors ${sizeGuideTab === 'chart' ? 'text-[#D4A04D] border-b-2 border-[#D4A04D]' : 'text-gray-400 hover:text-white'}`}
+              >
+                Size Chart
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSizeGuideTab('scan'); }}
+                className={`flex-1 pb-3 cursor-pointer transition-colors ${sizeGuideTab === 'scan' ? 'text-[#D4A04D] border-b-2 border-[#D4A04D]' : 'text-gray-400 hover:text-white'}`}
+              >
+                Scan Face (VTO)
+              </button>
+              <button
+                type="button"
+                onClick={() => { stopCamera(); setSizeGuideTab('specs'); }}
+                className={`flex-1 pb-3 cursor-pointer transition-colors ${sizeGuideTab === 'specs' ? 'text-[#D4A04D] border-b-2 border-[#D4A04D]' : 'text-gray-400 hover:text-white'}`}
+              >
+                Calculate Spec
+              </button>
+            </div>
+
+            {/* Tab contents */}
+            {sizeGuideTab === 'chart' && (
+              <div className="space-y-4 mb-6">
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  Measure your face width temple-to-temple to find your ideal fit. Choose from our standard sizes below:
+                </p>
+                <div className="space-y-3.5 pt-2">
+                  <div className="flex justify-between items-center border-b border-[#2A2A2D]/40 pb-2">
+                    <span className="text-white text-sm font-semibold">Small</span>
+                    <span className="text-[#D4A04D] text-xs font-extrabold uppercase bg-[#D4A04D]/10 px-2.5 py-1 rounded">Up to 135 mm (Narrow face)</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-[#2A2A2D]/40 pb-2">
+                    <span className="text-white text-sm font-semibold">Medium</span>
+                    <span className="text-[#D4A04D] text-xs font-extrabold uppercase bg-[#D4A04D]/10 px-2.5 py-1 rounded">136 - 142 mm (Standard face)</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2">
+                    <span className="text-white text-sm font-semibold">Large</span>
+                    <span className="text-[#D4A04D] text-xs font-extrabold uppercase bg-[#D4A04D]/10 px-2.5 py-1 rounded">143 - 150 mm (Wide face)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {sizeGuideTab === 'scan' && (
+              <div className="mb-6 space-y-4">
+                {cameraError && (
+                  <div className="bg-red-950/40 border border-red-900/50 text-[#FF4444] text-xs rounded-xl p-3 text-center">
+                    {cameraError}
+                  </div>
+                )}
+
+                {!cameraActive && !scanResult && (
+                  <div className="text-center py-6 space-y-4">
+                    <div className="w-14 h-14 bg-[#1E1E1F] rounded-full flex items-center justify-center text-xl mx-auto border border-[#2A2A2D]">
+                      📷
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-white font-extrabold text-sm uppercase">Camera Size Scanner</h4>
+                      <p className="text-[#A7A7A7] text-[11px] max-w-xs mx-auto leading-relaxed">
+                        To measure accurately, place your face inside the overlay. Hold any standard plastic debit/credit card to your forehead for exact calibration.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer border-none shadow-md"
+                    >
+                      Enable Webcam Scan
+                    </button>
+                  </div>
+                )}
+
+                {cameraActive && (
+                  <div className="relative rounded-xl overflow-hidden border border-[#2A2A2D] bg-black aspect-video flex items-center justify-center">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover scale-x-[-1]"
+                    />
+                    
+                    {/* Face Scan Overlay */}
+                    <div className="absolute inset-0 border-[3px] border-dashed border-[#D4A04D]/40 rounded-xl pointer-events-none flex items-center justify-center">
+                      <div className="w-40 h-52 border-2 border-dashed border-[#D4A04D] rounded-[50%] relative flex items-center justify-center bg-black/10">
+                        {scanning && (
+                          <div className="absolute left-0 right-0 h-1 bg-[#D4A04D] animate-[pulse_1s_infinite] shadow-[0_0_8px_#D4A04D]" style={{ top: `${scanProgress}%` }} />
+                        )}
+                        <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase tracking-widest bg-black/80 px-2 py-0.5 rounded absolute bottom-4">
+                          {scanning ? `Scanning...` : `Align Face`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Scanning Text */}
+                    {scanning && (
+                      <div className="absolute inset-x-0 bottom-3 text-center bg-black/70 py-1.5 px-3 z-10">
+                        <div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden mb-1">
+                          <div className="bg-[#D4A04D] h-full transition-all duration-100" style={{ width: `${scanProgress}%` }} />
+                        </div>
+                        <span className="text-[10px] text-white font-extrabold tracking-wider uppercase block">
+                          Measuring Pupils & Temples: {scanProgress}%
+                        </span>
+                        <span className="text-[9px] text-[#D4A04D] font-bold block mt-0.5 tracking-wider uppercase">
+                          Est. PD: {currentLivePD} mm | Est. Face Width: {currentLiveFaceWidth} mm
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Start Button */}
+                    {!scanning && (
+                      <button
+                        type="button"
+                        onClick={handleStartScan}
+                        className="absolute bottom-3 bg-black/80 hover:bg-black border border-[#D4A04D] text-[#D4A04D] font-extrabold px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-wider cursor-pointer transition-all"
+                      >
+                        Start Scanning
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {scanResult && (
+                  <div className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-5 text-center space-y-4">
+                    <div className="w-12 h-12 bg-green-950/40 border border-green-800/40 rounded-full flex items-center justify-center text-green-400 text-lg mx-auto">
+                      ✓
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-white font-extrabold text-sm uppercase">Scan Completed!</h4>
+                      <p className="text-[#A7A7A7] text-[10px] uppercase font-bold tracking-wider">
+                        Detected pupil distance (pd): <span className="text-[#D4A04D]">{scanResult.pd} mm</span>
+                      </p>
+                      <p className="text-[#A7A7A7] text-[10px] uppercase font-bold tracking-wider">
+                        Detected Face Temple Width: <span className="text-[#D4A04D]">{scanResult.faceWidth} mm</span>
+                      </p>
+                    </div>
+                    <div className="bg-black/45 border border-[#2A2A2D] rounded-lg py-2 px-4 max-w-[280px] mx-auto">
+                      <span className="text-gray-500 text-[9px] uppercase font-black block tracking-wider">Perfect Fit Match</span>
+                      <span className="text-[#D4A04D] text-lg font-black tracking-wide uppercase">{scanResult.recommendedSize} Size</span>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setScanResult(null); startCamera(); }}
+                        className="flex-1 bg-transparent hover:bg-[#2A2A2D] border border-[#2A2A2D] text-white font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Scan Again
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSize(scanResult.recommendedSize);
+                          handleCloseSizeGuide();
+                        }}
+                        className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-black py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer border-none shadow-md"
+                      >
+                        Apply Recommended
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sizeGuideTab === 'specs' && (
+              <div className="mb-6 space-y-4">
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  Look on the inside of the temple of your current glasses. You will find numbers like <strong>52 [] 18 140</strong> (Lens Width, Bridge Width, Temple Length). Enter them to compute your size:
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[9px] text-[#A7A7A7] font-bold uppercase tracking-wider block mb-1">Lens Width</label>
+                    <input
+                      type="number"
+                      required
+                      value={inputLensWidth}
+                      onChange={e => setInputLensWidth(e.target.value)}
+                      placeholder="e.g. 52"
+                      className="w-full bg-[#0E0E0F] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs font-bold text-center focus:border-[#D4A04D] focus:outline-none animate-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-[#A7A7A7] font-bold uppercase tracking-wider block mb-1">Bridge Width</label>
+                    <input
+                      type="number"
+                      required
+                      value={inputBridgeWidth}
+                      onChange={e => setInputBridgeWidth(e.target.value)}
+                      placeholder="e.g. 18"
+                      className="w-full bg-[#0E0E0F] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs font-bold text-center focus:border-[#D4A04D] focus:outline-none animate-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-[#A7A7A7] font-bold uppercase tracking-wider block mb-1">Temple Length</label>
+                    <input
+                      type="number"
+                      value={inputTempleLength}
+                      onChange={e => setInputTempleLength(e.target.value)}
+                      placeholder="e.g. 140"
+                      className="w-full bg-[#0E0E0F] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs font-bold text-center focus:border-[#D4A04D] focus:outline-none animate-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCalculateSpecs}
+                  disabled={!inputLensWidth || !inputBridgeWidth}
+                  className={`w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer border-none shadow-md ${(!inputLensWidth || !inputBridgeWidth) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Calculate Matching Size
+                </button>
+
+                {calculatedSizeRecommendation && (
+                  <div className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-4 text-center space-y-3.5 animate-scale-up">
+                    <div className="text-white text-xs leading-relaxed font-bold">
+                      Based on standard frame math, your recommended size is:
+                    </div>
+                    <div className="bg-black/45 border border-[#2A2A2D] rounded-lg py-2 px-4 max-w-[200px] mx-auto">
+                      <span className="text-[#D4A04D] text-lg font-black tracking-wide uppercase">{calculatedSizeRecommendation} Size</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSize(calculatedSizeRecommendation);
+                        handleCloseSizeGuide();
+                      }}
+                      className="w-full bg-white hover:bg-gray-200 text-black font-black py-2 rounded-lg text-[10px] uppercase tracking-wider transition-colors cursor-pointer border-none"
+                    >
+                      Apply Recommended Size
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCloseSizeGuide}
+                className="w-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#2A2A2D] text-white font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

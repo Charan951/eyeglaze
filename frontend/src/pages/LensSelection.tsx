@@ -777,16 +777,21 @@ export default function LensSelection() {
           ) || selectedType?.price || 699);
 
       // Determine power object based on user's choice, not lens type!
-      let powerObj;
+      let powerObj: any;
       if (powerMode === 'enter') {
         powerObj = {
+          name: prescriptionName.trim() || undefined,
           RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) },
           LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) },
           pd: 62,
           addPower: parseFloat(reAdd)
         };
       } else if (powerMode === 'upload') {
-        powerObj = { uploadLater: true, uploadedFileUrl: finalUploadedUrl };
+        powerObj = { 
+          name: prescriptionName.trim() || undefined,
+          uploadLater: true, 
+          uploadedFileUrl: finalUploadedUrl 
+        };
       } else {
         powerObj = { RE: { sph: 0 }, LE: { sph: 0 } };
       }
@@ -799,18 +804,6 @@ export default function LensSelection() {
         fittingCharge: 199,
         power: powerObj
       };
-
-      if (user && powerMode === 'enter') {
-        try {
-          await api.post('/prescriptions', {
-            RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) }),
-            LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) }),
-            pd: 62
-          });
-        } catch (err) {
-          console.error('Failed to save manual prescription to database:', err);
-        }
-      }
 
       if (!user) {
         // Guest user local cart flow
@@ -1396,20 +1389,18 @@ export default function LensSelection() {
                           </div>
                         </div>
 
-                        {user && (
-                          <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
-                            <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
-                              Save this Power as (Optional)
-                            </label>
-                            <input 
-                              type="text" 
-                              placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
-                              value={prescriptionName}
-                              onChange={e => setPrescriptionName(e.target.value)}
-                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                            />
-                          </div>
-                        )}
+                        <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
+                          <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
+                            Save this Power as (Optional)
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
+                            value={prescriptionName}
+                            onChange={e => setPrescriptionName(e.target.value)}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -1446,7 +1437,7 @@ export default function LensSelection() {
                           </div>
                         )}
                         
-                        {user && uploadedFileUrl && (
+                        {uploadedFileUrl && (
                           <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
                             <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
                               Save this Prescription as (Optional)

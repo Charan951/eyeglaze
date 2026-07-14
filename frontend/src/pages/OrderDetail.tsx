@@ -18,6 +18,9 @@ interface IOrderItem {
   lensType?: string;
   lensSubType?: string;
   power?: {
+    name?: string;
+    uploadLater?: boolean;
+    uploadedFileUrl?: string;
     RE?: { sph?: number; cyl?: number; axis?: number };
     LE?: { sph?: number; cyl?: number; axis?: number };
     pd?: number;
@@ -281,7 +284,14 @@ export default function OrderDetailPage() {
                     {/* Prescription Power table (shown only if manual power is entered for the item) */}
                     {isManualPower && item.power && (
                       <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4 space-y-3">
-                        <h5 className="text-white font-bold text-xs uppercase tracking-wider">Prescription Details</h5>
+                        <div className="flex justify-between items-center border-b border-[#2A2A2D]/40 pb-2">
+                          <h5 className="text-white font-bold text-xs uppercase tracking-wider">Prescription Details</h5>
+                          {item.power.name && (
+                            <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">
+                              Label: {item.power.name}
+                            </span>
+                          )}
+                        </div>
                         
                         {/* Mobile View: R/L Cards */}
                         <div className="space-y-3 sm:hidden">
@@ -378,6 +388,30 @@ export default function OrderDetailPage() {
                     {hasPower && !isManualPower && (
                       <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-3 text-xs text-[#D4A04D]">
                         Prescription method: <span className="font-semibold text-white">WhatsApp / Upload Later</span>. Details will be verified before glazing.
+                      </div>
+                    )}
+
+                    {/* Prescription Uploaded Document details */}
+                    {item.power && (item.power.uploadLater || item.power.uploadedFileUrl) && (
+                      <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-3.5 space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[#D4A04D] font-bold">📄 Prescription Document</span>
+                          {item.power.name && (
+                            <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">
+                              Label: {item.power.name}
+                            </span>
+                          )}
+                        </div>
+                        {item.power.uploadedFileUrl && (
+                          <a 
+                            href={item.power.uploadedFileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[#D4A04D] hover:underline block font-semibold text-[11px]"
+                          >
+                            View Uploaded Prescription Document ↗
+                          </a>
+                        )}
                       </div>
                     )}
 

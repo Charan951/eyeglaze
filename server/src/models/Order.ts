@@ -8,6 +8,7 @@ export interface IOrderItem {
   lensType?: string;
   lensSubType?: string;
   power?: {
+    name?: string;
     RE?: { sph?: number; cyl?: number; axis?: number };
     LE?: { sph?: number; cyl?: number; axis?: number };
     pd?: number;
@@ -67,6 +68,7 @@ export interface IOrder extends Document {
 
 const PowerSchema = new Schema(
   {
+    name: String,
     RE: { sph: Number, cyl: Number, axis: Number },
     LE: { sph: Number, cyl: Number, axis: Number },
     pd: Number,

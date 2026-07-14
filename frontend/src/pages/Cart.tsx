@@ -574,10 +574,25 @@ export default function CartPage() {
                   {item.lens && (
                     <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
                   )}
-                  {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                    <div className="text-[#D4A04D] text-xs mt-0.5 font-bold">
-                      Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
-                      {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                  {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                    <div className="text-xs mt-1.5 space-y-1">
+                      {item.power.name && (
+                        <div className="text-gray-400 font-semibold flex items-center gap-1.5">
+                          Label: <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">{item.power.name}</span>
+                        </div>
+                      )}
+                      {item.power.uploadLater ? (
+                        <div className="text-gray-400 font-bold">
+                          Prescription: {item.power.uploadedFileUrl ? '📄 Document Uploaded' : '⏳ Upload Later'}
+                        </div>
+                      ) : (
+                        (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                          <div className="text-[#D4A04D] font-bold">
+                            Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
+                            {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                          </div>
+                        )
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-4 mt-3">

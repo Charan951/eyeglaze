@@ -87,12 +87,10 @@ export default function UserLayout() {
         let genderMatch = false;
         if (p.gender) {
           if (Array.isArray(p.gender)) {
-            genderMatch = p.gender.some((g: string) => g.toLowerCase() === genderVal.toLowerCase() || g.toLowerCase() === 'unisex');
+            genderMatch = p.gender.some((g: string) => g.toLowerCase() === genderVal.toLowerCase());
           } else {
-            genderMatch = p.gender.toLowerCase() === genderVal.toLowerCase() || p.gender.toLowerCase() === 'unisex';
+            genderMatch = p.gender.toLowerCase() === genderVal.toLowerCase();
           }
-        } else {
-          genderMatch = genderVal.toLowerCase() === 'unisex';
         }
         if (!genderMatch) return false;
       }
@@ -237,6 +235,76 @@ export default function UserLayout() {
     }, 200);
   };
 
+  const getDynamicGroupData = (
+    categorySlug: string,
+    genderVal: string,
+    filterOptions: {
+      brands?: string[];
+      size?: string;
+      fallbackPrice: number;
+      label: string;
+      to: string;
+      fallbackImage: string;
+    }
+  ) => {
+    const normalizedCats = [categorySlug.toLowerCase()];
+    if (categorySlug.toLowerCase() === 'prescription' || categorySlug.toLowerCase() === 'eyeglasses') {
+      normalizedCats.push('prescription', 'eyeglasses');
+    } else if (categorySlug.toLowerCase() === 'sunglasses') {
+      normalizedCats.push('sunglasses');
+    }
+
+    const matching = products.filter(p => {
+      const pCat = (p.category || '').toLowerCase();
+      const pCats = (p.categories || []).map((c: any) => String(c).toLowerCase());
+      const catMatch = normalizedCats.includes(pCat) || pCats.some((c: string) => normalizedCats.includes(c));
+      if (!catMatch) return false;
+
+      let genderMatch = false;
+      if (p.gender) {
+        if (Array.isArray(p.gender)) {
+          genderMatch = p.gender.some((g: string) => g.toLowerCase() === genderVal.toLowerCase());
+        } else {
+          genderMatch = p.gender.toLowerCase() === genderVal.toLowerCase();
+        }
+      }
+      if (!genderMatch) return false;
+
+      if (filterOptions.brands) {
+        const pBrand = (p.brand || '').toLowerCase();
+        const brandMatch = filterOptions.brands.some(b => pBrand === b.toLowerCase() || pBrand.includes(b.toLowerCase()));
+        if (!brandMatch) return false;
+      }
+
+      if (filterOptions.size) {
+        const pSize = (p.frameSize || '').toLowerCase();
+        if (pSize !== filterOptions.size.toLowerCase()) return false;
+      }
+
+      return true;
+    });
+
+    let minPrice = filterOptions.fallbackPrice;
+    let image = filterOptions.fallbackImage;
+
+    if (matching.length > 0) {
+      const prices = matching.map(p => p.price?.selling || p.sellingPrice).filter(p => typeof p === 'number' && p > 0);
+      if (prices.length > 0) {
+        minPrice = Math.min(...prices);
+      }
+      const firstWithImage = matching.find(p => p.thumbnail || (p.images && p.images.length > 0));
+      if (firstWithImage) {
+        image = firstWithImage.thumbnail || firstWithImage.images[0];
+      }
+    }
+
+    return {
+      label: filterOptions.label,
+      price: `Starts at ₹${minPrice}`,
+      to: filterOptions.to,
+      image: image
+    };
+  };
 
   const renderMegaMenu = () => {
     if (!activeHover) return null;
@@ -332,19 +400,111 @@ export default function UserLayout() {
           title: 'MEN Eyeglasses',
           badge: 'with FREE lenses',
           image: '/images/men_eyeglasses.png',
-          items: getDynamicProducts('prescription', 'men')
+          items: [
+            getDynamicGroupData('prescription', 'men', {
+              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
+              fallbackPrice: 3000,
+              label: 'John Jacobs | Owndays | Le Petit',
+              to: '/products?category=prescription&gender=men&brand=John%20Jacobs,Owndays,Le%20Petit',
+              fallbackImage: '/images/men_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'men', {
+              brands: ['Vincent Chase', 'Lenskart Air'],
+              fallbackPrice: 1500,
+              label: 'Vincent Chase | Lenskart Air',
+              to: '/products?category=prescription&gender=men&brand=Vincent%20Chase,Lenskart%20Air',
+              fallbackImage: '/images/men_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'men', {
+              brands: ['Hustlr'],
+              fallbackPrice: 500,
+              label: 'Hustlr',
+              to: '/products?category=prescription&gender=men&brand=Hustlr',
+              fallbackImage: '/images/men_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'men', {
+              brands: ['Essentials', 'EyeGlaze'],
+              fallbackPrice: 500,
+              label: 'Essentials',
+              to: '/products?category=prescription&gender=men&brand=Essentials,EyeGlaze',
+              fallbackImage: '/images/men_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'men', {
+              fallbackPrice: 800,
+              label: 'All Brands',
+              to: '/products?category=prescription&gender=men',
+              fallbackImage: '/images/men_eyeglasses.png'
+            })
+          ]
         },
         {
           title: 'WOMEN Eyeglasses',
           badge: 'with FREE lenses',
           image: '/images/women_eyeglasses.png',
-          items: getDynamicProducts('prescription', 'women')
+          items: [
+            getDynamicGroupData('prescription', 'women', {
+              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
+              fallbackPrice: 3000,
+              label: 'John Jacobs | Owndays | Le Petit',
+              to: '/products?category=prescription&gender=women&brand=John%20Jacobs,Owndays,Le%20Petit',
+              fallbackImage: '/images/women_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'women', {
+              brands: ['Vincent Chase', 'Lenskart Air'],
+              fallbackPrice: 1500,
+              label: 'Vincent Chase | Lenskart Air',
+              to: '/products?category=prescription&gender=women&brand=Vincent%20Chase,Lenskart%20Air',
+              fallbackImage: '/images/women_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'women', {
+              brands: ['Hustlr'],
+              fallbackPrice: 500,
+              label: 'Hustlr',
+              to: '/products?category=prescription&gender=women&brand=Hustlr',
+              fallbackImage: '/images/women_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'women', {
+              brands: ['Essentials', 'EyeGlaze'],
+              fallbackPrice: 500,
+              label: 'Essentials',
+              to: '/products?category=prescription&gender=women&brand=Essentials,EyeGlaze',
+              fallbackImage: '/images/women_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'women', {
+              fallbackPrice: 800,
+              label: 'All Brands',
+              to: '/products?category=prescription&gender=women',
+              fallbackImage: '/images/women_eyeglasses.png'
+            })
+          ]
         },
         {
           title: 'KIDS Eyeglasses',
           badge: 'with FREE lenses',
           image: '/images/kids_eyeglasses.png',
-          items: getDynamicProducts('prescription', 'kids')
+          items: [
+            getDynamicGroupData('prescription', 'kids', {
+              size: 'Small',
+              fallbackPrice: 800,
+              label: 'Juniors | 6 to 8 years',
+              to: '/products?category=prescription&gender=kids&size=Small',
+              fallbackImage: '/images/kids_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'kids', {
+              size: 'Medium',
+              fallbackPrice: 500,
+              label: 'Tweens | 8 to 10 years',
+              to: '/products?category=prescription&gender=kids&size=Medium',
+              fallbackImage: '/images/kids_eyeglasses.png'
+            }),
+            getDynamicGroupData('prescription', 'kids', {
+              size: 'Large',
+              fallbackPrice: 1500,
+              label: 'Teens | 10 to 16 years',
+              to: '/products?category=prescription&gender=kids&size=Large',
+              fallbackImage: '/images/kids_eyeglasses.png'
+            })
+          ]
         }
       ];
     } else if (isSunglasses) {
@@ -353,19 +513,111 @@ export default function UserLayout() {
           title: 'MEN Sunglasses',
           badge: 'Polarized with UV',
           image: '/images/men_sunglasses.png',
-          items: getDynamicProducts('sunglasses', 'men')
+          items: [
+            getDynamicGroupData('sunglasses', 'men', {
+              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
+              fallbackPrice: 3000,
+              label: 'John Jacobs | Owndays | Le Petit',
+              to: '/products?category=sunglasses&gender=men&brand=John%20Jacobs,Owndays,Le%20Petit',
+              fallbackImage: '/images/men_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'men', {
+              brands: ['Vincent Chase', 'Lenskart Air'],
+              fallbackPrice: 1500,
+              label: 'Vincent Chase | Lenskart Air',
+              to: '/products?category=sunglasses&gender=men&brand=Vincent%20Chase,Lenskart%20Air',
+              fallbackImage: '/images/men_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'men', {
+              brands: ['Hustlr'],
+              fallbackPrice: 500,
+              label: 'Hustlr',
+              to: '/products?category=sunglasses&gender=men&brand=Hustlr',
+              fallbackImage: '/images/men_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'men', {
+              brands: ['Essentials', 'EyeGlaze'],
+              fallbackPrice: 500,
+              label: 'Essentials',
+              to: '/products?category=sunglasses&gender=men&brand=Essentials,EyeGlaze',
+              fallbackImage: '/images/men_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'men', {
+              fallbackPrice: 800,
+              label: 'All Brands',
+              to: '/products?category=sunglasses&gender=men',
+              fallbackImage: '/images/men_sunglasses.png'
+            })
+          ]
         },
         {
           title: 'WOMEN Sunglasses',
           badge: 'Polarized with UV',
           image: '/images/women_sunglasses.png',
-          items: getDynamicProducts('sunglasses', 'women')
+          items: [
+            getDynamicGroupData('sunglasses', 'women', {
+              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
+              fallbackPrice: 3000,
+              label: 'John Jacobs | Owndays | Le Petit',
+              to: '/products?category=sunglasses&gender=women&brand=John%20Jacobs,Owndays,Le%20Petit',
+              fallbackImage: '/images/women_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'women', {
+              brands: ['Vincent Chase', 'Lenskart Air'],
+              fallbackPrice: 1500,
+              label: 'Vincent Chase | Lenskart Air',
+              to: '/products?category=sunglasses&gender=women&brand=Vincent%20Chase,Lenskart%20Air',
+              fallbackImage: '/images/women_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'women', {
+              brands: ['Hustlr'],
+              fallbackPrice: 500,
+              label: 'Hustlr',
+              to: '/products?category=sunglasses&gender=women&brand=Hustlr',
+              fallbackImage: '/images/women_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'women', {
+              brands: ['Essentials', 'EyeGlaze'],
+              fallbackPrice: 500,
+              label: 'Essentials',
+              to: '/products?category=sunglasses&gender=women&brand=Essentials,EyeGlaze',
+              fallbackImage: '/images/women_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'women', {
+              fallbackPrice: 800,
+              label: 'All Brands',
+              to: '/products?category=sunglasses&gender=women',
+              fallbackImage: '/images/women_sunglasses.png'
+            })
+          ]
         },
         {
           title: 'KIDS Sunglasses',
           badge: 'Polarized with UV',
           image: '/images/kids_sunglasses.png',
-          items: getDynamicProducts('sunglasses', 'kids')
+          items: [
+            getDynamicGroupData('sunglasses', 'kids', {
+              size: 'Small',
+              fallbackPrice: 800,
+              label: 'Juniors | 6 to 8 years',
+              to: '/products?category=sunglasses&gender=kids&size=Small',
+              fallbackImage: '/images/kids_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'kids', {
+              size: 'Medium',
+              fallbackPrice: 500,
+              label: 'Tweens | 8 to 10 years',
+              to: '/products?category=sunglasses&gender=kids&size=Medium',
+              fallbackImage: '/images/kids_sunglasses.png'
+            }),
+            getDynamicGroupData('sunglasses', 'kids', {
+              size: 'Large',
+              fallbackPrice: 1500,
+              label: 'Teens | 10 to 16 years',
+              to: '/products?category=sunglasses&gender=kids&size=Large',
+              fallbackImage: '/images/kids_sunglasses.png'
+            })
+          ]
         }
       ];
     } else if (isContacts) {
@@ -483,6 +735,7 @@ export default function UserLayout() {
                         <Link
                           key={iIdx}
                           to={item.to}
+                          onClick={() => setActiveHover(null)}
                           className="flex items-center gap-3.5 p-2 rounded-xl bg-zinc-950/20 hover:bg-zinc-800/45 border border-transparent hover:border-zinc-850 transition-all duration-300 group/item relative overflow-hidden"
                         >
                           {/* Left: Thumbnail */}
@@ -511,7 +764,7 @@ export default function UserLayout() {
 
                           {/* Right: pointer chevron arrow */}
                           <span className="text-[10px] shrink-0 transform group-hover/item:translate-x-0.5 transition-all text-gray-500 group-hover/item:text-[#D4A04D] font-bold p-1 bg-zinc-900/50 group-hover/item:bg-[#D4A04D]/10 rounded-lg">
-                            →
+                            &gt;
                           </span>
                         </Link>
                       );
@@ -528,11 +781,12 @@ export default function UserLayout() {
 
 
 
-  // Close menus when route/pathname changes
+  // Close menus when route/pathname or search parameters change
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsProfileDropdownOpen(false);
-  }, [location.pathname]);
+    setActiveHover(null);
+  }, [location.pathname, location.search]);
 
   // Lock body scroll on mobile when menus are open
   useEffect(() => {

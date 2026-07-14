@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPower {
+  name?: string;
   RE?: { sph?: number; cyl?: number; axis?: number };
   LE?: { sph?: number; cyl?: number; axis?: number };
   pd?: number;
@@ -34,6 +35,7 @@ export interface ICart extends Document {
 
 const PowerSchema = new Schema(
   {
+    name: String,
     RE: { sph: Number, cyl: Number, axis: Number },
     LE: { sph: Number, cyl: Number, axis: Number },
     pd: Number,

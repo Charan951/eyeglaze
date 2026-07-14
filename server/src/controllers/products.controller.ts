@@ -167,9 +167,6 @@ export async function getProducts(req: Request, res: Response) {
     const genders = parseCommaParam(req.query.gender);
     if (genders) {
       const queryGenders = [...genders];
-      if (genders.some(g => g.toLowerCase() === 'men' || g.toLowerCase() === 'women')) {
-        queryGenders.push('unisex');
-      }
       const genderRegexes = queryGenders.map(g => new RegExp(`^${g}$`, 'i'));
       andConditions.push({ gender: { $in: genderRegexes } });
     }

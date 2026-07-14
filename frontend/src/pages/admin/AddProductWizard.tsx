@@ -49,7 +49,7 @@ const wizardSchema = z.object({
   currency: z.string().default('INR'),
 
   // Member Pricing
-  enableMemberPricing: z.boolean().default(false),
+  enableMemberPricing: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   memberPrices: z.object({
     regularPrice: z.number().optional(),
     goldMemberPrice: z.number().optional(),
@@ -60,7 +60,7 @@ const wizardSchema = z.object({
     cashbackPercent: z.number().default(0),
     rewardPoints: z.number().default(0),
   }).optional(),
-  memberExclusiveProduct: z.boolean().default(false),
+  memberExclusiveProduct: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
 
   // Specifications
   frameType: z.enum(['Full Rim', 'Half Rim', 'Rimless']).default('Full Rim'),
@@ -288,7 +288,7 @@ const defaultValues: WizardFormData = {
   categoryId: '',
   subCategory: '',
   subCategoryId: '',
-  gender: ['unisex'],
+  gender: ['men', 'women'],
   shape: [],
   shortDescription: '',
   longDescription: '',
@@ -617,7 +617,7 @@ export default function AddProductWizard() {
             categoryId: p.categoryId || '',
             subCategory: p.subCategory || '',
             subCategoryId: p.subCategoryId || '',
-            gender: p.gender ? (Array.isArray(p.gender) ? p.gender : [p.gender]) : ['unisex'],
+            gender: p.gender ? (Array.isArray(p.gender) ? p.gender : [p.gender]) : ['men', 'women'],
             shape: p.shape ? (Array.isArray(p.shape) ? p.shape : [p.shape]) : [],
             shortDescription: p.shortDescription || '',
             longDescription: p.longDescription || '',
@@ -1728,8 +1728,7 @@ export default function AddProductWizard() {
                     options={[
                       { value: 'men', label: 'Male' },
                       { value: 'women', label: 'Female' },
-                      { value: 'kids', label: 'Kids' },
-                      { value: 'unisex', label: 'Unisex' }
+                      { value: 'kids', label: 'Kids' }
                     ]}
                     selectedValues={formValues.gender || []}
                     onChange={(values) => setValue('gender', values)}
@@ -2124,83 +2123,7 @@ export default function AddProductWizard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* GST */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">GST %</label>
-                  <input
-                    type="number"
-                    {...register('gstPercent', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold text-yellow-400"
-                  />
-                </div>
 
-                {/* Discount Type */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Discount Type</label>
-                  <select
-                    {...register('discountType')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  >
-                    <option value="None">None</option>
-                    <option value="Percentage">Percentage</option>
-                    <option value="Fixed Amount">Fixed Amount</option>
-                  </select>
-                </div>
-
-                {/* Discount Value */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Discount Value</label>
-                  <input
-                    type="number"
-                    {...register('discountValue', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                  />
-                </div>
-
-                {/* Profit Margin (Auto Calculated) */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Profit Margin</label>
-                  <div className="w-full bg-[#18181A] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-sm font-extrabold text-green-400">
-                    {profitMargin}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Preview Calculation */}
-              <div className="bg-[#18181A] border border-[#2A2A2D]/40 p-5 rounded-2xl space-y-3 max-w-sm">
-                <h4 className="text-white text-[10px] font-bold uppercase tracking-wider text-[#D4A04D] border-b border-[#2A2A2D]/60 pb-1.5">Preview Calculation</h4>
-                <div className="space-y-2 text-xs font-semibold text-gray-300">
-                  <div className="flex justify-between">
-                    <span>MRP:</span>
-                    <span className="text-white font-bold">₹{mrpValue}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Discount ({discountTypeValue}):</span>
-                    <span className="text-yellow-500 font-bold">-₹{finalCalculatedDiscount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST Tax ({watch('gstPercent') || 18}%):</span>
-                    <span className="text-white">₹{taxValue}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-[#2A2A2D] pt-2 text-sm font-black text-white">
-                    <span>Final Price (Selling Price):</span>
-                    <span className="text-[#D4A04D]">₹{calculatedPayable}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tax inclusive & Currency options */}
-              <div className="flex gap-6 items-center">
-                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                  <input type="checkbox" {...register('taxInclusive')} className="w-4 h-4 accent-[#D4A04D]" />
-                  <span>Prices are Inclusive of Tax (GST)</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-[10px] font-bold uppercase">Currency:</span>
-                  <span className="text-white text-xs font-bold font-serif">₹ (INR)</span>
-                </div>
-              </div>
 
               {/* MEMBERSHIP PRICING TOGGLE */}
               <div className="border-t border-[#2A2A2D]/60 pt-6 space-y-4">

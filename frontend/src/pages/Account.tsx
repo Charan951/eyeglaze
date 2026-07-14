@@ -113,11 +113,46 @@ export default function AccountPage() {
           contact: user.phone || user.mobile || '',
         },
         theme: {
-          color: '#D4A04D',
+          color: '#2563EB',
         },
         modal: {
           ondismiss: function() {
             setIsProcessing(false);
+          }
+        },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: 'UPI / Google Pay / PhonePe',
+                instruments: [
+                  {
+                    method: 'upi',
+                    flows: ['intent', 'collect', 'qr']
+                  }
+                ]
+              },
+              card: {
+                name: 'Credit / Debit Cards',
+                instruments: [
+                  {
+                    method: 'card'
+                  }
+                ]
+              },
+              wallet: {
+                name: 'Wallets (Paytm / PhonePe)',
+                instruments: [
+                  {
+                    method: 'wallet'
+                  }
+                ]
+              }
+            },
+            sequence: ['block.upi', 'block.card', 'block.wallet'],
+            preferences: {
+              show_default_blocks: false
+            }
           }
         }
       };

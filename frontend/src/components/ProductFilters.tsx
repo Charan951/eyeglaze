@@ -15,7 +15,6 @@ const GENDERS = [
   { value: 'men', label: 'Men' },
   { value: 'women', label: 'Women' },
   { value: 'kids', label: 'Kids' },
-  { value: 'unisex', label: 'Unisex' },
 ];
 
 const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];

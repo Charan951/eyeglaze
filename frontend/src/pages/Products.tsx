@@ -549,8 +549,7 @@ export default function ProductsPage() {
                   {[
                     { value: 'men', label: 'Men' },
                     { value: 'women', label: 'Women' },
-                    { value: 'kids', label: 'Kids' },
-                    { value: 'unisex', label: 'Unisex' }
+                    { value: 'kids', label: 'Kids' }
                   ].map(g => {
                     const activeGenders = searchParams.get('gender')?.split(',') || [];
                     const isChecked = activeGenders.includes(g.value);
