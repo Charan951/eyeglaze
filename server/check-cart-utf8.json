@@ -1,0 +1,1372 @@
+{
+  "carts": [
+    {
+      "_id": "6a30ff3e8937587ee68b4c9c",
+      "user": "6a30f027dc02afc2e5588f6f",
+      "items": [
+        {
+          "product": "6a3a009a9978ffdf225653fc",
+          "qty": 2,
+          "color": "Black Silver",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC",
+          "lensPrice": 699,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4b729c33090d2d84af09d1"
+        },
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 5,
+          "color": "Black",
+          "lensType": "Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Premium Clear Lens",
+          "lensPrice": 1500,
+          "framePrice": 999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4bf8efe4191f72c3601638"
+        }
+      ],
+      "updatedAt": "2026-07-10T07:37:43.117Z",
+      "__v": 21
+    },
+    {
+      "_id": "6a3231d0ea39bc8b5658dead",
+      "user": "6a32319fea39bc8b5658de20",
+      "items": [],
+      "updatedAt": "2026-07-14T12:10:50.696Z",
+      "__v": 108
+    },
+    {
+      "_id": "6a33cfde8840ead07182a329",
+      "user": "6a33cfdd8840ead07182a321",
+      "items": [
+        {
+          "product": "6a30f027dc02afc2e5588f6e",
+          "qty": 2,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a33cfde8840ead07182a32a"
+        },
+        {
+          "product": "6a3208079978ffdf225576b5",
+          "qty": 1,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a33cfde8840ead07182a333"
+        }
+      ],
+      "updatedAt": "2026-06-18T11:00:46.265Z",
+      "__v": 1
+    },
+    {
+      "_id": "6a36273b2d9204c0266d7692",
+      "user": "6a3625da2d9204c0266d7546",
+      "items": [],
+      "updatedAt": "2026-06-20T05:39:26.148Z",
+      "__v": 2
+    },
+    {
+      "_id": "6a36955f2d9204c0266d7c39",
+      "user": "6a36390d2d9204c0266d7983",
+      "items": [
+        {
+          "product": "6a3394b352e2d68b6d9fbf92",
+          "qty": 1,
+          "color": "",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HC (Hard Coated)",
+          "lensPrice": 799,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a36955f2d9204c0266d7c3a"
+        }
+      ],
+      "updatedAt": "2026-06-20T13:27:59.938Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a37ca0a2d9204c0266d8131",
+      "user": "6a34f1c721f6573798769419",
+      "items": [
+        {
+          "product": "6a3394a6e4c14265c33f8f42",
+          "qty": 1,
+          "color": "",
+          "lensType": "Photochromic",
+          "lensSubType": "Standard Photochromic",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a37ca0a2d9204c0266d8132"
+        },
+        {
+          "product": "6a36cd9e9978ffdf2255c815",
+          "qty": 1,
+          "color": "Rose Gold",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a37ca662d9204c0266d81b0"
+        },
+        {
+          "product": "6a37ec46bcd276a587ebf64e",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "Blue Cut",
+          "lensSubType": "Standard Blue Cut",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "_id": "6a3857da2d9204c0266d8205"
+        },
+        {
+          "product": "6a30f027dc02afc2e5588f6e",
+          "qty": 3,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": 0,
+              "axis": 0
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": 0,
+              "axis": 0
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3b79357055b5756045b270"
+        }
+      ],
+      "updatedAt": "2026-06-24T10:22:04.901Z",
+      "__v": 3
+    },
+    {
+      "_id": "6a3a98c27055b5756045af45",
+      "user": "6a3a984d7055b5756045aee8",
+      "items": [
+        {
+          "product": "6a30f027dc02afc2e5588f6e",
+          "qty": 1,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3a98c27055b5756045af46"
+        }
+      ],
+      "updatedAt": "2026-06-23T14:31:30.638Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a3ba46d5dcce3129bbec7f7",
+      "user": "6a3ba3677055b5756045b2e4",
+      "items": [
+        {
+          "product": "6a3a009a9978ffdf22565400",
+          "qty": 1,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3ba46d5dcce3129bbec7f8"
+        },
+        {
+          "product": "6a30f027dc02afc2e5588f6e",
+          "qty": 1,
+          "color": "Matte Black",
+          "lensType": "Single Vision",
+          "lensSubType": "Standard Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "HMC + Blue Cut",
+          "lensPrice": 999,
+          "framePrice": 1,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3baac55dcce3129bbed03d"
+        }
+      ],
+      "updatedAt": "2026-06-24T10:00:37.925Z",
+      "__v": 1
+    },
+    {
+      "_id": "6a3bb1575dcce3129bbed1b9",
+      "user": "6a3bb1575dcce3129bbed1a0",
+      "items": [
+        {
+          "product": "6a3a5902b18c52d2d598b563",
+          "qty": 1,
+          "color": "Matte Black",
+          "lensType": "With Power",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Essential Lens",
+          "lensPrice": 1000,
+          "framePrice": 800,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3bb1575dcce3129bbed1ba"
+        },
+        {
+          "product": "6a3a5902b18c52d2d598b563",
+          "qty": 1,
+          "color": "",
+          "lensType": "With Power",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Essential Lens",
+          "lensPrice": 1000,
+          "framePrice": 800,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3bb16d5dcce3129bbed237"
+        },
+        {
+          "product": "6a3a5902b18c52d2d598b563",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "With Power",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Essential Lens",
+          "lensPrice": 1000,
+          "framePrice": 800,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a3e29526a716d0329109776"
+        },
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "Photochromic",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Standard Coating",
+          "lensPrice": 999,
+          "framePrice": 999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4435927bd7a566efe85f5c"
+        }
+      ],
+      "updatedAt": "2026-06-30T21:30:58.465Z",
+      "__v": 3
+    },
+    {
+      "_id": "6a462acc357933da0bdce227",
+      "user": "6a3fe7e73e885d972215ffc3",
+      "items": [
+        {
+          "product": "6a3bf41b7c0b20d5543b6086",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "Blue Cut",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Standard Coating",
+          "lensPrice": 999,
+          "framePrice": 999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a462acc357933da0bdce228"
+        }
+      ],
+      "updatedAt": "2026-07-02T09:09:32.382Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a4c0fb4e4191f72c3601e88",
+      "user": "6a4c0c1ee4191f72c3601c57",
+      "items": [
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 1,
+          "color": "Black",
+          "framePrice": 999,
+          "fittingCharge": 0,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4c0fb4e4191f72c3601e89"
+        },
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 1,
+          "color": "Black",
+          "framePrice": 999,
+          "fittingCharge": 0,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4c0fb5e4191f72c3601ea9"
+        }
+      ],
+      "updatedAt": "2026-07-06T20:27:33.896Z",
+      "__v": 1
+    },
+    {
+      "_id": "6a4e6c88e4191f72c360377b",
+      "user": "6a4e6c88e4191f72c360375f",
+      "items": [
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Premium Clear Lens",
+          "lensPrice": 1500,
+          "framePrice": 999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a4e6c88e4191f72c360377c"
+        }
+      ],
+      "updatedAt": "2026-07-08T15:28:08.338Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a5203a5f7220ea4c7e92c3f",
+      "user": "6a5203a4f7220ea4c7e92c23",
+      "items": [
+        {
+          "product": "6a3e52175f41878c6eed382b",
+          "qty": 2,
+          "color": "Black",
+          "lensType": "Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Premium Clear Lens",
+          "lensPrice": 1500,
+          "framePrice": 999,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a54c8c7c82238c626e0124c"
+        }
+      ],
+      "updatedAt": "2026-07-13T11:16:54.827Z",
+      "__v": 10
+    },
+    {
+      "_id": "6a55137335f05834a2dc3c37",
+      "user": "6a55137335f05834a2dc3c1b",
+      "items": [
+        {
+          "product": "6a5502f45a26c8d4ab6b46bc",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "POWER",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "CR-39 Power Lens",
+          "lensPrice": 999,
+          "framePrice": 700,
+          "fittingCharge": 199,
+          "deliveryCharge": 0,
+          "appliedOffers": [],
+          "_id": "6a5516aa89e9cf0004d0cafd"
+        },
+        {
+          "product": "6a5502f45a26c8d4ab6b46bc",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "POWER",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "CR-39 Power Lens",
+          "lensPrice": 999,
+          "framePrice": 700,
+          "fittingCharge": 99,
+          "deliveryCharge": 0,
+          "appliedOffers": [],
+          "_id": "6a55178f89e9cf0004d0d237"
+        }
+      ],
+      "updatedAt": "2026-07-13T16:51:27.776Z",
+      "__v": 3
+    },
+    {
+      "_id": "6a55e193185c91ccaac5d06c",
+      "user": "6a55e193185c91ccaac5d052",
+      "items": [],
+      "updatedAt": "2026-07-14T07:48:08.955Z",
+      "__v": 1
+    },
+    {
+      "_id": "6a55f9e0dc1213a53aa02ca9",
+      "user": "6a55f950dc1213a53aa02c0f",
+      "items": [
+        {
+          "product": "6a55decbf925a3fa50a45667",
+          "qty": 1,
+          "color": "Black",
+          "lensType": "Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "Polycarbonate",
+          "lensPrice": 1299,
+          "framePrice": 1599,
+          "fittingCharge": 99,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a55fa98dc1213a53aa02d55"
+        },
+        {
+          "product": "6a55d89c6cab34fab5811d39",
+          "qty": 1,
+          "color": "",
+          "lensType": "Single Vision",
+          "power": {
+            "RE": {
+              "sph": -1.25,
+              "cyl": -0.5,
+              "axis": 180
+            },
+            "LE": {
+              "sph": -1.75,
+              "cyl": -0.75,
+              "axis": 170
+            },
+            "pd": 62
+          },
+          "lensQuality": "CR-39 Standard",
+          "lensPrice": 1500,
+          "framePrice": 2499,
+          "fittingCharge": 199,
+          "deliveryCharge": 99,
+          "appliedOffers": [],
+          "_id": "6a55faf2dc1213a53aa02e21"
+        }
+      ],
+      "updatedAt": "2026-07-14T09:10:33.817Z",
+      "__v": 7
+    }
+  ],
+  "products": [
+    {
+      "_id": "6a30f027dc02afc2e5588f6e",
+      "__v": 0,
+      "availableSizes": [],
+      "buy1Get1": false,
+      "categories": [],
+      "category": "prescription",
+      "coatingPricing": [],
+      "colors": [
+        {
+          "name": "Matte Black",
+          "hex": "#131314",
+          "images": [
+            "/images/cat_prescription.png",
+            "/images/cat_prescription.png",
+            "/images/cat_prescription.png",
+            "/images/cat_prescription.png",
+            "/images/hero_model.png"
+          ],
+          "stock": 50,
+          "_id": "6a565061a2239e2dd01eef77"
+        },
+        {
+          "name": "Black Gold",
+          "hex": "#D4A04D",
+          "images": [
+            "/images/cat_blue_light.png",
+            "/images/cat_blue_light.png",
+            "/images/cat_blue_light.png",
+            "/images/cat_blue_light.png",
+            "/images/hero_model.png"
+          ],
+          "stock": 30,
+          "_id": "6a565061a2239e2dd01eef78"
+        },
+        {
+          "name": "Dark Brown",
+          "hex": "#5C3D2E",
+          "images": [
+            "/images/cat_sunglasses.png",
+            "/images/cat_sunglasses.png",
+            "/images/cat_sunglasses.png",
+            "/images/cat_sunglasses.png",
+            "/images/hero_model.png"
+          ],
+          "stock": 20,
+          "_id": "6a565061a2239e2dd01eef79"
+        }
+      ],
+      "compatible": {
+        "prescription": true,
+        "bluecut": true,
+        "zeropower": true,
+        "progressive": true
+      },
+      "compatibleLensTypes": [],
+      "contactPowers": [],
+      "costPrice": 0,
+      "couponEligible": true,
+      "createdAt": "2026-07-14T06:35:22.687Z",
+      "currency": "INR",
+      "currentVersion": 1,
+      "deliveryInfo": "5-7 Days Delivery",
+      "description": "Lightweight TR90 premium square frames with a modern matte finish.",
+      "discountType": "None",
+      "discountValue": 0,
+      "dynamicLensPricing": [],
+      "eligibleForGold": true,
+      "eligibleForPlatinum": true,
+      "enableMemberPricing": false,
+      "estimatedDeliveryDays": 5,
+      "exclusiveProduct": false,
+      "faceShapeCompatibility": [],
+      "faceShapes": [],
+      "familySharing": false,
+      "fragile": false,
+      "frame": {
+        "type": "Square",
+        "material": "TR90 Premium",
+        "width": 140,
+        "lensWidth": 54,
+        "bridgeWidth": 18,
+        "templeLength": 145,
+        "featureTags": [
+          "Lightweight",
+          "Flexible",
+          "Skin Friendly",
+          "Durable"
+        ]
+      },
+      "frameType": "Square",
+      "gender": [
+        "unisex"
+      ],
+      "gstPercent": 18,
+      "images": [
+        "/images/cat_prescription.png"
+      ],
+      "isActive": true,
+      "isBestseller": true,
+      "isPremium": false,
+      "lensCompatibility": [],
+      "lensTypes": [],
+      "lifestyleImages": [],
+      "material": "TR90 Premium",
+      "memberExclusiveProduct": false,
+      "memberPrices": {
+        "cashbackPercent": 0,
+        "rewardPoints": 0
+      },
+      "meta": {
+        "seoTitle": "EG-2021 Matte Square Frame - EyeGlaze",
+        "seoDescription": "Premium TR90 matte square eyeglasses frame at ₹1. Available in 3 colors."
+      },
+      "name": "Matte Square Frame",
+      "offerBadges": [],
+      "oneRupeeFrameOffer": false,
+      "oneRupeeOfferConditions": {
+        "membershipRequired": false,
+        "minCartValue": 0,
+        "premiumLensRequired": false
+      },
+      "price": {
+        "original": 999,
+        "selling": 1
+      },
+      "profitMargin": 0,
+      "rating": 4.7,
+      "readingPowers": [],
+      "returnPolicy": "14-Day Returnable",
+      "reviewCount": 198,
+      "rewardEligible": true,
+      "sellAsFrame": true,
+      "sellWithLens": true,
+      "shape": [],
+      "sizeMeasurements": [],
+      "sku": "EG-2021",
+      "soldCount": 500,
+      "sortOrder": 0,
+      "status": "Draft",
+      "tags": [
+        "square",
+        "matte",
+        "tr90",
+        "lightweight",
+        "prescription"
+      ],
+      "taxInclusive": true,
+      "thicknessPricing": [],
+      "threeSixtyImages": [],
+      "updatedAt": "2026-07-14T15:06:09.938Z",
+      "warehouseInventory": [],
+      "weeklyBought": 0
+    },
+    {
+      "_id": "6a55d89c6cab34fab5811d39",
+      "sku": "EG-LA-TITA-ROUND",
+      "__v": 0,
+      "availableSizes": [],
+      "brand": "Lenskart Air",
+      "brandId": "6a3390159978ffdf22557ef8",
+      "buy1Get1": false,
+      "categories": [],
+      "category": "eyeglasses",
+      "categoryId": "6a55d89b6cab34fab5811d22",
+      "coatingPricing": [],
+      "colors": [],
+      "compatible": {
+        "prescription": true,
+        "bluecut": true,
+        "zeropower": true,
+        "progressive": true
+      },
+      "compatibleLensTypes": [],
+      "contactPowers": [],
+      "costPrice": 900,
+      "couponEligible": true,
+      "createdAt": "2026-07-14T06:35:09.355Z",
+      "currency": "INR",
+      "currentVersion": 1,
+      "deliveryInfo": "5-7 Days Delivery",
+      "description": "Ultralight pure titanium round eyeglasses with corrosion-resistant premium finishing.",
+      "discountType": "None",
+      "discountValue": 0,
+      "dynamicLensPricing": [],
+      "eligibleForGold": true,
+      "eligibleForPlatinum": true,
+      "enableMemberPricing": false,
+      "estimatedDeliveryDays": 5,
+      "exclusiveProduct": false,
+      "faceShapeCompatibility": [],
+      "faceShapes": [
+        "Square",
+        "Oval",
+        "Rectangle"
+      ],
+      "familySharing": false,
+      "fragile": false,
+      "frame": {
+        "type": "Round",
+        "material": "Titanium",
+        "width": 136,
+        "lensWidth": 49,
+        "bridgeWidth": 20,
+        "templeLength": 145,
+        "featureTags": [
+          "Ultra Light",
+          "Corrosion Free",
+          "Pure Titanium"
+        ]
+      },
+      "frameColor": "Rose Gold",
+      "frameSize": "Medium",
+      "frameType": "Full Rim",
+      "gender": [
+        "men",
+        "women"
+      ],
+      "gstPercent": 18,
+      "images": [
+        "/images/women_eyeglasses.png"
+      ],
+      "isActive": true,
+      "isBestseller": false,
+      "isPremium": false,
+      "lensCompatibility": [
+        "Single Vision",
+        "Progressive",
+        "Zero Power"
+      ],
+      "lensTypes": [],
+      "lifestyleImages": [],
+      "material": "Titanium",
+      "memberExclusiveProduct": false,
+      "memberPrices": {
+        "cashbackPercent": 0,
+        "rewardPoints": 0
+      },
+      "mrp": 3499,
+      "name": "Lenskart Air Titanium Round Eyeglasses",
+      "offerBadges": [],
+      "oneRupeeFrameOffer": false,
+      "oneRupeeOfferConditions": {
+        "membershipRequired": false,
+        "minCartValue": 0,
+        "premiumLensRequired": false
+      },
+      "price": {
+        "original": 3499,
+        "selling": 2499
+      },
+      "profitMargin": 0,
+      "rating": 4.9,
+      "readingPowers": [],
+      "returnPolicy": "14-Day Returnable",
+      "reviewCount": 37,
+      "rewardEligible": true,
+      "sellAsFrame": true,
+      "sellWithLens": true,
+      "sellingPrice": 2499,
+      "shape": [
+        "Round"
+      ],
+      "sizeMeasurements": [],
+      "slug": "lenskart-air-titanium-round-eyeglasses",
+      "soldCount": 120,
+      "sortOrder": 0,
+      "status": "Active",
+      "subCategory": "Round",
+      "subCategoryId": "6a55d89b6cab34fab5811d28",
+      "tags": [
+        "eyeglasses",
+        "round",
+        "titanium",
+        "lenskart air",
+        "lightweight"
+      ],
+      "taxInclusive": true,
+      "thicknessPricing": [],
+      "threeSixtyImages": [],
+      "updatedAt": "2026-07-14T06:35:09.355Z",
+      "warehouseInventory": [
+        {
+          "warehouseId": "6a3390159978ffdf22557f0b",
+          "warehouseName": "Mumbai Main Warehouse",
+          "availableStock": 75,
+          "reservedStock": 0,
+          "safetyStock": 5,
+          "lowStockAlert": 10,
+          "reorderLevel": 15,
+          "_id": "6a55d89d5fa787ea8040180e"
+        }
+      ],
+      "weeklyBought": 0,
+      "weight": "8g"
+    },
+    {
+      "_id": "6a55decbf925a3fa50a45667",
+      "sku": "EG-VIKAS-3326",
+      "name": "vikas ",
+      "frame": {
+        "type": "Rectangle",
+        "material": "TR90",
+        "width": 138,
+        "lensWidth": 50,
+        "bridgeWidth": 18,
+        "templeLength": 140,
+        "featureTags": [
+          "Lightweight",
+          "Flexible",
+          "Skin Friendly",
+          "Durable"
+        ]
+      },
+      "frameType": "Full Rim",
+      "material": "TR90",
+      "brand": "eyeglaze",
+      "shape": [
+        "Square",
+        "Round"
+      ],
+      "frameSize": "Medium",
+      "faceShapes": [],
+      "isPremium": false,
+      "colors": [
+        {
+          "name": "Black",
+          "hex": "#131314",
+          "images": [],
+          "stock": 50,
+          "_id": "6a5602180042718b2e4dcb6a"
+        },
+        {
+          "name": "red",
+          "hex": "#DC2626",
+          "images": [],
+          "stock": 50,
+          "_id": "6a5602180042718b2e4dcb6b"
+        }
+      ],
+      "images": [
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012049135-663146775.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012054311-193031283.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012057893-870827827.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012150371-495751687.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012154162-448976257.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166361-944685816.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166612-196514093.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166751-368688538.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166896-819479912.jpg"
+      ],
+      "productVideo": "",
+      "price": {
+        "original": 3000,
+        "selling": 1599
+      },
+      "mrp": 3000,
+      "sellingPrice": 1599,
+      "category": "eyeglasses",
+      "categories": [],
+      "gender": [
+        "men",
+        "women"
+      ],
+      "compatible": {
+        "prescription": true,
+        "bluecut": true,
+        "zeropower": false,
+        "progressive": false
+      },
+      "lensCompatibility": [],
+      "tags": [
+        "Lightweight",
+        "Flexible",
+        "Skin Friendly",
+        "Durable"
+      ],
+      "rating": 0,
+      "reviewCount": 0,
+      "soldCount": 0,
+      "weeklyBought": 0,
+      "isBestseller": false,
+      "isActive": true,
+      "availableSizes": [
+        "Small",
+        "Medium",
+        "Large"
+      ],
+      "sizeMeasurements": [
+        {
+          "size": "Small",
+          "lensWidth": 48,
+          "bridgeWidth": 17,
+          "templeLength": 135,
+          "frameWidth": 132,
+          "_id": "6a5602180042718b2e4dcb76"
+        },
+        {
+          "size": "Medium",
+          "lensWidth": 50,
+          "bridgeWidth": 18,
+          "templeLength": 140,
+          "frameWidth": 138,
+          "_id": "6a5602180042718b2e4dcb77"
+        },
+        {
+          "size": "Large",
+          "lensWidth": 52,
+          "bridgeWidth": 19,
+          "templeLength": 145,
+          "frameWidth": 144,
+          "_id": "6a5602180042718b2e4dcb78"
+        }
+      ],
+      "offerBadges": [],
+      "barcode": "",
+      "slug": "vikas",
+      "brandId": null,
+      "categoryId": null,
+      "subCategoryId": "6a55d89b6cab34fab5811d28",
+      "subCategory": "eyeglasses-round",
+      "launchDate": null,
+      "sortOrder": 0,
+      "status": "Active",
+      "shortDescription": "bewbwcjbwcidwiunwjdnndcewbccdw wd bjnqwjxsbewbewinnsnnnnmnn hd ii dd nj d i s",
+      "longDescription": "",
+      "costPrice": 0,
+      "gstPercent": 18,
+      "discountType": "None",
+      "discountValue": 0,
+      "profitMargin": 0,
+      "taxInclusive": true,
+      "currency": "INR",
+      "enableMemberPricing": false,
+      "memberPrices": {
+        "regularPrice": 999,
+        "goldMemberPrice": 899,
+        "platinumMemberPrice": 799,
+        "corporateMemberPrice": 850,
+        "studentMemberPrice": 790,
+        "employeePrice": 699,
+        "cashbackPercent": 0,
+        "rewardPoints": 0
+      },
+      "memberExclusiveProduct": false,
+      "primaryColor": "Black",
+      "secondaryColor": "hi",
+      "frameWeight": "12g",
+      "countryOfOrigin": "India",
+      "manufacturer": "EyeGlaze Ltd",
+      "warranty": "1 Year Warranty",
+      "returnPolicy": "14-Day Returnable",
+      "deliveryInfo": "5-7 Days Delivery",
+      "faceShapeCompatibility": [
+        "Round",
+        "Square"
+      ],
+      "lensTypes": [
+        "6a54cbed8dcd636be559c036",
+        "6a54cba08dcd636be559bc83",
+        "6a54cb8d8dcd636be559bc82",
+        "6a54cb7b8dcd636be559bc81"
+      ],
+      "compatibleLensTypes": [
+        "Single Vision",
+        "PROGRESSIVE",
+        "ZERO POWER",
+        "POWER"
+      ],
+      "dynamicLensPricing": [
+        {
+          "lensName": "Premium Clear Lens",
+          "lensCategory": "Single Vision",
+          "regularPrice": 1500,
+          "goldPrice": 1200,
+          "platinumPrice": 1000,
+          "priority": 1,
+          "status": "Active",
+          "minSph": -20,
+          "maxSph": 20,
+          "minCyl": -6,
+          "maxCyl": 6,
+          "_id": "6a5602180042718b2e4dcb74"
+        },
+        {
+          "lensName": "Elite Progressive Lens",
+          "lensCategory": "Progressive",
+          "regularPrice": 3500,
+          "goldPrice": 3000,
+          "platinumPrice": 2800,
+          "priority": 2,
+          "status": "Active",
+          "minSph": -20,
+          "maxSph": 20,
+          "minCyl": -6,
+          "maxCyl": 6,
+          "_id": "6a5602180042718b2e4dcb75"
+        }
+      ],
+      "thicknessPricing": [
+        {
+          "thickness": "1.50",
+          "regularPrice": 0,
+          "goldPrice": 0,
+          "platinumPrice": 0,
+          "_id": "6a5602180042718b2e4dcb6f"
+        },
+        {
+          "thickness": "1.56",
+          "regularPrice": 500,
+          "goldPrice": 400,
+          "platinumPrice": 300,
+          "_id": "6a5602180042718b2e4dcb70"
+        },
+        {
+          "thickness": "1.59",
+          "regularPrice": 1200,
+          "goldPrice": 1000,
+          "platinumPrice": 800,
+          "_id": "6a5602180042718b2e4dcb71"
+        },
+        {
+          "thickness": "1.67",
+          "regularPrice": 2000,
+          "goldPrice": 1800,
+          "platinumPrice": 1500,
+          "_id": "6a5602180042718b2e4dcb72"
+        },
+        {
+          "thickness": "1.74",
+          "regularPrice": 3500,
+          "goldPrice": 3200,
+          "platinumPrice": 3000,
+          "_id": "6a5602180042718b2e4dcb73"
+        }
+      ],
+      "coatingPricing": [
+        {
+          "coatingName": "Blue Cut",
+          "regularPrice": 800,
+          "memberPrice": 600,
+          "description": "Blocks harmful blue light from digital screens",
+          "isActive": true,
+          "_id": "6a5602180042718b2e4dcb6c"
+        },
+        {
+          "coatingName": "Anti Glare",
+          "regularPrice": 500,
+          "memberPrice": 400,
+          "description": "Reduces reflections and glare",
+          "isActive": true,
+          "_id": "6a5602180042718b2e4dcb6d"
+        },
+        {
+          "coatingName": "UV Protection",
+          "regularPrice": 400,
+          "memberPrice": 300,
+          "description": "Shields eyes from sun UVA/UVB rays",
+          "isActive": true,
+          "_id": "6a5602180042718b2e4dcb6e"
+        }
+      ],
+      "eligibleForGold": true,
+      "eligibleForPlatinum": true,
+      "buy1Get1": true,
+      "oneRupeeFrameOffer": true,
+      "couponEligible": true,
+      "rewardEligible": true,
+      "familySharing": false,
+      "exclusiveProduct": false,
+      "oneRupeeOfferConditions": {
+        "membershipRequired": true,
+        "premiumLensRequired": false,
+        "minCartValue": 1500,
+        "campaignStartDate": null,
+        "campaignEndDate": null,
+        "maxUsage": 1
+      },
+      "warehouseInventory": [],
+      "shippingWeight": 150,
+      "shippingLength": 15,
+      "shippingWidth": 8,
+      "shippingHeight": 6,
+      "packageType": "Box",
+      "fragile": true,
+      "estimatedDeliveryDays": 4,
+      "thumbnail": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012049135-663146775.jpg",
+      "frontView": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012054311-193031283.jpg",
+      "leftView": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012057893-870827827.jpg",
+      "rightView": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012150371-495751687.jpg",
+      "topView": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012154162-448976257.jpg",
+      "threeSixtyImages": [
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012177093-213850465.jpg"
+      ],
+      "lifestyleImages": [
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166361-944685816.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166612-196514093.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166751-368688538.jpg",
+        "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1784012166896-819479912.jpg"
+      ],
+      "threeDModel": "",
+      "arModel": "",
+      "seoKeywords": "",
+      "canonicalUrl": "",
+      "openGraphTitle": "",
+      "openGraphDescription": "",
+      "schemaMarkup": "",
+      "imageAltText": "",
+      "readingPowers": [],
+      "contactPowers": [],
+      "contactDisposableType": "",
+      "sellAsFrame": false,
+      "sellWithLens": true,
+      "currentVersion": 2,
+      "createdAt": "2026-07-14T07:01:31.389Z",
+      "updatedAt": "2026-07-14T09:32:08.953Z",
+      "__v": 0
+    }
+  ]
+}

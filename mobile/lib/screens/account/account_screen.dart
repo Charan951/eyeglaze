@@ -17,6 +17,9 @@ import 'terms_screen.dart';
 import 'wallet_screen.dart';
 import 'offers_screen.dart';
 import 'contact_screen.dart';
+import 'sessions_screen.dart';
+import 'rate_us_screen.dart';
+import 'blogs_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -412,11 +415,21 @@ class _AccountScreenState extends State<AccountScreen> {
                   _MenuTile(
                     icon: Icons.local_offer_outlined,
                     label: 'Offers & Coupons',
-                    showDivider: false,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const OffersScreen()),
+                      );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.security_outlined,
+                    label: 'Active Device Sessions',
+                    showDivider: false,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SessionsScreen()),
                       );
                     },
                   ),
@@ -449,11 +462,31 @@ class _AccountScreenState extends State<AccountScreen> {
                   _MenuTile(
                     icon: Icons.policy_outlined,
                     label: 'Terms & Privacy',
-                    showDivider: false,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const TermsScreen()),
+                      );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.article_outlined,
+                    label: 'Blogs & Journals',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const BlogsScreen()),
+                      );
+                    },
+                  ),
+                  _MenuTile(
+                    icon: Icons.star_outline,
+                    label: 'Rate Us',
+                    showDivider: false,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RateUsScreen()),
                       );
                     },
                   ),

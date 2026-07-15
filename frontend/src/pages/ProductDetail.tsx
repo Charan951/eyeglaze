@@ -173,13 +173,50 @@ const colorMap: Record<string, string> = {
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, wishlist, toggleWishlist, fetchCartCount } = useAuth();
+  const { user, wishlist, toggleWishlist, fetchCartCount, cartCount } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const quantity = 1;
+
+  // Scroll to hide sticky bottom bar state
+  const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (Math.abs(currentScrollY - lastScrollY.current) < 10) return;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setIsBottomBarVisible(false);
+      } else {
+        setIsBottomBarVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleShareClick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product ? `${product.name} - EyeGlaze` : 'EyeGlaze',
+          text: `Check out the premium ${product?.name || 'eyewear'} on EyeGlaze!`,
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.log('Native share failed or cancelled, using custom sheet.', err);
+        setIsShareMenuOpen(true);
+      }
+    } else {
+      setIsShareMenuOpen(true);
+    }
+  };
 
   // Size Selector, Guide, and Tech Details State
   const [selectedSize, setSelectedSize] = useState('Medium');
@@ -491,25 +528,45 @@ export default function ProductDetailPage() {
   const [chatInput, setChatInput] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
 
-  const handleSendChat = () => {
+  const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     const msg = chatInput.trim();
-    setChatMessages(prev => [...prev, { sender: 'user', text: msg }]);
+    
+    const updatedHistory = [...chatMessages, { sender: 'user', text: msg }];
+    setChatMessages(updatedHistory);
     setChatInput('');
     setIsAiTyping(true);
-    setTimeout(() => {
+
+    try {
+      const backendHistory = chatMessages.map(m => ({
+        sender: m.sender as 'user' | 'bot',
+        text: m.text
+      }));
+
+      const response = await api.post('/ai/chat', {
+        message: msg,
+        history: backendHistory,
+        pageContext: {
+          pageName: 'Product Detail',
+          pathname: `/products/${id}`,
+          details: product
+        }
+      });
+
+      const botResponse = response.data.reply;
+      setChatMessages(prev => [...prev, { sender: 'bot', text: botResponse }]);
+    } catch (error) {
+      console.error('[ProductDetail Chatbot] Error generating response:', error);
+      setChatMessages(prev => [
+        ...prev,
+        { 
+          sender: 'bot', 
+          text: `I am having trouble processing that request. How else can I help you with this ${product?.name || 'frame'}?` 
+        }
+      ]);
+    } finally {
       setIsAiTyping(false);
-      let response = `This frame (${product?.sku || 'frame'}) is highly compatible with prescription, blue cut, and progressive lenses. We offer single-vision, bifocal, and progressive options starting from ₹699.`;
-      const val = msg.toLowerCase();
-      if (val.includes('price') || val.includes('cost') || val.includes('rate')) {
-        response = `The frame starts at ₹${product?.price.selling}. With prescription lenses, packages start from ₹699.`;
-      } else if (val.includes('size') || val.includes('fit') || val.includes('measure')) {
-        response = `This frame has a total width of ${product?.frame.width}mm, lens width of ${product?.frame.lensWidth}mm, bridge width of ${product?.frame.bridgeWidth}mm, and temple length of ${product?.frame.templeLength}mm. It fits most faces comfortably!`;
-      } else if (val.includes('delivery') || val.includes('ship')) {
-        response = `We offer Fast Delivery in 2-4 days. Shipping is ₹99.`;
-      }
-      setChatMessages(prev => [...prev, { sender: 'bot', text: response }]);
-    }, 1000);
+    }
   };
 
   useEffect(() => {
@@ -946,24 +1003,24 @@ export default function ProductDetailPage() {
       <button
         type="button"
         onClick={() => setSelectedSize(sizeName)}
-        className={`flex-grow-0 flex-shrink-0 w-[30%] bg-[#131314] border-2 rounded-xl p-3 text-center relative flex flex-col items-center justify-between transition-all select-none cursor-pointer ${
+        className={`flex-1 min-w-0 bg-[#131314] border-2 rounded-xl p-2 text-center relative flex flex-col items-center justify-between transition-all select-none cursor-pointer ${
           isSelected ? 'border-[#D4A04D] scale-[1.02]' : 'border-[#2A2A2D] hover:border-[#D4A04D]/60'
         }`}
       >
         {isRecommended && (
-          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#D4A04D] text-black text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-md whitespace-nowrap">
-            Recommended
+          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#D4A04D] text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-md whitespace-nowrap">
+            Rec
           </span>
         )}
         {isSelected && (
-          <span className="absolute top-2 right-2 bg-[#D4A04D] text-black w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shadow-md">
+          <span className="absolute top-1.5 right-1.5 bg-[#D4A04D] text-black w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shadow-md">
             ✓
           </span>
         )}
-        <div className="text-white text-xs font-extrabold mt-1">{sizeTitle}</div>
+        <div className="text-white text-[11px] font-extrabold mt-1 truncate w-full">{sizeTitle}</div>
         
         {/* SVG Glasses Drawing */}
-        <svg className={`w-14 h-8 my-2.5 transition-colors duration-300 ${isSelected ? 'text-[#D4A04D]' : 'text-gray-500'}`} viewBox="0 0 100 40" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg className={`w-12 h-6 my-2 transition-colors duration-300 ${isSelected ? 'text-[#D4A04D]' : 'text-gray-500'}`} viewBox="0 0 100 40" fill="none" stroke="currentColor" strokeWidth="2.5">
           <circle cx="28" cy="20" r="14" />
           <circle cx="72" cy="20" r="14" />
           <path d="M42 20 C 48 12, 52 12, 58 20" />
@@ -971,14 +1028,14 @@ export default function ProductDetailPage() {
           <path d="M86 20 C 92 20, 98 14, 98 10" />
         </svg>
 
-        <div className="text-[#A7A7A7] text-[10px] font-bold">{sizeRange}</div>
-        <div className="text-[#727275] text-[8px] font-extrabold uppercase tracking-wide mt-0.5">{sizeDesc}</div>
+        <div className="text-[#A7A7A7] text-[8.5px] font-black leading-none truncate w-full">{sizeRange}</div>
+        <div className="text-[#727275] text-[7.5px] font-extrabold uppercase tracking-wide mt-1 w-full break-words leading-tight">{sizeDesc}</div>
       </button>
     );
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto w-full relative pb-32 md:pb-0">
       <SEO 
         title={`${product.name} (${product.sku})`}
         description={`Buy the premium ${product.name} (${product.sku}) online at EyeGlaze. Made with high-quality ${product.frame?.material || 'TR90'}. Compatible with prescription, progressive, and blue-cut lenses.`}
@@ -986,10 +1043,66 @@ export default function ProductDetailPage() {
         image={productImages[0]}
         schema={productSchema}
       />
-      <div className="grid md:grid-cols-2 gap-10">
+      
+      {/* Transparent Floating Header Overlay */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 bg-transparent pointer-events-none max-w-6xl mx-auto">
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none pointer-events-auto shadow-md"
+          aria-label="Go Back"
+        >
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        {/* Right Action Buttons */}
+        <div className="flex items-center gap-3 pointer-events-auto">
+          {/* Share Button */}
+          <button 
+            onClick={handleShareClick}
+            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none pointer-events-auto shadow-md"
+            aria-label="Share Product"
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.028-2.014m0 0a3 3 0 10-2.243-4.077L7.545 6.586m0 0a3 3 0 100 5.828l5.029 2.514m0 0a3 3 0 102.243-4.077L9.268 9.546" />
+            </svg>
+          </button>
+
+          {/* Wishlist Button */}
+          <button 
+            onClick={handleWishlistToggle}
+            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none shadow-md"
+            aria-label="Wishlist"
+          >
+            <svg width="18" height="18" fill={isInWishlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={isInWishlist ? "text-red-500" : "text-white"}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+
+          {/* Cart Button */}
+          <Link 
+            to="/cart"
+            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none shadow-md relative"
+            aria-label="Cart"
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#D4A04D] text-black font-extrabold text-[7px] w-4 h-4 rounded-full flex items-center justify-center border border-black">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full overflow-hidden">
         
         {/* Left Column (Image Gallery & Media & Accordions) */}
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           {/* Image Gallery Container */}
           <div className="flex flex-col md:flex-row gap-4 items-stretch">
             {/* Products photos vertical text and vertical thumbnails on Desktop */}
@@ -1017,8 +1130,8 @@ export default function ProductDetailPage() {
 
             {/* Main image content */}
             <div className="flex-1">
-              <div className="bg-[#131314] border border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center mb-4 relative overflow-hidden group w-full">
-                <img src={productImages[activeImageIndex]} alt={product.name} className="w-full h-full object-contain rounded-none p-4" />
+              <div className="bg-white border-b border-[#2A2A2D]/10 md:bg-[#131314] md:border md:border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center relative overflow-hidden group w-full mb-4 p-8 md:p-6">
+                <img src={productImages[activeImageIndex]} alt={product.name} className="max-w-full max-h-full object-contain rounded-none w-auto h-auto" />
                 
                 <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
                   {product.isBestseller && (
@@ -1090,7 +1203,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Mobile Only Horizontal Thumbnails */}
-              <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-none px-4">
                 {productImages.map((img, i) => {
                   const isSelected = activeImageIndex === i;
                   return (
@@ -1117,7 +1230,7 @@ export default function ProductDetailPage() {
                 <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
               </div>
               
-              <div className="relative w-full group/reels-carousel">
+              <div className="relative w-full overflow-hidden group/reels-carousel">
                 {/* Reels Carousel Container */}
                 <div 
                   ref={reelsCarouselRefReal}
@@ -1385,40 +1498,11 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Product Info */}
-        <div className="space-y-5">
+        <div className="space-y-5 px-4 md:px-0 min-w-0">
           {/* Name & Rating Block */}
           <div className="flex flex-col gap-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-wide uppercase">{product.name}</h1>
-              
-              {/* Share & Wishlist */}
-              <div className="flex items-center gap-4 text-xs font-bold text-gray-400 shrink-0">
-                <button 
-                  onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Product link copied to clipboard!'); }} 
-                  className="flex items-center gap-1.5 hover:text-[#D4A04D] transition-colors cursor-pointer"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.028-2.014m0 0a3 3 0 10-2.243-4.077L7.545 6.586m0 0a3 3 0 100 5.828l5.029 2.514m0 0a3 3 0 102.243-4.077L9.268 9.546" />
-                  </svg>
-                  <span>Share</span>
-                </button>
-                <span className="text-gray-700">|</span>
-                <button 
-                  onClick={handleWishlistToggle} 
-                  className={`flex items-center gap-1.5 transition-colors cursor-pointer ${isInWishlist ? 'text-[#D4A04D]' : 'hover:text-[#D4A04D] text-gray-400'}`}
-                >
-                  <svg 
-                    className="w-4 h-4" 
-                    fill={isInWishlist ? 'currentColor' : 'none'} 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor" 
-                    strokeWidth="2.2"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  <span>{isInWishlist ? 'Wishlisted' : 'Wishlist'}</span>
-                </button>
-              </div>
             </div>
             
             <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
@@ -1515,7 +1599,7 @@ export default function ProductDetailPage() {
                   </button>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 w-full">
                 {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Small')) && renderSizeCard('Small', 'Up to 135 mm', 'Best for narrow face')}
                 {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Medium')) && renderSizeCard('Medium', '136 – 142 mm', 'Best for standard face')}
                 {(!product.availableSizes || product.availableSizes.length === 0 || product.availableSizes.includes('Large')) && renderSizeCard('Large', '143 – 150 mm', 'Best for wide face')}
@@ -1757,6 +1841,17 @@ export default function ProductDetailPage() {
             </>
           )}
 
+          {/* Ask AI Button */}
+          <div className="pt-4 px-4 md:px-0">
+            <button
+              type="button"
+              onClick={() => setIsAiDrawerOpen(true)}
+              className="w-full flex items-center justify-center gap-2 bg-[#1A1A1C] hover:bg-[#252528] border border-[#D4A04D]/30 hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 shadow-md cursor-pointer select-none"
+            >
+              💬 Ask EyeGlaze AI about this Product
+            </button>
+          </div>
+
           {/* Mobile-Only Styling Ideas, Product Details and Reels wrapper (Above FAQ) */}
           <div className="block md:hidden space-y-6 border-t border-[#2A2A2D]/40 pt-6 mt-6">
             
@@ -1768,7 +1863,7 @@ export default function ProductDetailPage() {
                   <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
                 </div>
                 
-                <div className="relative w-full group/reels-carousel">
+                <div className="relative w-full overflow-hidden group/reels-carousel">
                   <div 
                     ref={reelsCarouselRefMobile}
                     className="flex gap-3 overflow-x-auto pb-2 scrollbar-none w-full flex-nowrap scroll-smooth"
@@ -2092,8 +2187,10 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Related Products Section */}
-      <div className="mt-12 border-t border-[#2A2A2D] pt-10">
+      {/* Related Products & Reviews Sections */}
+      <div className="px-4 md:px-0">
+        {/* Related Products Section */}
+        <div className="mt-12 border-t border-[#2A2A2D] pt-10">
         <h2 className="text-xl font-bold text-white mb-1">Related Products</h2>
         <p className="text-[#A7A7A7] text-xs font-medium uppercase tracking-wider mb-6">You might also like these related frames</p>
         
@@ -2275,9 +2372,12 @@ export default function ProductDetailPage() {
           })}
         </div>
       </div>
+      </div>
 
       {/* Sticky Bottom Bar (visible only on mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#2A2A2D] z-50 md:hidden backdrop-blur-md">
+      <div className={`fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#2A2A2D] z-50 md:hidden backdrop-blur-md transition-transform duration-300 ${
+        isBottomBarVisible ? 'translate-y-0' : 'translate-y-full'
+      }`}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           
           {/* Left Side: Pricing */}
@@ -2745,6 +2845,152 @@ export default function ProductDetailPage() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Share Bottom Sheet Modal */}
+      {isShareMenuOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center">
+          {/* Backdrop Overlay */}
+          <div 
+            onClick={() => setIsShareMenuOpen(false)} 
+            className="absolute inset-0 bg-black/75 backdrop-blur-xs animate-fade-in pointer-events-auto" 
+          />
+          
+          {/* Sheet Panel */}
+          <div className="relative w-full max-w-md bg-[#18181A] rounded-t-3xl border-t border-[#2A2A2D] p-5 shadow-2xl flex flex-col z-[110] animate-slide-up text-white select-none pointer-events-auto">
+            {/* Handlebar for dragging feel */}
+            <div className="w-10 h-1 bg-[#2D2D30] rounded-full mx-auto mb-4" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-white">Share image</h3>
+              <button 
+                onClick={() => setIsShareMenuOpen(false)}
+                className="text-gray-400 hover:text-white p-1 cursor-pointer bg-transparent border-none focus:outline-none"
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Product Card Info */}
+            <div className="bg-[#262629] border border-[#2D2D30] rounded-2xl p-3.5 flex items-center gap-3.5 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center p-1 shrink-0">
+                <img 
+                  src={productImages[0]} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain" 
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-white text-xs font-black truncate leading-tight uppercase">
+                  {product.name}
+                </h4>
+                <p className="text-gray-400 text-[10px] truncate mt-1">
+                  {product.sku} Eyeglasses - Premium Frame
+                </p>
+              </div>
+            </div>
+
+            {/* Row 1: Direct Contacts Mockups */}
+            <div className="mb-6">
+              <p className="text-gray-400 text-[9px] font-black uppercase tracking-wider mb-3">Recent Contacts</p>
+              <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none flex-nowrap">
+                {[
+                  { name: 'Charan', icon: '💬', label: 'WhatsApp', initial: 'C' },
+                  { name: 'Smart Check', icon: '🟢', label: 'WhatsApp', initial: 'SC' },
+                  { name: 'Srikanth Bro', icon: '💬', label: 'Messages', initial: 'SB' },
+                  { name: 'Testing Project', icon: '👥', label: 'Teams', initial: 'TP' },
+                  { name: 'B Mahendher', icon: '👥', label: 'Teams', initial: 'BM' }
+                ].map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      const text = encodeURIComponent(`Check out this premium ${product.name} on EyeGlaze: ${window.location.href}`);
+                      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+                      setIsShareMenuOpen(false);
+                    }}
+                    className="flex flex-col items-center gap-1.5 shrink-0 w-16 bg-transparent border-none cursor-pointer focus:outline-none"
+                  >
+                    <div className="relative w-12 h-12 rounded-full bg-zinc-850 border border-zinc-700 flex items-center justify-center text-white text-sm font-black shadow-inner">
+                      {c.initial}
+                      <span className="absolute -bottom-1 -right-1 bg-[#18181A] border border-[#2D2D30] rounded-full w-5 h-5 flex items-center justify-center text-[10px]">
+                        {c.icon}
+                      </span>
+                    </div>
+                    <span className="text-gray-300 text-[9px] font-semibold truncate w-full text-center leading-none">
+                      {c.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 2: Apps Share list */}
+            <div>
+              <p className="text-gray-400 text-[9px] font-black uppercase tracking-wider mb-3">Share to Apps</p>
+              <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none flex-nowrap">
+                {[
+                  {
+                    name: 'WhatsApp',
+                    color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                    icon: '💬',
+                    action: () => {
+                      const text = encodeURIComponent(`Check out this premium ${product.name} on EyeGlaze: ${window.location.href}`);
+                      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+                    }
+                  },
+                  {
+                    name: 'Facebook',
+                    color: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                    icon: '📘',
+                    action: () => {
+                      const url = encodeURIComponent(window.location.href);
+                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+                    }
+                  },
+                  {
+                    name: 'Twitter / X',
+                    color: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                    icon: '🐦',
+                    action: () => {
+                      const url = encodeURIComponent(window.location.href);
+                      const text = encodeURIComponent(`Look at this ${product.name} from EyeGlaze!`);
+                      window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+                    }
+                  },
+                  {
+                    name: 'Copy Link',
+                    color: 'bg-zinc-800 text-white border-zinc-700',
+                    icon: '🔗',
+                    action: () => {
+                      navigator.clipboard.writeText(window.location.href);
+                      alert('Product link copied to clipboard!');
+                    }
+                  }
+                ].map((app, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      app.action();
+                      setIsShareMenuOpen(false);
+                    }}
+                    className="flex flex-col items-center gap-1.5 shrink-0 w-16 bg-transparent border-none cursor-pointer focus:outline-none"
+                  >
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl border shadow-md ${app.color}`}>
+                      {app.icon}
+                    </div>
+                    <span className="text-gray-300 text-[9px] font-semibold truncate w-full text-center leading-none">
+                      {app.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       )}

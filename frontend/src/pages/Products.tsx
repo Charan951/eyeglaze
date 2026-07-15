@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ProductCard from '../components/ui/ProductCard';
 import ProductFilters from '../components/ProductFilters';
@@ -74,6 +74,24 @@ export default function ProductsPage() {
   const [mobilePriceVal, setMobilePriceVal] = useState(maxPriceQuery);
   const [searchVal, setSearchVal] = useState(searchParams.get('search') || '');
 
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (Math.abs(currentScrollY - lastScrollY.current) < 10) return;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     setMobilePriceVal(maxPriceQuery);
   }, [maxPriceQuery]);
@@ -82,6 +100,15 @@ export default function ProductsPage() {
   useEffect(() => {
     setSearchVal(searchParams.get('search') || '');
   }, [searchParams]);
+
+  const activeTier = searchParams.get('tier') || 'All';
+  const handleTierChange = (tier: string) => {
+    if (tier === 'All') {
+      updateSingleFilter('tier', '');
+    } else {
+      updateSingleFilter('tier', tier);
+    }
+  };
 
   // Debounced search update
   useEffect(() => {
@@ -208,41 +235,115 @@ export default function ProductsPage() {
         keywords="designer glasses, luxury eyewear, shop eyeglasses, prescription sunglasses, round frames, square frames, wayfarer"
       />
       
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-2xl font-bold text-white">All Frames</h1>
-          <p className="text-[#A7A7A7] text-sm mt-1">{total || products.length} products found</p>
+          <h1 className="text-2xl font-bold text-white">All Products</h1>
         </div>
-        
-        {/* Search Input Bar */}
-        <div className="relative w-full sm:w-72 md:w-80">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Search frames by name..."
-            value={searchVal}
-            onChange={(e) => setSearchVal(e.target.value)}
-            className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"
-          />
-          {searchVal && (
+      </div>
+
+      {/* Sticky Search & Tab Filters Row */}
+      <div className={`sticky ${isHeaderVisible ? 'top-16 xl:top-28' : 'top-0'} z-30 bg-[#0B0B0C] py-3.5 mb-6 transition-all duration-300 w-full border-b border-[#2A2A2D]/20`}>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-72 md:w-80 sm:ml-auto">
+            <div className="relative w-full">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Search products by name..."
+                value={searchVal}
+                onChange={(e) => setSearchVal(e.target.value)}
+                className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"
+              />
+              {searchVal && (
+                <button
+                  onClick={() => {
+                    setSearchVal('');
+                    updateSingleFilter('search', '');
+                  }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1"
+                  title="Clear Search"
+                >
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
             <button
-              onClick={() => {
-                setSearchVal('');
-                updateSingleFilter('search', '');
-              }}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1"
-              title="Clear Search"
+              onClick={() => setIsFilterOpen(true)}
+              className="flex md:hidden items-center justify-center bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D] text-white w-9 h-9 rounded-xl transition-colors cursor-pointer select-none shrink-0"
+              title="Open Filters"
             >
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
               </svg>
             </button>
-          )}
+          </div>
+
+          {/* Collection Tab Filter Options (All, Essential, Premium, Sale) */}
+          <div className="flex items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
+            {[
+              { id: 'All', label: 'All', icon: (active: boolean) => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              )},
+              { id: 'Essential', label: 'Essential', icon: (active: boolean) => (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                  <circle cx="6" cy="12" r="4" />
+                  <circle cx="18" cy="12" r="4" />
+                  <path d="M10 12h4" />
+                  <path d="M2 12h1M21 12h1" />
+                </svg>
+              )},
+              { id: 'Premium', label: 'Premium', icon: (active: boolean) => (
+                <div className="relative">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                    <circle cx="6" cy="12" r="4" />
+                    <circle cx="18" cy="12" r="4" />
+                    <path d="M10 12h4" />
+                    <path d="M2 12h1M21 12h1" />
+                  </svg>
+                  <span className="absolute -top-1.5 -right-2 text-[10px] text-[#D4A04D] animate-pulse">✦</span>
+                </div>
+              )},
+              { id: 'Sale', label: 'Sale', icon: (active: boolean) => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                  <rect x="3" y="5" width="18" height="14" rx="2" strokeDasharray="3 3" />
+                  <circle cx="12" cy="12" r="2.5" />
+                </svg>
+              )}
+            ].map((tab) => {
+              const active = activeTier === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTierChange(tab.id)}
+                  className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1 bg-transparent border-none cursor-pointer focus:outline-none transition-all duration-300 relative group"
+                >
+                  <div className={`transition-all duration-300 ${active ? 'text-[#D4A04D] scale-110' : 'text-gray-400 group-hover:text-white'}`}>
+                    {tab.icon(active)}
+                  </div>
+                  <span className={`text-[10px] font-black tracking-wide uppercase transition-all duration-300 ${active ? 'text-[#D4A04D]' : 'text-gray-400 group-hover:text-white'}`}>
+                    {tab.label}
+                  </span>
+                  {active && (
+                    <span className="absolute bottom-[-14px] left-0 right-0 h-[2.5px] bg-[#D4A04D] rounded-full shadow-[0_0_8px_#D4A04D]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -278,41 +379,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* STICKY BOTTOM BAR FOR MOBILE */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#131314] border-t border-[#2A2A2D] flex md:hidden h-14 select-none">
-        <button
-          onClick={() => setIsSortOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center text-[10px] font-bold text-gray-400 hover:text-white border-r border-[#2A2A2D]/40"
-        >
-          <span className="text-sm">⇅</span>
-          <span className="mt-0.5">Sort By</span>
-        </button>
-        <button
-          onClick={() => setIsFilterOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center text-[10px] font-bold text-gray-400 hover:text-white border-r border-[#2A2A2D]/40"
-        >
-          <span className="text-sm">⚙️</span>
-          <span className="mt-0.5 flex items-center gap-1">
-            Filters 
-            {activeFilterCount > 0 && (
-              <span className="bg-[#D4A04D] text-black w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0">
-                {activeFilterCount}
-              </span>
-            )}
-          </span>
-        </button>
-        <button
-          onClick={() => setIsViewOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center text-[10px] font-bold text-gray-400 hover:text-white"
-        >
-          <span className="text-sm">
-            {viewMode === 'tile' ? '▢' : viewMode === 'list' ? '☰' : '⊞'}
-          </span>
-          <span className="mt-0.5">
-            {viewMode === 'tile' ? 'Tile View' : viewMode === 'list' ? 'List View' : 'Grid View'}
-          </span>
-        </button>
-      </div>
+
 
       {/* SORT BOTTOM SHEET FOR MOBILE */}
       {isSortOpen && (

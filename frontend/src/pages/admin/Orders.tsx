@@ -39,6 +39,23 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  // Wallet Refund States
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [refundAmount, setRefundAmount] = useState<string>('');
+  const [refundDescription, setRefundDescription] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedOrder) {
+      setSelectedStatus(selectedOrder.status);
+      setRefundAmount(selectedOrder.total.toString());
+      setRefundDescription(`Refund for cancelled order ${selectedOrder.orderId || selectedOrder.orderNumber}`);
+    } else {
+      setSelectedStatus('');
+      setRefundAmount('');
+      setRefundDescription('');
+    }
+  }, [selectedOrder]);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -86,15 +103,45 @@ export default function AdminOrdersPage() {
   const updateStatus = async (order: OrderItem, newStatus: string) => {
     const id = order.orderId || order.orderNumber || order._id;
     setSavingId(order._id);
+    let walletAmountToAdd = 0;
+    let walletRefundDescription = '';
+
+    if (newStatus === 'cancelled') {
+      const confirmCancel = window.confirm("Are you sure you want to cancel this order?");
+      if (!confirmCancel) {
+        setSavingId(null);
+        setUpdating(null);
+        return;
+      }
+      const refundInput = window.prompt(`Order cancelled! Enter amount to refund/add to user's wallet:`, order.total.toString());
+      if (refundInput !== null) {
+        const amount = parseFloat(refundInput);
+        if (!isNaN(amount) && amount >= 0) {
+          walletAmountToAdd = amount;
+          walletRefundDescription = `Refund for cancelled order ${order.orderId || order.orderNumber || order._id}`;
+        } else {
+          alert('Invalid amount. No refund will be credited.');
+        }
+      }
+    }
+
     try {
-      await api.put(`/admin/orders/${id}`, { status: newStatus });
+      const res = await api.put(`/admin/orders/${id}`, {
+        status: newStatus,
+        walletAmountToAdd,
+        walletRefundDescription,
+      });
       setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: newStatus } : o));
       // Refresh sub-page details too if it is currently open
       if (selectedOrder && (selectedOrder.orderId === id || selectedOrder.orderNumber === id || selectedOrder._id === order._id)) {
-        setSelectedOrder((prev: any) => ({ ...prev, status: newStatus }));
+        setSelectedOrder(res.data.order);
       }
-    } catch {
-      // ignore
+      if (newStatus === 'cancelled' && walletAmountToAdd > 0) {
+        alert(`Wallet successfully credited with ₹${walletAmountToAdd}.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to update status:', err);
+      alert(err.response?.data?.error || 'Failed to update status.');
     } finally {
       setSavingId(null);
       setUpdating(null);
@@ -106,12 +153,43 @@ export default function AdminOrdersPage() {
     const id = selectedOrder.orderId || selectedOrder.orderNumber || selectedOrder._id;
     setSavingId(selectedOrder._id);
     try {
-      await api.put(`/admin/orders/${id}`, { status: newStatus });
-      setSelectedOrder((prev: any) => ({ ...prev, status: newStatus }));
+      const res = await api.put(`/admin/orders/${id}`, { status: newStatus });
+      setSelectedOrder(res.data.order);
       setOrders(prev => prev.map(o => o._id === selectedOrder._id ? { ...o, status: newStatus } : o));
     } catch (err) {
       console.error('Failed to update status:', err);
       alert('Failed to update status.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleRefundAndCancel = async () => {
+    if (!selectedOrder) return;
+    const amount = parseFloat(refundAmount);
+    if (isNaN(amount) || amount < 0) {
+      alert('Please enter a valid amount.');
+      return;
+    }
+    const id = selectedOrder.orderId || selectedOrder.orderNumber || selectedOrder._id;
+    setSavingId(selectedOrder._id);
+    const targetStatus = selectedStatus;
+    try {
+      const res = await api.put(`/admin/orders/${id}`, {
+        status: targetStatus,
+        walletAmountToAdd: amount,
+        walletRefundDescription: refundDescription,
+      });
+      setSelectedOrder(res.data.order);
+      setOrders(prev => prev.map(o => o._id === selectedOrder._id ? { ...o, status: targetStatus } : o));
+      if (amount > 0) {
+        alert(`Wallet successfully credited with ₹${amount}.`);
+      } else {
+        alert(`Status updated successfully.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to update:', err);
+      alert(err.response?.data?.error || 'Failed to update order.');
     } finally {
       setSavingId(null);
     }
@@ -386,11 +464,17 @@ export default function AdminOrdersPage() {
                 <span className="text-[#A7A7A7] block font-bold text-[10px] uppercase tracking-wider">Select New Status</span>
                 <div className="flex items-center gap-3">
                   <select
-                    value={selectedOrder.status}
-                    onChange={(e) => handleDetailUpdateStatus(e.target.value)}
+                    value={selectedStatus}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value;
+                      setSelectedStatus(nextStatus);
+                      if (nextStatus !== 'cancelled') {
+                        handleDetailUpdateStatus(nextStatus);
+                      }
+                    }}
                     disabled={savingId === selectedOrder._id}
                     className={`w-full px-4.5 py-3 rounded-xl text-xs font-black uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[#D4A04D]/35 border cursor-pointer transition-all ${
-                      STATUS_COLORS[selectedOrder.status] || 'bg-[#1C1C1E] text-white border-[#2A2A2D]'
+                      STATUS_COLORS[selectedStatus] || 'bg-[#1C1C1E] text-white border-[#2A2A2D]'
                     }`}
                   >
                     {ORDER_STATUSES.map(s => (
@@ -399,11 +483,55 @@ export default function AdminOrdersPage() {
                       </option>
                     ))}
                   </select>
-                  {savingId === selectedOrder._id && (
+                  {savingId === selectedOrder._id && selectedStatus !== 'cancelled' && (
                     <span className="text-[#D4A04D] text-[10px] font-bold uppercase animate-pulse shrink-0">Saving...</span>
                   )}
                 </div>
               </div>
+
+              {selectedStatus === 'cancelled' && (
+                <div className="space-y-4 pt-4 border-t border-[#2A2A2D]/40 text-left animate-fadeIn">
+                  <div className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider flex justify-between items-center bg-[#18181A] p-2.5 rounded-lg border border-[#2A2A2D]/40">
+                    <span>User's Wallet Balance:</span>
+                    <span className="text-green-400 font-extrabold text-xs">₹{selectedOrder.user?.walletBalance ?? 0}</span>
+                  </div>
+                  <div>
+                    <label className="text-[#A7A7A7] block font-bold text-[10px] uppercase tracking-wider mb-1.5">
+                      Amount to Add / Refund (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={refundAmount}
+                      onChange={(e) => setRefundAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#D4A04D]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[#A7A7A7] block font-bold text-[10px] uppercase tracking-wider mb-1.5">
+                      Description / Note
+                    </label>
+                    <input
+                      type="text"
+                      value={refundDescription}
+                      onChange={(e) => setRefundDescription(e.target.value)}
+                      placeholder="Refund for cancelled order"
+                      className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#D4A04D]"
+                    />
+                  </div>
+                  <button
+                    onClick={handleRefundAndCancel}
+                    disabled={savingId === selectedOrder._id}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    {savingId === selectedOrder._id 
+                      ? 'Processing...' 
+                      : selectedOrder.status === 'cancelled' 
+                        ? 'Add to Wallet' 
+                        : 'Confirm Cancel & Refund'}
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

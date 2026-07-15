@@ -10,6 +10,7 @@ import '../../services/auth_service.dart';
 import '../../services/cart_provider.dart';
 import '../cart/cart_screen.dart';
 
+
 class LensPowerScreen extends StatefulWidget {
   const LensPowerScreen({super.key});
 
@@ -26,13 +27,14 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
   double _rSph = -1.25;
   double _rCyl = -0.50;
   int _rAxis = 180;
+  double _rAdd = 0.00;
 
   double _lSph = -1.75;
   double _lCyl = -0.75;
   int _lAxis = 170;
+  double _lAdd = 0.00;
 
   double _pd = 62.0;
-  double _addPower = 1.00;
 
   final List<String> _sphValues = List.generate(81, (i) {
     final val = -10.0 + i * 0.25;
@@ -46,8 +48,8 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
 
   final List<String> _axisValues = List.generate(181, (i) => i.toString());
 
-  final List<String> _addPowerValues = [
-    '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'
+  final List<String> _addValues = [
+    '0.00', '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'
   ];
 
   @override
@@ -117,10 +119,12 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
           _rSph = (re?['sph'] as num?)?.toDouble() ?? -1.25;
           _rCyl = (re?['cyl'] as num?)?.toDouble() ?? -0.50;
           _rAxis = (re?['axis'] as num?)?.toInt() ?? 180;
+          _rAdd = (re?['addPower'] as num?)?.toDouble() ?? 0.00;
 
           _lSph = (le?['sph'] as num?)?.toDouble() ?? -1.75;
           _lCyl = (le?['cyl'] as num?)?.toDouble() ?? -0.75;
           _lAxis = (le?['axis'] as num?)?.toInt() ?? 170;
+          _lAdd = (le?['addPower'] as num?)?.toDouble() ?? 0.00;
 
           _pd = pdVal;
         });
@@ -195,11 +199,12 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
       if (p == null) return;
 
       // Save manually entered prescription to server if custom name entered
-      if (wizard.prescriptionMode == 'enter' && wizard.selectedPrescriptionId == null) {
+      if (wizard.prescriptionMode == 'enter' && wizard.selectedPrescriptionId == null && authService.isLoggedIn) {
         try {
           await api.addPrescription(
-            re: {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis},
-            le: {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis},
+            name: wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
+            re: {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis, 'addPower': _rAdd},
+            le: {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis, 'addPower': _lAdd},
             pd: _pd,
           );
         } catch (e) {
@@ -215,14 +220,14 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
         'lensPrice': wizard.lensPrice,
         'power': wizard.prescriptionMode == 'enter'
             ? {
-                'RE': {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis},
-                'LE': {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis},
+                'name': wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
+                'RE': {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis, 'addPower': _rAdd},
+                'LE': {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis, 'addPower': _lAdd},
                 'pd': _pd,
-                'addPower': (wizard.lensType == 'progressive' || wizard.lensType == 'reading_power')
-                    ? _addPower
-                    : null,
+                'addPower': _rAdd,
               }
             : {
+                'name': wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
                 'uploadLater': true,
                 'uploadedFileUrl': wizard.uploadedFileUrl,
               },
@@ -252,29 +257,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
     }
   }
 
-  void _showPdInstructionDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Pupillary Distance (PD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
-          '1. Hold a ruler horizontally against your forehead.\n'
-          '2. Align the 0mm mark directly under the pupil of one eye.\n'
-          '3. Look straight ahead and read the millimeter mark under the pupil of your other eye.\n'
-          '4. Average values are 58mm - 68mm.',
-          style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('GOT IT', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -419,10 +402,11 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                       // Header Row
                       Row(
                         children: const [
-                          SizedBox(width: 32),
+                          SizedBox(width: 24),
                           Expanded(child: Text('SPH', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
                           Expanded(child: Text('CYL', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
                           Expanded(child: Text('AXIS', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
+                          Expanded(child: Text('ADD', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -431,7 +415,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                       Row(
                         children: [
                           const SizedBox(
-                            width: 32,
+                            width: 24,
                             child: Text('R', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
                           ),
                           Expanded(
@@ -455,6 +439,13 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                               onChanged: (v) => setState(() => _rAxis = int.parse(v)),
                             ),
                           ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _rAdd > 0 ? '+${_rAdd.toStringAsFixed(2)}' : _rAdd.toStringAsFixed(2),
+                              items: _addValues,
+                              onChanged: (v) => setState(() => _rAdd = double.parse(v.replaceAll('+', ''))),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -463,7 +454,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                       Row(
                         children: [
                           const SizedBox(
-                            width: 32,
+                            width: 24,
                             child: Text('L', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
                           ),
                           Expanded(
@@ -487,90 +478,47 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                               onChanged: (v) => setState(() => _lAxis = int.parse(v)),
                             ),
                           ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _lAdd > 0 ? '+${_lAdd.toStringAsFixed(2)}' : _lAdd.toStringAsFixed(2),
+                              items: _addValues,
+                              onChanged: (v) => setState(() => _lAdd = double.parse(v.replaceAll('+', ''))),
+                            ),
+                          ),
                         ],
                       ),
 
-                      // Progressive Add Power
-                      if (wizard.lensType == 'progressive' || wizard.lensType == 'reading_power') ...[
-                        const SizedBox(height: 20),
-                        const Divider(color: AppColors.border),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Add Power (Reading)',
-                              style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            SizedBox(
-                              width: 100,
-                              child: _DropdownCell(
-                                value: _addPower > 0 ? '+${_addPower.toStringAsFixed(2)}' : _addPower.toStringAsFixed(2),
-                                items: _addPowerValues,
-                                onChanged: (v) => setState(() => _addPower = double.parse(v.replaceAll('+', ''))),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-
-                      // Pupillary Distance Row
+                      // Save Power As field
                       const SizedBox(height: 20),
                       const Divider(color: AppColors.border),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'PD (Pupillary Distance)',
-                            style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 44,
-                                      child: TextField(
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                                        textAlign: TextAlign.center,
-                                        controller: TextEditingController(text: _pd.toStringAsFixed(1))..selection = TextSelection.fromPosition(TextPosition(offset: _pd.toStringAsFixed(1).length)),
-                                        onChanged: (v) {
-                                          final parsed = double.tryParse(v);
-                                          if (parsed != null) setState(() => _pd = parsed);
-                                        },
-                                        decoration: const InputDecoration(
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          filled: false,
-                                          border: InputBorder.none,
-                                        ),
-                                      ),
-                                    ),
-                                    const Text('mm', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: _showPdInstructionDialog,
-                                child: const Text(
-                                  'Measure PD',
-                                  style: TextStyle(color: AppColors.gold, fontSize: 11, decoration: TextDecoration.underline, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      const Text(
+                        'SAVE THIS POWER AS (OPTIONAL)',
+                        style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 11),
                       ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        style: const TextStyle(color: AppColors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: "e.g. My Daily Power, Dad's Reading Glasses",
+                          hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppColors.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppColors.gold),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        controller: TextEditingController(text: wizard.prescriptionName)..selection = TextSelection.fromPosition(TextPosition(offset: (wizard.prescriptionName ?? '').length)),
+                        onChanged: (v) => wizard.setPrescriptionName(v),
+                      ),
+
+
                     ] else ...[
                       // Upload Prescription Form
                       Container(
@@ -605,6 +553,37 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                               Text(
                                 '✓ Selected: ${wizard.uploadedFileName}',
                                 style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 20),
+                              const Divider(color: AppColors.border),
+                              const SizedBox(height: 12),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'SAVE THIS PRESCRIPTION AS (OPTIONAL)',
+                                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              TextField(
+                                style: const TextStyle(color: AppColors.white, fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText: "e.g. Eye Clinic Report, Dad's Prescription",
+                                  hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
+                                  filled: true,
+                                  fillColor: AppColors.background,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppColors.border),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppColors.gold),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                ),
+                                controller: TextEditingController(text: wizard.prescriptionName)..selection = TextSelection.fromPosition(TextPosition(offset: (wizard.prescriptionName ?? '').length)),
+                                onChanged: (v) => wizard.setPrescriptionName(v),
                               ),
                             ],
                           ],
@@ -645,23 +624,25 @@ class _DropdownCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+      padding: const EdgeInsets.only(left: 3, right: 1),
       decoration: BoxDecoration(
         color: AppColors.background,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: items.contains(value) ? value : items.first,
           dropdownColor: AppColors.card,
           isExpanded: true,
-          style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.w600),
+          isDense: true,
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold, size: 14),
+          style: const TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w600),
           items: items.map((v) {
             return DropdownMenuItem<String>(
               value: v,
-              child: Text(v, textAlign: TextAlign.center),
+              child: Text(v, style: const TextStyle(fontSize: 10)),
             );
           }).toList(),
           onChanged: (val) {

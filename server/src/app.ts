@@ -21,6 +21,8 @@ import wishlistRoutes from './routes/wishlist.routes';
 import ticketsRoutes from './routes/tickets.routes';
 import cashbackCampaignsRoutes from './routes/cashbackCampaigns.routes';
 import categoriesRoutes from './routes/categories.routes';
+import aiRoutes from './routes/ai.routes';
+
 
 import adminProductsRoutes from './routes/admin/products.routes';
 import adminInventoryRoutes from './routes/admin/inventory.routes';
@@ -155,6 +157,8 @@ app.use('/api/banners', bannersRoutes);
 app.use('/api/reels', reelsRoutes);
 app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
 app.use('/api/categories', categoriesRoutes);
+app.use('/api/ai', aiRoutes);
+
 
 // Auth-required routes
 app.use('/api/cart', requireAuth, cartRoutes);

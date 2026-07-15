@@ -133,6 +133,8 @@ class Product {
   final String? countryOfOrigin;
   final String? manufacturer;
   final List<String> gender;
+  final String? thumbnail;
+  final String? brand;
 
   Product({
     required this.id,
@@ -174,6 +176,8 @@ class Product {
     this.countryOfOrigin,
     this.manufacturer,
     this.gender = const [],
+    this.thumbnail,
+    this.brand,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -261,6 +265,8 @@ class Product {
         }
         return const <String>[];
       })(),
+      thumbnail: json['thumbnail']?.toString(),
+      brand: json['brand']?.toString(),
     );
   }
 
@@ -272,6 +278,14 @@ class Product {
         'rating': rating,
         'reviewCount': reviewCount,
         'isBestseller': isBestseller,
+        'buy1Get1': buy1Get1,
+        'oneRupeeFrameOffer': oneRupeeFrameOffer,
+        'images': images,
+        'thumbnail': thumbnail,
+        'memberPrice': memberPrice,
+        'nonMemberPrice': nonMemberPrice,
+        'brand': brand,
+        'categories': categories,
       };
 }
 

@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/gold_button.dart';
 import '../../widgets/responsive_container.dart';
 import 'package:intl/intl.dart';
+import 'ticket_detail_screen.dart';
 
 class FAQItem {
   final String question;
@@ -384,69 +385,77 @@ class _SupportScreenState extends State<SupportScreen> {
                                 ? DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(ticket['createdAt']))
                                 : '';
                             final status = ticket['status']?.toString().toUpperCase() ?? 'OPEN';
-                            final statusColor = status == 'OPEN' ? AppColors.gold : status == 'IN_PROGRESS' ? AppColors.success : AppColors.muted;
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          ticket['ticketId'] ?? 'Ticket #${index + 1}',
-                                          style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            final statusColor = status == 'OPEN' ? AppColors.gold : status == 'IN_PROGRESS' ? AppColors.success : AppColors.muted;                             return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TicketDetailScreen(ticket: ticket),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            ticket['ticketId'] ?? 'Ticket #${index + 1}',
+                                            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                          ),
                                         ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                                          ),
+                                          child: Text(
+                                            status,
+                                            style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(ticket['subject'] ?? '', style: const TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 4),
+                                    if (ticket['category'] != null)
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.label_outline, color: AppColors.muted, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(ticket['category'], style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                                        ],
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                                        ),
-                                        child: Text(
-                                          status,
-                                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                                        ),
+                                    if (ticket['orderNumber'] != null && ticket['orderNumber']!.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.receipt_long_outlined, color: AppColors.muted, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text('Order: ${ticket['orderNumber']}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                                        ],
                                       ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(ticket['subject'] ?? '', style: const TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                                  const SizedBox(height: 4),
-                                  if (ticket['category'] != null)
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.label_outline, color: AppColors.muted, size: 14),
-                                        const SizedBox(width: 4),
-                                        Text(ticket['category'], style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                                      ],
-                                    ),
-                                  if (ticket['orderNumber'] != null && ticket['orderNumber']!.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.receipt_long_outlined, color: AppColors.muted, size: 14),
-                                        const SizedBox(width: 4),
-                                        Text('Order: ${ticket['orderNumber']}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                                      ],
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Text(ticket['message'] ?? '', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-                                  if (createdAt.isNotEmpty) ...[
                                     const SizedBox(height: 8),
-                                    Text(createdAt, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+                                    Text(ticket['message'] ?? '', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                                    if (createdAt.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(createdAt, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             );
                           },

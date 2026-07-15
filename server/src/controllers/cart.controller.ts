@@ -12,7 +12,7 @@ export async function getCart(req: Request, res: Response) {
     await connectDB();
     const cart = await Cart.findOne({ user: req.user!.userId }).populate(
       'items.product',
-      'name images price sku frame colors memberPrice nonMemberPrice buy1Get1 oneRupeeFrameOffer'
+      'name images thumbnail price sku frame colors memberPrice nonMemberPrice buy1Get1 oneRupeeFrameOffer'
     );
 
     if (!cart) {
@@ -26,6 +26,31 @@ export async function getCart(req: Request, res: Response) {
       status: { $ne: 'cancelled' }
     }) : 0;
 
+    // Check 1+1 Offer eligibility
+    const isMemberNow = user?.membershipActive || cart.addGoldMembership;
+
+    // Check if user already had a BOGO order this calendar month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const bogoOrderThisMonth = await Order.findOne({
+      user: req.user!.userId,
+      bogoApplied: true,
+      createdAt: { $gte: startOfMonth },
+      status: { $ne: 'cancelled' },
+      paymentStatus: { $ne: 'failed' }
+    });
+
+    const bogoAllowedForMember = !bogoOrderThisMonth;
+
+    // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
+    const totalBogoQty = cart.items.reduce((sum: number, item: any) => 
+      (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) ? sum + item.qty : sum, 
+      0
+    );
+    const isBogoActive = totalBogoQty >= 2;
+
     // Process cart items with business logic
     let oneRupeeFramesApplied = 0;
     const remainingOneRupeeFrames = Math.max(0, 2 - (user?.oneRupeeOfferCount ?? 0));
@@ -35,8 +60,8 @@ export async function getCart(req: Request, res: Response) {
       let appliedOffers: string[] = [];
       let isOneRupeeFrame = false;
 
-      // Check ₹1 Frame eligibility - only after first order
-      if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
+      // Check ₹1 Frame eligibility
+      if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
         const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
         const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -62,26 +87,10 @@ export async function getCart(req: Request, res: Response) {
 
     // Check 1+1 Offer
     let onePlusOneDiscount = 0;
-    const isMemberNow = user?.membershipActive || cart.addGoldMembership;
-
-    // Check if user already had a BOGO order this calendar month
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const bogoOrderThisMonth = await Order.findOne({
-      user: req.user!.userId,
-      bogoApplied: true,
-      createdAt: { $gte: startOfMonth },
-      status: { $ne: 'cancelled' },
-      paymentStatus: { $ne: 'failed' }
-    });
-
-    const bogoAllowedForMember = !bogoOrderThisMonth;
 
     const buy1Get1Items: any[] = [];
     processedItems.forEach((item: any) => {
-      if (bogoAllowedForMember && (isMemberNow || item.product?.buy1Get1)) {
+      if (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) {
         for (let i = 0; i < item.qty; i++) {
           buy1Get1Items.push(item);
         }
@@ -348,5 +357,33 @@ export async function applyCoupon(req: Request, res: Response) {
   } catch (error) {
     console.error('apply-coupon error:', error);
     return res.status(500).json({ error: 'Failed to validate coupon' });
+  }
+}
+
+export async function toggleMembership(req: Request, res: Response) {
+  try {
+    await connectDB();
+    const body = req.body || {};
+    const { addGoldMembership } = body;
+
+    let cart = await Cart.findOne({ user: req.user!.userId });
+    if (!cart) {
+      cart = new Cart({ user: req.user!.userId, items: [], addGoldMembership: false });
+    }
+
+    cart.addGoldMembership = !!addGoldMembership;
+    cart.updatedAt = new Date();
+    await cart.save();
+
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('cart_changed', { action: 'update', cart });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
+
+    return res.status(200).json({ success: true, cart });
+  } catch (error) {
+    console.error('Toggle membership error:', error);
+    return res.status(500).json({ error: 'Failed to update membership status in cart' });
   }
 }

@@ -9,6 +9,7 @@ import '../../models/user.dart';
 import '../splash/splash_screen.dart';
 import '../home/home_screen.dart';
 import 'forgot_password_screen.dart';
+import '../cart/checkout_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -101,10 +102,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _goToHome() {
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final redirectTo = args?['redirectTo'] as String?;
+      if (redirectTo == '/checkout') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     }
   }
 
@@ -129,11 +139,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       MaterialPageRoute(builder: (_) => const SplashScreen()),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.white),
-                    onPressed: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SplashScreen()),
+                  TextButton(
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        );
+                      }
+                    },
+                    child: const Text(
+                      'SKIP',
+                      style: TextStyle(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
                 ],

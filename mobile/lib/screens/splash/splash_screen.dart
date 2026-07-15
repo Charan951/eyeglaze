@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
@@ -15,45 +14,7 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late AnimationController _controller;
-
-  // Selection of premium network image URLs focusing strictly on product spectacles photography
-  final List<List<String>> _columnImages = [
-    // Column 0
-    [
-      'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?q=80&w=300', // Classic round wire spectacles
-      'https://images.unsplash.com/photo-1591076482161-42ce6da69f67?q=80&w=300', // Modern clear spectacles
-      'https://images.unsplash.com/photo-1577803645773-f96470509666?q=80&w=300', // Acetate frame flatlay
-      'https://images.unsplash.com/photo-1508296695146-257a814070b4?q=80&w=300', // Tortoiseshell spectacles
-    ],
-    // Column 1
-    [
-      'https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=300', // Designer spectacles mockup
-      'https://images.unsplash.com/photo-1509695507497-903c140c43b0?q=80&w=300', // Metal wireframe spectacles
-      'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=300', // Multi frame display
-      'https://images.unsplash.com/photo-1502764613149-7f1d229fe230?q=80&w=300', // Classic black optical frames
-    ],
-    // Column 2
-    [
-      'https://images.unsplash.com/photo-1582533561751-ef6f6ab93a2e?q=80&w=300', // Transparent designer spectacles
-      'https://images.unsplash.com/photo-1614713570247-ef995c73c8b8?q=80&w=300', // Minimal optical frame
-      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=300', // Gold bridge spectacles
-      'https://images.unsplash.com/photo-1516257984-b1b4d707412e?q=80&w=300', // Acetate optical frame
-    ],
-    // Column 3
-    [
-      'https://images.unsplash.com/photo-1511556820780-d912e42b4980?q=80&w=300', // Tortoise design frame
-      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?q=80&w=300', // Close up sunglasses
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300', // Specs on color background
-      'https://images.unsplash.com/photo-1548883354-7622d03aca27?q=80&w=300', // Clear lens spectacles
-    ],
-  ];
-
-  // Cached widget lists to eliminate lag from rebuilding during scroll animation
-  List<List<Widget>>? _cachedImageLists1;
-  List<List<Widget>>? _cachedImageLists2;
-
+class _SplashScreenState extends State<SplashScreen> {
   // Authentication State
   bool _authChecked = false;
   bool _isLoggedIn = false;
@@ -61,34 +22,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _initImageCaches();
-    
-    // Continuous animation driving the infinite scroll
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 60),
-    )..repeat();
-
     _initAuth();
-  }
-
-  void _initImageCaches() {
-    if (_cachedImageLists1 != null) return;
-    _cachedImageLists1 = [];
-    _cachedImageLists2 = [];
-
-    for (int i = 0; i < 4; i++) {
-      final images = _columnImages[i];
-      final List<String> repeatedImages = [];
-      while (repeatedImages.length * 160.0 < 2400.0) {
-        repeatedImages.addAll(images);
-      }
-      final double itemHeight = 160.0;
-      
-      // Build separate lists to prevent duplicate elements in Stack child widgets
-      _cachedImageLists1!.add(_buildImageList(repeatedImages, itemHeight));
-      _cachedImageLists2!.add(_buildImageList(repeatedImages, itemHeight));
-    }
   }
 
   Future<void> _initAuth() async {
@@ -151,63 +85,11 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final columnWidth = screenWidth / 4;
-
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background - 4 Infinite scrolling columns of eyewear images
-          Row(
-            children: [
-              _buildScrollingColumn(
-                columnIndex: 0,
-                speedMultiplier: 1.0,
-                startShift: 0.0,
-                width: columnWidth,
-              ),
-              _buildScrollingColumn(
-                columnIndex: 1,
-                speedMultiplier: 0.7,
-                startShift: 0.25,
-                width: columnWidth,
-              ),
-              _buildScrollingColumn(
-                columnIndex: 2,
-                speedMultiplier: 1.2,
-                startShift: 0.5,
-                width: columnWidth,
-              ),
-              _buildScrollingColumn(
-                columnIndex: 3,
-                speedMultiplier: 0.9,
-                startShift: 0.75,
-                width: columnWidth,
-              ),
-            ],
-          ),
-          // Dark styling gradient overlay to blend into black background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.background.withValues(alpha: 0.92),
-                  AppColors.background.withValues(alpha: 0.78),
-                  AppColors.background.withValues(alpha: 0.92),
-                ],
-              ),
-            ),
-          ),
           // Clean layout: Gold brand logo floating directly in center, GET STARTED button below it
           SafeArea(
             child: Stack(
@@ -290,95 +172,5 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         ],
       ),
     );
-  }
-
-  Widget _buildScrollingColumn({
-    required int columnIndex,
-    required double speedMultiplier,
-    required double startShift,
-    required double width,
-  }) {
-    final double itemHeight = 160.0;
-    final List<String> repeatedImages = [];
-    while (repeatedImages.length * 160.0 < 2400.0) {
-      repeatedImages.addAll(_columnImages[columnIndex]);
-    }
-    final double totalHeight = itemHeight * repeatedImages.length;
-
-    // Use cached Column widgets
-    final Widget col1 = Column(children: _cachedImageLists1![columnIndex]);
-    final Widget col2 = Column(children: _cachedImageLists2![columnIndex]);
-
-    return SizedBox(
-      width: width,
-      height: double.infinity,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          // Scroll from top to bottom (progress runs 0.0 to 1.0)
-          final double progress = (_controller.value * speedMultiplier + startShift) % 1.0;
-          final double yOffset = progress * totalHeight;
-
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: -totalHeight + yOffset,
-                left: 0,
-                right: 0,
-                child: col1,
-              ),
-              Positioned(
-                top: yOffset,
-                left: 0,
-                right: 0,
-                child: col2,
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  List<Widget> _buildImageList(List<String> images, double height) {
-    return images.map((url) {
-      return SizedBox(
-        height: height,
-        width: double.infinity,
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: AppColors.card,
-            child: const Center(
-              child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.5),
-              ),
-            ),
-          ),
-          errorWidget: (context, url, error) => Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.card,
-                  AppColors.background.withValues(alpha: 0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.visibility_outlined,
-                color: AppColors.gold.withValues(alpha: 0.15),
-                size: 24,
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
   }
 }

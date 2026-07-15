@@ -115,8 +115,57 @@ export default function CartPage() {
       // Load guest cart from localStorage
       const guestCartStr = localStorage.getItem('guest_cart');
       const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
-      setItems(cartItems);
-      setLoading(false);
+      
+      const fetchGuestProducts = async () => {
+        try {
+          const populatedItems = await Promise.all(
+            cartItems.map(async (item: any) => {
+              try {
+                const res = await api.get(`/products/${item.productId || item.product}`);
+                return {
+                  ...item,
+                  product: res.data.product || res.data,
+                };
+              } catch (err) {
+                console.error('Failed to fetch guest product:', err);
+                return item;
+              }
+            })
+          );
+          if (active) {
+            const mapped = populatedItems.map((item: any) => ({
+              id: item._id || item.id,
+              _id: item._id,
+              productId: item.product?._id || item.product || item.productId,
+              name: item.product?.name || item.name || 'Frame',
+              sku: item.product?.sku || item.sku || '',
+              color: item.color || '',
+              lens: item.lensType 
+                ? `${item.lensType.replace('_', ' ').toUpperCase()}${item.lensSubType ? ` (${item.lensSubType.replace('_', ' ').toUpperCase()})` : ` (${item.lensQuality})`}`
+                : item.lens || '',
+              framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
+              lensPrice: item.lensPrice ?? 0,
+              fittingCharge: item.fittingCharge ?? 0,
+              qty: item.qty,
+              image: item.product?.images?.[0] || item.image || '',
+              product: item.product,
+              power: item.power,
+              lensType: item.lensType,
+              lensSubType: item.lensSubType,
+              lensQuality: item.lensQuality,
+            }));
+            setItems(mapped);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Guest products loading error:', err);
+          if (active) {
+            setLoading(false);
+          }
+        }
+      };
+
+      fetchGuestProducts();
       return;
     }
 
@@ -163,14 +212,21 @@ export default function CartPage() {
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
   const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
+  
+  // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
+  const totalBogoQty = items.reduce((sum, item) => 
+    (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) ? sum + item.qty : sum, 
+    0
+  );
+  const isBogoActive = totalBogoQty >= 2;
+
   const buy1Get1Items: { id: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
     
-    // Member Price / ₹1 Frame check - only after first order
-    const previousOrderCount = user?.previousOrderCount ?? 0;
-    if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
+    // Member Price / ₹1 Frame check
+    if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
       const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
       const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -190,7 +246,7 @@ export default function CartPage() {
 
   // Populate BOGO items with unique key per quantity index
   itemsWithPricing.forEach(item => {
-    if (!hasUsedBogoThisMonth && (isMember || item.product?.buy1Get1)) {
+    if (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           id: `${item._id || item.id}_${index}`,
@@ -215,7 +271,6 @@ export default function CartPage() {
     freeItemUniqueKey = lowestPriceItem.id;
   }
 
-  const isBogoActive = isMember && buy1Get1Items.length >= 2;
 
   // 1. Total Item Price (undiscounted)
   const itemsSubtotal = itemsWithPricing.reduce((s, i) => {

@@ -22,7 +22,7 @@ export function initSocket(server: http.Server) {
         }
 
         // Allow localhost and 127.0.0.1 with any port
-        const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+        const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
         if (isLocalhost) {
           return callback(null, true);
         }

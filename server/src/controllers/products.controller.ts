@@ -176,6 +176,11 @@ export async function getProducts(req: Request, res: Response) {
       andConditions.push({ isPremium: true });
     }
 
+    const tier = req.query.tier as string | undefined;
+    if (tier && tier !== 'All') {
+      andConditions.push({ tier });
+    }
+
 
     if (andConditions.length > 0) {
       query.$and = andConditions;

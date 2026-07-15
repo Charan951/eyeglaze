@@ -20,6 +20,7 @@ import '../cart/cart_screen.dart';
 import '../orders/orders_screen.dart';
 import '../account/account_screen.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/ai_chat_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   // ignore: library_private_types_in_public_api
@@ -32,6 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
+  bool _showBottomBar = true;
 
   final List<Widget> _tabs = const [
     _HomeBody(),
@@ -77,161 +79,195 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showWalletSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => const _WalletSheet(),
-    );
-  }
+
 
   Widget _buildCustomBottomBar() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0A),
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 1),
+    final cartCount = context.watch<CartProvider>().itemCount;
+
+    return AnimatedSlide(
+      offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0A0A0A),
+          border: Border(
+            top: BorderSide(color: AppColors.border, width: 1),
+          ),
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Home Tab
-              Expanded(
-                child: _buildBottomTabItem(
-                  index: 0,
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'HOME',
-                ),
-              ),
-              // Wishlist Tab
-              Expanded(
-                child: _buildBottomTabItem(
-                  index: 1,
-                  icon: Icons.favorite_border,
-                  activeIcon: Icons.favorite,
-                  label: 'WISHLIST',
-                ),
-              ),
-              // GET GOLD Center Button
-              GestureDetector(
-                onTap: () => _showGoldMembershipSheet(context),
-                child: Container(
-                  width: 110,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF1C160E), Color(0xFF0A0704)],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Home Tab
+                Expanded(
+                  child: _buildBottomTabItem(
+                    index: 0,
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home,
+                    label: 'HOME',
                   ),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Badge at the top
-                      Positioned(
-                        top: -8,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.gold,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'GET GOLD',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 6.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
+                ),
+                // Wishlist Tab
+                Expanded(
+                  child: _buildBottomTabItem(
+                    index: 1,
+                    icon: Icons.favorite_border,
+                    activeIcon: Icons.favorite,
+                    label: 'WISHLIST',
+                  ),
+                ),
+                // GET GOLD Center Button
+                GestureDetector(
+                  onTap: () => _showGoldMembershipSheet(context),
+                  child: Container(
+                    width: 110,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF1C160E), Color(0xFF0A0704)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Badge at the top
+                        Positioned(
+                          top: -8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.gold,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'GET GOLD',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 6.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(height: 4),
+                              const Icon(Icons.star, color: AppColors.gold, size: 14),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'GET GOLD',
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Text(
+                                'Unlock Benefits',
+                                style: TextStyle(
+                                  color: AppColors.white.withValues(alpha: 0.5),
+                                  fontSize: 5.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Orders Tab
+                Expanded(
+                  child: _buildBottomTabItem(
+                    index: 2,
+                    icon: Icons.shopping_bag_outlined,
+                    activeIcon: Icons.shopping_bag,
+                    label: 'ORDERS',
+                  ),
+                ),
+                // Cart Tab
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                      );
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
                           children: [
-                            const SizedBox(height: 4),
-                            const Icon(Icons.star, color: AppColors.gold, size: 14),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'GET GOLD',
-                              style: TextStyle(
-                                color: AppColors.gold,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
-                              ),
+                            const Icon(
+                              Icons.shopping_cart_outlined,
+                              color: AppColors.muted,
+                              size: 20,
                             ),
-                            Text(
-                              'Unlock Benefits',
-                              style: TextStyle(
-                                color: AppColors.white.withValues(alpha: 0.5),
-                                fontSize: 5.5,
-                                fontWeight: FontWeight.w500,
+                            if (cartCount > 0)
+                              Positioned(
+                                right: -6,
+                                top: -6,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.gold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 12,
+                                    minHeight: 12,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$cartCount',
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 7,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Orders Tab
-              Expanded(
-                child: _buildBottomTabItem(
-                  index: 2,
-                  icon: Icons.shopping_bag_outlined,
-                  activeIcon: Icons.shopping_bag,
-                  label: 'ORDERS',
-                ),
-              ),
-              // Wallet Trigger
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showWalletSheet(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.account_balance_wallet_outlined,
-                        color: AppColors.muted,
-                        size: 20,
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'WALLET',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
+                        const SizedBox(height: 4),
+                        const Text(
+                          'CART',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -248,7 +284,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final color = isActive ? AppColors.gold : AppColors.muted;
     return GestureDetector(
       onTap: () {
-        setState(() => _currentTab = index);
+        setState(() {
+          _currentTab = index;
+          _showBottomBar = true;
+        });
       },
       behavior: HitTestBehavior.opaque,
       child: Column(
@@ -272,10 +311,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = context.watch<CartProvider>().itemCount;
-
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         scrolledUnderElevation: 0,
@@ -334,9 +372,32 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: ResponsiveContainer(
-        maxWidth: 600,
-        child: _tabs[_currentTab],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification notification) {
+          if (notification is ScrollUpdateNotification && notification.depth == 0) {
+            final scrollDelta = notification.scrollDelta ?? 0.0;
+            if (scrollDelta > 2.0) {
+              if (_showBottomBar) {
+                setState(() => _showBottomBar = false);
+              }
+            } else if (scrollDelta < -2.0) {
+              if (!_showBottomBar) {
+                setState(() => _showBottomBar = true);
+              }
+            }
+            final metrics = notification.metrics;
+            if (metrics.pixels >= metrics.maxScrollExtent - 20) {
+              if (!_showBottomBar) {
+                setState(() => _showBottomBar = true);
+              }
+            }
+          }
+          return false;
+        },
+        child: ResponsiveContainer(
+          maxWidth: 600,
+          child: _tabs[_currentTab],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.card,
@@ -345,46 +406,15 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(30),
           side: const BorderSide(color: AppColors.gold, width: 1.5),
         ),
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CartScreen()),
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => const AiChatSheet(),
           );
         },
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            const Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 24),
-            if (cartCount > 0)
-              Positioned(
-                right: -6,
-                top: -6,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppColors.gold,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$cartCount',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: const Icon(Icons.smart_toy_outlined, color: AppColors.gold, size: 24),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _buildCustomBottomBar(),
@@ -411,7 +441,7 @@ class _HomeBodyState extends State<_HomeBody> {
           _CategoryGrids(),
           _FeaturedProducts(),
           _PromoBanners(),
-          SizedBox(height: 24),
+          SizedBox(height: 80),
         ],
       ),
     );

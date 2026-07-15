@@ -21,6 +21,17 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  String _getLensText(CartItem item) {
+    if (item.lensType != null) {
+      final typeStr = item.lensType!.replaceAll('_', ' ').toUpperCase();
+      final detailStr = item.lensSubType != null
+          ? item.lensSubType!.replaceAll('_', ' ').toUpperCase()
+          : (item.lensQuality ?? '');
+      return '$typeStr ($detailStr)';
+    }
+    return '';
+  }
+
   // Loading & submissions state
   bool _loading = true;
   bool _submitting = false;
@@ -30,6 +41,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _altPhoneCtrl = TextEditingController();
   final _line1Ctrl = TextEditingController();
   final _line2Ctrl = TextEditingController();
   final _cityCtrl = TextEditingController();
@@ -58,6 +70,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Payment Selection
   String _paymentMethod = 'cod'; // cod, card, upi
 
+  // Dropdown states for summary
+  bool _showItemDropdown = false;
+  bool _showDiscountDropdown = false;
+
   // Success state details
   bool _orderSuccess = false;
   String _successOrderId = '';
@@ -74,6 +90,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _altPhoneCtrl.dispose();
     _line1Ctrl.dispose();
     _line2Ctrl.dispose();
     _cityCtrl.dispose();
@@ -128,6 +145,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _fillAddress(dynamic addr) {
     _nameCtrl.text = addr.fullName ?? '';
     _phoneCtrl.text = addr.mobile ?? '';
+    _altPhoneCtrl.text = addr.alternativeNumber ?? '';
     _line1Ctrl.text = addr.line1 ?? '';
     _line2Ctrl.text = addr.line2 ?? '';
     _cityCtrl.text = addr.city ?? '';
@@ -135,25 +153,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _pincodeCtrl.text = addr.pincode ?? '';
   }
 
-  double get _subtotal => _items.fold(0.0, (s, i) {
-        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
-        return s + (originalFramePrice + (i.lensPrice ?? 0.0)) * i.qty;
-      });
+  double get _subtotal {
+    final cart = context.read<CartProvider>();
+    return cart.itemsSubtotal;
+  }
 
-  double get _productDiscount => _items.fold(0.0, (s, i) {
-        final originalFramePrice = i.product?.nonMemberPrice ?? i.product?.sellingPrice ?? i.framePrice;
-        final diff = originalFramePrice - i.framePrice;
-        return s + (diff > 0.0 ? diff : 0.0) * i.qty;
-      });
+  double get _productDiscount {
+    final cart = context.read<CartProvider>();
+    return cart.productDiscounts;
+  }
 
-  double get _fittingFee => _items.any((i) => (i.lensPrice ?? 0.0) > 0.0 || i.lensType != null) ? 199.0 : 0.0;
+  double get _fittingFee {
+    final cart = context.read<CartProvider>();
+    return cart.fittingFeeTotal;
+  }
 
   double get _delivery {
-    final user = context.read<AuthService>().currentUser;
-    if (user != null && user.membershipActive == true) return 0.0;
-    return _items.isNotEmpty ? 99.0 : 0.0;
+    final cart = context.read<CartProvider>();
+    return cart.delivery;
   }
-  double get _total => _subtotal + _fittingFee + _delivery - _productDiscount;
+
+  double get _bogoDiscount {
+    final cart = context.read<CartProvider>();
+    return cart.bogoDiscount;
+  }
+
+  double get _membershipFee {
+    final cart = context.read<CartProvider>();
+    return cart.membershipFee;
+  }
+
+  double get _total => _subtotal + _fittingFee + _delivery + _membershipFee - _productDiscount - _bogoDiscount;
 
   double get _walletDeduction {
     if (!_useWallet) return 0.0;
@@ -478,6 +508,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'deliveryAddress': {
           'fullName': _nameCtrl.text.trim(),
           'mobile': _phoneCtrl.text.trim(),
+          if (_altPhoneCtrl.text.trim().isNotEmpty) 'alternativeNumber': _altPhoneCtrl.text.trim(),
           'line1': _line1Ctrl.text.trim(),
           'line2': _line2Ctrl.text.trim(),
           'city': _cityCtrl.text.trim(),
@@ -546,6 +577,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final auth = context.watch<AuthService>();
     final user = auth.currentUser;
+    final cart = context.watch<CartProvider>();
+
+    final List<Map<String, dynamic>> flattenedItems = [];
+    final freeKey = cart.freeItemUniqueKey;
+
+    for (final pricing in cart.itemsWithPricing) {
+      final CartItem item = pricing['item'] as CartItem;
+      final double framePriceCalculated = pricing['framePriceCalculated'] as double;
+      for (int index = 0; index < item.qty; index++) {
+        final uniqueKey = '${item.id}_$index';
+        flattenedItems.add({
+          'item': item,
+          'name': item.product?.name ?? 'Frame',
+          'sku': item.product?.sku ?? '',
+          'color': item.selectedColor ?? '',
+          'qty': 1,
+          'totalPrice': framePriceCalculated + (item.lensPrice ?? 0.0),
+          'isFree': uniqueKey == freeKey,
+          'image': item.product != null &&
+                  ((item.product!.thumbnail != null && item.product!.thumbnail!.isNotEmpty) ||
+                   item.product!.images.isNotEmpty)
+              ? ((item.product!.thumbnail != null && item.product!.thumbnail!.isNotEmpty)
+                  ? item.product!.thumbnail!
+                  : item.product!.images.first)
+              : null,
+          'isPseudo': false,
+        });
+      }
+    }
+
+    if (cart.addGoldMembership && cart.items.isNotEmpty && user?.membershipActive != true) {
+      flattenedItems.add({
+        'id': 'gold_membership_pseudo',
+        'name': 'EyeGlaze Gold Membership',
+        'sku': 'MEMBERSHIP-GOLD-1YR',
+        'color': 'Gold',
+        'qty': 1,
+        'totalPrice': 129.0,
+        'isFree': false,
+        'image': null,
+        'isPseudo': true,
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -685,7 +759,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       const Divider(color: AppColors.border, height: 20),
                       Text(_nameCtrl.text, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text('+91 ${_phoneCtrl.text}', style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+                      Text(
+                        '+91 ${_phoneCtrl.text}${_altPhoneCtrl.text.isNotEmpty ? ' · Alt: +91 ${_altPhoneCtrl.text}' : ''}',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         '${_line1Ctrl.text}${_line2Ctrl.text.isNotEmpty ? ', ' + _line2Ctrl.text : ''}\n'
@@ -711,7 +788,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: const TextStyle(color: AppColors.white),
                   decoration: const InputDecoration(labelText: 'Mobile Number *', prefixText: '+91 '),
                   keyboardType: TextInputType.phone,
-                  validator: (val) => val == null || val.length != 10 ? 'Enter a valid 10-digit number' : null,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Required field';
+                    final digitsOnly = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    String clean = digitsOnly;
+                    if (clean.startsWith('91') && clean.length == 12) {
+                      clean = clean.substring(2);
+                    }
+                    if (clean.length != 10) {
+                      return 'Enter a valid 10-digit number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _altPhoneCtrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Alternative Number (Optional)', prefixText: '+91 '),
+                  keyboardType: TextInputType.phone,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return null;
+                    final digitsOnly = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    String clean = digitsOnly;
+                    if (clean.startsWith('91') && clean.length == 12) {
+                      clean = clean.substring(2);
+                    }
+                    if (clean.length != 10) {
+                      return 'Enter a valid 10-digit number';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -932,9 +1039,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _items.length,
+                      itemCount: flattenedItems.length,
                       itemBuilder: (context, i) {
-                        final item = _items[i];
+                        final itemMap = flattenedItems[i];
+                        final isPseudo = itemMap['isPseudo'] == true;
+                        final isFree = itemMap['isFree'] == true;
+                        final double totalPrice = itemMap['totalPrice'] as double;
+                        final name = itemMap['name'] as String;
+                        final color = itemMap['color'] as String;
+                        final image = itemMap['image'] as String?;
+                        final CartItem? cartItem = itemMap['item'] as CartItem?;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Row(
@@ -945,19 +1059,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(6)),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
-                                  child: item.product != null && item.product!.images.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: AppConfig.resolveImageUrl(item.product!.images.first),
-                                          fit: BoxFit.contain,
-                                          placeholder: (context, url) => const Center(
-                                            child: SizedBox(
-                                              width: 14, height: 14,
-                                              child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.0),
-                                            ),
-                                          ),
-                                          errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 16),
-                                        )
-                                      : const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 20),
+                                  child: isPseudo
+                                      ? const Center(child: Text('🏆', style: TextStyle(fontSize: 16)))
+                                      : (image != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: AppConfig.resolveImageUrl(image),
+                                              fit: BoxFit.contain,
+                                              placeholder: (context, url) => const Center(
+                                                child: SizedBox(
+                                                  width: 14, height: 14,
+                                                  child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.0),
+                                                ),
+                                              ),
+                                              errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 16),
+                                            )
+                                          : const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 20)),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -965,36 +1081,154 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(item.product?.name ?? 'Frame', style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    Text('${item.selectedColor ?? ''} • Qty ${item.qty}', style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+                                    Text(name, style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    Text(isPseudo ? '1-Yr Membership' : '$color • Qty 1', style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+                                    if (!isPseudo && cartItem != null) ...[
+                                      if (cartItem.lensType != null) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Lens: ${_getLensText(cartItem)}',
+                                          style: const TextStyle(color: AppColors.muted, fontSize: 10),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        cartItem.lensPrice != null && cartItem.lensPrice! > 0
+                                            ? 'Frame: ₹${(totalPrice - cartItem.lensPrice!).toInt()} · Lens: ₹${cartItem.lensPrice!.toInt()}'
+                                            : 'Frame: ₹${totalPrice.toInt()}',
+                                        style: const TextStyle(color: AppColors.muted, fontSize: 9),
+                                      ),
+                                    ],
+                                    if (isFree) ...[
+                                      const SizedBox(height: 2),
+                                      const Text('FREE WITH MEMBERSHIP', style: TextStyle(color: AppColors.success, fontSize: 8, fontWeight: FontWeight.bold)),
+                                    ],
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text('₹${item.totalPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text(isFree ? 'Free' : '₹${totalPrice.toInt()}', style: TextStyle(color: isFree ? AppColors.success : AppColors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                             ],
                           ),
                         );
                       },
                     ),
                     const Divider(color: AppColors.border),
-                    const SizedBox(height: 6),
-                    _PriceSummaryRow(label: 'Total Item Price', value: '₹${_subtotal.toInt()}'),
+                                       GestureDetector(
+                      onTap: () => setState(() => _showItemDropdown = !_showItemDropdown),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            const Text('Total Item Price', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Icon(
+                              _showItemDropdown ? Icons.arrow_drop_down : Icons.arrow_right,
+                              color: AppColors.muted,
+                              size: 16,
+                            ),
+                            const Spacer(),
+                            Text('₹${_subtotal.toInt()}', style: const TextStyle(color: AppColors.white, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_showItemDropdown)
+                      Container(
+                        margin: const EdgeInsets.only(left: 4, bottom: 8),
+                        padding: const EdgeInsets.only(left: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: Colors.white24, width: 1.5),
+                          ),
+                        ),
+                        child: Column(
+                          children: cart.itemsWithPricing.map((pricing) {
+                            final item = pricing['item'] as CartItem;
+                            final originalFramePrice = item.product?.nonMemberPrice ?? item.product?.sellingPrice ?? item.framePrice;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${item.product?.name ?? 'Frame'} (x${item.qty})',
+                                      style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '₹${((originalFramePrice + (item.lensPrice ?? 0.0)) * item.qty).toInt()}',
+                                    style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     if (_fittingFee > 0)
                       _PriceSummaryRow(label: 'Fitting Fee', value: '₹${_fittingFee.toInt()}'),
                     _PriceSummaryRow(label: 'Shipping & Delivery', value: _delivery == 0 ? 'FREE' : '₹${_delivery.toInt()}'),
-                    if (_productDiscount > 0)
-                      _PriceSummaryRow(
-                        label: 'Product Discount',
-                        value: '-₹${_productDiscount.toInt()}',
-                        valueColor: AppColors.success,
+                    if (_membershipFee > 0)
+                      _PriceSummaryRow(label: 'Gold Membership Fee', value: '₹${_membershipFee.toInt()}'),
+                    if ((_productDiscount + _bogoDiscount + _couponDiscount) > 0) ...[
+                      GestureDetector(
+                        onTap: () => setState(() => _showDiscountDropdown = !_showDiscountDropdown),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              const Text('Total Discount', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                              const SizedBox(width: 4),
+                              Icon(
+                                _showDiscountDropdown ? Icons.arrow_drop_down : Icons.arrow_right,
+                                color: AppColors.success,
+                                size: 16,
+                              ),
+                              const Spacer(),
+                              Text('-₹${(_productDiscount + _bogoDiscount + _couponDiscount).toInt()}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                            ],
+                          ),
+                        ),
                       ),
-                    if (_couponApplied && _couponDiscount > 0)
-                      _PriceSummaryRow(
-                        label: 'Coupon Discount ($_appliedCouponCode)',
-                        value: '-₹${_couponDiscount.toInt()}',
-                        valueColor: AppColors.success,
-                      ),
+                      if (_showDiscountDropdown)
+                        Container(
+                          margin: const EdgeInsets.only(left: 4, bottom: 8),
+                          padding: const EdgeInsets.only(left: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: AppColors.success.withValues(alpha: 0.5), width: 1.5),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              if (_productDiscount > 0)
+                                _PriceSummaryRow(
+                                  label: 'Product Discount',
+                                  value: '-₹${_productDiscount.toInt()}',
+                                  valueColor: AppColors.success,
+                                ),
+                              if (_bogoDiscount > 0)
+                                _PriceSummaryRow(
+                                  label: 'Buy 1 Get 1 Offer',
+                                  value: '-₹${_bogoDiscount.toInt()}',
+                                  valueColor: AppColors.success,
+                                ),
+                              if (_couponApplied && _couponDiscount > 0)
+                                _PriceSummaryRow(
+                                  label: 'Coupon Discount ($_appliedCouponCode)',
+                                  value: '-₹${_couponDiscount.toInt()}',
+                                  valueColor: AppColors.success,
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
                     if (_useWallet && _walletDeduction > 0)
                       _PriceSummaryRow(
                         label: 'Wallet Deduction',

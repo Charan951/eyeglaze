@@ -83,14 +83,21 @@ export default function CheckoutPage() {
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
   const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
+
+  // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
+  const totalBogoQty = items.reduce((sum, item) => 
+    (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) ? sum + item.qty : sum, 
+    0
+  );
+  const isBogoActive = totalBogoQty >= 2;
+
   const buy1Get1Items: { uniqueKey: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
     
-    // Member Price / ₹1 Frame check - only after first order
-    const previousOrderCount = user?.previousOrderCount ?? 0;
-    if (item.product?.oneRupeeFrameOffer && user?.membershipActive && previousOrderCount > 0 && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
+    // Member Price / ₹1 Frame check
+    if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
       const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
       const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -102,8 +109,7 @@ export default function CheckoutPage() {
       framePrice = item.product.nonMemberPrice;
     }
 
-    // Under Gold Membership, ALL items are eligible for BOGO! Otherwise, only items with product.buy1Get1
-    if (!hasUsedBogoThisMonth && (isMember || item.product?.buy1Get1)) {
+    if (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           uniqueKey: `${item._id || item.id}_${index}`,

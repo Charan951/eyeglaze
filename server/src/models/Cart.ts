@@ -30,6 +30,7 @@ export interface ICart extends Document {
   items: ICartItem[];
   couponCode?: string;
   couponDiscount?: number;
+  addGoldMembership?: boolean;
   updatedAt: Date;
 }
 
@@ -65,6 +66,7 @@ const CartSchema = new Schema<ICart>({
   items: [CartItemSchema],
   couponCode: { type: String },
   couponDiscount: { type: Number },
+  addGoldMembership: { type: Boolean, default: false },
   updatedAt: { type: Date, default: Date.now },
 });
 

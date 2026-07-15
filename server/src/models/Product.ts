@@ -90,6 +90,7 @@ export interface IProduct extends Document {
   status: 'Draft' | 'Active' | 'Inactive' | 'Scheduled';
   shortDescription?: string;
   longDescription?: string;
+  tier?: 'Essential' | 'Premium' | 'Sale' | 'None';
 
   // Step 2: Pricing
   costPrice?: number;
@@ -341,6 +342,11 @@ const ProductSchema = new Schema<IProduct>(
     },
     shortDescription: { type: String },
     longDescription: { type: String },
+    tier: {
+      type: String,
+      enum: ['Essential', 'Premium', 'Sale', 'None'],
+      default: 'None',
+    },
 
     // Step 2: Pricing
     costPrice: { type: Number, default: 0 },

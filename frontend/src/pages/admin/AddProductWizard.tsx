@@ -37,6 +37,7 @@ const wizardSchema = z.object({
   launchDate: z.string().optional(),
   sortOrder: z.number().default(0),
   status: z.enum(['Draft', 'Active', 'Inactive', 'Scheduled']),
+  tier: z.enum(['Essential', 'Premium', 'Sale', 'None']).default('None'),
 
   // Pricing
   costPrice: z.number().min(0, 'Cost price must be non-negative'),
@@ -296,6 +297,7 @@ const defaultValues: WizardFormData = {
   launchDate: '',
   sortOrder: 0,
   status: 'Draft',
+  tier: 'None',
 
   costPrice: 0,
   mrp: 999,
@@ -625,6 +627,7 @@ export default function AddProductWizard() {
             launchDate: p.launchDate ? new Date(p.launchDate).toISOString().split('T')[0] : '',
             sortOrder: p.sortOrder || 0,
             status: p.status || 'Draft',
+            tier: p.tier || 'None',
             
             costPrice: p.costPrice || 0,
             mrp: p.mrp || p.price?.original || 999,
@@ -1706,6 +1709,20 @@ export default function AddProductWizard() {
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                     <option value="Scheduled">Scheduled</option>
+                  </select>
+                </div>
+
+                {/* Product Tier/Collection */}
+                <div>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tier / Collection</label>
+                  <select
+                    {...register('tier')}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                  >
+                    <option value="None">None</option>
+                    <option value="Essential">Essential</option>
+                    <option value="Premium">Premium</option>
+                    <option value="Sale">Sale</option>
                   </select>
                 </div>
 

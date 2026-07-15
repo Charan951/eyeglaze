@@ -2,6 +2,7 @@ class UserAddress {
   final String id;
   final String? fullName;
   final String? mobile;
+  final String? alternativeNumber;
   final String? pincode;
   final String? line1;
   final String? line2;
@@ -14,6 +15,7 @@ class UserAddress {
     required this.id,
     this.fullName,
     this.mobile,
+    this.alternativeNumber,
     this.pincode,
     this.line1,
     this.line2,
@@ -28,6 +30,7 @@ class UserAddress {
       id: json['_id'] ?? json['id'] ?? '',
       fullName: json['fullName'],
       mobile: json['mobile'],
+      alternativeNumber: json['alternativeNumber'],
       pincode: json['pincode'],
       line1: json['line1'],
       line2: json['line2'],
@@ -42,6 +45,7 @@ class UserAddress {
         '_id': id,
         'fullName': fullName,
         'mobile': mobile,
+        'alternativeNumber': alternativeNumber,
         'pincode': pincode,
         'line1': line1,
         'line2': line2,
@@ -63,6 +67,8 @@ class User {
   final String? membershipExpiry;
   final List<dynamic>? transactions;
   final List<UserAddress> addresses;
+  final bool oneRupeeOfferUsed;
+  final int oneRupeeOfferCount;
 
   User({
     required this.id,
@@ -75,6 +81,8 @@ class User {
     this.membershipExpiry,
     this.transactions,
     this.addresses = const [],
+    this.oneRupeeOfferUsed = false,
+    this.oneRupeeOfferCount = 0,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -92,6 +100,8 @@ class User {
               ?.map((a) => UserAddress.fromJson(a as Map<String, dynamic>))
               .toList() ??
           [],
+      oneRupeeOfferUsed: json['oneRupeeOfferUsed'] as bool? ?? false,
+      oneRupeeOfferCount: (json['oneRupeeOfferCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -106,5 +116,7 @@ class User {
         'membershipExpiry': membershipExpiry,
         'transactions': transactions,
         'addresses': addresses.map((a) => a.toJson()).toList(),
+        'oneRupeeOfferUsed': oneRupeeOfferUsed,
+        'oneRupeeOfferCount': oneRupeeOfferCount,
       };
 }

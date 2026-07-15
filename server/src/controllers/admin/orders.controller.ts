@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../../config/mongodb';
 import { Order } from '../../models/Order';
+import { User } from '../../models/User';
+import { WalletTransaction } from '../../models/WalletTransaction';
 import { getIO } from '../../lib/socket';
 
 export async function getAdminOrders(req: Request, res: Response) {
@@ -27,7 +29,7 @@ export async function getAdminOrders(req: Request, res: Response) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('user', 'name email mobile phone'),
+        .populate('user', 'name email mobile phone walletBalance'),
       Order.countDocuments(query),
     ]);
 
@@ -46,8 +48,8 @@ export async function getAdminOrderById(req: Request, res: Response) {
     if (mongoose.Types.ObjectId.isValid(id)) orConditions.push({ _id: id });
 
     const order = await Order.findOne({ $or: orConditions })
-      .populate('user', 'name email mobile phone addresses')
-      .populate('items.product', 'name images sku');
+      .populate('user', 'name email mobile phone addresses walletBalance')
+      .populate('items.product', 'name images thumbnail sku');
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
     return res.status(200).json({ order });
@@ -87,13 +89,41 @@ export async function updateAdminOrder(req: Request, res: Response) {
     if (body.paymentStatus) order.paymentStatus = body.paymentStatus;
     if (body.isFlagged !== undefined) order.isFlagged = body.isFlagged;
 
+    if (body.walletAmountToAdd && typeof body.walletAmountToAdd === 'number' && body.walletAmountToAdd > 0) {
+      const userObj = await User.findById(order.user);
+      if (userObj) {
+        userObj.walletBalance = (userObj.walletBalance || 0) + body.walletAmountToAdd;
+        userObj.transactions.push({
+          type: 'Refund',
+          amount: body.walletAmountToAdd,
+          date: new Date(),
+          description: body.walletRefundDescription || `Refund for order ${order.orderId || order.orderNumber}`,
+        } as any);
+        await userObj.save();
+
+        await WalletTransaction.create({
+          userId: userObj._id,
+          amount: body.walletAmountToAdd,
+          type: 'Credit',
+          source: 'Refund',
+          description: body.walletRefundDescription || `Refund for order ${order.orderId || order.orderNumber}`,
+          orderId: order.orderId || order.orderNumber,
+        });
+      }
+    }
+
     await order.save();
+
+    const updatedOrder = await Order.findById(order._id)
+      .populate('user', 'name email mobile phone addresses walletBalance')
+      .populate('items.product', 'name images thumbnail sku');
+
     try {
-      getIO().emit('order_changed', { action: 'update', order });
+      getIO().emit('order_changed', { action: 'update', order: updatedOrder });
     } catch (err) {
       console.error('Socket emit error:', err);
     }
-    return res.status(200).json({ order });
+    return res.status(200).json({ order: updatedOrder });
   } catch (error) {
     console.error('PUT admin order error:', error);
     return res.status(500).json({ error: 'Failed to update order' });

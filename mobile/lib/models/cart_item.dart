@@ -20,19 +20,28 @@ class PrescriptionData {
   final PowerData? re;
   final PowerData? le;
   final double? pd;
+  final String? name;
+  final bool? uploadLater;
+  final String? uploadedFileUrl;
 
-  PrescriptionData({this.re, this.le, this.pd});
+  PrescriptionData({this.re, this.le, this.pd, this.name, this.uploadLater, this.uploadedFileUrl});
 
   factory PrescriptionData.fromJson(Map<String, dynamic> json) => PrescriptionData(
         re: json['RE'] != null ? PowerData.fromJson(json['RE']) : null,
         le: json['LE'] != null ? PowerData.fromJson(json['LE']) : null,
         pd: (json['pd'] as num?)?.toDouble(),
+        name: json['name'],
+        uploadLater: json['uploadLater'],
+        uploadedFileUrl: json['uploadedFileUrl'] ?? json['imageUrl'],
       );
 
   Map<String, dynamic> toJson() => {
         'RE': re?.toJson(),
         'LE': le?.toJson(),
         'pd': pd,
+        'name': name,
+        'uploadLater': uploadLater,
+        'uploadedFileUrl': uploadedFileUrl,
       };
 }
 

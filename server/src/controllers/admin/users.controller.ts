@@ -52,7 +52,7 @@ export async function getAdminUserDetails(req: Request, res: Response) {
 
     // Fetch user's orders
     const orders = await Order.find({ user: userId })
-      .populate('items.product', 'name images sku')
+      .populate('items.product', 'name images thumbnail sku')
       .sort({ createdAt: -1 });
 
     // Check if they used BOGO this month

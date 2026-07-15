@@ -15,6 +15,7 @@ import '../../widgets/eyeglaze_logo.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../lens/lens_type_screen.dart';
 import '../cart/cart_screen.dart';
+import 'size_guide_dialog.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -852,22 +853,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               onTap: () {
                                 showDialog(
                                   context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: AppColors.card,
-                                    title: const Text('Size Guide', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    content: const Text(
-                                      'Small: Up to 135 mm (Narrow face)\n'
-                                      'Medium: 136 mm to 142 mm (Standard face)\n'
-                                      'Large: 143 mm to 150 mm (Wide face)\n\n'
-                                      'Measure your face width temple-to-temple to find your ideal fit.',
-                                      style: TextStyle(color: Colors.white70),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
-                                      ),
-                                    ],
+                                  builder: (context) => SizeGuideDialog(
+                                    currentSize: _selectedSize,
+                                    onSizeApplied: (size) {
+                                      setState(() {
+                                        _selectedSize = size;
+                                      });
+                                    },
                                   ),
                                 );
                               },
@@ -2096,9 +2088,15 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
   final _scrollCtrl = ScrollController();
   bool _isTyping = false;
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _chatInputCtrl.text.trim();
     if (text.isEmpty) return;
+
+    // Convert history messages to List<Map<String, dynamic>>
+    final historyJson = _messages.skip(1).map((msg) => {
+      'sender': msg['sender'],
+      'text': msg['text'],
+    }).toList();
 
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
@@ -2107,26 +2105,53 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
     });
     _scrollToBottom();
 
-    // Answer logic
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+
+      // Create detailed context matching our backend prompt expectations
+      final pageContext = {
+        'pageName': 'Product Detail',
+        'pathname': '/products/details',
+        'details': {
+          'sku': widget.sku,
+          'price': {
+            'selling': widget.price,
+          },
+          'frame': {
+            'width': widget.frameWidth,
+            'lensWidth': widget.lensWidth,
+            'bridgeWidth': widget.bridgeWidth,
+            'templeLength': widget.templeLength,
+          }
+        }
+      };
+
+      final response = await api.getAiResponse(
+        message: text,
+        history: historyJson,
+        pageContext: pageContext,
+      );
+
       if (!mounted) return;
-      final val = text.toLowerCase();
-      String response = 'This frame (${widget.sku}) is highly compatible with prescription, blue cut, and progressive lenses. We offer single-vision, bifocal, and progressive options starting from ₹699.';
-
-      if (val.contains('price') || val.contains('cost') || val.contains('rate')) {
-        response = 'The frame starts at ₹${widget.price.toInt()}. With prescription lenses, packages start from ₹699.';
-      } else if (val.contains('size') || val.contains('fit') || val.contains('measure') || val.contains('dimension')) {
-        response = 'This frame has a total width of ${widget.frameWidth}mm, lens width of ${widget.lensWidth}mm, bridge width of ${widget.bridgeWidth}mm, and temple length of ${widget.templeLength}mm. It fits most faces comfortably!';
-      } else if (val.contains('delivery') || val.contains('ship') || val.contains('time') || val.contains('days')) {
-        response = 'We offer Fast Delivery in 2-4 days. Shipping is ₹99.';
-      }
-
       setState(() {
-        _messages.add({'sender': 'bot', 'text': response});
+        _messages.add({
+          'sender': 'bot',
+          'text': response['reply'] ?? 'Failed to get a response.'
+        });
         _isTyping = false;
       });
-      _scrollToBottom();
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'text': 'Sorry, I am facing connectivity issues. Please try again.'
+        });
+        _isTyping = false;
+      });
+    }
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {

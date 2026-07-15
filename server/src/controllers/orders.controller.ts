@@ -19,7 +19,7 @@ export async function getOrders(req: Request, res: Response) {
     await connectDB();
     const orders = await Order.find({ user: req.user!.userId })
       .sort({ createdAt: -1 })
-      .populate('items.product', 'name images sku');
+      .populate('items.product', 'name images thumbnail sku');
 
     return res.status(200).json({ orders });
   } catch (error) {
@@ -80,6 +80,14 @@ export async function createOrder(req: Request, res: Response) {
     let onePlusOneDiscount = 0;
     let oneRupeeFramesUsed = 0;
     const remainingOneRupeeFrames = Math.max(0, 2 - (user.oneRupeeOfferCount ?? 0));
+
+    // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
+    const totalBogoQty = cart.items.reduce((sum: number, item: any) => 
+      (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) ? sum + item.qty : sum, 
+      0
+    );
+    const isBogoActive = totalBogoQty >= 2;
+
     const buy1Get1Items: any[] = [];
 
     const orderItems = cart.items.map((item: any) => {
@@ -98,8 +106,8 @@ export async function createOrder(req: Request, res: Response) {
         }
       }
 
-      // Check ₹1 Frame eligibility - only if active member and after first order
-      if (item.product?.oneRupeeFrameOffer && user.membershipActive && previousOrderCount > 0 && !user.oneRupeeOfferUsed && (user.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesUsed < remainingOneRupeeFrames) {
+      // Check ₹1 Frame eligibility
+      if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user.oneRupeeOfferUsed && (user.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesUsed < remainingOneRupeeFrames) {
         const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesUsed);
         const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -114,7 +122,7 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       // Collect buy1Get1 items
-      if (bogoAllowedForMember && (isMemberNow || item.product?.buy1Get1)) {
+      if (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) {
         for (let i = 0; i < item.qty; i++) {
           buy1Get1Items.push({ framePrice, lensPrice });
         }
@@ -386,7 +394,7 @@ export async function getOrderById(req: Request, res: Response) {
 
     const order = await Order.findOne(query)
       .populate('user', 'name email mobile phone')
-      .populate('items.product', 'name images sku');
+      .populate('items.product', 'name images thumbnail sku');
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
 

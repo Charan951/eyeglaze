@@ -34,6 +34,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   String? _selectedColor;
   String? _selectedGender;
   final _searchCtrl = TextEditingController();
+  String _selectedTier = 'All';
 
   List<String> _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
 
@@ -152,6 +153,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         size: _selectedSize,
         color: _selectedColor,
         gender: _selectedGender,
+        tier: _selectedTier == 'All' ? null : _selectedTier,
       );
       final list = (data['products'] ?? data['data'] ?? []) as List;
       setState(() => _products = list.map((p) => Product.fromJson(p)).toList());
@@ -351,6 +353,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 onSubmitted: (_) => _loadProducts(),
               ),
             ),
+            // Collection Filter Tabs (All, Essential, Premium, Sale)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  _buildCollectionTab('All', Icons.grid_view_rounded, _selectedTier == 'All'),
+                  _buildCollectionTab('Essential', Icons.remove_red_eye_outlined, _selectedTier == 'Essential'),
+                  _buildCollectionTab('Premium', Icons.star_border_rounded, _selectedTier == 'Premium'),
+                  _buildCollectionTab('Sale', Icons.local_offer_outlined, _selectedTier == 'Sale'),
+                ],
+              ),
+            ),
             // Category chips
             SizedBox(
               height: 44,
@@ -421,6 +435,44 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             );
                           },
                         ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollectionTab(String id, IconData iconData, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTier = id;
+          });
+          _loadProducts();
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              iconData,
+              color: isActive ? AppColors.gold : AppColors.muted,
+              size: 20,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              id,
+              style: TextStyle(
+                color: isActive ? AppColors.white : AppColors.muted,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: 2,
+              width: 32,
+              color: isActive ? AppColors.gold : Colors.transparent,
             ),
           ],
         ),

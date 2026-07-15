@@ -85,6 +85,7 @@ class ApiService {
     String? size,
     String? color,
     String? gender,
+    String? tier,
     int page = 1,
   }) async {
     final params = <String, String>{};
@@ -96,6 +97,7 @@ class ApiService {
     if (size != null) params['size'] = size;
     if (color != null) params['color'] = color;
     if (gender != null) params['gender'] = gender;
+    if (tier != null) params['tier'] = tier;
     params['page'] = page.toString();
     params['limit'] = '20';
 
@@ -166,6 +168,15 @@ class ApiService {
       Uri.parse(_url('/cart/$itemId')),
       headers: await _getHeaders(),
       body: jsonEncode(data),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateCartMembership(bool addGoldMembership) async {
+    final res = await _client.put(
+      Uri.parse(_url('/cart/membership')),
+      headers: await _getHeaders(),
+      body: jsonEncode({'addGoldMembership': addGoldMembership}),
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
@@ -330,6 +341,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> addPrescription({
+    String? name,
     Map<String, dynamic>? re,
     Map<String, dynamic>? le,
     double? pd,
@@ -344,6 +356,9 @@ class ApiService {
     final headers = await _getHeaders();
     request.headers.addAll(headers);
 
+    if (name != null) {
+      request.fields['name'] = name;
+    }
     if (re != null) {
       request.fields['RE'] = jsonEncode(re);
     }
@@ -389,6 +404,14 @@ class ApiService {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getTicketById(String id) async {
+    final res = await _client.get(
+      Uri.parse(_url('/tickets/$id')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   // Membership
   Future<Map<String, dynamic>> activateMembership({
     String? paymentMethod,
@@ -430,4 +453,127 @@ class ApiService {
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  // Banners CMS
+  Future<List<dynamic>> getBanners() async {
+    final res = await _client.get(
+      Uri.parse(_url('/banners')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['banners'] ?? data['data'] ?? []);
+  }
+
+  // Homepage Videos CMS
+  Future<List<dynamic>> getHomepageVideos() async {
+    final res = await _client.get(
+      Uri.parse(_url('/homepage-videos')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['homepageVideos'] ?? data['data'] ?? []);
+  }
+
+  // Reels CMS
+  Future<List<dynamic>> getReels() async {
+    final res = await _client.get(
+      Uri.parse(_url('/reels')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['reels'] ?? data['data'] ?? []);
+  }
+
+  // Active Sessions
+  Future<List<dynamic>> getSessions() async {
+    final res = await _client.get(
+      Uri.parse(_url('/auth/sessions')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['sessions'] ?? data['data'] ?? []);
+  }
+
+  Future<Map<String, dynamic>> revokeSession(String id) async {
+    final res = await _client.delete(
+      Uri.parse(_url('/auth/sessions/$id')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> logoutAllDevices() async {
+    final res = await _client.post(
+      Uri.parse(_url('/auth/logout-all')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  // Coupons
+  Future<Map<String, dynamic>> getCoupons() async {
+    final res = await _client.get(
+      Uri.parse(_url('/coupons')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> validateCartCoupon({
+    required String code,
+    required double cartTotal,
+    required List<Map<String, dynamic>> items,
+    bool addGoldMembership = false,
+  }) async {
+    final res = await _client.post(
+      Uri.parse(_url('/coupons/validate')),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'code': code,
+        'cartTotal': cartTotal,
+        'addGoldMembership': addGoldMembership,
+        'items': items,
+      }),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> autoApplyCoupon({
+    required double cartTotal,
+    required List<Map<String, dynamic>> items,
+    bool addGoldMembership = false,
+  }) async {
+    final res = await _client.post(
+      Uri.parse(_url('/coupons/auto-apply')),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'cartTotal': cartTotal,
+        'addGoldMembership': addGoldMembership,
+        'items': items,
+      }),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAiResponse({
+    required String message,
+    required List<Map<String, dynamic>> history,
+    required Map<String, dynamic> pageContext,
+  }) async {
+    final headers = await _getHeaders();
+    final res = await _client.post(
+      Uri.parse(_url('/ai/chat')),
+      headers: headers,
+      body: jsonEncode({
+        'message': message,
+        'history': history,
+        'pageContext': pageContext,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to get AI response: ${res.body}');
+  }
 }
+
