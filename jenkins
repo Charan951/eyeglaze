@@ -127,7 +127,7 @@ EOF
  
                 echo "Installing backend dependencies..."
  
-                npm install
+                npm install --include=dev
  
                 echo "Building backend..."
  
@@ -183,7 +183,7 @@ EOF
  
                 echo "Installing frontend dependencies..."
  
-                npm install
+                npm install --include=dev
  
                 echo "Building frontend..."
  
