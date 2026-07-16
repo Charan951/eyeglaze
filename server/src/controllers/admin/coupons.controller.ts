@@ -6,6 +6,7 @@ import { AuditLog } from '../../models/AuditLog';
 import { CouponUsage } from '../../models/CouponUsage';
 import { CouponAnalytics } from '../../models/CouponAnalytics';
 import { getIO } from '../../lib/socket';
+import { escapeRegExp } from '../../lib/regex';
 
 /**
  * Helper to record Audit Log entries
@@ -36,9 +37,10 @@ export async function getAdminCoupons(req: Request, res: Response) {
     const query: any = { isDeleted: false };
     
     if (search) {
+      const escapedSearch = escapeRegExp(String(search));
       query.$or = [
-        { code: new RegExp(String(search), 'i') },
-        { name: new RegExp(String(search), 'i') },
+        { code: new RegExp(escapedSearch, 'i') },
+        { name: new RegExp(escapedSearch, 'i') },
       ];
     }
     

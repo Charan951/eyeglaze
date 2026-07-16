@@ -9,6 +9,7 @@ import { ProductVariant } from '../../models/ProductVariant';
 import { AuditLog } from '../../models/AuditLog';
 import { User } from '../../models/User';
 import { getIO } from '../../lib/socket';
+import { escapeRegExp } from '../../lib/regex';
 
 const ADMIN_ROLES = ['admin', 'store_manager'];
 
@@ -46,9 +47,10 @@ export async function getAdminProducts(req: Request, res: Response) {
 
     const query: Record<string, any> = {};
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { sku: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
     if (category) query.category = category;

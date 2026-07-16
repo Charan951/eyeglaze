@@ -6,6 +6,7 @@ import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
 import { LensType } from '../models/LensType';
 import { clearCachePattern } from '../middleware/cache';
+import { escapeRegExp } from '../lib/regex';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -54,7 +55,8 @@ export async function getProducts(req: Request, res: Response) {
     }
 
     if (subCategory) {
-      const subRegex = new RegExp(`^${subCategory.replace(/-/g, ' ')}$|^${subCategory}$`, 'i');
+      const escapedSub = escapeRegExp(subCategory);
+      const subRegex = new RegExp(`^${escapedSub.replace(/-/g, ' ')}$|^${escapedSub}$`, 'i');
       andConditions.push({
         $or: [
           { subCategory: { $regex: subRegex } },
@@ -68,11 +70,12 @@ export async function getProducts(req: Request, res: Response) {
     }
 
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       andConditions.push({
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { sku: { $regex: search, $options: 'i' } },
-          { tags: { $regex: search, $options: 'i' } },
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { sku: { $regex: escapedSearch, $options: 'i' } },
+          { tags: { $regex: escapedSearch, $options: 'i' } },
         ],
       });
     }
@@ -96,7 +99,7 @@ export async function getProducts(req: Request, res: Response) {
 
     const shapes = parseCommaParam(req.query.shape);
     if (shapes) {
-      const shapeRegexes = shapes.map(s => new RegExp(`^${s}$`, 'i'));
+      const shapeRegexes = shapes.map(s => new RegExp(`^${escapeRegExp(s)}$`, 'i'));
       andConditions.push({
         $or: [
           { shape: { $in: shapeRegexes } },
@@ -116,7 +119,7 @@ export async function getProducts(req: Request, res: Response) {
       andConditions.push({
         $or: [
           { frameColor: { $in: frameColors } },
-          { 'colors.name': { $regex: frameColors.map(c => `^${c}$|\\b${c}\\b`).join('|'), $options: 'i' } },
+          { 'colors.name': { $regex: frameColors.map(c => `^${escapeRegExp(c)}$|\\b${escapeRegExp(c)}\\b`).join('|'), $options: 'i' } },
         ],
       });
     }
@@ -126,7 +129,7 @@ export async function getProducts(req: Request, res: Response) {
       const shapeList = ['Square', 'Round', 'Clubmaster', 'Aviator', 'Wayfarer', 'Cat Eye', 'Hexagonal', 'Rectangle', 'Oval', 'Geometric'];
       const hasLegacyShapes = frameTypes.some(t => shapeList.includes(t));
       if (hasLegacyShapes) {
-        const frameTypesRegexes = frameTypes.map(t => new RegExp(`^${t}$`, 'i'));
+        const frameTypesRegexes = frameTypes.map(t => new RegExp(`^${escapeRegExp(t)}$`, 'i'));
         andConditions.push({
           $or: [
             { shape: { $in: frameTypesRegexes } },
@@ -167,7 +170,7 @@ export async function getProducts(req: Request, res: Response) {
     const genders = parseCommaParam(req.query.gender);
     if (genders) {
       const queryGenders = [...genders];
-      const genderRegexes = queryGenders.map(g => new RegExp(`^${g}$`, 'i'));
+      const genderRegexes = queryGenders.map(g => new RegExp(`^${escapeRegExp(g)}$`, 'i'));
       andConditions.push({ gender: { $in: genderRegexes } });
     }
 

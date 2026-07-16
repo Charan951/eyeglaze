@@ -9,6 +9,7 @@ import { Review } from '../../models/Review';
 import { Ticket } from '../../models/Ticket';
 import { WalletTransaction } from '../../models/WalletTransaction';
 import { CouponUsage } from '../../models/CouponUsage';
+import { escapeRegExp } from '../../lib/regex';
 
 export async function getAdminUsers(req: Request, res: Response) {
   try {
@@ -19,11 +20,12 @@ export async function getAdminUsers(req: Request, res: Response) {
 
     const query: Record<string, any> = { role: { $in: ['user', 'customer', 'CUSTOMER'] } };
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { mobile: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { mobile: { $regex: escapedSearch, $options: 'i' } },
+        { phone: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 

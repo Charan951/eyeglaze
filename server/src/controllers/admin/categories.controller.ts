@@ -12,6 +12,7 @@ import { AuditLog } from '../../models/AuditLog';
 import { User } from '../../models/User';
 import mongoose from 'mongoose';
 import { getIO } from '../../lib/socket';
+import { escapeRegExp } from '../../lib/regex';
 
 const ADMIN_ROLES = ['admin', 'store_manager'];
 
@@ -42,7 +43,7 @@ export async function getCategories(req: Request, res: Response) {
     const query: Record<string, any> = { isDeleted };
 
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.name = { $regex: escapeRegExp(search), $options: 'i' };
     }
     if (status) {
       query.status = status;
