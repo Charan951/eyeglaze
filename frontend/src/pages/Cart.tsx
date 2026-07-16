@@ -32,7 +32,7 @@ interface Coupon {
   name: string;
   description: string;
   badge?: string;
-  discountType: 'percent' | 'flat';
+  discountType: 'percent' | 'flat' | 'bogo' | 'buy_x_get_y' | 'free_shipping' | 'cashback' | 'wallet_credit' | 'gift';
   discountValue: number;
   minOrderValue?: number;
   maxDiscount?: number;
@@ -57,6 +57,12 @@ const mockItems: CartItem[] = [
 
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
+
+  const formatValue = (val?: any) => {
+    if (val === undefined || val === null || isNaN(Number(val))) return '0.00';
+    const num = Number(val);
+    return num > 0 ? `+${num.toFixed(2)}` : num.toFixed(2);
+  };
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const { user, fetchCartCount } = useAuth();
@@ -66,6 +72,7 @@ export default function CartPage() {
   const [addGoldMembership, setAddGoldMembership] = useState(false);
   const [hasUsedBogoThisMonth, setHasUsedBogoThisMonth] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [applyBogo, setApplyBogo] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
   const [showItemPriceDropdown, setShowItemPriceDropdown] = useState(false);
   const [showDiscountDropdown, setShowDiscountDropdown] = useState(false);
@@ -115,7 +122,7 @@ export default function CartPage() {
       // Load guest cart from localStorage
       const guestCartStr = localStorage.getItem('guest_cart');
       const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
-      
+
       const fetchGuestProducts = async () => {
         try {
           const populatedItems = await Promise.all(
@@ -140,7 +147,7 @@ export default function CartPage() {
               name: item.product?.name || item.name || 'Frame',
               sku: item.product?.sku || item.sku || '',
               color: item.color || '',
-              lens: item.lensType 
+              lens: item.lensType
                 ? `${item.lensType.replace('_', ' ').toUpperCase()}${item.lensSubType ? ` (${item.lensSubType.replace('_', ' ').toUpperCase()})` : ` (${item.lensQuality})`}`
                 : item.lens || '',
               framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
@@ -181,7 +188,7 @@ export default function CartPage() {
           name: item.product?.name || item.name || 'Frame',
           sku: item.product?.sku || item.sku || '',
           color: item.color || '',
-          lens: item.lensType 
+          lens: item.lensType
             ? `${item.lensType.replace('_', ' ').toUpperCase()}${item.lensSubType ? ` (${item.lensSubType.replace('_', ' ').toUpperCase()})` : ` (${item.lensQuality})`}`
             : item.lens || '',
           framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
@@ -211,23 +218,25 @@ export default function CartPage() {
 
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
-  const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
-  
-  // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
-  const totalBogoQty = items.reduce((sum, item) => 
-    (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) ? sum + item.qty : sum, 
-    0
-  );
-  const isBogoActive = totalBogoQty >= 2;
+  const maxOneRupeeFramesThisOrder = Math.min(1, Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0)));
+
+  const isBogoActive = false;
+
+  const isOneRupeeFrameActive = 
+    items.length === 1 && 
+    items[0]?.product?.oneRupeeFrameOffer && 
+    isMember && 
+    !user?.oneRupeeOfferUsed && 
+    ((user as any)?.oneRupeeOfferCount ?? 0) < 2;
 
   const buy1Get1Items: { id: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
-    
+
     // Member Price / ₹1 Frame check
-    if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
-      const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
+    if (items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
+      const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
       const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
@@ -244,9 +253,12 @@ export default function CartPage() {
     };
   });
 
+  const appliedCouponObj = activeCoupons.find(c => c.code === appliedCoupon);
+  const isBogoCouponApplied = appliedCouponObj?.discountType === 'bogo' || appliedCoupon === 'BOGO' || applyBogo;
+
   // Populate BOGO items with unique key per quantity index
   itemsWithPricing.forEach(item => {
-    if (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) {
+    if (isBogoCouponApplied && item.product?.buy1Get1) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           id: `${item._id || item.id}_${index}`,
@@ -260,15 +272,16 @@ export default function CartPage() {
   // Calculate BOGO discount
   let bogoDiscount = 0;
   let freeItemUniqueKey = '';
-  if (buy1Get1Items.length >= 2) {
+
+  if (isBogoCouponApplied && buy1Get1Items.length >= 2) {
     buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
     const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
       const currentTotal = current.framePrice + current.lensPrice;
       const lowestTotal = lowest.framePrice + lowest.lensPrice;
       return currentTotal < lowestTotal ? current : lowest;
     });
-    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
     freeItemUniqueKey = lowestPriceItem.id;
+    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
   }
 
 
@@ -297,7 +310,7 @@ export default function CartPage() {
   const delivery = isMember ? 0 : 99;
   const membershipFee = addGoldMembership ? 129 : 0;
   const totalDiscount = discount + bogoDiscount + productDiscounts;
-  
+
   const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
   const total = Math.max(0, totalBeforeDiscount - totalDiscount);
 
@@ -329,12 +342,12 @@ export default function CartPage() {
 
   // Auto re-validate coupon if pricing updates
   useEffect(() => {
-    if (isBogoActive) {
+    if (isBogoActive || isOneRupeeFrameActive) {
       if (appliedCoupon) {
         setDiscount(0);
         setAppliedCoupon(null);
         setCouponSuccess('');
-        setCouponError('Standard coupons cannot be combined with Buy 1 Get 1 Membership offer.');
+        setCouponError('Standard coupons cannot be combined with membership BOGO or ₹1 frame offers.');
       }
       return;
     }
@@ -350,6 +363,7 @@ export default function CartPage() {
           price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
           category: item.product?.category,
           brand: item.product?.brand,
+          buy1Get1: item.product?.buy1Get1 || false,
         }))
       }).then(res => {
         if (res.data.valid) {
@@ -366,11 +380,11 @@ export default function CartPage() {
         setCouponSuccess('');
       });
     }
-  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount, isBogoActive]);
+  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount, isBogoActive, isOneRupeeFrameActive]);
 
   // Auto-apply best coupon if none is applied and user hasn't manually removed it
   useEffect(() => {
-    if (isBogoActive) {
+    if (isBogoActive || isOneRupeeFrameActive) {
       return;
     }
     if (!appliedCoupon && !userRemovedCoupon && itemsWithPricing.length > 0) {
@@ -380,6 +394,7 @@ export default function CartPage() {
         price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
         category: item.product?.category,
         brand: item.product?.brand,
+        buy1Get1: item.product?.buy1Get1 || false,
       }));
 
       api.post('/coupons/auto-apply', {
@@ -397,11 +412,11 @@ export default function CartPage() {
         console.error('Failed to auto-apply best coupon:', err);
       });
     }
-  }, [appliedCoupon, userRemovedCoupon, items.length, actualSubtotal, fittingFeeTotal, bogoDiscount, addGoldMembership]);
+  }, [appliedCoupon, userRemovedCoupon, items.length, actualSubtotal, fittingFeeTotal, bogoDiscount, addGoldMembership, isOneRupeeFrameActive]);
 
   const handleApplyCoupon = async (codeToUse?: string) => {
-    if (isBogoActive) {
-      setCouponError('Standard coupons cannot be combined with Buy 1 Get 1 Membership offer.');
+    if (isBogoActive || isOneRupeeFrameActive) {
+      setCouponError('Standard coupons cannot be combined with membership BOGO or ₹1 frame offers.');
       return;
     }
     const code = codeToUse || couponCode;
@@ -409,17 +424,21 @@ export default function CartPage() {
     setCouponError('');
     setCouponSuccess('');
     try {
+      const validationItemsMapped = itemsWithPricing.map(item => ({
+        productId: item.product?._id || item.product?.id || item.productId || item.id,
+        qty: item.qty,
+        price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
+        category: item.product?.category,
+        brand: item.product?.brand,
+        buy1Get1: item.product?.buy1Get1 || false,
+      }));
+      console.log('FRONTEND VALIDATION ITEMS:', validationItemsMapped);
+
       const res = await api.post('/coupons/validate', {
         code: code.trim().toUpperCase(),
         cartTotal: actualSubtotal + fittingFeeTotal - bogoDiscount,
         addGoldMembership,
-        items: itemsWithPricing.map(item => ({
-          productId: item.product?._id || item.product?.id || item.productId || item.id,
-          qty: item.qty,
-          price: (item.framePriceCalculated ?? item.framePrice ?? 1) + (item.lensPrice || 0),
-          category: item.product?.category,
-          brand: item.product?.brand,
-        }))
+        items: validationItemsMapped
       });
 
       if (res.data.valid) {
@@ -427,6 +446,7 @@ export default function CartPage() {
         setAppliedCoupon(code.trim().toUpperCase());
         setCouponSuccess(res.data.message || 'Coupon applied successfully!');
         setIsCouponModalOpen(false);
+        setApplyBogo(false);
       } else {
         setCouponError(res.data.message || 'Invalid coupon code');
         setDiscount(0);
@@ -532,7 +552,8 @@ export default function CartPage() {
     const checkoutState = {
       addGoldMembership,
       appliedCouponCode: appliedCoupon,
-      discount
+      discount,
+      applyBogo
     };
     if (!user) {
       navigate('/login', { state: { from: { pathname: '/checkout', search: '' }, checkoutState } });
@@ -570,9 +591,9 @@ export default function CartPage() {
           {renderedItems.map(item => {
             if (item.isPseudo) {
               return (
-                <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4 animate-fade-in">
+                <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex flex-col sm:flex-row gap-4 animate-fade-in">
                   {/* Product Image */}
-                  <div className="w-36 h-36 bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border border-[#D4A04D]/35 rounded-none overflow-hidden flex flex-col items-center justify-center flex-shrink-0 relative p-3 text-center">
+                  <div className="w-full sm:w-36 h-40 sm:h-36 bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border border-[#D4A04D]/35 rounded-none overflow-hidden flex flex-col items-center justify-center flex-shrink-0 relative p-3 text-center">
                     <span className="text-[#D4A04D] font-serif font-black tracking-wider text-xs leading-none">EYEGLAZE</span>
                     <span className="text-[#A7A7A7] text-[8px] font-bold uppercase tracking-widest mt-1">MEMBERSHIP</span>
                   </div>
@@ -595,7 +616,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
                     <div className="text-white font-bold">₹129</div>
                     <div className="text-[#A7A7A7] text-[10px] line-through mt-1">₹600</div>
                   </div>
@@ -606,9 +627,9 @@ export default function CartPage() {
             const isFreeThisItem = item.uniqueKey === freeItemUniqueKey;
 
             return (
-              <div key={item.uniqueKey || item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex gap-4 relative">
+              <div key={item.uniqueKey || item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex flex-col sm:flex-row gap-4 relative">
                 {/* Product Image */}
-                <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 relative">
+                <div className="w-full sm:w-36 h-40 sm:h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 relative">
                   {isFreeThisItem && (
                     <div className="absolute top-0 left-0 bg-[#00A86B] text-white font-black text-[8px] uppercase tracking-wider px-2 py-0.5 z-10 rounded-br shadow-md">
                       FREE
@@ -630,21 +651,83 @@ export default function CartPage() {
                     <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
                   )}
                   {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                    <div className="text-xs mt-1.5 space-y-1">
-                      {item.power.name && (
-                        <div className="text-gray-400 font-semibold flex items-center gap-1.5">
-                          Label: <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">{item.power.name}</span>
-                        </div>
-                      )}
+                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-4 mt-3 max-w-sm text-left">
+                      {/* Header block */}
+                      <div className="flex justify-between items-center border-b border-[#2A2A2D]/50 pb-2 mb-2.5">
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                          {item.power.uploadLater ? 'Doctor Prescription' : 'Manually Entered Power'}
+                        </span>
+                        {item.power.name && (
+                          <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">
+                            {item.power.name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Content block */}
                       {item.power.uploadLater ? (
-                        <div className="text-gray-400 font-bold">
-                          Prescription: {item.power.uploadedFileUrl ? '📄 Document Uploaded' : '⏳ Upload Later'}
+                        <div className="text-xs text-gray-400 font-semibold flex items-center gap-1.5 py-1">
+                          <span>Prescription:</span>
+                          <span className="text-[#D4A04D] font-bold">
+                            {item.power.uploadedFileUrl ? '📄 Document Uploaded' : '⏳ Upload Later'}
+                          </span>
                         </div>
                       ) : (
                         (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                          <div className="text-[#D4A04D] font-bold">
-                            Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
-                            {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                          <div className="space-y-2">
+                            {/* Table Header: hidden on mobile */}
+                            <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-[#2A2A2D]/30 pb-1.5">
+                              <div className="text-left" />
+                              <div>SPH</div>
+                              <div>CYL</div>
+                              <div>AXIS</div>
+                            </div>
+
+                            {/* Right Eye Row */}
+                            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs">
+                              <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Right Eye</div>
+                              <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                                  <span className="text-white font-bold">{formatValue(item.power.RE?.sph)}</span>
+                                </div>
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                                  <span className="text-white font-bold">{formatValue(item.power.RE?.cyl)}</span>
+                                </div>
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                                  <span className="text-white font-mono">{item.power.RE?.axis ?? '0'}°</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Left Eye Row */}
+                            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs pt-1.5 sm:pt-0">
+                              <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Left Eye</div>
+                              <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                                  <span className="text-white font-bold">{formatValue(item.power.LE?.sph)}</span>
+                                </div>
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                                  <span className="text-white font-bold">{formatValue(item.power.LE?.cyl)}</span>
+                                </div>
+                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
+                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                                  <span className="text-white font-mono">{item.power.LE?.axis ?? '0'}°</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* PD */}
+                            {item.power.pd !== undefined && (
+                              <div className="pt-2 border-t border-[#2A2A2D]/30 text-[10px] flex justify-between">
+                                <span className="text-gray-500 font-semibold">PD (Pupillary Distance)</span>
+                                <span className="text-white font-bold">{item.power.pd} mm</span>
+                              </div>
+                            )}
                           </div>
                         )
                       )}
@@ -664,15 +747,9 @@ export default function CartPage() {
                       Remove
                     </button>
                   </div>
-                  {isFreeThisItem && (
-                    <div className="mt-3 bg-green-500/10 border border-green-500/25 rounded-lg px-3 py-1.5 text-[10px] text-green-400 flex items-center gap-1.5 w-fit font-medium">
-                      <span>✓</span>
-                      <span>This Product is Free with EyeGlaze Membership!</span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="text-right flex-shrink-0">
+                <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
                   <div className="text-white font-bold">
                     {isFreeThisItem ? (
                       <>
@@ -715,7 +792,7 @@ export default function CartPage() {
             {/* Billing summary */}
             <div className="space-y-3 text-sm mb-4">
               <div>
-                <div 
+                <div
                   className="flex justify-between items-center cursor-pointer select-none group"
                   onClick={() => setShowItemPriceDropdown(!showItemPriceDropdown)}
                 >
@@ -742,7 +819,7 @@ export default function CartPage() {
 
               {totalDiscount > 0 && (
                 <div>
-                  <div 
+                  <div
                     className="flex justify-between items-center cursor-pointer select-none group font-medium text-green-400"
                     onClick={() => setShowDiscountDropdown(!showDiscountDropdown)}
                   >
@@ -776,14 +853,14 @@ export default function CartPage() {
                   )}
                 </div>
               )}
-              
+
               {fittingFeeTotal > 0 && (
                 <div className="flex justify-between">
                   <span className="text-[#A7A7A7]">Fitting Fee</span>
                   <span className="text-white">₹{fittingFeeTotal}</span>
                 </div>
               )}
-              
+
               <div className="flex justify-between">
                 <span className="text-[#A7A7A7]">Shipping & Delivery</span>
                 <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
@@ -795,7 +872,7 @@ export default function CartPage() {
                   <span className="text-white">₹{membershipFee}</span>
                 </div>
               )}
-              
+
               <div className="border-t border-[#2A2A2D] pt-3 flex justify-between font-bold">
                 <span className="text-white">Total Payable</span>
                 <span className="text-[#D4A04D] text-lg">₹{total}</span>
@@ -805,11 +882,10 @@ export default function CartPage() {
 
           {/* Gold Membership Card */}
           {!user?.membershipActive && (
-            <div className={`bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${
-              addGoldMembership 
-                ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.15)] bg-[#1e1911]' 
+            <div className={`bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border rounded-xl p-4 transition-all duration-300 relative overflow-hidden ${addGoldMembership
+                ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.15)] bg-[#1e1911]'
                 : 'border-[#D4A04D]/30'
-            }`}>
+              }`}>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex flex-col text-left">
                   <div className="flex items-center gap-1.5">
@@ -869,14 +945,43 @@ export default function CartPage() {
             </div>
           )}
 
+          {isMember && items.length > 1 && !hasUsedBogoThisMonth && (
+            <div className="bg-[#D4A04D]/10 border border-[#D4A04D]/35 rounded-xl p-4 flex items-start gap-3 text-left animate-fade-in">
+              <div className="text-lg">💡</div>
+              <div className="flex-1 space-y-1">
+                <span className="text-[#D4A04D] font-extrabold text-[10px] uppercase tracking-wider block">Apply BOGO Voucher</span>
+                <p className="text-[#A7A7A7] text-[10px] leading-normal font-medium">
+                  {applyBogo
+                    ? "BOGO Voucher applied! The cheapest frame + lens combination in your cart is free."
+                    : "You have multiple products in your cart! Since your membership is active, you can apply your Buy 1 Get 1 Free voucher."
+                  }
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (applyBogo) {
+                      setApplyBogo(false);
+                    } else {
+                      setApplyBogo(true);
+                      handleRemoveCoupon();
+                    }
+                  }}
+                  className={`${applyBogo ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-[#D4A04D] hover:bg-[#C8923E] text-black'
+                    } font-extrabold text-[9px] uppercase px-3.5 py-2 rounded-lg border-none cursor-pointer tracking-widest transition-colors mt-2`}
+                >
+                  {applyBogo ? 'Remove BOGO Voucher' : 'Apply BOGO Voucher'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Apply Coupon Card */}
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 space-y-3">
             <label className="text-white font-bold text-xs uppercase tracking-wide block">Apply Coupon</label>
-            <div 
+            <div
               onClick={() => setIsCouponModalOpen(true)}
-              className={`bg-[#0B0B0C] border hover:border-gray-500 rounded-xl p-3.5 cursor-pointer transition-all flex items-center justify-between ${
-                appliedCoupon ? 'border-green-500/50 bg-green-500/5' : 'border-[#2A2A2D]'
-              }`}
+              className={`bg-[#0B0B0C] border hover:border-gray-500 rounded-xl p-3.5 cursor-pointer transition-all flex items-center justify-between ${appliedCoupon ? 'border-green-500/50 bg-green-500/5' : 'border-[#2A2A2D]'
+                }`}
             >
               <div className="flex items-center gap-2.5">
                 <div className="text-lg">🎫</div>
@@ -964,18 +1069,17 @@ export default function CartPage() {
                 <div className="text-center py-6 text-gray-500 text-xs">No active coupons available right now</div>
               ) : (
                 activeCoupons.map((coupon) => (
-                  <div 
-                    key={coupon._id} 
-                    className={`border border-dashed rounded-xl p-4 flex flex-col relative overflow-hidden bg-[#1A1A1C]/50 ${
-                      appliedCoupon === coupon.code 
-                        ? 'border-green-500/50 bg-green-500/5' 
+                  <div
+                    key={coupon._id}
+                    className={`border border-dashed rounded-xl p-4 flex flex-col relative overflow-hidden bg-[#1A1A1C]/50 ${appliedCoupon === coupon.code
+                        ? 'border-green-500/50 bg-green-500/5'
                         : 'border-[#D4A04D]/40'
-                    }`}
+                      }`}
                   >
                     {/* Punch holes for coupon ticket effect */}
                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-[#2A2A2D] z-10" />
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#131314] rounded-full border border-l-[#2A2A2D] z-10" />
-                    
+
                     <div className="flex justify-between items-start gap-4">
                       <div className="text-left">
                         {coupon.badge && (
@@ -993,11 +1097,10 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() => handleApplyCoupon(coupon.code)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex-shrink-0 ${
-                          appliedCoupon === coupon.code
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex-shrink-0 ${appliedCoupon === coupon.code
                             ? 'bg-green-500 text-white'
                             : 'bg-[#D4A04D] text-black hover:opacity-90 hover:scale-105'
-                        }`}
+                          }`}
                       >
                         {appliedCoupon === coupon.code ? 'Applied ✓' : 'Apply'}
                       </button>

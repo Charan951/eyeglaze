@@ -63,6 +63,12 @@ export default function CheckoutPage() {
   const [pincode, setPincode] = useState('');
   const [alternativeNumber, setAlternativeNumber] = useState('');
   
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+  const [addressType, setAddressType] = useState<'Home' | 'Work' | 'Other'>('Home');
+  const [addressIsDefault, setAddressIsDefault] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressInitialized, setAddressInitialized] = useState(false);
+  
   const [discount, setDiscount] = useState(checkoutState.discount || 0);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(checkoutState.appliedCouponCode || null);
@@ -82,7 +88,7 @@ export default function CheckoutPage() {
 
   // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
-  const remainingOneRupeeFrames = Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0));
+  const maxOneRupeeFramesThisOrder = Math.min(1, Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0)));
 
   // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
   const totalBogoQty = items.reduce((sum, item) => 
@@ -91,14 +97,21 @@ export default function CheckoutPage() {
   );
   const isBogoActive = totalBogoQty >= 2;
 
+  const isOneRupeeFrameActive = 
+    items.length === 1 && 
+    items[0]?.product?.oneRupeeFrameOffer && 
+    isMember && 
+    !user?.oneRupeeOfferUsed && 
+    ((user as any)?.oneRupeeOfferCount ?? 0) < 2;
+
   const buy1Get1Items: { uniqueKey: string; framePrice: number; lensPrice: number }[] = [];
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
     
     // Member Price / ₹1 Frame check
-    if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < remainingOneRupeeFrames) {
-      const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesCount);
+    if (items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
+      const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
       const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
@@ -215,6 +228,10 @@ export default function CheckoutPage() {
   }, []);
 
   const handleApplyCoupon = async (codeToUse?: string) => {
+    if (isBogoActive || isOneRupeeFrameActive) {
+      setCouponError('Standard coupons cannot be combined with membership BOGO or ₹1 frame offers.');
+      return;
+    }
     const code = codeToUse || couponCode;
     if (!code.trim()) return;
     setCouponError('');
@@ -258,6 +275,9 @@ export default function CheckoutPage() {
   };
 
   const handleAutoApplyBest = async () => {
+    if (isBogoActive || isOneRupeeFrameActive) {
+      return;
+    }
     setCouponError('');
     setCouponSuccess('');
     try {
@@ -306,22 +326,80 @@ export default function CheckoutPage() {
   // Auto-fill from default saved address if available
   useEffect(() => {
     if (user && user.addresses && user.addresses.length > 0) {
-      const defaultAddr = (user.addresses as any[]).find(addr => addr.isDefault) || user.addresses[0];
-      if (defaultAddr) {
-        setFullName(defaultAddr.fullName || '');
-        setMobile(defaultAddr.mobile || '');
-        setAlternativeNumber(defaultAddr.alternativeNumber || '');
-        setLine1(defaultAddr.line1 || '');
-        setLine2(defaultAddr.line2 || '');
-        setCity(defaultAddr.city || '');
-        setState(defaultAddr.state || '');
-        setPincode(defaultAddr.pincode || '');
-        setIsNewAddressActive(false);
+      if (!addressInitialized) {
+        const defaultAddr = (user.addresses as any[]).find(addr => addr.isDefault) || user.addresses[0];
+        if (defaultAddr) {
+          setFullName(defaultAddr.fullName || '');
+          setMobile(defaultAddr.mobile || '');
+          setAlternativeNumber(defaultAddr.alternativeNumber || '');
+          setLine1(defaultAddr.line1 || '');
+          setLine2(defaultAddr.line2 || '');
+          setCity(defaultAddr.city || '');
+          setState(defaultAddr.state || '');
+          setPincode(defaultAddr.pincode || '');
+          setIsNewAddressActive(false);
+          setAddressInitialized(true);
+        }
       }
     } else {
       setIsNewAddressActive(true);
     }
-  }, [user]);
+  }, [user, addressInitialized]);
+
+  const handleEditAddressClick = (addr: any) => {
+    setEditingAddress(addr);
+    setAddressType(addr.type || 'Home');
+    setAddressIsDefault(addr.isDefault || false);
+    setFullName(addr.fullName || '');
+    setMobile(addr.mobile || '');
+    setAlternativeNumber(addr.alternativeNumber || '');
+    setLine1(addr.line1 || '');
+    setLine2(addr.line2 || '');
+    setCity(addr.city || '');
+    setState(addr.state || '');
+    setPincode(addr.pincode || '');
+    setIsNewAddressActive(true);
+  };
+
+  const handleSaveAddressPermanent = async () => {
+    if (!fullName || !mobile || !alternativeNumber || !line1 || !city || !state || !pincode) {
+      alert('Please fill out all required fields.');
+      return;
+    }
+    
+    setIsSavingAddress(true);
+    try {
+      const payload = {
+        fullName,
+        mobile,
+        alternativeNumber: alternativeNumber || undefined,
+        pincode,
+        line1,
+        line2,
+        city,
+        state,
+        type: addressType,
+        isDefault: addressIsDefault,
+      };
+
+      const addressId = editingAddress ? (editingAddress.id || editingAddress._id) : null;
+
+      if (editingAddress && addressId) {
+        await api.put(`/auth/addresses/${addressId}`, payload);
+      } else {
+        await api.post('/auth/addresses', payload);
+      }
+
+      await checkAuth();
+      setIsNewAddressActive(false);
+      setEditingAddress(null);
+    } catch (err: any) {
+      console.error('Failed to save address:', err);
+      alert(err.response?.data?.error || 'Failed to save address.');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
   
   // Success state
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -393,6 +471,16 @@ export default function CheckoutPage() {
 
   // Auto re-validate coupon if pricing updates
   useEffect(() => {
+    if (isBogoActive || isOneRupeeFrameActive) {
+      if (appliedCoupon) {
+        setDiscount(0);
+        setAppliedCoupon(null);
+        setCouponSuccess('');
+        setCouponError('Standard coupons cannot be combined with membership BOGO or ₹1 frame offers.');
+      }
+      return;
+    }
+
     if (appliedCoupon) {
       api.post('/coupons/validate', {
         code: appliedCoupon,
@@ -426,7 +514,7 @@ export default function CheckoutPage() {
         setCouponSuccess('');
       });
     }
-  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount]);
+  }, [addGoldMembership, actualSubtotal, fittingFeeTotal, bogoDiscount, isBogoActive, isOneRupeeFrameActive]);
 
   // Load Razorpay Checkout script dynamically
   useEffect(() => {
@@ -460,6 +548,7 @@ export default function CheckoutPage() {
         couponCode: appliedCoupon || undefined,
         walletUsed: useWallet ? walletAmount : 0,
         activateMembership: addGoldMembership,
+        applyBogo: isBogoActive
       };
 
       const res = await api.post('/orders', payload);
@@ -479,9 +568,10 @@ export default function CheckoutPage() {
         })
       });
       setOrderSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Order placement failed:', err);
-      alert('Failed to place order. Please check your cart and shipping details.');
+      const errMsg = err.response?.data?.error || err.message || 'Please check your cart and shipping details.';
+      alert(`Failed to place order: ${errMsg}`);
     } finally {
       setSubmitting(false);
     }
@@ -673,6 +763,7 @@ export default function CheckoutPage() {
                         }
                       }
                       setIsNewAddressActive(false);
+                      setEditingAddress(null);
                     } else {
                       // Switch to empty form for adding new address
                       setFullName('');
@@ -683,12 +774,15 @@ export default function CheckoutPage() {
                       setCity('');
                       setState('');
                       setPincode('');
+                      setAddressType('Home');
+                      setAddressIsDefault(false);
+                      setEditingAddress(null);
                       setIsNewAddressActive(true);
                     }
                   }}
                   className="text-[#D4A04D] hover:text-[#C8923E] hover:underline font-extrabold text-[10px] sm:text-xs uppercase tracking-wider bg-transparent border-none cursor-pointer p-0 transition-colors"
                 >
-                  {isNewAddressActive ? '✕ Use Saved Address' : '+ Add New Address'}
+                  {isNewAddressActive ? (editingAddress ? '✕ Cancel Edit' : '✕ Use Saved Address') : '+ Add New Address'}
                 </button>
               )}
             </div>
@@ -711,9 +805,8 @@ export default function CheckoutPage() {
                       pincode === addr.pincode;
                       
                     return (
-                      <button
+                      <div
                         key={addrId}
-                        type="button"
                         onClick={() => {
                           setFullName(addr.fullName || '');
                           setMobile(addr.mobile || '');
@@ -724,8 +817,9 @@ export default function CheckoutPage() {
                           setState(addr.state || '');
                           setPincode(addr.pincode || '');
                           setIsNewAddressActive(false);
+                          setEditingAddress(null);
                         }}
-                        className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
+                        className={`cursor-pointer text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
                           isSelected 
                             ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-white shadow-[0_0_10px_rgba(212,160,77,0.1)]' 
                             : 'border-[#2A2A2D] bg-[#131314] text-gray-400 hover:border-gray-700'
@@ -733,12 +827,24 @@ export default function CheckoutPage() {
                       >
                         <div>
                           <div className="flex justify-between items-center mb-1.5">
-                            <span className="font-extrabold text-white uppercase text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
-                              {addr.type}
-                            </span>
-                            {addr.isDefault && (
-                              <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase">Default</span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-white uppercase text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                                {addr.type}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase font-bold">Default</span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditAddressClick(addr);
+                              }}
+                              className="text-[#D4A04D] hover:underline text-[9px] font-extrabold uppercase cursor-pointer bg-transparent border-none p-0"
+                            >
+                              Edit
+                            </button>
                           </div>
                           <div className="font-bold text-white truncate">{addr.fullName}</div>
                           <div className="text-[#A7A7A7] text-[10px] mt-0.5">
@@ -748,7 +854,7 @@ export default function CheckoutPage() {
                             {addr.line1}, {addr.line2 ? `${addr.line2}, ` : ''}{addr.city}, {addr.state} - {addr.pincode}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -764,7 +870,7 @@ export default function CheckoutPage() {
                     required
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
-                    placeholder="John Doe"
+                    placeholder="Name"
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   />
                 </div>
@@ -854,6 +960,80 @@ export default function CheckoutPage() {
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   />
                 </div>
+
+                {user && (
+                  <div className="sm:col-span-2 pt-4 border-t border-[#2A2A2D]/60 flex flex-col gap-4">
+                    {/* Address Type */}
+                    <div>
+                      <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Type</label>
+                      <div className="flex gap-3 max-w-xs">
+                        {(['Home', 'Work', 'Other'] as const).map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setAddressType(t)}
+                            className={`flex-1 py-2.5 rounded-xl border text-xs font-bold uppercase transition-all ${
+                              addressType === t 
+                                ? 'bg-[#D4A04D] text-black border-[#D4A04D]' 
+                                : 'bg-[#0B0B0C] text-[#A7A7A7] border-[#2A2A2D] hover:border-gray-700'
+                            }`}
+                          >
+                            {t === 'Home' ? '🏠 ' : t === 'Work' ? '🏢 ' : '📍 '}{t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Set as Default Checkbox */}
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="defaultAddressCheckbox"
+                        checked={addressIsDefault}
+                        onChange={e => setAddressIsDefault(e.target.checked)}
+                        className="w-4 h-4 rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-0 focus:ring-offset-0"
+                      />
+                      <label htmlFor="defaultAddressCheckbox" className="text-white text-xs select-none cursor-pointer">
+                        Set as Default Shipping Address
+                      </label>
+                    </div>
+
+                    {/* Save / Cancel buttons */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={isSavingAddress}
+                        onClick={handleSaveAddressPermanent}
+                        className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider disabled:opacity-50"
+                      >
+                        {isSavingAddress ? 'Saving...' : editingAddress ? 'Update & Save Address' : 'Save Address'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (user?.addresses) {
+                            const defaultAddr = (user.addresses as any[]).find(addr => addr.isDefault) || user.addresses[0];
+                            if (defaultAddr) {
+                              setFullName(defaultAddr.fullName || '');
+                              setMobile(defaultAddr.mobile || '');
+                              setAlternativeNumber(defaultAddr.alternativeNumber || '');
+                              setLine1(defaultAddr.line1 || '');
+                              setLine2(defaultAddr.line2 || '');
+                              setCity(defaultAddr.city || '');
+                              setState(defaultAddr.state || '');
+                              setPincode(defaultAddr.pincode || '');
+                            }
+                          }
+                          setIsNewAddressActive(false);
+                          setEditingAddress(null);
+                        }}
+                        className="bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-2.5 px-6 rounded-xl text-xs tracking-wider transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -902,11 +1082,32 @@ export default function CheckoutPage() {
                           <p className="text-[#A7A7A7] text-[10px] mt-0.5">{item.color}</p>
                           {item.lens && <p className="text-[#D4A04D] text-[10px] mt-0.5 line-clamp-1">Lens: {item.lens}</p>}
                           {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                             <p className="text-[#D4A04D]/90 text-[10px] mt-0.5 font-bold">
-                               Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
-                               {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
-                             </p>
-                           )}
+                            <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg p-2.5 mt-1.5 space-y-1.5 text-[9px] max-w-[240px]">
+                              <div className="text-gray-500 font-bold uppercase tracking-wider text-[8px] border-b border-[#2A2A2D]/50 pb-1">Power Specs</div>
+                              <div className="space-y-1 font-mono">
+                                {item.power.RE?.sph !== undefined && (
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <span className="text-gray-400 font-bold text-[8px]">RE (Right):</span>
+                                    <span className="text-white font-bold">
+                                      SPH: {parseFloat(item.power.RE.sph) > 0 ? '+' : ''}{item.power.RE.sph}
+                                      {item.power.RE.cyl !== undefined && parseFloat(item.power.RE.cyl) !== 0 && ` | CYL: ${parseFloat(item.power.RE.cyl) > 0 ? '+' : ''}${item.power.RE.cyl}`}
+                                      {item.power.RE.axis !== undefined && parseInt(item.power.RE.axis) !== 0 && ` | AX: ${item.power.RE.axis}°`}
+                                    </span>
+                                  </div>
+                                )}
+                                {item.power.LE?.sph !== undefined && (
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <span className="text-gray-400 font-bold text-[8px]">LE (Left):</span>
+                                    <span className="text-white font-bold">
+                                      SPH: {parseFloat(item.power.LE.sph) > 0 ? '+' : ''}{item.power.LE.sph}
+                                      {item.power.LE.cyl !== undefined && parseFloat(item.power.LE.cyl) !== 0 && ` | CYL: ${parseFloat(item.power.LE.cyl) > 0 ? '+' : ''}${item.power.LE.cyl}`}
+                                      {item.power.LE.axis !== undefined && parseInt(item.power.LE.axis) !== 0 && ` | AX: ${item.power.LE.axis}°`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

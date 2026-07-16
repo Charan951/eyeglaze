@@ -61,9 +61,9 @@ export const updateLensType = async (req: Request, res: Response) => {
     const { name, status, category } = req.body;
     const existing = await LensType.findOne({ name, category, _id: { $ne: id } });
     if (existing) {
-      return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
+       return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
     }
-    const updated = await LensType.findByIdAndUpdate(id, { name, status, category }, { new: true });
+    const updated = await LensType.findByIdAndUpdate(id, { name, status, category }, { returnDocument: 'after' });
     if (!updated) return res.status(404).json({ message: 'Lens Type not found' });
     try {
       getIO().emit('lens_type_changed', { action: 'update', lensType: updated });

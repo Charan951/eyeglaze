@@ -3,6 +3,7 @@ import { connectDB } from '../config/mongodb';
 import { User } from '../models/User';
 import { Coupon } from '../models/Coupon';
 import { Order } from '../models/Order';
+import { generateMemberCoupons } from './coupons.controller';
 import {
   generateOTP,
   hashOTP,
@@ -722,21 +723,8 @@ export async function activateMembership(req: Request, res: Response) {
       description: paymentMethod === 'razorpay' ? 'Gold Membership Activation (1 Year) via Razorpay' : 'Gold Membership Activation (1 Year)'
     });
 
-    // Auto-generate 50% OFF member coupon
-    const couponCode = `MEMBER${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const coupon = new Coupon({
-      code: couponCode,
-      discountType: 'percent',
-      discountValue: 50,
-      name: '50% Off Member Exclusive',
-      description: 'Exclusive 50% off for members',
-      isActive: true,
-      validFrom: new Date(),
-      validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-      usageLimitTotal: 1,
-      userSpecific: user._id,
-    });
-    await coupon.save();
+    // Auto-generate member coupons (50% off and BOGO voucher)
+    const generatedCoupons = await generateMemberCoupons(user._id);
 
     await user.save();
     await user.populate('wishlist', '_id');
@@ -745,7 +733,8 @@ export async function activateMembership(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       message: 'Gold Membership activated successfully!',
-      coupon,
+      coupon: generatedCoupons.percentCoupon,
+      bogoCoupon: generatedCoupons.bogoCoupon,
       user: {
         id: user._id,
         name: user.name,

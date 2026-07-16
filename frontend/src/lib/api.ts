@@ -3,6 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true,
+  timeout: 8000, // 8 seconds timeout to prevent hanging requests
 });
 
 let isRefreshing = false;
@@ -22,6 +23,12 @@ const processQueue = (error: any) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.error('[API Interceptor] Error details:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message
+    });
     const originalRequest = error.config;
 
     // If response status is 401 and we haven't retried this request yet

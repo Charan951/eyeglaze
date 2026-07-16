@@ -31,12 +31,13 @@ export default function SavedPowersPage() {
   
   // Add Power Form State
   const [showAddForm, setShowAddForm] = useState(false);
+  const [powerName, setPowerName] = useState('');
   const [reSph, setReSph] = useState('0.00');
   const [reCyl, setReCyl] = useState('0.00');
-  const [reAxis, setReAxis] = useState('0');
+  const [reAxis, setReAxis] = useState('');
   const [leSph, setLeSph] = useState('0.00');
   const [leCyl, setLeCyl] = useState('0.00');
-  const [leAxis, setLeAxis] = useState('0');
+  const [leAxis, setLeAxis] = useState('');
   const [pd, setPd] = useState('62.0');
   const [saving, setSaving] = useState(false);
 
@@ -72,17 +73,27 @@ export default function SavedPowersPage() {
 
   const handleAddPowerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!powerName.trim()) {
+      alert('Please enter a name to save this power.');
+      return;
+    }
     setSaving(true);
     try {
       const hasAstigmatismRE = parseFloat(reCyl) !== 0;
       const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-      if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-        alert('Please select AXIS for astigmatism (when CYL is not 0)');
+      if (hasAstigmatismRE && (!reAxis || reAxis === '')) {
+        alert('Please select AXIS for Right Eye astigmatism (when CYL is not 0)');
+        setSaving(false);
+        return;
+      }
+      if (hasAstigmatismLE && (!leAxis || leAxis === '')) {
+        alert('Please select AXIS for Left Eye astigmatism (when CYL is not 0)');
         setSaving(false);
         return;
       }
 
       const payload = {
+        name: powerName.trim(),
         RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
         LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) }),
         pd: parseFloat(pd)
@@ -93,12 +104,13 @@ export default function SavedPowersPage() {
         setPrescriptions(prev => [res.data.prescription, ...prev]);
         setShowAddForm(false);
         // Reset form
+        setPowerName('');
         setReSph('0.00');
         setReCyl('0.00');
-        setReAxis('0');
+        setReAxis('');
         setLeSph('0.00');
         setLeCyl('0.00');
-        setLeAxis('0');
+        setLeAxis('');
         setPd('62.0');
         alert('Power saved successfully!');
       }
@@ -152,6 +164,18 @@ export default function SavedPowersPage() {
           </h3>
           
           <form onSubmit={handleAddPowerSubmit} className="space-y-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
+                Power Name (Mandatory) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. My Reading Glasses, Daily Use"
+                value={powerName}
+                onChange={e => setPowerName(e.target.value)}
+                className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+              />
+            </div>
             {/* Header: hidden on mobile */}
             <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-[10px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
               <div className="text-left" />
@@ -183,6 +207,7 @@ export default function SavedPowersPage() {
                 <div className="flex flex-col sm:contents">
                   <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">AXIS</span>
                   <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    <option value="">--</option>
                     {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                       <option key={v} value={v}>{v}</option>
                     ))}
@@ -214,6 +239,7 @@ export default function SavedPowersPage() {
                 <div className="flex flex-col sm:contents">
                   <span className="sm:hidden text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-left">AXIS</span>
                   <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-2.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                    <option value="">--</option>
                     {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                       <option key={v} value={v}>{v}</option>
                     ))}

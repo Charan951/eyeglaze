@@ -93,7 +93,7 @@ export const updateLens = async (req: Request, res: Response) => {
     const updated = await Lens.findByIdAndUpdate(
       id,
       { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('lensType');
 
     if (!updated) return res.status(404).json({ message: 'Lens not found' });

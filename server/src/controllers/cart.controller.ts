@@ -45,11 +45,8 @@ export async function getCart(req: Request, res: Response) {
     const bogoAllowedForMember = !bogoOrderThisMonth;
 
     // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
-    const totalBogoQty = cart.items.reduce((sum: number, item: any) => 
-      (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) ? sum + item.qty : sum, 
-      0
-    );
-    const isBogoActive = totalBogoQty >= 2;
+    const totalBogoQty = 0;
+    const isBogoActive = false;
 
     // Process cart items with business logic
     let oneRupeeFramesApplied = 0;
@@ -61,7 +58,7 @@ export async function getCart(req: Request, res: Response) {
       let isOneRupeeFrame = false;
 
       // Check ₹1 Frame eligibility
-      if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
+      if (cart.items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
         const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
         const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -87,37 +84,6 @@ export async function getCart(req: Request, res: Response) {
 
     // Check 1+1 Offer
     let onePlusOneDiscount = 0;
-
-    const buy1Get1Items: any[] = [];
-    processedItems.forEach((item: any) => {
-      if (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) {
-        for (let i = 0; i < item.qty; i++) {
-          buy1Get1Items.push(item);
-        }
-      }
-    });
-
-    if (buy1Get1Items.length >= 2) {
-      // Sort by price (descending) to get the highest price first
-      buy1Get1Items.sort((a: any, b: any) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
-      // The second item is free (or get the lowest price item free)
-      const lowestPriceItem = buy1Get1Items.reduce((lowest: any, current: any) => {
-        const currentTotal = current.framePrice + (current.lensPrice || 0);
-        const lowestTotal = lowest.framePrice + (lowest.lensPrice || 0);
-        return currentTotal < lowestTotal ? current : lowest;
-      });
-      onePlusOneDiscount = lowestPriceItem.framePrice + (lowestPriceItem.lensPrice || 0);
-      
-      const targetItem = processedItems.find((item: any) => 
-        (item.product?._id || item.product?.id || '').toString() === (lowestPriceItem.product?._id || lowestPriceItem.product?.id || '').toString()
-      );
-      if (targetItem) {
-        if (!targetItem.appliedOffers) targetItem.appliedOffers = [];
-        if (!targetItem.appliedOffers.includes('1+1 Offer')) {
-          targetItem.appliedOffers.push('1+1 Offer');
-        }
-      }
-    }
 
     // Calculate totals
     let subtotal = 0;

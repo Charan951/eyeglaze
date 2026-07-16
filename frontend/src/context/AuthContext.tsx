@@ -101,6 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             const formData = new FormData();
             formData.append('file', file);
+            const prescName = item.lensPayload?.power?.name || 'Guest Uploaded Prescription';
+            formData.append('name', prescName);
             const uploadRes = await api.post('/prescriptions', formData, {
               headers: { 'Content-Type': 'multipart/form-data' },
             });
@@ -207,10 +209,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Manage socket.io user-specific room connections
   useEffect(() => {
     if (user && user._id) {
+      if (!socket.connected) {
+        socket.connect();
+      }
       socket.emit('join_user_room', user._id.toString());
       return () => {
         socket.emit('leave_user_room', user._id.toString());
+        socket.disconnect();
       };
+    } else {
+      if (socket.connected) {
+        socket.disconnect();
+      }
     }
   }, [user]);
 

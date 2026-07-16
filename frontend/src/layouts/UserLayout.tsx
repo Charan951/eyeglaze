@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation, Navigate, useLoaderData } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 import BrandIcon from '../components/BrandIcon';
@@ -11,11 +11,20 @@ export default function UserLayout() {
   const { user, cartCount, wishlist, logout, checkAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { products: initialProducts, categories: initialCategories } = useLoaderData() as { products: any[]; categories: any[] };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(initialCategories || []);
   const [activeHover, setActiveHover] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+
+  useEffect(() => {
+    if (initialProducts) setProducts(initialProducts);
+  }, [initialProducts]);
+
+  useEffect(() => {
+    if (initialCategories) setCategories(initialCategories);
+  }, [initialCategories]);
 
   const hoverTimeoutRef = useRef<any>(null);
 
@@ -24,7 +33,7 @@ export default function UserLayout() {
   const [isLocationDrawerOpen, setIsLocationDrawerOpen] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
-  
+
   // Scroll hide bottom navigation state
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -96,7 +105,7 @@ export default function UserLayout() {
           color: '#D4A04D',
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setIsProcessingGold(false);
           }
         }
@@ -177,7 +186,7 @@ export default function UserLayout() {
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     const userMsg = chatInput.trim();
-    
+
     // Add user message immediately
     const updatedHistory = [...chatMessages, { sender: 'user', text: userMsg }];
     setChatMessages(updatedHistory);
@@ -204,9 +213,9 @@ export default function UserLayout() {
       console.error('[UserLayout Chatbot] Error generating response:', error);
       setChatMessages((prev) => [
         ...prev,
-        { 
-          sender: 'bot', 
-          text: 'I am experiencing connection issues. How else can I help you choose the perfect frames?' 
+        {
+          sender: 'bot',
+          text: 'I am experiencing connection issues. How else can I help you choose the perfect frames?'
         }
       ]);
     } finally {
@@ -229,19 +238,19 @@ export default function UserLayout() {
           const googleKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
           let addressText = '';
           let city = '';
-          
+
           if (googleKey) {
             const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleKey}`);
             const data = await res.json();
             if (data.results && data.results.length > 0) {
               addressText = data.results[0].formatted_address;
-              const cityComp = data.results[0].address_components.find((c: any) => 
+              const cityComp = data.results[0].address_components.find((c: any) =>
                 c.types.includes('locality') || c.types.includes('administrative_area_level_2')
               );
               city = cityComp ? cityComp.long_name : 'Detected Location';
             }
           }
-          
+
           if (!addressText) {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
             const data = await res.json();
@@ -261,7 +270,7 @@ export default function UserLayout() {
               addressText = parts.join(', ');
             }
           }
-          
+
           if (addressText) {
             const isHydOrTS = addressText.includes('500081') || addressText.toLowerCase().includes('hyderabad');
             const stateCode = isHydOrTS ? 'TS' : '';
@@ -339,13 +348,13 @@ export default function UserLayout() {
   ];
 
   const filteredSuggestions = locationSearchQuery.trim()
-    ? mockSuggestions.filter(s => 
-        s.short.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-        s.full.toLowerCase().includes(locationSearchQuery.toLowerCase())
-      )
+    ? mockSuggestions.filter(s =>
+      s.short.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+      s.full.toLowerCase().includes(locationSearchQuery.toLowerCase())
+    )
     : [];
 
-  // Fetch products on mount and setup socket listener
+  // Setup product change socket listener
   useEffect(() => {
     const fetchProductsForPrices = async () => {
       try {
@@ -355,7 +364,6 @@ export default function UserLayout() {
         console.error('Failed to fetch products for navbar pricing:', err);
       }
     };
-    fetchProductsForPrices();
 
     const handleProductChange = () => {
       fetchProductsForPrices();
@@ -425,7 +433,7 @@ export default function UserLayout() {
       // 3. check subcategory (if any)
       if (options?.subCategory) {
         const pSub = (p.subCategory || '').toLowerCase();
-        const pSubMatch = pSub === options.subCategory.toLowerCase() || 
+        const pSubMatch = pSub === options.subCategory.toLowerCase() ||
           p.name.toLowerCase().includes(options.subCategory.toLowerCase()) ||
           p.sku.toLowerCase().includes(options.subCategory.toLowerCase());
         if (!pSubMatch) return false;
@@ -489,7 +497,7 @@ export default function UserLayout() {
     return fallbackMap[genderVal || 'men'] || fallbackMap['men'];
   };
 
-  // Fetch navigation categories on mount
+  // Setup category socket listener
   useEffect(() => {
     let active = true;
     const fetchCategories = async () => {
@@ -499,35 +507,8 @@ export default function UserLayout() {
         setCategories(res.data.tree || []);
       } catch (err) {
         console.error('Failed to fetch navbar categories:', err);
-        // Fallback default structure
-        if (!active) return;
-        setCategories([
-          {
-            id: 'default-eye',
-            name: 'Eyeglasses',
-            slug: 'prescription',
-            icon: '👓',
-            children: [
-              { name: 'Men', slug: 'men' },
-              { name: 'Women', slug: 'women' },
-              { name: 'Kids', slug: 'kids' },
-            ]
-          },
-          {
-            id: 'default-sun',
-            name: 'Sunglasses',
-            slug: 'sunglasses',
-            icon: '🕶️',
-            children: [
-              { name: 'Men', slug: 'men' },
-              { name: 'Women', slug: 'women' },
-              { name: 'Kids', slug: 'kids' },
-            ]
-          }
-        ]);
       }
     };
-    fetchCategories();
 
     const handleCategoryChange = () => {
       fetchCategories();
@@ -646,9 +627,9 @@ export default function UserLayout() {
       if (!dynamicCat || !dynamicCat.children || dynamicCat.children.length === 0) {
         return null;
       }
-      
+
       return (
-        <div 
+        <div
           className="absolute top-full left-0 right-0 bg-[#0E0E0F]/98 border-t border-b border-[#2A2A2D] shadow-2xl z-50 animate-fade-in"
           onMouseEnter={handleMegaMenuMouseEnter}
           onMouseLeave={handleMegaMenuMouseLeave}
@@ -662,23 +643,23 @@ export default function UserLayout() {
                     <span className="inline-block mt-1 text-[8px] font-extrabold uppercase bg-zinc-800 text-gray-400 px-2 py-0.5 rounded-full tracking-wider">
                       Explore Collection
                     </span>
-                    
+
                     <div className="mt-4 space-y-2">
-                      <Link 
+                      <Link
                         to={`/products?category=${dynamicCat.slug}&shape=${sub.name}&gender=men`}
                         className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
                       >
                         <span>Men's {sub.name}</span>
                         <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
                       </Link>
-                      <Link 
+                      <Link
                         to={`/products?category=${dynamicCat.slug}&shape=${sub.name}&gender=women`}
                         className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
                       >
                         <span>Women's {sub.name}</span>
                         <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
                       </Link>
-                      <Link 
+                      <Link
                         to={`/products?category=${dynamicCat.slug}&shape=${sub.name}`}
                         className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
                       >
@@ -696,7 +677,7 @@ export default function UserLayout() {
                   <div className="absolute inset-0 p-6 flex flex-col justify-end">
                     <h4 className="text-white text-lg font-black uppercase tracking-wider">{dynamicCat.name}</h4>
                     <p className="text-gray-300 text-xs mt-1 max-w-[280px] line-clamp-2">{dynamicCat.description || 'Premium designer frames'}</p>
-                    <Link 
+                    <Link
                       to={`/products?category=${dynamicCat.slug}`}
                       className="inline-flex items-center gap-1.5 mt-3 text-[10px] font-black uppercase bg-[#D4A04D] hover:bg-[#C8923E] text-black py-2 px-4 rounded-lg tracking-wider transition-colors w-fit"
                     >
@@ -1029,7 +1010,7 @@ export default function UserLayout() {
     }
 
     return (
-      <div 
+      <div
         className="absolute top-full left-0 right-0 bg-[#0E0E0F]/90 backdrop-blur-xl border-t border-b border-zinc-800/80 shadow-[0_25px_50px_rgba(0,0,0,0.8)] z-50 animate-fade-in"
         onMouseEnter={handleMegaMenuMouseEnter}
         onMouseLeave={handleMegaMenuMouseLeave}
@@ -1047,9 +1028,9 @@ export default function UserLayout() {
                       </span>
                     </div>
                     {col.image && (
-                      <img 
-                        src={col.image} 
-                        alt={col.title} 
+                      <img
+                        src={col.image}
+                        alt={col.title}
                         className="w-16 h-16 object-cover rounded-full border border-[#D4A04D]/30 bg-zinc-900/90 -mt-2 -mr-2 shrink-0 shadow-lg group-hover/card:border-[#D4A04D]/60 transition-colors duration-500"
                       />
                     )}
@@ -1067,10 +1048,10 @@ export default function UserLayout() {
                         >
                           {/* Left: Thumbnail */}
                           <div className="w-12 h-12 rounded-lg bg-zinc-900/60 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0 group-hover/item:border-[#D4A04D]/40 transition-colors p-1 bg-gradient-to-br from-zinc-900 to-zinc-950">
-                            <img 
-                              src={itemImg} 
-                              alt={item.label} 
-                              className="w-full h-full object-contain group-hover/item:scale-110 transition-transform duration-500" 
+                            <img
+                              src={itemImg}
+                              alt={item.label}
+                              className="w-full h-full object-contain group-hover/item:scale-110 transition-transform duration-500"
                             />
                           </div>
 
@@ -1145,7 +1126,7 @@ export default function UserLayout() {
     '/reset-password'
   ].includes(location.pathname);
   const hideRightIconsOnMobile = isCartPage || isAuthPage;
-  
+
   const isCustomerPage = [
     '/orders',
     '/membership',
@@ -1171,7 +1152,7 @@ export default function UserLayout() {
       <>
         {/* Click outside overlay */}
         <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
-        
+
         {/* Dropdown Card */}
         <div className="absolute right-0 mt-3 w-64 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0E0E0F]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.8),_0_0_20px_rgba(212,160,77,0.03)] z-50 animate-fade-in scrollbar-none flex flex-col gap-3">
           {/* Header */}
@@ -1190,7 +1171,7 @@ export default function UserLayout() {
                   <span>GOLD MEMBER</span>
                 </div>
               ) : (
-                <button 
+                <button
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
                     setIsGoldDrawerOpen(true);
@@ -1206,18 +1187,18 @@ export default function UserLayout() {
           {/* Navigation */}
           <nav className="flex flex-col gap-0.5">
             {[
-              { 
-                href: '/profile', 
-                label: 'My Profile', 
+              {
+                href: '/profile',
+                label: 'My Profile',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 )
               },
-              { 
-                href: '/saved-powers', 
-                label: 'Saved Powers', 
+              {
+                href: '/saved-powers',
+                label: 'Saved Powers',
                 icon: (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <circle cx="6" cy="12" r="3" />
@@ -1226,36 +1207,36 @@ export default function UserLayout() {
                   </svg>
                 )
               },
-              { 
-                href: '/orders', 
-                label: 'My Orders', 
+              {
+                href: '/orders',
+                label: 'My Orders',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 )
               },
-              { 
-                href: '/wishlist', 
-                label: 'My Wishlist', 
+              {
+                href: '/wishlist',
+                label: 'My Wishlist',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 )
               },
-              { 
-                href: '/membership', 
-                label: 'Gold Membership', 
+              {
+                href: '/membership',
+                label: 'Gold Membership',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                   </svg>
                 )
               },
-              { 
-                href: '/payments', 
-                label: 'Payment History', 
+              {
+                href: '/payments',
+                label: 'Payment History',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <rect x="3" y="4" width="18" height="16" rx="2" ry="2" />
@@ -1263,9 +1244,9 @@ export default function UserLayout() {
                   </svg>
                 )
               },
-              { 
-                href: '/wallet', 
-                label: 'My Wallet', 
+              {
+                href: '/wallet',
+                label: 'My Wallet',
                 icon: (
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -1311,8 +1292,8 @@ export default function UserLayout() {
   return (
     <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-clip">
       {!hideHeader && (
-        <header className={`bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 transform ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'}`}>
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6 md:px-12 lg:px-16 relative z-10">
+        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300">
+          <div className={`flex items-center justify-between px-4 sm:px-6 md:px-12 lg:px-16 relative z-10 transition-all duration-300 ${isHomePage ? 'h-11' : 'h-16'}`}>
             {/* Mobile / Tablet Left Menu and Back Actions */}
             <div className="flex items-center gap-1.5 xl:hidden w-full">
               {showBottomNav ? (
@@ -1323,8 +1304,8 @@ export default function UserLayout() {
                   {/* Right: Cart Icon & Login/Logout Button */}
                   <div className="flex items-center gap-2 xs:gap-3 shrink-0 ml-auto">
 
-                    <Link 
-                      to="/cart" 
+                    <Link
+                      to="/cart"
                       className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer"
                       title="Shopping Cart"
                     >
@@ -1339,7 +1320,7 @@ export default function UserLayout() {
                     </Link>
 
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={() => {
                           if (user) {
                             setIsProfileDropdownOpen(!isProfileDropdownOpen);
@@ -1371,8 +1352,8 @@ export default function UserLayout() {
               ) : (
                 /* Standard mobile header back navigation button */
                 location.pathname !== '/' && (
-                  <button 
-                    onClick={() => navigate(-1)} 
+                  <button
+                    onClick={() => navigate(-1)}
                     className="text-gray-400 hover:text-white p-1 focus:outline-none transition-colors cursor-pointer bg-transparent border-none"
                     aria-label="Go Back"
                   >
@@ -1394,7 +1375,7 @@ export default function UserLayout() {
             <div className={`${showBottomNav ? 'hidden xl:flex' : 'flex'} items-center gap-3.5 md:gap-6 z-10 ml-auto`}>
               {/* Search Icon (for smaller screens) */}
               {location.pathname !== '/' && (
-                <button 
+                <button
                   onClick={() => {
                     if (location.pathname === '/products') {
                       document.getElementById('search-input')?.focus();
@@ -1413,9 +1394,9 @@ export default function UserLayout() {
 
               {/* Wishlist Icon */}
               {location.pathname !== '/' && (
-                <Link 
-                  to="/wishlist" 
-                  className="hidden xl:block text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" 
+                <Link
+                  to="/wishlist"
+                  className="hidden xl:block text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer"
                   title="Wishlist"
                 >
                   <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
@@ -1430,9 +1411,9 @@ export default function UserLayout() {
               )}
 
               {/* Cart Icon with Badge */}
-              <Link 
-                to="/cart" 
-                className={`${hideRightIconsOnMobile ? 'hidden' : 'block'} text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer`} 
+              <Link
+                to="/cart"
+                className={`${hideRightIconsOnMobile ? 'hidden' : 'block'} text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer`}
                 title="Shopping Cart"
               >
                 <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
@@ -1449,7 +1430,7 @@ export default function UserLayout() {
               {user ? (
                 <div className="relative">
                   {/* Desktop Trigger */}
-                  <button 
+                  <button
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                     className="hidden xl:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer focus:outline-none"
                     title="Account"
@@ -1458,11 +1439,11 @@ export default function UserLayout() {
                       {user.name ? user.name[0] : 'U'}
                     </div>
                     <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
-                    <svg 
-                      className={`w-2.5 h-2.5 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor" 
+                    <svg
+                      className={`w-2.5 h-2.5 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                       strokeWidth="3"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1470,7 +1451,7 @@ export default function UserLayout() {
                   </button>
 
                   {/* Mobile Trigger */}
-                  <button 
+                  <button
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                     className={`${hideRightIconsOnMobile ? 'hidden' : 'xl:hidden'} w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer bg-transparent focus:outline-none`}
                     title="Profile"
@@ -1484,15 +1465,15 @@ export default function UserLayout() {
                 </div>
               ) : (
                 <>
-                  <Link 
-                    to="/login" 
+                  <Link
+                    to="/login"
                     state={{ from: location }}
                     className="hidden xl:block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider transition-colors cursor-pointer"
                   >
                     Login/Signup
                   </Link>
-                  <Link 
-                    to="/login" 
+                  <Link
+                    to="/login"
                     state={{ from: location }}
                     className={`${hideRightIconsOnMobile ? 'hidden' : 'xl:hidden'} w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer`}
                     title="Login"
@@ -1510,13 +1491,13 @@ export default function UserLayout() {
           <div className="hidden xl:flex w-full px-4 sm:px-6 md:px-12 lg:px-16 h-12 border-t border-[#2A2A2D]/40 items-center justify-between select-none">
             <nav className="flex items-center gap-7 h-full text-[10px] xl:text-[11px] font-black uppercase tracking-[0.15em] text-white">
               {categories.map((cat: any) => (
-                <div 
+                <div
                   key={cat.id || cat.slug}
                   onMouseEnter={() => handleMouseEnter(cat.slug)}
                   onMouseLeave={handleMouseLeave}
                   className="h-full flex items-center relative cursor-pointer"
                 >
-                  <Link 
+                  <Link
                     to={`/products?category=${cat.slug}`}
                     className="hover:text-[#D4A04D] transition-colors py-3 border-b-2 border-transparent hover:border-[#D4A04D]"
                   >
@@ -1537,7 +1518,7 @@ export default function UserLayout() {
         <div className="fixed inset-0 z-50 flex justify-start xl:hidden">
           {/* Overlay */}
           <div onClick={() => setIsMobileMenuOpen(false)} className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          
+
           {/* Sidebar Panel */}
           <div className="relative w-64 bg-[#0E0E0E] h-full shadow-2xl border-r border-[#2A2A2D] flex flex-col z-50 animate-fade-in p-6">
             <div className="flex items-center justify-between mb-8">
@@ -1602,7 +1583,7 @@ export default function UserLayout() {
                 </nav>
               </div>
             )}
-            
+
             {/* Account info in Drawer */}
             <div className="mt-auto pt-6 border-t border-[#1C1C1E] flex flex-col gap-4">
               {user ? (
@@ -1632,8 +1613,8 @@ export default function UserLayout() {
                   </button>
                 </div>
               ) : (
-                <Link 
-                  to="/login" 
+                <Link
+                  to="/login"
                   state={{ from: location }}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="w-full text-center bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-lg tracking-wider transition-colors"
@@ -1648,9 +1629,9 @@ export default function UserLayout() {
 
       <main className={
         isCustomerPage || isProductDetailPage
-          ? "w-full min-h-screen" 
-          : isHomePage 
-            ? "w-full mt-16" 
+          ? "w-full min-h-screen"
+          : isHomePage
+            ? "w-full mt-[44px] xl:mt-[92px]"
             : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28"
       }>
         <Outlet />
@@ -1670,7 +1651,7 @@ export default function UserLayout() {
           >
             {/* Header */}
             <div className="p-4 border-b border-[#2A2A2D] flex items-center justify-between bg-[#131314]">
-              <button 
+              <button
                 onClick={() => {
                   setIsLocationDrawerOpen(false);
                   setLocationSearchQuery('');
@@ -1681,7 +1662,7 @@ export default function UserLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
-              
+
               <div className="flex items-center gap-4">
                 <button className="text-gray-400 hover:text-[#D4A04D] focus:outline-none bg-transparent border-none cursor-pointer">
                   <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
@@ -1762,7 +1743,7 @@ export default function UserLayout() {
               ) : (
                 <div className="flex flex-col gap-5">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Your current Location</span>
-                  
+
                   <button
                     onClick={handleDetectLocation}
                     disabled={isDetectingLocation}
@@ -1785,7 +1766,7 @@ export default function UserLayout() {
                     </div>
                     <span className="text-gray-500 text-xs">➔</span>
                   </button>
-                  
+
                   {/* Show active location info */}
                   {activeLocation && (
                     <div className="p-4 border border-[#D4A04D]/25 bg-[#D4A04D]/5 rounded-xl flex flex-col gap-1.5">
@@ -1811,7 +1792,7 @@ export default function UserLayout() {
       {showBottomNav && (
         <AnimatePresence>
           {isBottomBarVisible && (
-            <motion.nav 
+            <motion.nav
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
@@ -1819,9 +1800,9 @@ export default function UserLayout() {
               className="fixed bottom-4 left-4 right-4 md:hidden z-40 bg-[#0E0E0F]/90 border border-[#D4A04D]/25 h-16 rounded-2xl flex items-center justify-between px-2.5 backdrop-blur-lg shadow-[0_8px_32px_rgba(0,0,0,0.8)]"
             >
               {[
-                { 
-                  to: '/products', 
-                  label: 'PRODUCTS', 
+                {
+                  to: '/products',
+                  label: 'PRODUCTS',
                   badge: null,
                   icon: (isActive: boolean) => (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
@@ -1835,9 +1816,9 @@ export default function UserLayout() {
                     </svg>
                   )
                 },
-                { 
-                  to: '/wishlist', 
-                  label: 'WISHLIST', 
+                {
+                  to: '/wishlist',
+                  label: 'WISHLIST',
                   badge: wishlist?.length,
                   icon: (isActive: boolean) => (
                     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
@@ -1845,9 +1826,9 @@ export default function UserLayout() {
                     </svg>
                   )
                 },
-                { 
-                  to: '/', 
-                  label: 'HOME', 
+                {
+                  to: '/',
+                  label: 'HOME',
                   badge: null,
                   isCenter: true,
                   icon: (isActive: boolean) => (
@@ -1856,9 +1837,9 @@ export default function UserLayout() {
                     </svg>
                   )
                 },
-                { 
-                  to: '/orders', 
-                  label: 'ORDERS', 
+                {
+                  to: '/orders',
+                  label: 'ORDERS',
                   badge: null,
                   icon: (isActive: boolean) => (
                     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
@@ -1904,7 +1885,7 @@ export default function UserLayout() {
                 }
 
                 const isActive = location.pathname === tab.to;
-                
+
                 if (tab.isCenter) {
                   return (
                     <Link
@@ -1930,13 +1911,13 @@ export default function UserLayout() {
                   >
                     {/* Active Background Glow */}
                     {isActive && (
-                      <motion.div 
+                      <motion.div
                         layoutId="activeTabGlow"
                         className="absolute inset-y-1 inset-x-2 bg-[#D4A04D]/10 rounded-xl -z-10 filter blur-xs"
                         transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
-                    
+
                     <div className="relative flex items-center justify-center">
                       {tab.icon(isActive)}
                       {tab.badge && tab.badge > 0 ? (
@@ -1945,14 +1926,14 @@ export default function UserLayout() {
                         </span>
                       ) : null}
                     </div>
-                    
+
                     <span className={`text-[7.5px] font-black uppercase tracking-wider transition-colors ${isActive ? 'text-[#D4A04D]' : 'text-zinc-500'}`}>
                       {tab.label}
                     </span>
 
                     {/* Active indicator dot under icon */}
                     {isActive && (
-                      <motion.div 
+                      <motion.div
                         layoutId="activeTabDot"
                         className="absolute bottom-0 w-1.5 h-1.5 bg-[#D4A04D] rounded-full"
                         transition={{ type: 'spring', stiffness: 380, damping: 30 }}
@@ -1971,8 +1952,8 @@ export default function UserLayout() {
         {!isAiDrawerOpen && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: 1, 
+            animate={{
+              scale: 1,
               opacity: 1,
               bottom: (isBottomBarVisible && showBottomNav) || (isProductDetailPage && isBottomBarVisible) ? 112 : 24
             }}
@@ -1983,7 +1964,7 @@ export default function UserLayout() {
           >
             {/* Pulsing ring */}
             <span className="absolute inset-0 rounded-full border border-[#D4A04D]/40 animate-ping opacity-25 group-hover:opacity-40" />
-            
+
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#D4A04D] group-hover:scale-110 transition-transform">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
@@ -1994,22 +1975,21 @@ export default function UserLayout() {
       {/* Global AI Assistant Chat Drawer */}
       <AnimatePresence>
         {isAiDrawerOpen && (
-          <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${
-            isBottomBarVisible && showBottomNav ? 'pb-28' : 
-            isProductDetailPage && isBottomBarVisible ? 'pb-[104px]' : 'pb-4 md:pb-6'
-          }`}>
+          <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${isBottomBarVisible && showBottomNav ? 'pb-28' :
+              isProductDetailPage && isBottomBarVisible ? 'pb-[104px]' : 'pb-4 md:pb-6'
+            }`}>
             {/* Overlay */}
-            <motion.div 
-              onClick={() => setIsAiDrawerOpen(false)} 
+            <motion.div
+              onClick={() => setIsAiDrawerOpen(false)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-xs cursor-pointer pointer-events-auto" 
+              className="absolute inset-0 bg-black/40 backdrop-blur-xs cursor-pointer pointer-events-auto"
             />
-            
+
             {/* Drawer Panel */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.92, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 15 }}
@@ -2038,11 +2018,10 @@ export default function UserLayout() {
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
                 {chatMessages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl p-3 text-xs md:text-sm leading-relaxed ${
-                      msg.sender === 'user' 
-                        ? 'bg-[#D4A04D] text-black rounded-tr-none font-medium' 
+                    <div className={`max-w-[80%] rounded-2xl p-3 text-xs md:text-sm leading-relaxed ${msg.sender === 'user'
+                        ? 'bg-[#D4A04D] text-black rounded-tr-none font-medium'
                         : 'bg-[#1C1C1E] text-white border border-[#2A2A2D] rounded-tl-none'
-                    }`}>
+                      }`}>
                       {msg.text}
                     </div>
                   </div>
@@ -2068,8 +2047,8 @@ export default function UserLayout() {
                   'Show current offers',
                   'What is the delivery time?'
                 ].map((prompt) => (
-                  <button 
-                    key={prompt} 
+                  <button
+                    key={prompt}
                     onClick={() => { setChatInput(prompt) }}
                     className="bg-[#1C1C1E] border border-[#2B2B2C] text-gray-300 hover:border-[#D4A04D] text-[10px] px-3 py-1.5 rounded-full transition-colors font-medium shrink-0 cursor-pointer"
                   >
@@ -2080,15 +2059,15 @@ export default function UserLayout() {
 
               {/* Chat Input */}
               <div className="p-4 border-t border-[#2A2A2D] bg-[#151515] flex gap-2 items-center">
-                <input 
-                  type="text" 
-                  placeholder="Ask me anything..." 
+                <input
+                  type="text"
+                  placeholder="Ask me anything..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
                   className="flex-1 bg-[#1E1E1E] border border-[#2A2A2D] rounded-xl px-4 py-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D4A04D]"
                 />
-                <button 
+                <button
                   onClick={handleSendChat}
                   className="bg-[#D4A04D] text-black hover:bg-[#C8923E] p-3 rounded-xl transition-colors flex items-center justify-center font-bold border-none cursor-pointer"
                 >
@@ -2107,7 +2086,7 @@ export default function UserLayout() {
         {isGoldDrawerOpen && (
           <div className="fixed inset-0 z-50 flex justify-end">
             {/* Overlay */}
-            <motion.div 
+            <motion.div
               onClick={() => {
                 setIsGoldDrawerOpen(false);
                 setGoldError('');
@@ -2117,7 +2096,7 @@ export default function UserLayout() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-xs cursor-pointer" 
+              className="absolute inset-0 bg-black/80 backdrop-blur-xs cursor-pointer"
             />
 
             {/* Drawer Content */}
@@ -2130,24 +2109,24 @@ export default function UserLayout() {
             >
               {/* Header */}
               <div className="flex justify-between items-center px-4 py-3.5 border-b border-zinc-800/80 bg-[#0A0A0B] sticky top-0 z-10">
-                <button 
+                <button
                   onClick={() => {
                     setIsGoldDrawerOpen(false);
                     setGoldError('');
                     setGoldSuccess(false);
-                  }} 
+                  }}
                   className="text-gray-400 hover:text-white p-1 cursor-pointer bg-transparent border-none focus:outline-none transition-colors"
                 >
                   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                
+
                 <div className="flex flex-col items-center">
                   <span className="text-[#D4A04D] font-serif text-sm tracking-[0.25em] uppercase font-black leading-none">EYEGLAZE</span>
                   <span className="text-[#D4A04D] text-[8px] font-black uppercase mt-1 tracking-[0.15em] leading-none">GOLD MEMBERSHIP</span>
                 </div>
-                
+
                 <div className="flex items-center gap-1 border border-[#D4A04D] rounded px-1.5 py-0.5 bg-[#D4A04D]/10">
                   <span className="text-[6px] font-black text-[#D4A04D] uppercase tracking-wider">BEST VALUE</span>
                 </div>
@@ -2165,7 +2144,7 @@ export default function UserLayout() {
                     <p className="text-gray-400 text-xs px-6 leading-relaxed">
                       You are now a premium <strong className="text-[#D4A04D]">EYEGLAZE GOLD MEMBER</strong>. Enjoy ₹1 frame exclusives, 1+1 free styling, priority support, and premium benefits!
                     </p>
-                    
+
                     {user && (
                       <div className="bg-[#121213] border border-zinc-800 p-4 rounded-xl text-left w-full max-w-xs space-y-2 mt-2">
                         <div className="flex justify-between text-[10px]">
@@ -2185,7 +2164,7 @@ export default function UserLayout() {
                       </div>
                     )}
 
-                    <button 
+                    <button
                       onClick={() => {
                         setIsGoldDrawerOpen(false);
                         setGoldSuccess(false);
@@ -2224,10 +2203,10 @@ export default function UserLayout() {
 
                       {/* Right Image Stack with Overlay */}
                       <div className="relative w-32 h-24 flex-shrink-0 flex items-center justify-center rounded-xl overflow-hidden border border-[#2A2A2D]/40 shadow-inner bg-black/10 select-none">
-                        <img 
-                          src="/images/gold_membership_hero.png" 
-                          alt="Premium Eyewear Case" 
-                          className="w-full h-full object-cover" 
+                        <img
+                          src="/images/gold_membership_hero.png"
+                          alt="Premium Eyewear Case"
+                          className="w-full h-full object-cover"
                         />
                         {/* Absolute Circular Gold Pricing badge */}
                         <div className="absolute right-1 bottom-1 w-11 h-11 bg-black/85 border border-[#D4A04D] rounded-full flex flex-col items-center justify-center shadow-lg select-none">
@@ -2284,64 +2263,64 @@ export default function UserLayout() {
                         <h3 className="text-white text-xs font-black uppercase tracking-wider">EYEGLAZE GOLD BENEFITS</h3>
                       </div>
                       <p className="text-gray-500 text-[8px] font-bold uppercase tracking-wider mt-[-6px]">Premium Benefits. Maximum Savings.</p>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { 
-                            title: '₹1 PER FRAME', 
-                            desc: 'Get 1 frame for just ₹1. Take another for just ₹1 anytime. (Total 2 Frames = ₹2)', 
+                          {
+                            title: '₹1 PER FRAME',
+                            desc: 'Get 1 frame for just ₹1. Take another for just ₹1 anytime. (Total 2 Frames = ₹2)',
                             icon: (
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <circle cx="6" cy="12" r="3" />
                                 <circle cx="18" cy="12" r="3" />
                                 <path d="M9 12h6" />
                               </svg>
-                            ) 
+                            )
                           },
-                          { 
-                            title: '1+1 FREE FRAMES', 
-                            desc: 'Buy 1 Get 1 Free on selected frames. Members Only.', 
+                          {
+                            title: '1+1 FREE FRAMES',
+                            desc: 'Buy 1 Get 1 Free on selected frames. Members Only.',
                             icon: (
                               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                            ) 
+                            )
                           },
-                          { 
-                            title: '90% WALLET REFUND', 
-                            desc: 'If you don\'t take the second frame, get 90% refund to wallet. Valid for 30 days.', 
+                          {
+                            title: '90% WALLET REFUND',
+                            desc: 'If you don\'t take the second frame, get 90% refund to wallet. Valid for 30 days.',
                             icon: (
                               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                               </svg>
-                            ) 
+                            )
                           },
-                          { 
-                            title: '15% CASHBACK', 
-                            desc: '15% cashback on selected frames. Members Only.', 
+                          {
+                            title: '15% CASHBACK',
+                            desc: '15% cashback on selected frames. Members Only.',
                             icon: (
                               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                               </svg>
-                            ) 
+                            )
                           },
-                          { 
-                            title: 'FREE EYE TEST', 
-                            desc: 'Partner stores / camps to free eye checkup.', 
+                          {
+                            title: 'FREE EYE TEST',
+                            desc: 'Partner stores / camps to free eye checkup.',
                             icon: (
                               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                               </svg>
-                            ) 
+                            )
                           },
-                          { 
-                            title: 'PRIORITY SUPPORT', 
-                            desc: 'Fast response and priority assistance for all your queries.', 
+                          {
+                            title: 'PRIORITY SUPPORT',
+                            desc: 'Fast response and priority assistance for all your queries.',
                             icon: (
                               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="text-[#D4A04D]">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                               </svg>
-                            ) 
+                            )
                           }
                         ].map((benefit, idx) => (
                           <div key={idx} className="bg-[#121213] border border-zinc-800/60 p-3 rounded-xl flex flex-col gap-1 hover:border-[#D4A04D]/30 transition-all">
@@ -2400,7 +2379,7 @@ export default function UserLayout() {
                     {/* Savings Comparison Table */}
                     <div className="border-t border-zinc-800/80 pt-5 space-y-3">
                       <h3 className="text-white text-xs font-black uppercase tracking-wider text-center">HOW MUCH YOU SAVE EVERY YEAR</h3>
-                      
+
                       <div className="bg-[#121213] border border-zinc-800 rounded-xl overflow-hidden text-[8px] text-gray-400">
                         <div className="grid grid-cols-3 bg-zinc-900 px-3 py-2 text-white font-bold">
                           <div>BENEFITS</div>
@@ -2483,7 +2462,7 @@ export default function UserLayout() {
                         <span className="text-gray-500 text-[7px] font-bold mt-1 leading-none uppercase">Unlock All Premium Benefits</span>
                       </div>
 
-                      <button 
+                      <button
                         onClick={handleUpgrade}
                         disabled={isProcessingGold}
                         className="px-6 py-3 bg-[#D4A04D] hover:bg-[#C8923E] disabled:bg-gray-600 text-black font-black text-xs uppercase rounded-xl shadow-lg transition-transform active:scale-95 border-none cursor-pointer flex items-center justify-center gap-1.5"

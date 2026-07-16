@@ -25,7 +25,7 @@ const socketUrl = getSocketUrl();
 
 export const socket = io(socketUrl, {
   withCredentials: true,
-  autoConnect: true,
+  autoConnect: false,
   transports: ['websocket', 'polling'], // Prioritize websocket transport
 });
 

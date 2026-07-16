@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLoaderData } from 'react-router-dom';
 import StarRating from '../components/ui/StarRating';
 import AddToCartButton from '../components/AddToCartButton';
 import ProductCard from '../components/ui/ProductCard';
@@ -171,15 +171,61 @@ const colorMap: Record<string, string> = {
 };
 
 export default function ProductDetailPage() {
+  const { product: initialProduct, similarProducts: initialSimilarProducts, videos: initialReels } = useLoaderData() as any;
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, wishlist, toggleWishlist, fetchCartCount, cartCount } = useAuth();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(initialProduct || null);
+  const [loading, setLoading] = useState(!initialProduct);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const quantity = 1;
+
+  useEffect(() => {
+    if (initialProduct) {
+      setProduct(initialProduct);
+      setLoading(false);
+      if (initialProduct.images && initialProduct.images.length > 0) {
+        setActiveImageIndex(0);
+      }
+      const colorsToSelect = (initialProduct.colors && initialProduct.colors.length > 0)
+        ? initialProduct.colors
+        : (initialProduct.primaryColor
+            ? initialProduct.primaryColor.split(',').map((c: string) => {
+                const name = c.trim();
+                const lower = name.toLowerCase();
+                const hex = colorMap[lower] || lower;
+                return { name, hex, stock: 10, images: [] };
+              }).filter((item: any) => item.name)
+            : []
+          );
+      if (colorsToSelect.length > 0) {
+        setSelectedColor(colorsToSelect[0]);
+      }
+      const available = initialProduct.availableSizes && initialProduct.availableSizes.length > 0
+        ? initialProduct.availableSizes
+        : ['Small', 'Medium', 'Large'];
+      let initialSize = 'Medium';
+      if (initialProduct.frame?.width) {
+        const w = initialProduct.frame.width;
+        if (w <= 135) initialSize = 'Small';
+        else if (w >= 143) initialSize = 'Large';
+        else initialSize = 'Medium';
+      }
+      if (!available.includes(initialSize as any)) {
+        initialSize = available[0];
+      }
+      setSelectedSize(initialSize);
+
+      const backendReviews = initialProduct.reviews || [];
+      if (backendReviews.length > 0) {
+        setReviews(backendReviews);
+      } else {
+        setReviews(getMockReviews(initialProduct.name || 'Frame'));
+      }
+    }
+  }, [initialProduct]);
 
   // Scroll to hide sticky bottom bar state
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
@@ -343,7 +389,7 @@ export default function ProductDetailPage() {
   };
 
   // Reels states & refs
-  const [reels, setReels] = useState<any[]>([]);
+  const [reels, setReels] = useState<any[]>(initialReels || []);
   const [selectedReel, setSelectedReel] = useState<any | null>(null);
   const [isReelModalOpen, setIsReelModalOpen] = useState(false);
   const [playingReelId, setPlayingReelId] = useState<string | null>(null);
@@ -378,25 +424,25 @@ export default function ProductDetailPage() {
   };
 
   const fetchReels = () => {
-    api.get('/reels')
+    api.get('/homepage-videos')
       .then(res => {
         if (Array.isArray(res.data)) {
           setReels(res.data);
-        } else if (res.data?.reels) {
-          setReels(res.data.reels);
         }
       })
-      .catch(err => console.error('Error fetching reels:', err));
+      .catch(err => console.error('Error fetching homepage videos:', err));
   };
 
   useEffect(() => {
-    fetchReels();
-  }, []);
+    if (initialReels) {
+      setReels(initialReels);
+    }
+  }, [initialReels]);
 
   useEffect(() => {
-    socket.on('reel_changed', fetchReels);
+    socket.on('homepage_video_changed', fetchReels);
     return () => {
-      socket.off('reel_changed', fetchReels);
+      socket.off('homepage_video_changed', fetchReels);
     };
   }, []);
 
@@ -467,7 +513,18 @@ export default function ProductDetailPage() {
   useEffect(() => {
     setActiveImageIndex(0);
   }, [selectedColor]);
-  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+  const [similarProducts, setSimilarProducts] = useState<Product[]>(
+    initialSimilarProducts 
+      ? initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id).slice(0, 4)
+      : []
+  );
+
+  useEffect(() => {
+    if (initialSimilarProducts) {
+      const filtered = initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id).slice(0, 4);
+      setSimilarProducts(filtered);
+    }
+  }, [initialSimilarProducts, initialProduct?._id]);
 
   useEffect(() => {
     if (!product) return;
@@ -569,95 +626,9 @@ export default function ProductDetailPage() {
     }
   };
 
+  // Product fetch on mount is handled by loader. Socket synchronization remains here.
   useEffect(() => {
-    if (!id) return;
-    let active = true;
-    setLoading(true);
-    api.get(`/products/${id}`)
-      .then(res => {
-        if (active) {
-          const prod = res.data.product || res.data;
-          setProduct(prod);
-          if (prod.images && prod.images.length > 0) {
-            setActiveImageIndex(0);
-          }
-          const colorsToSelect = (prod.colors && prod.colors.length > 0)
-            ? prod.colors
-            : (prod.primaryColor
-                ? prod.primaryColor.split(',').map((c: string) => {
-                    const name = c.trim();
-                    const lower = name.toLowerCase();
-                    const hex = colorMap[lower] || lower;
-                    return { name, hex, stock: 10, images: [] };
-                  }).filter((item: any) => item.name)
-                : []
-              );
-          if (colorsToSelect.length > 0) {
-            setSelectedColor(colorsToSelect[0]);
-          }
-          const available = prod.availableSizes && prod.availableSizes.length > 0
-            ? prod.availableSizes
-            : ['Small', 'Medium', 'Large'];
-          let initialSize = 'Medium';
-          if (prod.frame?.width) {
-            const w = prod.frame.width;
-            if (w <= 135) initialSize = 'Small';
-            else if (w >= 143) initialSize = 'Large';
-            else initialSize = 'Medium';
-          }
-          if (!available.includes(initialSize as any)) {
-            initialSize = available[0];
-          }
-          setSelectedSize(initialSize);
-
-          const backendReviews = res.data.reviews || [];
-          if (backendReviews.length > 0) {
-            setReviews(backendReviews);
-          } else {
-            setReviews(getMockReviews(prod.name || 'Frame'));
-          }
-        }
-      })
-      .catch(() => {
-        if (active) {
-          const prod = mockProduct(id);
-          setProduct(prod);
-          if (prod.images && prod.images.length > 0) {
-            setActiveImageIndex(0);
-          }
-          const colorsToSelect = (prod.colors && prod.colors.length > 0)
-            ? prod.colors
-            : (prod.primaryColor
-                ? prod.primaryColor.split(',').map((c: string) => {
-                    const name = c.trim();
-                    const lower = name.toLowerCase();
-                    const hex = colorMap[lower] || lower;
-                    return { name, hex, stock: 10, images: [] };
-                  }).filter((item: any) => item.name)
-                : []
-              );
-          if (colorsToSelect.length > 0) {
-            setSelectedColor(colorsToSelect[0]);
-          }
-          const available = prod.availableSizes && prod.availableSizes.length > 0
-            ? prod.availableSizes
-            : ['Small', 'Medium', 'Large'];
-          let initialSize = 'Medium';
-          if (prod.frame?.width) {
-            const w = prod.frame.width;
-            if (w <= 135) initialSize = 'Small';
-            else if (w >= 143) initialSize = 'Large';
-            else initialSize = 'Medium';
-          }
-          if (!available.includes(initialSize as any)) {
-            initialSize = available[0];
-          }
-          setSelectedSize(initialSize);
-          setReviews(getMockReviews(prod.name));
-        }
-      })
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => {};
   }, [id]);
 
   useEffect(() => {
@@ -1226,7 +1197,7 @@ export default function ProductDetailPage() {
           {reels && reels.length > 0 && (
             <div className="hidden md:block border-t border-[#2A2A2D]/40 pt-6">
               <div className="flex flex-col gap-0.5 mb-4">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest">EyeGlaze Reels</h3>
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">How to Buy Your Glasses</h3>
                 <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
               </div>
               
@@ -1286,15 +1257,10 @@ export default function ProductDetailPage() {
                           videoEl.muted = true;
                         }
                       }}
-                      className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[120px] md:w-[130px] flex-shrink-0 cursor-pointer group relative"
+                      className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[240px] md:w-[280px] flex-shrink-0 cursor-pointer group relative"
                     >
-                      <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                        <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                          <div className="w-8 h-8 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg">
-                            <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
-                          </div>
-                          <span className="text-[#D4A04D] text-[8px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
-                        </div>
+                      <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+
 
                         {isDirectVideo(reel.videoUrl) ? (
                           <video
@@ -1361,12 +1327,7 @@ export default function ProductDetailPage() {
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                     />
                     
-                    {/* Badge Overlay */}
-                    <div className="absolute top-2 left-2 z-10">
-                      <span className="bg-black/75 border border-[#2A2A2D] text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                        {style.title}
-                      </span>
-                    </div>
+
                   </div>
                 );
               })}
@@ -1841,17 +1802,6 @@ export default function ProductDetailPage() {
             </>
           )}
 
-          {/* Ask AI Button */}
-          <div className="pt-4 px-4 md:px-0">
-            <button
-              type="button"
-              onClick={() => setIsAiDrawerOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-[#1A1A1C] hover:bg-[#252528] border border-[#D4A04D]/30 hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 shadow-md cursor-pointer select-none"
-            >
-              💬 Ask EyeGlaze AI about this Product
-            </button>
-          </div>
-
           {/* Mobile-Only Styling Ideas, Product Details and Reels wrapper (Above FAQ) */}
           <div className="block md:hidden space-y-6 border-t border-[#2A2A2D]/40 pt-6 mt-6">
             
@@ -1859,7 +1809,7 @@ export default function ProductDetailPage() {
             {reels && reels.length > 0 && (
               <div>
                 <div className="flex flex-col gap-0.5 mb-4">
-                  <h3 className="text-xs font-black text-white uppercase tracking-widest">EyeGlaze Reels</h3>
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest">How to Buy Your Glasses</h3>
                   <p className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-wider">Trending styles, lookbooks and details</p>
                 </div>
                 
@@ -1918,16 +1868,10 @@ export default function ProductDetailPage() {
                             videoEl.muted = true;
                           }
                         }}
-                        className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[120px] md:w-[130px] flex-shrink-0 cursor-pointer group relative"
+                        className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[220px] md:w-[250px] flex-shrink-0 cursor-pointer group relative"
                       >
-                        <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                          <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                            <div className="w-8 h-8 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg">
-                              <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
-                            </div>
-                            <span className="text-[#D4A04D] text-[8px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
-                          </div>
-
+                        <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
+                          
                           {isDirectVideo(reel.videoUrl) ? (
                             <video
                               src={reel.videoUrl}
@@ -1991,11 +1935,7 @@ export default function ProductDetailPage() {
                         alt={style.title} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                       />
-                      <div className="absolute top-2 left-2 z-10">
-                        <span className="bg-black/75 border border-[#2A2A2D] text-white text-[9px] font-black px-2.5 py-0.5 rounded uppercase tracking-wider">
-                          {style.title}
-                        </span>
-                      </div>
+
                     </div>
                   );
                 })}

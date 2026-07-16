@@ -1,9 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
-import { redisClient, getRedisStatus } from '../config/redis';
 
 interface CacheOptions {
   ttl?: number;
 }
+
+interface CachedResponse {
+  body: string;
+  contentType: string;
+  expiresAt: number;
+}
+
+// In-memory cache map
+const cacheMap = new Map<string, CachedResponse>();
 
 export function cacheMiddleware(options: CacheOptions = {}) {
   const ttl = options.ttl || 300; // default 5 minutes (300 seconds)
@@ -14,20 +22,14 @@ export function cacheMiddleware(options: CacheOptions = {}) {
       return next();
     }
 
-    // Check if Redis is connected
-    if (!getRedisStatus()) {
-      res.setHeader('X-Cache', 'BYPASS');
-      return next();
-    }
-
     const key = `cache:${req.originalUrl}`;
 
     try {
-      const cachedData = await redisClient.get(key);
-      if (cachedData) {
+      const cached = cacheMap.get(key);
+      if (cached && cached.expiresAt > Date.now()) {
         res.setHeader('X-Cache', 'HIT');
-        res.setHeader('Content-Type', 'application/json');
-        res.send(cachedData);
+        res.setHeader('Content-Type', cached.contentType || 'application/json');
+        res.send(cached.body);
         return;
       }
 
@@ -40,11 +42,11 @@ export function cacheMiddleware(options: CacheOptions = {}) {
         res.json = originalJson;
 
         // Cache the successful responses only
-        if (res.statusCode >= 200 && res.statusCode < 300 && getRedisStatus()) {
-          redisClient.set(key, JSON.stringify(body), {
-            EX: ttl,
-          }).catch((err) => {
-            console.error(`Error saving to Redis for key ${key}:`, err);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          cacheMap.set(key, {
+            body: JSON.stringify(body),
+            contentType: res.getHeader('Content-Type') as string || 'application/json',
+            expiresAt: Date.now() + ttl * 1000,
           });
         }
 
@@ -61,24 +63,22 @@ export function cacheMiddleware(options: CacheOptions = {}) {
 }
 
 /**
- * Invalidate cached keys matching a specific pattern using scanIterator.
+ * Invalidate cached keys matching a specific pattern.
  * For example: 'cache:/api/products*'
  */
 export async function clearCachePattern(pattern: string): Promise<void> {
-  if (!getRedisStatus()) {
-    return;
-  }
-
   try {
+    // Escape regex characters except '*' which we translate to '.*'
+    const escapedPattern = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    const regexPattern = escapedPattern.replace(/\*/g, '.*');
+    const regex = new RegExp(`^${regexPattern}$`);
+
     let deletedCount = 0;
 
-    for await (const keys of redisClient.scanIterator({
-      MATCH: pattern,
-      COUNT: 100,
-    })) {
-      if (keys.length > 0) {
-        await redisClient.del(keys);
-        deletedCount += keys.length;
+    for (const key of cacheMap.keys()) {
+      if (regex.test(key)) {
+        cacheMap.delete(key);
+        deletedCount++;
       }
     }
 
@@ -89,3 +89,4 @@ export async function clearCachePattern(pattern: string): Promise<void> {
     console.error(`Error clearing cache pattern ${pattern}:`, error);
   }
 }
+

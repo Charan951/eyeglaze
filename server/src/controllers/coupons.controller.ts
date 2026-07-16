@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
 import { Coupon } from '../models/Coupon';
 import { CouponUsage } from '../models/CouponUsage';
@@ -34,7 +35,7 @@ async function recordAnalytics(couponId: string, code: string, type: 'click' | '
         ...(update.$inc ? { $inc: update.$inc } : {}),
         ...(update[`failureReasons.${details?.reason?.replace(/\./g, '_').substring(0, 30)}`] ? { $inc: { [`failureReasons.${details?.reason?.replace(/\./g, '_').substring(0, 30)}`]: 1 } } : {}),
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   } catch (error) {
     console.error('Record coupon analytics error:', error);
@@ -44,7 +45,8 @@ async function recordAnalytics(couponId: string, code: string, type: 'click' | '
 export async function validateCoupon(req: Request, res: Response) {
   try {
     await connectDB();
-    const { code, cartTotal, items, paymentMethod, shippingMethod, location } = req.body || {};
+    console.log('VALIDATE COUPON BODY:', JSON.stringify(req.body, null, 2));
+    const { code, cartTotal, items, paymentMethod, shippingMethod, location, addGoldMembership } = req.body || {};
     
     if (!code) {
       return res.status(200).json({ valid: false, message: 'Coupon code required' });
@@ -58,6 +60,7 @@ export async function validateCoupon(req: Request, res: Response) {
       paymentMethod,
       shippingMethod,
       location,
+      addGoldMembership,
     });
     
     if (result.coupon) {
@@ -82,7 +85,7 @@ export async function getActiveCoupons(req: Request, res: Response) {
     await connectDB();
     const now = new Date();
     
-    const coupons = await Coupon.find({
+    const query: any = {
       isActive: true,
       isDeleted: false,
       autoApply: false, // Don't list auto-applied ones directly as copyable coupons
@@ -90,7 +93,22 @@ export async function getActiveCoupons(req: Request, res: Response) {
         { $or: [{ validFrom: { $exists: false } }, { validFrom: null }, { validFrom: { $lte: now } }] },
         { $or: [{ validTo: { $exists: false } }, { validTo: null }, { validTo: { $gte: now } }] },
       ],
-    }).sort({ priority: -1, createdAt: -1 });
+    };
+
+    if (req.user?.userId) {
+      query.$or = [
+        { userSpecific: { $exists: false } },
+        { userSpecific: null },
+        { userSpecific: new mongoose.Types.ObjectId(req.user.userId) }
+      ];
+    } else {
+      query.$or = [
+        { userSpecific: { $exists: false } },
+        { userSpecific: null }
+      ];
+    }
+
+    const coupons = await Coupon.find(query).sort({ priority: -1, createdAt: -1 });
     
     return res.status(200).json({ coupons });
   } catch (error) {
@@ -167,6 +185,54 @@ export async function autoApplyBestCoupon(req: Request, res: Response) {
     console.error('auto apply coupon error:', error);
     return res.status(500).json({ error: 'Failed to auto apply best coupon' });
   }
+}
+
+/**
+ * Automatically generates a 50% OFF member coupon and a 30-day BOGO voucher for a new/renewed VIP Gold member.
+ */
+export async function generateMemberCoupons(userId: string | mongoose.Types.ObjectId) {
+  // 1. Generate 50% OFF member coupon
+  const percentCode = `MEMBER${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const percentCoupon = new Coupon({
+    code: percentCode,
+    discountType: 'percent',
+    discountValue: 50,
+    name: '50% Off Member Exclusive',
+    description: 'Exclusive 50% off for members',
+    isActive: true,
+    validFrom: new Date(),
+    validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+    usageLimitTotal: 1,
+    userSpecific: userId,
+    couponType: 'Standard',
+  });
+  await percentCoupon.save();
+
+  // 2. Generate 30-day BOGO voucher
+  const bogoCode = `BOGOMEM-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const expiry30Days = new Date();
+  expiry30Days.setDate(expiry30Days.getDate() + 30);
+  
+  const bogoCoupon = new Coupon({
+    code: bogoCode,
+    name: 'Membership BOGO Voucher',
+    description: 'Gold Member BOGO Voucher - Buy 1 Get 1 Free (Valid for 30 days)',
+    discountType: 'bogo',
+    couponType: 'BOGO',
+    discountValue: 0,
+    buyQty: 1,
+    getQty: 1,
+    isActive: true,
+    validFrom: new Date(),
+    validTo: expiry30Days,
+    usageLimitPerUser: 1,
+    usageLimitTotal: 1,
+    userSpecific: userId,
+    applicableTo: 'all'
+  });
+  await bogoCoupon.save();
+
+  return { percentCoupon, bogoCoupon };
 }
 
 export { recordAnalytics };

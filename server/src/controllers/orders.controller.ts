@@ -7,10 +7,11 @@ import { Cart } from '../models/Cart';
 import { Coupon } from '../models/Coupon';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
+import { Prescription } from '../models/Prescription';
 import { CashbackCampaign } from '../models/CashbackCampaign';
 import { CouponEngine } from '../services/couponEngine';
 import { CouponUsage } from '../models/CouponUsage';
-import { recordAnalytics } from './coupons.controller';
+import { recordAnalytics, generateMemberCoupons } from './coupons.controller';
 
 const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
 
@@ -31,8 +32,10 @@ export async function getOrders(req: Request, res: Response) {
 export async function createOrder(req: Request, res: Response) {
   try {
     await connectDB();
+    // Ensure Product model is loaded and registered in Mongoose (prevents MissingSchemaError on populate)
+    const _modelName = Product.modelName;
     const body = req.body || {};
-    const { deliveryAddress, paymentMethod, couponCode, walletUsed = 0, activateMembership } = body;
+    const { deliveryAddress, paymentMethod, couponCode, walletUsed = 0, activateMembership, applyBogo } = body;
 
     if (!deliveryAddress) {
       return res.status(400).json({ error: 'Delivery address is required' });
@@ -78,15 +81,33 @@ export async function createOrder(req: Request, res: Response) {
     let subtotal = 0;
     let totalFittingCharge = 0;
     let onePlusOneDiscount = 0;
-    let oneRupeeFramesUsed = 0;
-    const remainingOneRupeeFrames = Math.max(0, 2 - (user.oneRupeeOfferCount ?? 0));
 
-    // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
-    const totalBogoQty = cart.items.reduce((sum: number, item: any) => 
-      (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) ? sum + item.qty : sum, 
-      0
-    );
-    const isBogoActive = totalBogoQty >= 2;
+    if (applyBogo && isMemberNow && bogoAllowedForMember) {
+      const bogoItems: any[] = [];
+      cart.items.forEach((item: any) => {
+        if (item.product?.buy1Get1) {
+          for (let index = 0; index < item.qty; index++) {
+            const framePrice = item.product.memberPrice !== undefined && isMemberNow ? item.product.memberPrice : (item.product.price?.selling ?? 0);
+            bogoItems.push({
+              price: framePrice + (item.lensPrice || 0)
+            });
+          }
+        }
+      });
+      if (bogoItems.length >= 2) {
+        bogoItems.sort((a, b) => a.price - b.price);
+        const freeQty = Math.floor(bogoItems.length / 2);
+        for (let i = 0; i < freeQty; i++) {
+          onePlusOneDiscount += bogoItems[i].price;
+        }
+      }
+    }
+
+    let oneRupeeFramesUsed = 0;
+    const maxOneRupeeFramesThisOrder = Math.min(1, Math.max(0, 2 - (user.oneRupeeOfferCount ?? 0)));
+
+    const totalBogoQty = 0;
+    const isBogoActive = false;
 
     const buy1Get1Items: any[] = [];
 
@@ -107,8 +128,8 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       // Check ₹1 Frame eligibility
-      if (!isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user.oneRupeeOfferUsed && (user.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesUsed < remainingOneRupeeFrames) {
-        const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesUsed);
+      if (cart.items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user.oneRupeeOfferUsed && (user.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesUsed < maxOneRupeeFramesThisOrder) {
+        const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesUsed);
         const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
         framePrice = totalFramePriceForQty / item.qty;
@@ -121,12 +142,7 @@ export async function createOrder(req: Request, res: Response) {
         framePrice = item.product.nonMemberPrice;
       }
 
-      // Collect buy1Get1 items
-      if (bogoAllowedForMember && isMemberNow && item.product?.buy1Get1) {
-        for (let i = 0; i < item.qty; i++) {
-          buy1Get1Items.push({ framePrice, lensPrice });
-        }
-      }
+      // Automatic BOGO collection disabled (coupon voucher only)
 
       subtotal += (framePrice + lensPrice) * item.qty;
 
@@ -157,16 +173,7 @@ export async function createOrder(req: Request, res: Response) {
 
     totalFittingCharge = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
-    // Apply 1+1 Offer
-    if (buy1Get1Items.length >= 2) {
-      buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
-      const lowestPriceItem = buy1Get1Items.reduce((lowest: any, current: any) => {
-        const currentTotal = current.framePrice + (current.lensPrice || 0);
-        const lowestTotal = lowest.framePrice + (lowest.lensPrice || 0);
-        return currentTotal < lowestTotal ? current : lowest;
-      });
-      onePlusOneDiscount = lowestPriceItem.framePrice + (lowestPriceItem.lensPrice || 0);
-    }
+    // Automatic 1+1 Offer discount disabled (coupon voucher only)
 
     // Shipping charges: members free
     const deliveryCharge = isMemberNow ? 0 : 99;
@@ -182,18 +189,23 @@ export async function createOrder(req: Request, res: Response) {
 
     // Apply coupon using validation engine
     if (couponCode) {
-      const validationItems = cart.items.map((item: any) => ({
+      if (oneRupeeFramesUsed > 0) {
+        return res.status(400).json({ error: 'Standard coupons cannot be combined with the ₹1 Frame offer.' });
+      }
+      const validationItems = orderItems.map((item: any) => ({
         productId: item.product?._id?.toString() || item.product?.toString(),
         qty: item.qty,
-        price: item.product?.price?.selling ?? item.framePrice ?? 0,
+        price: item.framePrice + (item.lensPrice || 0),
         category: item.product?.category,
         brand: item.product?.brand,
+        buy1Get1: item.product?.buy1Get1 || false,
       }));
 
       const validationContext = {
         cartTotal: subtotal + totalFittingCharge + deliveryCharge - onePlusOneDiscount,
         items: validationItems,
         paymentMethod,
+        addGoldMembership: activateMembership,
         location: {
           country: 'India',
           state: deliveryAddress.state,
@@ -208,7 +220,11 @@ export async function createOrder(req: Request, res: Response) {
       }
 
       if (valResult.valid && valResult.discountAmount) {
-        discount += valResult.discountAmount;
+        if (valResult.coupon?.discountType === 'bogo') {
+          discount = valResult.discountAmount; // avoid double discounting, use coupon's BOGO discount
+        } else {
+          discount += valResult.discountAmount;
+        }
         couponData = {
           code: valResult.coupon!.code,
           discountType: valResult.coupon!.discountType,
@@ -251,10 +267,78 @@ export async function createOrder(req: Request, res: Response) {
       statusHistory: [{ status: 'pending', timestamp: new Date() }],
       estimatedDelivery,
       membershipAdded: activateMembership && !user.membershipActive,
-      bogoApplied: onePlusOneDiscount > 0,
+      bogoApplied: onePlusOneDiscount > 0 || (couponData && couponData.discountType === 'bogo'),
     });
 
     await order.save();
+
+    // Auto-save prescriptions from order items to user's saved prescriptions
+    try {
+      for (const item of orderItems) {
+        if (item.power && (item.power.RE || item.power.LE)) {
+          // Check if user already has a saved prescription with the exact same power values
+          const existingPresc = await Prescription.findOne({
+            user: user._id,
+            'RE.sph': item.power.RE?.sph,
+            'RE.cyl': item.power.RE?.cyl,
+            'RE.axis': item.power.RE?.axis,
+            'LE.sph': item.power.LE?.sph,
+            'LE.cyl': item.power.LE?.cyl,
+            'LE.axis': item.power.LE?.axis,
+          });
+
+          if (!existingPresc) {
+            const newPresc = new Prescription({
+              user: user._id,
+              name: item.power.name || `Order ${orderId}`,
+              RE: item.power.RE,
+              LE: item.power.LE,
+              pd: item.power.pd || (item.power.RE?.pd ? (item.power.RE.pd + (item.power.LE?.pd || 0)) : undefined),
+              verificationStatus: 'verified',
+              verified: true,
+            });
+            await newPresc.save();
+
+            await User.findByIdAndUpdate(user._id, {
+              $addToSet: { savedPrescriptions: newPresc._id }
+            });
+          }
+        }
+      }
+    } catch (prescErr) {
+      console.error('Failed to auto-save prescription on order placement:', prescErr);
+    }
+
+    // Auto-save address to user's saved addresses if not already exists
+    try {
+      const addressExists = user.addresses.some((addr: any) => 
+        addr.line1.toLowerCase().trim() === deliveryAddress.line1.toLowerCase().trim() &&
+        addr.pincode.trim() === deliveryAddress.pincode.trim() &&
+        addr.fullName.toLowerCase().trim() === deliveryAddress.fullName.toLowerCase().trim()
+      );
+
+      if (!addressExists) {
+        const hasDefault = user.addresses.some((addr: any) => addr.isDefault);
+        const newAddress = {
+          fullName: deliveryAddress.fullName,
+          mobile: deliveryAddress.mobile,
+          alternativeNumber: deliveryAddress.alternativeNumber,
+          pincode: deliveryAddress.pincode,
+          line1: deliveryAddress.line1,
+          line2: deliveryAddress.line2 || undefined,
+          city: deliveryAddress.city,
+          state: deliveryAddress.state,
+          type: 'Home',
+          isDefault: !hasDefault
+        };
+        
+        await User.findByIdAndUpdate(user._id, {
+          $push: { addresses: newAddress }
+        });
+      }
+    } catch (addrErr) {
+      console.error('Failed to auto-save address on checkout:', addrErr);
+    }
 
     try {
       getIO().emit('order_changed', { action: 'create', order });
@@ -304,6 +388,11 @@ export async function createOrder(req: Request, res: Response) {
       expiry.setFullYear(expiry.getFullYear() + 1);
       updateUser.membershipActive = true;
       updateUser.membershipExpiry = expiry;
+      try {
+        await generateMemberCoupons(user._id);
+      } catch (err) {
+        console.error('Failed to generate member coupons on checkout:', err);
+      }
     }
 
     if (walletToUse > 0) {

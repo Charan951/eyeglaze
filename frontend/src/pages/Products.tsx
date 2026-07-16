@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
 import ProductCard from '../components/ui/ProductCard';
 import ProductFilters from '../components/ProductFilters';
 import api from '../lib/api';
@@ -56,11 +56,20 @@ const mockProducts: Product[] = [
 ];
 
 export default function ProductsPage() {
+  const { productsData, categoriesData } = useLoaderData() as any;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(productsData?.products || []);
+  const [total, setTotal] = useState(productsData?.total || 0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (productsData) {
+      setProducts(productsData.products || []);
+      setTotal(productsData.total ?? (productsData.products || []).length);
+      setLoading(false);
+    }
+  }, [productsData]);
 
   // Mobile States
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -122,28 +131,21 @@ export default function ProductsPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchVal]);
 
+  const loadProducts = () => {
+    const params = searchParams.toString();
+    api.get(`/products?${params}`)
+      .then(res => {
+        setProducts(res.data.products || []);
+        setTotal(res.data.total ?? (res.data.products || []).length);
+      })
+      .catch(() => {
+        setProducts(mockProducts);
+        setTotal(mockProducts.length);
+      });
+  };
+
+  // Setup product changed socket listener
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-
-    const loadProducts = () => {
-      const params = searchParams.toString();
-      api.get(`/products?${params}`)
-        .then(res => {
-          if (!active) return;
-          setProducts(res.data.products || []);
-          setTotal(res.data.total ?? (res.data.products || []).length);
-        })
-        .catch(() => {
-          if (!active) return;
-          setProducts(mockProducts);
-          setTotal(mockProducts.length);
-        })
-        .finally(() => active && setLoading(false));
-    };
-
-    loadProducts();
-
     const handleProductChange = () => {
       loadProducts();
     };
@@ -151,7 +153,6 @@ export default function ProductsPage() {
     socket.on('product_changed', handleProductChange);
 
     return () => {
-      active = false;
       socket.off('product_changed', handleProductChange);
     };
   }, [searchParams]);
@@ -288,7 +289,7 @@ export default function ProductsPage() {
           </div>
 
           {/* Collection Tab Filter Options (All, Essential, Premium, Sale) */}
-          <div className="flex items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
+          <div className="flex md:hidden items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
             {[
               { id: 'All', label: 'All', icon: (active: boolean) => (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">

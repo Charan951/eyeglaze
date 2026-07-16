@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate, useLoaderData } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -139,7 +139,12 @@ export default function LandingPage() {
     }
   };
 
-  const [banners, setBanners] = useState<any[]>([]);
+  const { banners: initialBanners, videos: initialVideos, reels: initialReels, categories: initialCategories, featuredProducts: initialFeaturedProducts } = useLoaderData() as any;
+
+  const [banners, setBanners] = useState<any[]>(initialBanners || []);
+  useEffect(() => {
+    if (initialBanners) setBanners(initialBanners);
+  }, [initialBanners]);
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
   const heroBanners = banners.filter((b: any) => b.position === 'hero' && b.isActive);
@@ -184,8 +189,16 @@ export default function LandingPage() {
   }, []);
 
   // Videos States
-  const [videos, setVideos] = useState<any[]>([]);
-  const [reels, setReels] = useState<any[]>([]);
+  const [videos, setVideos] = useState<any[]>(initialVideos || []);
+  const [reels, setReels] = useState<any[]>(initialReels || []);
+
+  useEffect(() => {
+    if (initialVideos) setVideos(initialVideos);
+  }, [initialVideos]);
+
+  useEffect(() => {
+    if (initialReels) setReels(initialReels);
+  }, [initialReels]);
 
   const fetchHomepageVideos = () => {
     api.get('/homepage-videos')
@@ -207,8 +220,6 @@ export default function LandingPage() {
       });
   };
 
-
-
   const fetchBanners = () => {
     api.get('/banners')
       .then((res) => {
@@ -219,9 +230,8 @@ export default function LandingPage() {
       });
   };
 
-  // Fetch banners on mount and setup socket listener
+  // Setup banner socket listener
   useEffect(() => {
-    fetchBanners();
     socket.on('banner_changed', fetchBanners);
     return () => {
       socket.off('banner_changed', fetchBanners);
@@ -233,18 +243,16 @@ export default function LandingPage() {
   const mobileTopBanners = topBanners.filter((b: any) => b.showOnMobile !== false);
   const mobileFooterBanners = footerBanners.filter((b: any) => b.showOnMobile !== false);
 
-  // Fetch homepage videos on mount and setup socket listener
+  // Setup video socket listener
   useEffect(() => {
-    fetchHomepageVideos();
     socket.on('homepage_video_changed', fetchHomepageVideos);
     return () => {
       socket.off('homepage_video_changed', fetchHomepageVideos);
     };
   }, []);
 
-  // Fetch homepage reels on mount and setup socket listener
+  // Setup reels socket listener
   useEffect(() => {
-    fetchHomepageReels();
     socket.on('reel_changed', fetchHomepageReels);
     return () => {
       socket.off('reel_changed', fetchHomepageReels);
@@ -252,9 +260,13 @@ export default function LandingPage() {
   }, []);
 
   // Categories States
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(initialCategories || []);
 
-  // Fetch homepage categories on mount
+  useEffect(() => {
+    if (initialCategories) setCategories(initialCategories);
+  }, [initialCategories]);
+
+  // Setup categories socket listener
   useEffect(() => {
     let active = true;
     const fetchCats = () => {
@@ -267,8 +279,6 @@ export default function LandingPage() {
           console.error('Error fetching categories:', err);
         });
     };
-
-    fetchCats();
 
     const handleCategoryChange = () => {
       fetchCats();
@@ -680,8 +690,19 @@ export default function LandingPage() {
     }
   ];
 
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>(defaultFeaturedProducts);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>(
+    initialFeaturedProducts && initialFeaturedProducts.length > 0
+      ? initialFeaturedProducts
+      : defaultFeaturedProducts
+  );
 
+  useEffect(() => {
+    if (initialFeaturedProducts && initialFeaturedProducts.length > 0) {
+      setFeaturedProducts(initialFeaturedProducts);
+    }
+  }, [initialFeaturedProducts]);
+
+  // Setup featured products socket listener
   useEffect(() => {
     let active = true;
 
@@ -698,8 +719,6 @@ export default function LandingPage() {
           console.error('Error fetching featured products:', err);
         });
     };
-
-    fetchFeatured();
 
     const handleProductChange = () => {
       fetchFeatured();
@@ -727,11 +746,11 @@ export default function LandingPage() {
       />
       
       {/* Main Body - Shared Layout */}
-      <div className="hidden md:block w-full py-6 space-y-8 md:space-y-10">
+      <div className="hidden md:block w-full pt-6 pb-6 space-y-8 md:space-y-10">
         
         {/* Hero Section - Full View */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
-          <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] aspect-[16/9] w-full flex items-center shadow-2xl">
+        <div className="w-full">
+          <section className="relative bg-[#111] overflow-hidden border-b border-[#2A2A2D] aspect-[4/1] w-full flex items-center shadow-2xl">
             {/* Banner image (Full background) */}
             <div 
               className={`absolute inset-0 w-full h-full overflow-hidden z-0 ${slides[activeSlide]?.linkUrl ? 'cursor-pointer' : ''}`}
@@ -835,7 +854,7 @@ export default function LandingPage() {
                     className="flex flex-col gap-4"
                   >
                   {cat.slug.toLowerCase() === 'eyeglasses' && topBanners.length > 0 && (
-                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-black aspect-[3.5/1] mb-2">
+                    <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-black aspect-[5/1] mb-2">
                       <BannerSlider items={topBanners} objectFit="object-contain bg-black" />
                     </div>
                   )}
@@ -869,7 +888,7 @@ export default function LandingPage() {
                   {(catSlug === 'eyeglasses' || catSlug === 'contact-lenses') && categoryReels.length > 0 && (
                     <div className="mt-4 flex flex-col gap-4 border-t border-zinc-800/80 pt-6">
                       <div className="flex flex-col gap-0.5">
-                        <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{cat.name} Reels</h4>
+                        <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{cat.slug === 'eyeglasses' ? 'Trending EyeGlaze' : `${cat.name} Reels`}</h4>
                         <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Trending styles, lookbooks and details</span>
                       </div>
                       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth">
@@ -930,12 +949,7 @@ export default function LandingPage() {
                             className="bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2.5 shadow-xl hover:border-[#D4A04D]/35 transition-colors w-[130px] md:w-[170px] flex-shrink-0 cursor-pointer group relative"
                           >
                             <div className="aspect-[9/16] w-full rounded-xl overflow-hidden bg-black border border-[#2A2A2D] relative">
-                              <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-2 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
-                                  <span className="text-[#D4A04D] text-xs font-bold tracking-widest font-serif">EG</span>
-                                </div>
-                                <span className="text-[#D4A04D] text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] font-serif">EYEGLAZE</span>
-                              </div>
+
 
                               {isDirectVideo(reel.videoUrl) ? (
                                 <video
@@ -1611,7 +1625,7 @@ export default function LandingPage() {
         {videos && videos.length > 0 ? (
           <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">How to Buy Your Glasses</h2>
               <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
             </div>
 
@@ -1701,7 +1715,7 @@ export default function LandingPage() {
         ) : (
           <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6 opacity-40">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">EyeGlaze Showcase</h2>
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">How to Buy Your Glasses</h2>
               <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Explore our journey and customer stories</span>
             </div>
             <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-2 max-w-3xl mx-auto w-full">
@@ -1711,11 +1725,10 @@ export default function LandingPage() {
           </section>
         )}
 
-        {/* Split Section: Frequently Asked Questions & EYEGLAZE CLINIC @ HOME */}
-        <section className="w-full py-8 border-t border-[#1C1C1E] grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Left Column: FAQ */}
+        {/* Frequently Asked Questions */}
+        <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6 max-w-3xl mx-auto items-stretch">
           <div className="flex flex-col gap-6 w-full">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 text-center">
               <h2 className="text-lg font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h2>
               <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Everything you need to know about buying glasses online</span>
             </div>
@@ -1745,83 +1758,6 @@ export default function LandingPage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Right Column: Home Eye Test Form */}
-          <div className="lg:sticky lg:top-24">
-            <div className="bg-[#121212] border border-[#2A2A2D] rounded-2xl p-6 md:p-8 flex flex-col gap-5 justify-between relative overflow-hidden group hover:border-[#D4A04D]/30 transition-colors w-full shadow-xl">
-              <div className="flex flex-col gap-2">
-                <span className="text-[#D4A04D] text-[10px] font-extrabold tracking-widest uppercase">EYEGLAZE CLINIC @ HOME</span>
-                <h3 className="text-white text-lg md:text-xl font-extrabold uppercase tracking-wide">Book Free Home Eye Test</h3>
-                <p className="text-gray-400 text-xs leading-relaxed">
-                  Why step out? Get your eyes tested by a certified optometrist in the comfort of your home. Includes advanced digital refraction and a collection of 150+ frames to try on!
-                </p>
-              </div>
-
-              <form onSubmit={handleBookTest} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Select Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={bookingDate}
-                    onChange={(e) => setBookingDate(e.target.value)}
-                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Preferred Time Slot</label>
-                  <select
-                    required
-                    value={bookingTime}
-                    onChange={(e) => setBookingTime(e.target.value)}
-                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D]"
-                  >
-                    <option value="">Choose slot...</option>
-                    <option value="10am-12pm">10:00 AM - 12:00 PM</option>
-                    <option value="12pm-2pm">12:00 PM - 02:00 PM</option>
-                    <option value="2pm-4pm">02:00 PM - 04:00 PM</option>
-                    <option value="4pm-6pm">04:00 PM - 06:00 PM</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Address & Pincode</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter full address for optometrist visit..."
-                    value={bookingAddress}
-                    onChange={(e) => setBookingAddress(e.target.value)}
-                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">Phone Number</label>
-                  <input
-                    type="tel"
-                    required
-                    pattern="[0-9]{10}"
-                    placeholder="10-digit mobile number"
-                    value={bookingPhone}
-                    onChange={(e) => setBookingPhone(e.target.value)}
-                    className="bg-[#181818] border border-[#2A2A2D] rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-[#D4A04D] placeholder-gray-600"
-                  />
-                </div>
-
-                <div className="flex items-end mt-1">
-                  <button
-                    type="submit"
-                    disabled={isBooked}
-                    className="w-full bg-[#D4A04D] hover:bg-[#C8923E] disabled:bg-gray-600 text-black font-extrabold text-[10px] uppercase py-3 rounded-lg tracking-wider transition-colors cursor-pointer"
-                  >
-                    {isBooked ? 'BOOKING IN PROGRESS...' : 'CONFIRM FREE APPOINTMENT'}
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         </section>
@@ -1871,12 +1807,7 @@ export default function LandingPage() {
                   className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden p-2.5 flex flex-col gap-2.5 shadow-lg w-full max-w-[340px] cursor-pointer group relative"
                 >
                   <div className="aspect-[9/16] w-full rounded-lg overflow-hidden bg-black border border-[#2A2A2D] relative">
-                    <div className={`absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 pointer-events-none z-10 ${playingReelId === reel._id ? 'opacity-0' : 'group-hover:opacity-0'}`}>
-                      <div className="w-12 h-12 rounded-full border border-[#D4A04D]/30 flex items-center justify-center bg-black/60 shadow-lg shadow-[#D4A04D]/5">
-                        <span className="text-[#D4A04D] text-sm font-bold tracking-widest font-serif">EG</span>
-                      </div>
-                      <span className="text-[#D4A04D] text-[10px] font-black uppercase tracking-[0.25em] font-serif">EYEGLAZE</span>
-                    </div>
+
 
                     {isDirectVideo(reel.videoUrl) ? (
                       <video

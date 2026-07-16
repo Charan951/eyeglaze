@@ -32,7 +32,7 @@ export async function adminUpdateTicket(req: Request, res: Response) {
     if (status) updateFields.status = status;
     if (adminResponse !== undefined) updateFields.adminResponse = adminResponse;
 
-    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { new: true })
+    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { returnDocument: 'after' })
       .populate('user', 'name email mobile phone');
 
     if (!ticket) {

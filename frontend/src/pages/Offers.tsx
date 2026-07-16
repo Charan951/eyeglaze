@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLoaderData } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../lib/api';
 import SEO from '../components/SEO';
@@ -19,9 +20,17 @@ interface Coupon {
 }
 
 export default function Offers() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { coupons: initialCoupons } = useLoaderData() as { coupons: Coupon[] };
+  const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons || []);
+  const [loading, setLoading] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialCoupons) {
+      setCoupons(initialCoupons);
+      setLoading(false);
+    }
+  }, [initialCoupons]);
   
   // Slider State
   const [activeSlide, setActiveSlide] = useState(0);
@@ -39,9 +48,7 @@ export default function Offers() {
     }
   };
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
+  // Initial fetch handled by route loader
 
   useEffect(() => {
     socket.on('coupon_changed', fetchCoupons);

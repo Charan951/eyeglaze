@@ -41,10 +41,10 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
   const isRow = layout === 'horizontal';
 
   return (
-    <div className="block group">
+    <Link to={`/products/${product._id}`} className="block group">
       <div className={`bg-[#131314] border border-[#2A2A2D] rounded-none overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col w-full'}`}>
         {/* Image wrapper */}
-        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-square w-full border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
+        <div className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-square w-full border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
           {product.images?.[0] ? (
             <img 
               src={product.images[0]} 
@@ -84,7 +84,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </span>
           )}
 
-        </Link>
+        </div>
 
         {/* Info */}
         <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-4' : 'p-3.5'}`}>
@@ -116,11 +116,11 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </div>
 
             {/* Product Title */}
-            <Link to={`/products/${product._id}`} className="block">
+            <div className="block">
               <div className="text-[#F2F2F2] font-extrabold text-xs md:text-sm line-clamp-1 group-hover:text-[#D4A04D] transition-colors mt-0.5">
                 {product.name}
               </div>
-            </Link>
+            </div>
 
             {/* Meta Tags (Shape/Type/Size) */}
             <div className="flex gap-1 flex-wrap text-[8px] font-semibold text-[#A7A7A7] leading-none pt-0.5">
@@ -169,6 +169,6 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

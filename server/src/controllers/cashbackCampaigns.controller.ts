@@ -30,7 +30,7 @@ export async function updateCashbackCampaign(req: Request, res: Response) {
   try {
     await connectDB();
     const { id } = req.params;
-    const campaign = await CashbackCampaign.findByIdAndUpdate(id, req.body, { new: true });
+    const campaign = await CashbackCampaign.findByIdAndUpdate(id, req.body, { returnDocument: 'after' });
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }

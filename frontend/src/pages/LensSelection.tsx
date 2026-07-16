@@ -116,15 +116,35 @@ export default function LensSelection() {
   const [prescriptionFileToUpload, setPrescriptionFileToUpload] = useState<File | null>(null);
   
   // Matches defaults in screenshots
-  const [reSph, setReSph] = useState('-1.25');
-  const [reCyl, setReCyl] = useState('-0.50');
-  const [reAxis, setReAxis] = useState('180');
-  const [reAdd, setReAdd] = useState('0.00');
+  const [reSph, setReSph] = useState('');
+  const [reCyl, setReCyl] = useState('');
+  const [reAxis, setReAxis] = useState('');
+  const [reAdd, setReAdd] = useState('');
 
-  const [leSph, setLeSph] = useState('-1.75');
-  const [leCyl, setLeCyl] = useState('-0.75');
-  const [leAxis, setLeAxis] = useState('170');
-  const [leAdd, setLeAdd] = useState('0.00');
+  const [leSph, setLeSph] = useState('');
+  const [leCyl, setLeCyl] = useState('');
+  const [leAxis, setLeAxis] = useState('');
+  const [leAdd, setLeAdd] = useState('');
+  const [rePd, setRePd] = useState('');
+  const [lePd, setLePd] = useState('');
+
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message
+    });
+  };
 
   // Checkout States
   const [submitting, setSubmitting] = useState(false);
@@ -266,6 +286,10 @@ export default function LensSelection() {
 
   const handleSelectSavedPrescription = (id: string) => {
     setSelectedPrescriptionId(id);
+    if (!id) {
+      setPrescriptionName('');
+      return;
+    }
     const selected = savedPrescriptions.find(p => p._id === id);
     if (selected) {
       setPrescriptionName(selected.name || '');
@@ -291,12 +315,14 @@ export default function LensSelection() {
           setReCyl(selected.RE.cyl !== undefined ? selected.RE.cyl.toFixed(2) : '0.00');
           setReAxis(selected.RE.axis !== undefined ? selected.RE.axis.toString() : '0');
           setReAdd(selected.RE.addPower !== undefined ? selected.RE.addPower.toFixed(2) : '0.00');
+          setRePd(selected.RE.pd !== undefined ? selected.RE.pd.toFixed(1) : '31.5');
         }
         if (selected.LE) {
           setLeSph(selected.LE.sph !== undefined ? selected.LE.sph.toFixed(2) : '0.00');
           setLeCyl(selected.LE.cyl !== undefined ? selected.LE.cyl.toFixed(2) : '0.00');
           setLeAxis(selected.LE.axis !== undefined ? selected.LE.axis.toString() : '0');
           setLeAdd(selected.LE.addPower !== undefined ? selected.LE.addPower.toFixed(2) : '0.00');
+          setLePd(selected.LE.pd !== undefined ? selected.LE.pd.toFixed(1) : '31.5');
         }
       }
     }
@@ -715,7 +741,7 @@ export default function LensSelection() {
         }
       } catch (err) {
         console.error('Prescription compression failed:', err);
-        alert('Failed to process prescription. Please try again.');
+        showAlert('Compression Failed', 'Failed to process prescription. Please try again.');
       } finally {
         setUploadingPrescription(false);
       }
@@ -744,17 +770,30 @@ export default function LensSelection() {
             setUploadedFileUrl(finalUploadedUrl);
           } catch (err) {
             console.error('Failed to upload prescription to database:', err);
-            alert('Failed to save prescription. Please try again.');
+            showAlert('Upload Failed', 'Failed to save prescription. Please try again.');
             setSubmitting(false);
             return;
           }
         } else if (powerMode === 'enter' && !selectedPrescriptionId) {
           try {
+            const isProgressive = selectedType?.type === 'progressive';
             const payload: any = {
-              RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) }),
-              LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) }),
-              pd: 62
+              RE: JSON.stringify({ 
+                sph: parseFloat(reSph), 
+                cyl: parseFloat(reCyl), 
+                axis: parseInt(reAxis) || 0, 
+                ...(isProgressive ? { addPower: parseFloat(reAdd), pd: parseFloat(rePd) } : {}) 
+              }),
+              LE: JSON.stringify({ 
+                sph: parseFloat(leSph), 
+                cyl: parseFloat(leCyl), 
+                axis: parseInt(leAxis) || 0, 
+                ...(isProgressive ? { addPower: parseFloat(leAdd), pd: parseFloat(lePd) } : {}) 
+              })
             };
+            if (isProgressive) {
+              payload.pd = parseFloat(rePd) + parseFloat(lePd);
+            }
             if (prescriptionName.trim()) {
               payload.name = prescriptionName.trim();
             }
@@ -779,12 +818,25 @@ export default function LensSelection() {
       // Determine power object based on user's choice, not lens type!
       let powerObj: any;
       if (powerMode === 'enter') {
+        const isProgressive = selectedType?.type === 'progressive';
         powerObj = {
           name: prescriptionName.trim() || undefined,
-          RE: { sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis), addPower: parseFloat(reAdd) },
-          LE: { sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis), addPower: parseFloat(leAdd) },
-          pd: 62,
-          addPower: parseFloat(reAdd)
+          RE: { 
+            sph: parseFloat(reSph), 
+            cyl: parseFloat(reCyl), 
+            axis: parseInt(reAxis) || 0, 
+            ...(isProgressive ? { addPower: parseFloat(reAdd), pd: parseFloat(rePd) } : {}) 
+          },
+          LE: { 
+            sph: parseFloat(leSph), 
+            cyl: parseFloat(leCyl), 
+            axis: parseInt(leAxis) || 0, 
+            ...(isProgressive ? { addPower: parseFloat(leAdd), pd: parseFloat(lePd) } : {}) 
+          },
+          ...(isProgressive ? {
+            pd: parseFloat(rePd) + parseFloat(lePd),
+            addPower: parseFloat(reAdd)
+          } : {})
         };
       } else if (powerMode === 'upload') {
         powerObj = { 
@@ -846,7 +898,7 @@ export default function LensSelection() {
       navigate('/cart');
     } catch (err) {
       console.error('Failed to add product with lens config:', err);
-      alert('Failed to add config to cart. Please try again.');
+      showAlert('Cart Error', 'Failed to add config to cart. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -879,12 +931,32 @@ export default function LensSelection() {
   };
 
   const handleConfirmAndAdd = async () => {
+    // Enforce mandatory prescription name
+    if ((powerMode === 'enter' || powerMode === 'upload') && !prescriptionName.trim()) {
+      showAlert('Required Input', 'Please enter a name to save this power/prescription.');
+      return;
+    }
+
     // Check validation for both enter and upload modes, regardless of lens type
     if (powerMode === 'enter') {
+      if (!reSph || !leSph || !reCyl || !leCyl) {
+        showAlert('Missing Selection', 'Please select SPH and CYL values for both eyes.');
+        return;
+      }
+
+      if (selectedType?.type === 'progressive' && (!reAdd || !leAdd || !rePd || !lePd)) {
+        showAlert('Missing Selection', 'Please select ADD and PD values for progressive lenses.');
+        return;
+      }
+
       const hasAstigmatismRE = parseFloat(reCyl) !== 0;
       const hasAstigmatismLE = parseFloat(leCyl) !== 0;
-      if ((hasAstigmatismRE && !reAxis) || (hasAstigmatismLE && !leAxis)) {
-        alert('Please enter AXIS for astigmatism (when CYL is not 0)');
+      if (hasAstigmatismRE && (!reAxis || reAxis === '')) {
+        showAlert('Missing Axis', 'Please select AXIS for Right Eye astigmatism (when CYL is not 0)');
+        return;
+      }
+      if (hasAstigmatismLE && (!leAxis || leAxis === '')) {
+        showAlert('Missing Axis', 'Please select AXIS for Left Eye astigmatism (when CYL is not 0)');
         return;
       }
 
@@ -937,11 +1009,11 @@ export default function LensSelection() {
       }
     } else if (powerMode === 'upload') {
       if (uploadingPrescription) {
-        alert('Please wait for the prescription file to finish uploading.');
+        showAlert('Uploading', 'Please wait for the prescription file to finish uploading.');
         return;
       }
       if (!uploadedFileUrl) {
-        alert('Please select and upload a prescription file first.');
+        showAlert('Upload Required', 'Please select and upload a prescription file first.');
         return;
       }
     }
@@ -1238,22 +1310,118 @@ export default function LensSelection() {
             {/* Prescription Form Block */}
             <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
                 {user && savedPrescriptions.length > 0 && (powerMode as any) !== 'zero' && (
-                  <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4.5 space-y-2">
-                    <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
-                      📂 Add Saved Power
-                    </label>
-                    <select
-                      value={selectedPrescriptionId}
-                      onChange={(e) => handleSelectSavedPrescription(e.target.value)}
-                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer"
-                    >
-                      <option value="">-- Select from Saved Powers --</option>
-                      {savedPrescriptions.map((pr: any) => (
-                        <option key={pr._id} value={pr._id}>
-                          {formatOptionLabel(pr)}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-2xl p-5 space-y-4 text-left">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
+                        📂 Choose From Saved Powers
+                      </label>
+                      {selectedPrescriptionId && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectSavedPrescription('')}
+                          className="text-[10px] text-red-400 hover:text-red-300 font-extrabold uppercase tracking-wider bg-transparent border-none cursor-pointer hover:underline"
+                        >
+                          Clear Selection
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {savedPrescriptions.map((pr: any) => {
+                        const isSelected = selectedPrescriptionId === pr._id;
+                        const date = new Date(pr.createdAt).toLocaleDateString('en-IN', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        });
+                        const isUploaded = pr.uploadedFile || pr.imageUrl;
+                        
+                        return (
+                          <div
+                            key={pr._id}
+                            onClick={() => {
+                              if (isSelected) {
+                                handleSelectSavedPrescription('');
+                              } else {
+                                handleSelectSavedPrescription(pr._id);
+                              }
+                            }}
+                            className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between gap-3 text-left relative overflow-hidden group select-none ${
+                              isSelected
+                                ? 'bg-[#D4A04D]/10 border-[#D4A04D] ring-1 ring-[#D4A04D] shadow-[0_0_12px_rgba(212,160,77,0.15)]'
+                                : 'bg-[#131314] border-[#2A2A2D] hover:border-gray-500 hover:bg-[#161618]'
+                            }`}
+                          >
+                            <div>
+                              {/* Header info */}
+                              <div className="flex justify-between items-start gap-2 mb-1.5">
+                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                                  {isUploaded ? '📄 Document' : '👓 Manual Power'}
+                                </span>
+                                <span className="text-[9px] text-gray-500 font-semibold">
+                                  {date}
+                                </span>
+                              </div>
+
+                              {/* Title / Name */}
+                              <h4 className="text-white text-xs font-black uppercase tracking-wider truncate mb-2">
+                                {pr.name || (isUploaded ? 'Doctor Prescription' : 'Saved Power')}
+                              </h4>
+
+                              {/* Details */}
+                              {isUploaded ? (
+                                <div className="flex items-center gap-3 mt-1 bg-[#0B0B0C]/40 p-2 rounded-lg border border-[#2A2A2D]/30">
+                                  {pr.uploadedFile && (
+                                    <div className="w-10 h-10 rounded-md overflow-hidden bg-[#222] border border-[#2A2A2D] flex-shrink-0">
+                                      <img src={pr.uploadedFile} alt="Doc preview" className="w-full h-full object-cover" />
+                                    </div>
+                                  )}
+                                  <div className="text-[9px] text-gray-400 font-medium leading-normal">
+                                    Prescription image/PDF has been uploaded and saved.
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5 text-[10px] text-[#A7A7A7] mt-1">
+                                  <div className="flex justify-between items-center border-b border-[#2A2A2D]/35 pb-1">
+                                    <span className="font-bold text-gray-500 text-[9px]">R (Right):</span>
+                                    <span className="font-mono text-white">
+                                      SPH: <span className="font-bold">{formatValue(pr.RE?.sph)}</span> | CYL: <span className="font-bold">{formatValue(pr.RE?.cyl)}</span> | AX: <span className="font-bold">{pr.RE?.axis ?? '0'}°</span>
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-bold text-gray-500 text-[9px]">L (Left):</span>
+                                    <span className="font-mono text-white">
+                                      SPH: <span className="font-bold">{formatValue(pr.LE?.sph)}</span> | CYL: <span className="font-bold">{formatValue(pr.LE?.cyl)}</span> | AX: <span className="font-bold">{pr.LE?.axis ?? '0'}°</span>
+                                    </span>
+                                  </div>
+                                  {pr.pd && (
+                                    <div className="flex justify-between items-center border-t border-[#2A2A2D]/35 pt-1 text-[9px]">
+                                      <span className="font-bold text-gray-500">PD (Distance):</span>
+                                      <span className="text-white font-bold font-mono">{pr.pd} mm</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Select check badge */}
+                            <div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-[#2A2A2D]/40">
+                              <span className="text-[9px] text-[#A7A7A7] font-semibold group-hover:text-white transition-colors">
+                                {isSelected ? 'Click to deselect' : 'Click to select'}
+                              </span>
+                              {isSelected ? (
+                                <span className="bg-[#D4A04D] text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider">
+                                  Selected
+                                </span>
+                              ) : (
+                                <span className="border border-[#2A2A2D] text-gray-500 text-[9px] font-bold uppercase px-2 py-0.5 rounded-md tracking-wider group-hover:border-gray-500 group-hover:text-gray-300">
+                                  Use This
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -1312,19 +1480,25 @@ export default function LensSelection() {
 
                         {/* Grid */}
                         <div className="space-y-4">
-                          <div className="grid grid-cols-5 gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest">
+                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest`}>
                             <div className="text-left" />
                             <div>SPH (Sphere)</div>
                             <div>CYL (Cylinder)</div>
                             <div>AXIS</div>
-                            <div>ADD</div>
+                            {selectedType?.type === 'progressive' && (
+                              <>
+                                <div>ADD</div>
+                                <div>PD</div>
+                              </>
+                            )}
                           </div>
 
                           {/* Right Eye Row */}
-                          <div className="grid grid-cols-5 gap-2 items-center text-center">
+                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 items-center text-center`}>
                             <div className="text-white text-xs font-black text-left">R (Right)</div>
                             <div>
                               <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
@@ -1332,6 +1506,7 @@ export default function LensSelection() {
                             </div>
                             <div>
                               <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
@@ -1339,26 +1514,41 @@ export default function LensSelection() {
                             </div>
                             <div>
                               <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                                   <option key={v} value={v}>{v}</option>
                                 ))}
                               </select>
                             </div>
-                            <div>
-                              <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="0.00">0.00</option>
-                                {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                  <option key={power} value={power.replace('+', '')}>{power}</option>
-                                ))}
-                              </select>
-                            </div>
+                            {selectedType?.type === 'progressive' && (
+                              <>
+                                <div>
+                                  <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                    <option value="">Select</option>
+                                    <option value="0.00">0.00</option>
+                                    {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                      <option key={power} value={power.replace('+', '')}>{power}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <select value={rePd} onChange={e => setRePd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                    <option value="">Select</option>
+                                    {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </>
+                            )}
                           </div>
 
                           {/* Left Eye Row */}
-                          <div className="grid grid-cols-5 gap-2 items-center text-center">
+                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 items-center text-center`}>
                             <div className="text-white text-xs font-black text-left">L (Left)</div>
                             <div>
                               <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
@@ -1366,6 +1556,7 @@ export default function LensSelection() {
                             </div>
                             <div>
                               <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
@@ -1373,25 +1564,39 @@ export default function LensSelection() {
                             </div>
                             <div>
                               <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                <option value="">Select</option>
                                 {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                                   <option key={v} value={v}>{v}</option>
                                 ))}
                               </select>
                             </div>
-                            <div>
-                              <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="0.00">0.00</option>
-                                {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                  <option key={power} value={power.replace('+', '')}>{power}</option>
-                                ))}
-                              </select>
-                            </div>
+                            {selectedType?.type === 'progressive' && (
+                              <>
+                                <div>
+                                  <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                    <option value="">Select</option>
+                                    <option value="0.00">0.00</option>
+                                    {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                      <option key={power} value={power.replace('+', '')}>{power}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <select value={lePd} onChange={e => setLePd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
+                                    <option value="">Select</option>
+                                    {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 
                         <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
                           <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
-                            Save this Power as (Optional)
+                            Save this Power as (Mandatory) <span className="text-red-500">*</span>
                           </label>
                           <input 
                             type="text" 
@@ -1440,7 +1645,7 @@ export default function LensSelection() {
                         {uploadedFileUrl && (
                           <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
                             <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
-                              Save this Prescription as (Optional)
+                              Save this Prescription as (Mandatory) <span className="text-red-500">*</span>
                             </label>
                             <input 
                               type="text" 
@@ -1958,6 +2163,22 @@ export default function LensSelection() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {alertModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-zoom-in text-center">
+            <div className="text-3xl">⚠️</div>
+            <h3 className="text-white font-black text-sm uppercase tracking-wider">{alertModal.title}</h3>
+            <p className="text-[#A7A7A7] text-xs leading-relaxed">{alertModal.message}</p>
+            <button
+              onClick={() => setAlertModal({ isOpen: false, title: '', message: '' })}
+              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase py-3 px-4 rounded-xl tracking-wider transition-colors cursor-pointer border-none"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

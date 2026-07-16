@@ -10,6 +10,7 @@ export interface CartItem {
   price: number;
   category?: string;
   brand?: string;
+  buy1Get1?: boolean;
 }
 
 export interface ValidationContext {
@@ -51,10 +52,44 @@ export class CouponEngine {
     const now = new Date();
     
     // 1. Fetch Coupon
-    const coupon = await Coupon.findOne({
-      code: code.toUpperCase(),
-      isDeleted: false,
-    });
+    let coupon: any = null;
+    if (code.toUpperCase() === 'BOGO') {
+      let isMemberNow = false;
+      if (context.addGoldMembership) {
+        isMemberNow = true;
+      } else if (userId) {
+        const userObj = await User.findById(userId);
+        if (userObj && userObj.membershipActive) {
+          isMemberNow = true;
+        }
+      }
+      
+      if (isMemberNow) {
+        coupon = new Coupon({
+          code: 'BOGO',
+          name: 'Membership BOGO Voucher',
+          description: 'Gold Member BOGO Voucher - Buy 1 Get 1 Free',
+          discountType: 'bogo',
+          couponType: 'BOGO',
+          discountValue: 0,
+          buyQty: 1,
+          getQty: 1,
+          isActive: true,
+          validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          usageLimitPerUser: 1,
+          usageLimitTotal: 0,
+          applicableTo: 'all'
+        });
+      }
+    }
+
+    if (!coupon) {
+      coupon = await Coupon.findOne({
+        code: code.toUpperCase(),
+        isDeleted: false,
+      });
+    }
     
     if (!coupon) {
       return { valid: false, message: 'Coupon code does not exist' };
@@ -239,6 +274,11 @@ export class CouponEngine {
     }
     
     let eligibleItems = [...items];
+    
+    // Filter to only BOGO-eligible products if coupon has discountType === 'bogo'
+    if (coupon.discountType === 'bogo') {
+      eligibleItems = eligibleItems.filter(item => item.buy1Get1 === true);
+    }
     
     // 1. Exclude Brands
     if (coupon.excludedBrands && coupon.excludedBrands.length > 0) {

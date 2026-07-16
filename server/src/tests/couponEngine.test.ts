@@ -149,8 +149,8 @@ async function runTests() {
     const res3 = await CouponEngine.validate('BUY1GET1', normalUser._id.toString(), {
       cartTotal: 2500,
       items: [
-        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1500, category: 'Frames', brand: 'Ray-Ban' },
-        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1000, category: 'Frames', brand: 'Oakley' }
+        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1500, category: 'Frames', brand: 'Ray-Ban', buy1Get1: true },
+        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1000, category: 'Frames', brand: 'Oakley', buy1Get1: true }
       ]
     });
     assert.strictEqual(res3.valid, true);
@@ -193,6 +193,21 @@ async function runTests() {
     // 15% discount should only apply to 'Lenses' (800) -> 120
     assert.strictEqual(res5.discountAmount, 120);
     console.log('   👉 PASS: Exclusions lists applied correctly to individual item levels.');
+    // ----------------------------------------------------
+    // Test Case 6: Virtual BOGO Coupon (BOGO)
+    // ----------------------------------------------------
+    console.log('🧪 Running Test Case 6: Virtual BOGO for Members (BOGO)');
+    const res6 = await CouponEngine.validate('BOGO', vipUser._id.toString(), {
+      cartTotal: 2500,
+      addGoldMembership: true,
+      items: [
+        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1500, category: 'Frames', brand: 'Ray-Ban', buy1Get1: true },
+        { productId: new mongoose.Types.ObjectId().toString(), qty: 1, price: 1000, category: 'Frames', brand: 'Oakley', buy1Get1: true }
+      ]
+    });
+    assert.strictEqual(res6.valid, true);
+    assert.strictEqual(res6.discountAmount, 1000);
+    console.log('   👉 PASS: Virtual BOGO validated and applied correctly.');
 
     console.log('\n🎉 ALL TEST CASES PASSED SUCCESSFULLY!');
   } catch (error) {
