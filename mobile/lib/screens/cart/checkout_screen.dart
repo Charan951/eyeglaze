@@ -324,8 +324,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 await _validateCoupon();
                                 setSheetState(() => _validatingCoupon = false);
                                 if (_couponApplied) {
-                                  if (mounted) setState(() {});
-                                  Navigator.pop(context);
+                                  if (mounted && context.mounted) {
+                                    setState(() {});
+                                    Navigator.pop(context);
+                                  }
                                 } else {
                                   setSheetState(() {});
                                 }
@@ -358,7 +360,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         : ListView.separated(
                             shrinkWrap: true,
                             itemCount: _activeCoupons.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (context, index) => const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final coupon = _activeCoupons[index];
                               final code = (coupon['code'] ?? '').toString();
@@ -452,8 +454,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               }
                                               setSheetState(() => _validatingCoupon = false);
                                               if (_couponApplied || isApplied) {
-                                                if (mounted) setState(() {});
-                                                Navigator.pop(context);
+                                                if (mounted && context.mounted) {
+                                                  setState(() {});
+                                                  Navigator.pop(context);
+                                                }
                                               } else {
                                                 setSheetState(() {});
                                               }
@@ -765,7 +769,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${_line1Ctrl.text}${_line2Ctrl.text.isNotEmpty ? ', ' + _line2Ctrl.text : ''}\n'
+                        '${_line1Ctrl.text}${_line2Ctrl.text.isNotEmpty ? ', ${_line2Ctrl.text}' : ''}\n'
                         '${_cityCtrl.text}, ${_stateCtrl.text} - ${_pincodeCtrl.text}',
                         style: const TextStyle(color: AppColors.muted, fontSize: 11, height: 1.4),
                       ),

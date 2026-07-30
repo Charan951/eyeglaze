@@ -1,9 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
 import { socket } from '../lib/socket';
+
+const SPH_OPTIONS = (() => {
+  const options = ['0.00'];
+  for (let val = -0.25; val >= -10.00; val -= 0.25) {
+    options.push(val.toFixed(2));
+  }
+  for (let val = 0.25; val <= 10.00; val += 0.25) {
+    options.push(val.toFixed(2));
+  }
+  return options;
+})();
+
+const CYL_OPTIONS = (() => {
+  const options = ['0.00'];
+  for (let val = -0.25; val >= -6.00; val -= 0.25) {
+    options.push(val.toFixed(2));
+  }
+  for (let val = 0.25; val <= 6.00; val += 0.25) {
+    options.push(val.toFixed(2));
+  }
+  return options;
+})();
 
 interface LensOption {
   _id: string;
@@ -30,6 +52,7 @@ interface Product {
   _id: string;
   sku: string;
   name: string;
+  mrp?: number;
   price: { original: number; selling: number };
   rating?: number;
   reviewCount?: number;
@@ -152,6 +175,14 @@ export default function LensSelection() {
   // Saved Prescriptions State
   const [savedPrescriptions, setSavedPrescriptions] = useState<any[]>([]);
   const [selectedPrescriptionId, setSelectedPrescriptionId] = useState('');
+  const savedPowersRef = useRef<HTMLDivElement>(null);
+
+  const scrollSavedPowers = (direction: 'left' | 'right') => {
+    if (savedPowersRef.current) {
+      const scrollAmount = direction === 'left' ? -310 : 310;
+      savedPowersRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   // Custom Validation Overlay Modal State
   const [validationModal, setValidationModal] = useState<{
@@ -215,24 +246,41 @@ export default function LensSelection() {
       let description = 'Clear lenses for everyday wear with no prescription.';
       let displayName = name;
       
-      if (lowercaseName.includes('single vision')) {
-        type = 'single_vision';
-        description = 'Single vision lenses corrected for distance or reading.';
-      } else if (lowercaseName.includes('progressive')) {
-        type = 'progressive';
-        description = 'Multifocal lenses for clear vision at all distances.';
-      } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
-        type = 'bluecut';
-        description = 'Protects eyes from harmful blue light emitted by digital screens.';
-      } else if (lowercaseName.includes('photochromic')) {
-        type = 'photochromic';
-        description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
-      } else if (lowercaseName.includes('zero power')) {
-        type = 'zero_power';
-        description = 'Clear lenses for everyday wear with no prescription.';
-      } else if (lowercaseName.includes('power')) {
-        type = 'single_vision';
-        description = 'Prescription lenses tailored to your power requirements.';
+      if (typeof t === 'object' && t.description) {
+        description = t.description;
+        if (lowercaseName.includes('single vision')) {
+          type = 'single_vision';
+        } else if (lowercaseName.includes('progressive')) {
+          type = 'progressive';
+        } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+          type = 'bluecut';
+        } else if (lowercaseName.includes('photochromic')) {
+          type = 'photochromic';
+        } else if (lowercaseName.includes('zero power')) {
+          type = 'zero_power';
+        } else if (lowercaseName.includes('power')) {
+          type = 'single_vision';
+        }
+      } else {
+        if (lowercaseName.includes('single vision')) {
+          type = 'single_vision';
+          description = 'Single vision lenses corrected for distance or reading.';
+        } else if (lowercaseName.includes('progressive')) {
+          type = 'progressive';
+          description = 'Multifocal lenses for clear vision at all distances.';
+        } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+          type = 'bluecut';
+          description = 'Protects eyes from harmful blue light emitted by digital screens.';
+        } else if (lowercaseName.includes('photochromic')) {
+          type = 'photochromic';
+          description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
+        } else if (lowercaseName.includes('zero power')) {
+          type = 'zero_power';
+          description = 'Clear lenses for everyday wear with no prescription.';
+        } else if (lowercaseName.includes('power')) {
+          type = 'single_vision';
+          description = 'Prescription lenses tailored to your power requirements.';
+        }
       }
 
       return {
@@ -358,26 +406,42 @@ export default function LensSelection() {
           const mappedDbTypes: LensOption[] = dbLensTypes.map((t: any) => {
             const lowercaseName = t.name.toLowerCase();
             let type = 'zero_power';
-            let description = 'Clear lenses for everyday wear with no prescription.';
+            let description = t.description || 'Clear lenses for everyday wear with no prescription.';
             
-            if (lowercaseName.includes('single vision')) {
-              type = 'single_vision';
-              description = 'Single vision lenses corrected for distance or reading.';
-            } else if (lowercaseName.includes('progressive')) {
-              type = 'progressive';
-              description = 'Multifocal lenses for clear vision at all distances.';
-            } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
-              type = 'bluecut';
-              description = 'Protects eyes from harmful blue light emitted by digital screens.';
-            } else if (lowercaseName.includes('photochromic')) {
-              type = 'photochromic';
-              description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
-            } else if (lowercaseName.includes('zero power')) {
-              type = 'zero_power';
-              description = 'Clear lenses for everyday wear with no prescription.';
-            } else if (lowercaseName.includes('power')) {
-              type = 'single_vision';
-              description = 'Prescription lenses tailored to your power requirements.';
+            if (t.description) {
+              if (lowercaseName.includes('single vision')) {
+                type = 'single_vision';
+              } else if (lowercaseName.includes('progressive')) {
+                type = 'progressive';
+              } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+                type = 'bluecut';
+              } else if (lowercaseName.includes('photochromic')) {
+                type = 'photochromic';
+              } else if (lowercaseName.includes('zero power')) {
+                type = 'zero_power';
+              } else if (lowercaseName.includes('power')) {
+                type = 'single_vision';
+              }
+            } else {
+              if (lowercaseName.includes('single vision')) {
+                type = 'single_vision';
+                description = 'Single vision lenses corrected for distance or reading.';
+              } else if (lowercaseName.includes('progressive')) {
+                type = 'progressive';
+                description = 'Multifocal lenses for clear vision at all distances.';
+              } else if (lowercaseName.includes('blue cut') || lowercaseName.includes('bluecut')) {
+                type = 'bluecut';
+                description = 'Protects eyes from harmful blue light emitted by digital screens.';
+              } else if (lowercaseName.includes('photochromic')) {
+                type = 'photochromic';
+                description = 'Lenses that darken automatically in sunlight and stay clear indoors.';
+              } else if (lowercaseName.includes('zero power')) {
+                type = 'zero_power';
+                description = 'Clear lenses for everyday wear with no prescription.';
+              } else if (lowercaseName.includes('power')) {
+                type = 'single_vision';
+                description = 'Prescription lenses tailored to your power requirements.';
+              }
             }
 
             return {
@@ -1181,122 +1245,7 @@ export default function LensSelection() {
           })}
         </div>
 
-        {/* Selected Frame Product Summary Card */}
-        {currentStep < 4 && (
-          currentStep === 1 ? (
-            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-4.5 mb-6 flex flex-col sm:flex-row items-center gap-5">
-              {/* Larger Product Image */}
-              <div className="w-full sm:w-48 h-32 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
-                {product.images?.[0] ? (
-                  <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-2" />
-                ) : (
-                  <span className="text-3xl">👓</span>
-                )}
-              </div>
-              
-              {/* Product Details and Button */}
-              <div className="flex flex-col flex-1 w-full justify-between h-full py-1 gap-3 sm:gap-2 text-left">
-                <div className="space-y-1">
-                  <h3 className="text-white text-base sm:text-lg font-bold leading-tight">
-                    {product.name}
-                  </h3>
-                  <div className="flex flex-col gap-1.5 text-gray-500 text-xs mt-2.5">
-                    <div>
-                      <span>Color: </span>
-                      <span className="text-white font-bold">{color || 'Matte Black'}</span>
-                    </div>
-                    <div>
-                      <span>Size: </span>
-                      <span className="text-gray-400 font-semibold">
-                        {product.frame 
-                          ? `${product.frame.lensWidth}-${product.frame.bridgeWidth}-${product.frame.templeLength}` 
-                          : '54-18-145'}
-                      </span>
-                    </div>
-                    <div>
-                      <span>Lens: </span>
-                      <span className="text-[#D4A04D] font-bold">
-                        {selectedSubType ? selectedSubType.displayName : 'Not Selected'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Change Frame Button Bellow */}
-                <div className="pt-1 self-start">
-                  <button 
-                    onClick={() => navigate(productId ? `/products/${productId}` : '/products')} 
-                    className="border border-[#D4A04D]/35 hover:bg-[#D4A04D]/10 text-[#D4A04D] font-bold text-[10px] uppercase tracking-wider rounded-lg px-4.5 py-2 transition-colors cursor-pointer bg-transparent"
-                  >
-                    Change Frame
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-4.5 mb-6 flex flex-col animate-fade-in">
-              {/* Top Row: Image & Details */}
-              <div className="flex items-center gap-4.5">
-                <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
-                  {product.images?.[0] ? (
-                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-2" />
-                  ) : (
-                    <span className="text-2xl">👓</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1 text-left">
-                  <span className="text-white text-base sm:text-lg font-bold leading-tight">{product.name}</span>
-                  <span className="text-gray-500 text-xs font-medium mt-0.5">{color || 'Matte Black'}</span>
-                </div>
-              </div>
-              
-              {/* Divider Line spanning full width */}
-              <div className="w-full border-t border-[#2A2A2D]/40 my-3.5" />
-              
-              {/* Bottom Row: Selections and Edit links */}
-              <div className="space-y-3">
-                {/* Lens Type Selection (shown in Step 2 and 3) */}
-                {selectedType && (
-                  <div className="flex items-start justify-between w-full text-xs">
-                    <div className="flex items-start gap-4 flex-1 pr-4">
-                      <span className="text-gray-500 font-medium whitespace-nowrap">Lens Type:</span>
-                      <span className="text-[#D4A04D] font-bold leading-normal text-left">
-                        {selectedType?.displayName} {selectedSubType ? `(${selectedSubType.displayName})` : ''}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => setCurrentStep(1)} 
-                      className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                )}
 
-                {/* Lens Quality Selection (only shown in Step 3) */}
-                {currentStep === 3 && (selectedQuality || selectedSubType) && (
-                  <>
-                    <div className="w-full border-t border-[#2A2A2D]/20 my-1" />
-                    <div className="flex items-start justify-between w-full text-xs">
-                      <div className="flex items-start gap-4 flex-1 pr-4">
-                        <span className="text-gray-500 font-medium whitespace-nowrap">Lens Quality:</span>
-                        <span className="text-[#D4A04D] font-bold leading-normal text-left">
-                          {selectedQuality?.displayName || selectedSubType?.displayName}
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => setCurrentStep(2)} 
-                        className="text-[#D4A04D] hover:underline font-bold text-xs bg-transparent border-none cursor-pointer p-0 shrink-0 self-center"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        )}
 
         {/* ================= STEP 3: ENTER POWER ================= */}
         {currentStep === 3 && (
@@ -1310,22 +1259,52 @@ export default function LensSelection() {
             {/* Prescription Form Block */}
             <div className="bg-[#131314]/90 border border-[#2A2A2D]/80 rounded-2xl p-5 space-y-6 transition-all duration-300">
                 {user && savedPrescriptions.length > 0 && (powerMode as any) !== 'zero' && (
-                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-2xl p-5 space-y-4 text-left">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block">
-                        📂 Choose From Saved Powers
-                      </label>
-                      {selectedPrescriptionId && (
+                  <div className="bg-[#0B0B0C] border border-[#2A2A2D]/85 rounded-2xl p-5 space-y-4 text-left relative overflow-hidden">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[#D4A04D] text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                          <span>📂</span> CHOOSE FROM SAVED POWERS
+                        </label>
+                        <span className="text-[10px] bg-zinc-800 text-[#D4A04D] font-extrabold px-2.5 py-0.5 rounded-full">
+                          {savedPrescriptions.length} {savedPrescriptions.length === 1 ? 'Power' : 'Powers'}
+                        </span>
+                      </div>
+                      
+                      {/* Navigation Controls & Clear Button */}
+                      <div className="flex items-center gap-2">
+                        {selectedPrescriptionId && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSavedPrescription('')}
+                            className="text-[11px] text-red-400 hover:text-red-300 font-extrabold uppercase tracking-wider bg-transparent border-none cursor-pointer hover:underline mr-1"
+                          >
+                            Clear Selection
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleSelectSavedPrescription('')}
-                          className="text-[10px] text-red-400 hover:text-red-300 font-extrabold uppercase tracking-wider bg-transparent border-none cursor-pointer hover:underline"
+                          onClick={() => scrollSavedPowers('left')}
+                          className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-[#D4A04D] text-gray-300 hover:text-[#D4A04D] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                          title="Previous"
                         >
-                          Clear Selection
+                          ◀
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => scrollSavedPowers('right')}
+                          className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-[#D4A04D] text-gray-300 hover:text-[#D4A04D] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                          title="Next"
+                        >
+                          ▶
+                        </button>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+
+                    {/* Horizontal Carousel Container */}
+                    <div
+                      ref={savedPowersRef}
+                      className="flex gap-4.5 overflow-x-auto snap-x scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pb-3 pt-1"
+                    >
                       {savedPrescriptions.map((pr: any) => {
                         const isSelected = selectedPrescriptionId === pr._id;
                         const date = new Date(pr.createdAt).toLocaleDateString('en-IN', {
@@ -1345,75 +1324,101 @@ export default function LensSelection() {
                                 handleSelectSavedPrescription(pr._id);
                               }
                             }}
-                            className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between gap-3 text-left relative overflow-hidden group select-none ${
+                            className={`w-[310px] sm:w-[360px] shrink-0 snap-start p-5 rounded-2xl border cursor-pointer transition-all duration-300 flex flex-col justify-between gap-4 text-left relative overflow-hidden group select-none ${
                               isSelected
-                                ? 'bg-[#D4A04D]/10 border-[#D4A04D] ring-1 ring-[#D4A04D] shadow-[0_0_12px_rgba(212,160,77,0.15)]'
-                                : 'bg-[#131314] border-[#2A2A2D] hover:border-gray-500 hover:bg-[#161618]'
+                                ? 'bg-gradient-to-b from-[#D4A04D]/20 via-[#141416] to-[#0E0E0F] border-[#D4A04D] ring-2 ring-[#D4A04D] shadow-[0_0_25px_rgba(212,160,77,0.25)] scale-[1.02]'
+                                : 'bg-[#131314] border-[#2A2A2D] hover:border-gray-500 hover:bg-[#171719]'
                             }`}
                           >
                             <div>
                               {/* Header info */}
-                              <div className="flex justify-between items-start gap-2 mb-1.5">
-                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                              <div className="flex justify-between items-start gap-2 mb-2">
+                                <span className="text-[10px] font-black text-[#D4A04D] uppercase tracking-widest bg-[#D4A04D]/15 px-2.5 py-1 rounded-md border border-[#D4A04D]/30">
                                   {isUploaded ? '📄 Document' : '👓 Manual Power'}
                                 </span>
-                                <span className="text-[9px] text-gray-500 font-semibold">
+                                <span className="text-[10px] text-gray-400 font-bold">
                                   {date}
                                 </span>
                               </div>
 
                               {/* Title / Name */}
-                              <h4 className="text-white text-xs font-black uppercase tracking-wider truncate mb-2">
+                              <h4 className="text-white text-sm font-black uppercase tracking-wider truncate mb-3">
                                 {pr.name || (isUploaded ? 'Doctor Prescription' : 'Saved Power')}
                               </h4>
 
                               {/* Details */}
                               {isUploaded ? (
-                                <div className="flex items-center gap-3 mt-1 bg-[#0B0B0C]/40 p-2 rounded-lg border border-[#2A2A2D]/30">
+                                <div className="flex items-center gap-3 bg-[#0B0B0C] p-3 rounded-xl border border-[#2A2A2D]">
                                   {pr.uploadedFile && (
-                                    <div className="w-10 h-10 rounded-md overflow-hidden bg-[#222] border border-[#2A2A2D] flex-shrink-0">
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#222] border border-[#2A2A2D] flex-shrink-0">
                                       <img src={pr.uploadedFile} alt="Doc preview" className="w-full h-full object-cover" />
                                     </div>
                                   )}
-                                  <div className="text-[9px] text-gray-400 font-medium leading-normal">
-                                    Prescription image/PDF has been uploaded and saved.
+                                  <div className="text-[10px] text-gray-300 font-medium leading-relaxed">
+                                    Prescription image/PDF document uploaded and verified.
                                   </div>
                                 </div>
                               ) : (
-                                <div className="space-y-1.5 text-[10px] text-[#A7A7A7] mt-1">
-                                  <div className="flex justify-between items-center border-b border-[#2A2A2D]/35 pb-1">
-                                    <span className="font-bold text-gray-500 text-[9px]">R (Right):</span>
-                                    <span className="font-mono text-white">
-                                      SPH: <span className="font-bold">{formatValue(pr.RE?.sph)}</span> | CYL: <span className="font-bold">{formatValue(pr.RE?.cyl)}</span> | AX: <span className="font-bold">{pr.RE?.axis ?? '0'}°</span>
-                                    </span>
+                                <div className="bg-[#0B0B0C] p-3 rounded-xl border border-[#2A2A2D] space-y-2">
+                                  {/* Table Header */}
+                                  <div className="grid grid-cols-4 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-[#2A2A2D] pb-1.5">
+                                    <span className="text-left">EYE</span>
+                                    <span>SPH</span>
+                                    <span>CYL</span>
+                                    <span>AXIS</span>
                                   </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-bold text-gray-500 text-[9px]">L (Left):</span>
-                                    <span className="font-mono text-white">
-                                      SPH: <span className="font-bold">{formatValue(pr.LE?.sph)}</span> | CYL: <span className="font-bold">{formatValue(pr.LE?.cyl)}</span> | AX: <span className="font-bold">{pr.LE?.axis ?? '0'}°</span>
-                                    </span>
+
+                                  {/* R Eye Row */}
+                                  <div className="grid grid-cols-4 text-center text-xs font-bold items-center py-0.5">
+                                    <span className="text-left text-[#D4A04D] font-extrabold text-[11px]">R (Right)</span>
+                                    <span className="font-mono text-white font-black">{formatValue(pr.RE?.sph)}</span>
+                                    <span className="font-mono text-white font-black">{formatValue(pr.RE?.cyl)}</span>
+                                    <span className="font-mono text-white font-black">{pr.RE?.axis ?? '0'}°</span>
                                   </div>
+
+                                  {/* L Eye Row */}
+                                  <div className="grid grid-cols-4 text-center text-xs font-bold items-center py-0.5">
+                                    <span className="text-left text-[#D4A04D] font-extrabold text-[11px]">L (Left)</span>
+                                    <span className="font-mono text-white font-black">{formatValue(pr.LE?.sph)}</span>
+                                    <span className="font-mono text-white font-black">{formatValue(pr.LE?.cyl)}</span>
+                                    <span className="font-mono text-white font-black">{pr.LE?.axis ?? '0'}°</span>
+                                  </div>
+
+                                  {/* PD Distance */}
                                   {pr.pd && (
-                                    <div className="flex justify-between items-center border-t border-[#2A2A2D]/35 pt-1 text-[9px]">
-                                      <span className="font-bold text-gray-500">PD (Distance):</span>
-                                      <span className="text-white font-bold font-mono">{pr.pd} mm</span>
+                                    <div className="flex justify-between items-center border-t border-[#2A2A2D] pt-2 text-[10px] px-1">
+                                      <span className="font-extrabold text-gray-400 uppercase tracking-wider">PD (Distance):</span>
+                                      <span className="text-[#D4A04D] font-black font-mono text-xs">{pr.pd} mm</span>
                                     </div>
                                   )}
                                 </div>
                               )}
                             </div>
 
-                            {/* Select check badge */}
-                            <div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-[#2A2A2D]/40">
-                              <span className="text-[9px] text-[#A7A7A7] font-semibold group-hover:text-white transition-colors">
-                                {isSelected ? 'Click to deselect' : 'Click to select'}
-                              </span>
+                            {/* Action buttons: EDIT POWER & SELECT */}
+                            <div className="flex justify-between items-center pt-3 border-t border-[#2A2A2D]/60 gap-3">
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectSavedPrescription(pr._id);
+                                  const el = document.getElementById('manual-power-inputs');
+                                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-[#D4A04D] hover:text-white font-extrabold uppercase tracking-wider bg-zinc-900/90 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/40 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-sm"
+                                title="Edit power values"
+                              >
+                                ✏️ Edit Power
+                              </button>
+
+                              {/* Select Badge */}
                               {isSelected ? (
-                                <span className="bg-[#D4A04D] text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider">
-                                  Selected
+                                <span className="bg-[#D4A04D] text-black text-xs font-black uppercase px-3 py-1.5 rounded-xl tracking-wider flex items-center gap-1 shadow-md">
+                                  ✓ Selected
                                 </span>
                               ) : (
-                                <span className="border border-[#2A2A2D] text-gray-500 text-[9px] font-bold uppercase px-2 py-0.5 rounded-md tracking-wider group-hover:border-gray-500 group-hover:text-gray-300">
+                                <span className="border border-[#2A2A2D] text-gray-300 text-xs font-extrabold uppercase px-3 py-1.5 rounded-xl tracking-wider group-hover:border-[#D4A04D] group-hover:text-white transition-colors">
                                   Use This
                                 </span>
                               )}
@@ -1466,7 +1471,7 @@ export default function LensSelection() {
 
                     {/* Manual entry view */}
                     {powerMode === 'enter' && (
-                      <div className="space-y-6 pt-2 text-left animate-fade-in">
+                      <div id="manual-power-inputs" className="space-y-6 pt-2 text-left animate-fade-in">
                         <div>
                           <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType?.displayName || 'Prescription Lenses'}</h4>
                           <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
@@ -1499,7 +1504,7 @@ export default function LensSelection() {
                             <div>
                               <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                                 <option value="">Select</option>
-                                {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                                {SPH_OPTIONS.map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
                               </select>
@@ -1507,7 +1512,7 @@ export default function LensSelection() {
                             <div>
                               <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                                 <option value="">Select</option>
-                                {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                                {CYL_OPTIONS.map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
                               </select>
@@ -1549,7 +1554,7 @@ export default function LensSelection() {
                             <div>
                               <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                                 <option value="">Select</option>
-                                {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
+                                {SPH_OPTIONS.map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
                               </select>
@@ -1557,7 +1562,7 @@ export default function LensSelection() {
                             <div>
                               <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                                 <option value="">Select</option>
-                                {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
+                                {CYL_OPTIONS.map(v => (
                                   <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                                 ))}
                               </select>
@@ -1830,25 +1835,39 @@ export default function LensSelection() {
                     const isSelected = selectedQuality?._id === lens._id;
                     
                     // Map description and features dynamically
-                    let desc = 'Premium quality lens with multi-coat protection.';
+                    let desc = lens.description || 'Premium quality lens with multi-coat protection.';
                     let features = ['UV Protection', 'Scratch Resistant'];
                     const lowerLensName = lens.name.toLowerCase();
                     
-                    if (lowerLensName.includes('blu') || lowerLensName.includes('blue cut')) {
-                      desc = 'Blocks harmful blue light from screens. Great for computer use.';
-                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant', 'UV Protection'];
-                    } else if (lowerLensName.includes('anti-glare') || lowerLensName.includes('anti reflective')) {
-                      desc = 'Reduces glare and reflections. Clear vision in all lighting.';
-                      features = ['Anti Reflective', 'Scratch Resistant', 'UV Protection', 'Water Repellent'];
-                    } else if (lowerLensName.includes('computer')) {
-                      desc = 'Specifically designed for digital screen usage to reduce eye strain.';
-                      features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant'];
-                    } else if (lowerLensName.includes('essential')) {
-                      desc = 'Essential clear lens offering reliable daily protection.';
-                      features = ['Scratch Resistant', 'UV Protection'];
-                    } else if (lowerLensName.includes('zero power')) {
-                      desc = 'Standard cosmetic clear lens for daily wear.';
-                      features = ['Scratch Resistant', 'UV Protection'];
+                    if (!lens.description) {
+                      if (lowerLensName.includes('blu') || lowerLensName.includes('blue cut')) {
+                        desc = 'Blocks harmful blue light from screens. Great for computer use.';
+                        features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant', 'UV Protection'];
+                      } else if (lowerLensName.includes('anti-glare') || lowerLensName.includes('anti reflective')) {
+                        desc = 'Reduces glare and reflections. Clear vision in all lighting.';
+                        features = ['Anti Reflective', 'Scratch Resistant', 'UV Protection', 'Water Repellent'];
+                      } else if (lowerLensName.includes('computer')) {
+                        desc = 'Specifically designed for digital screen usage to reduce eye strain.';
+                        features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant'];
+                      } else if (lowerLensName.includes('essential')) {
+                        desc = 'Essential clear lens offering reliable daily protection.';
+                        features = ['Scratch Resistant', 'UV Protection'];
+                      } else if (lowerLensName.includes('zero power')) {
+                        desc = 'Standard cosmetic clear lens for daily wear.';
+                        features = ['Scratch Resistant', 'UV Protection'];
+                      }
+                    } else {
+                      if (lowerLensName.includes('blu') || lowerLensName.includes('blue cut')) {
+                        features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant', 'UV Protection'];
+                      } else if (lowerLensName.includes('anti-glare') || lowerLensName.includes('anti reflective')) {
+                        features = ['Anti Reflective', 'Scratch Resistant', 'UV Protection', 'Water Repellent'];
+                      } else if (lowerLensName.includes('computer')) {
+                        features = ['Blue Light Protection', 'Anti Reflective', 'Scratch Resistant'];
+                      } else if (lowerLensName.includes('essential')) {
+                        features = ['Scratch Resistant', 'UV Protection'];
+                      } else if (lowerLensName.includes('zero power')) {
+                        features = ['Scratch Resistant', 'UV Protection'];
+                      }
                     }
 
                     return (

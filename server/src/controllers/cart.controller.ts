@@ -12,7 +12,7 @@ export async function getCart(req: Request, res: Response) {
     await connectDB();
     const cart = await Cart.findOne({ user: req.user!.userId }).populate(
       'items.product',
-      'name images thumbnail price sku frame colors memberPrice nonMemberPrice buy1Get1 oneRupeeFrameOffer'
+      'name images thumbnail price sku frame colors memberPrice memberPrices nonMemberPrice buy1Get1 oneRupeeFrameOffer'
     );
 
     if (!cart) {
@@ -57,26 +57,28 @@ export async function getCart(req: Request, res: Response) {
       let appliedOffers: string[] = [];
       let isOneRupeeFrame = false;
 
+      const effectiveMemberPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.product?.memberPrices?.goldMemberPrice;
+
       // Check ₹1 Frame eligibility
       if (cart.items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
         const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
-        const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
+        const regularPrice = effectiveMemberPrice !== undefined ? effectiveMemberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
         framePrice = totalFramePriceForQty / item.qty;
         oneRupeeFramesApplied += allowed;
         isOneRupeeFrame = true;
         appliedOffers.push('₹1 Frame');
-      } else if (item.product?.memberPrice && user?.membershipActive) {
-        framePrice = item.product.memberPrice;
+      } else if (effectiveMemberPrice !== undefined && isMemberNow) {
+        framePrice = effectiveMemberPrice;
         appliedOffers.push('Member Price');
-      } else if (item.product?.nonMemberPrice && !user?.membershipActive) {
+      } else if (item.product?.nonMemberPrice !== undefined && !isMemberNow) {
         framePrice = item.product.nonMemberPrice;
       }
 
       return {
         ...item.toObject(),
         framePrice,
-        memberFramePrice: item.product?.memberPrice,
+        memberFramePrice: effectiveMemberPrice,
         appliedOffers,
         isOneRupeeFrame
       };
@@ -91,7 +93,7 @@ export async function getCart(req: Request, res: Response) {
 
     processedItems.forEach((item: any) => {
       subtotal += (item.framePrice + (item.lensPrice || 0)) * item.qty;
-      totalDeliveryCharge += (item.deliveryCharge || (user?.membershipActive ? 0 : 99)) * item.qty;
+      totalDeliveryCharge += (item.deliveryCharge || (isMemberNow ? 0 : 99)) * item.qty;
     });
 
     // Calculate total fitting charge dynamically: 99 for one product with lens, 199 for more than one
@@ -106,7 +108,7 @@ export async function getCart(req: Request, res: Response) {
     const totalFittingCharge = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
     // Delivery charge: members free, non-members 99 (one charge per order, not per item)
-    totalDeliveryCharge = user?.membershipActive ? 0 : 99;
+    totalDeliveryCharge = isMemberNow ? 0 : 99;
 
     const cartWithOffers = {
       ...cart.toObject(),

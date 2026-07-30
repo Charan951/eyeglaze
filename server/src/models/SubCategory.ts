@@ -10,6 +10,13 @@ export interface ISubCategory extends Document {
   status: 'Draft' | 'Active' | 'Inactive' | 'Archived';
   isDeleted: boolean;
   deletedAt?: Date;
+  icon?: string;
+  bannerImage?: string;
+  linkTo?: string;
+  gender?: string;
+  shapeModal?: boolean;
+  modalShapes?: string[];
+  modalAgeGroups?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +36,13 @@ const SubCategorySchema = new Schema<ISubCategory>(
     },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
+    icon: { type: String },
+    bannerImage: { type: String },
+    linkTo: { type: String },
+    gender: { type: String },
+    shapeModal: { type: Boolean, default: false },
+    modalShapes: { type: [String], default: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'] },
+    modalAgeGroups: { type: [String], default: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'] },
   },
   { timestamps: true }
 );

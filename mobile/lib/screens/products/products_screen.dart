@@ -17,7 +17,9 @@ class ProductsScreen extends StatefulWidget {
   final String? category;
   final String? shape;
   final String? gender;
-  const ProductsScreen({super.key, this.category, this.shape, this.gender});
+  final String? size;
+  final String? tier;
+  const ProductsScreen({super.key, this.category, this.shape, this.gender, this.size, this.tier});
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -43,6 +45,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.initState();
     _selectedShape = widget.shape;
     _selectedGender = widget.gender;
+    _selectedSize = widget.size;
+    if (widget.tier != null) {
+      _selectedTier = widget.tier!;
+    }
     final passedCat = widget.category;
     if (passedCat == null) {
       _selectedCategory = 'All';
@@ -248,6 +254,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget _buildActiveFiltersList() {
     final List<Widget> chips = [];
     
+    if (_selectedCategory != null && _selectedCategory != 'All') {
+      chips.add(_buildFilterChip('Category: $_selectedCategory', () {
+        setState(() => _selectedCategory = 'All');
+        _loadProducts();
+      }));
+    }
+    if (_selectedGender != null) {
+      final formattedGender = _selectedGender![0].toUpperCase() + _selectedGender!.substring(1);
+      chips.add(_buildFilterChip('Gender: $formattedGender', () {
+        setState(() => _selectedGender = null);
+        _loadProducts();
+      }));
+    }
     if (_selectedShape != null) {
       chips.add(_buildFilterChip('Shape: $_selectedShape', () {
         setState(() => _selectedShape = null);
@@ -280,12 +299,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (_selectedColor != null) {
       chips.add(_buildFilterChip('Color: $_selectedColor', () {
         setState(() => _selectedColor = null);
-        _loadProducts();
-      }));
-    }
-    if (_selectedGender != null) {
-      chips.add(_buildFilterChip('Gender: $_selectedGender', () {
-        setState(() => _selectedGender = null);
         _loadProducts();
       }));
     }

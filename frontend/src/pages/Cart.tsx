@@ -140,27 +140,34 @@ export default function CartPage() {
             })
           );
           if (active) {
-            const mapped = populatedItems.map((item: any) => ({
-              id: item._id || item.id,
-              _id: item._id,
-              productId: item.product?._id || item.product || item.productId,
-              name: item.product?.name || item.name || 'Frame',
-              sku: item.product?.sku || item.sku || '',
-              color: item.color || '',
-              lens: item.lensType
-                ? `${item.lensType.replace('_', ' ').toUpperCase()}${item.lensSubType ? ` (${item.lensSubType.replace('_', ' ').toUpperCase()})` : ` (${item.lensQuality})`}`
-                : item.lens || '',
-              framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
-              lensPrice: item.lensPrice ?? 0,
-              fittingCharge: item.fittingCharge ?? 0,
-              qty: item.qty,
-              image: item.product?.images?.[0] || item.image || '',
-              product: item.product,
-              power: item.power,
-              lensType: item.lensType,
-              lensSubType: item.lensSubType,
-              lensQuality: item.lensQuality,
-            }));
+            const mapped = populatedItems.map((item: any) => {
+              const lensType = item.lensType || item.lensPayload?.lensType;
+              const lensSubType = item.lensSubType || item.lensPayload?.lensSubType;
+              const lensQuality = item.lensQuality || item.lensPayload?.lensQuality;
+              const power = item.power || item.lensPayload?.power;
+
+              return {
+                id: item._id || item.id,
+                _id: item._id,
+                productId: item.product?._id || item.product || item.productId,
+                name: item.product?.name || item.name || 'Frame',
+                sku: item.product?.sku || item.sku || '',
+                color: item.color || '',
+                lens: lensType
+                  ? `${lensType.replace('_', ' ').toUpperCase()}${lensSubType ? ` (${lensSubType.replace('_', ' ').toUpperCase()})` : ` (${lensQuality})`}`
+                  : item.lens || '',
+                framePrice: item.framePrice ?? item.product?.price?.selling ?? 1,
+                lensPrice: item.lensPrice ?? 0,
+                fittingCharge: item.fittingCharge ?? 0,
+                qty: item.qty,
+                image: item.product?.images?.[0] || item.image || '',
+                product: item.product,
+                power,
+                lensType,
+                lensSubType,
+                lensQuality,
+              };
+            });
             setItems(mapped);
             setLoading(false);
           }
@@ -233,23 +240,34 @@ export default function CartPage() {
 
   const itemsWithPricing = items.map(item => {
     let framePrice = item.framePrice;
+    const memberPriceVal = item.product?.memberPrice !== undefined 
+      ? Number(item.product.memberPrice) 
+      : item.product?.memberPrices?.goldMemberPrice !== undefined 
+      ? Number(item.product.memberPrices.goldMemberPrice) 
+      : (item as any).memberFramePrice !== undefined 
+      ? Number((item as any).memberFramePrice) 
+      : undefined;
+    const nonMemberPriceVal = item.product?.nonMemberPrice !== undefined ? Number(item.product.nonMemberPrice) : undefined;
 
     // Member Price / ₹1 Frame check
     if (items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
       const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
-      const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
+      const regularPrice = memberPriceVal !== undefined ? memberPriceVal : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
       oneRupeeFramesCount += allowed;
-    } else if (item.product?.memberPrice !== undefined && isMember) {
-      framePrice = item.product.memberPrice;
-    } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
-      framePrice = item.product.nonMemberPrice;
+    } else if (memberPriceVal !== undefined && isMember) {
+      framePrice = memberPriceVal;
+    } else if (nonMemberPriceVal !== undefined && !isMember) {
+      framePrice = nonMemberPriceVal;
+    } else if (item.product?.price?.selling !== undefined && !isMember) {
+      framePrice = item.product.price.selling;
     }
 
     return {
       ...item,
       framePriceCalculated: framePrice,
+      memberPriceVal,
     };
   });
 
@@ -626,6 +644,15 @@ export default function CartPage() {
 
             const isFreeThisItem = item.uniqueKey === freeItemUniqueKey;
 
+            const isContactLensItem = Boolean(
+              (item.category || '').toLowerCase().includes('contact') ||
+              (item.product?.category || '').toLowerCase().includes('contact') ||
+              item.isContactLens ||
+              (typeof item.lens === 'string' && item.lens.toLowerCase().includes('contact')) ||
+              item.product?.sellAsFrame === false ||
+              item.product?.sellWithLens === false
+            );
+
             return (
               <div key={item.uniqueKey || item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex flex-col sm:flex-row gap-4 relative">
                 {/* Product Image */}
@@ -647,7 +674,7 @@ export default function CartPage() {
                     {item.name}
                   </div>
                   <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
-                  {item.lens && (
+                  {item.lens && !isContactLensItem && (
                     <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
                   )}
                   {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
@@ -728,6 +755,16 @@ export default function CartPage() {
                                 <span className="text-white font-bold">{item.power.pd} mm</span>
                               </div>
                             )}
+
+                            {/* ADD Power (Multifocal) */}
+                            {(item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower) && (
+                              <div className="pt-2 border-t border-[#2A2A2D]/30 text-[10px] flex justify-between">
+                                <span className="text-gray-500 font-semibold">Reading Power (ADD)</span>
+                                <span className="text-[#D4A04D] font-bold">
+                                  {item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )
                       )}
@@ -756,27 +793,52 @@ export default function CartPage() {
                         <span className="line-through text-xs font-normal text-gray-500 mr-1.5">₹{item.framePriceCalculated + item.lensPrice}</span>
                         <span className="text-green-400">Free</span>
                       </>
+                    ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                      <div className="flex flex-col sm:items-end">
+                        <div className="flex items-baseline gap-1.5 justify-start sm:justify-end">
+                          <span className="line-through text-xs font-normal text-gray-500">
+                            ₹{((item.product?.price?.selling || item.framePrice) + item.lensPrice) * item.qty}
+                          </span>
+                          <span className="text-white font-bold text-base">
+                            ₹{(item.framePriceCalculated + item.lensPrice) * item.qty}
+                          </span>
+                        </div>
+                        <span className="text-[#D4A04D] text-[9.5px] font-black uppercase tracking-wider mt-0.5">
+                          ✦ Gold Member Price
+                        </span>
+                      </div>
                     ) : (
                       `₹${(item.framePriceCalculated + item.lensPrice) * item.qty}`
                     )}
                   </div>
-                  <div className="text-[#A7A7A7] text-xs mt-1">
-                    Frame: {isFreeThisItem ? (
-                      <>
-                        <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
-                        <span className="text-green-400 font-semibold ml-1">Free</span>
-                      </>
-                    ) : `₹${item.framePriceCalculated}`}
-                  </div>
-                  {item.lensPrice > 0 && (
-                    <div className="text-[#A7A7A7] text-xs">
-                      Lens: {isFreeThisItem ? (
-                        <>
-                          <span className="line-through text-gray-500">₹{item.lensPrice}</span>
-                          <span className="text-green-400 font-semibold ml-1">Free</span>
-                        </>
-                      ) : `₹${item.lensPrice}`}
-                    </div>
+                  {!isContactLensItem && (
+                    <>
+                      <div className="text-[#A7A7A7] text-xs mt-1">
+                        Frame: {isFreeThisItem ? (
+                          <>
+                            <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
+                            <span className="text-green-400 font-semibold ml-1">Free</span>
+                          </>
+                        ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                          <>
+                            <span className="line-through text-gray-500 mr-1">₹{item.product?.price?.selling || item.framePrice}</span>
+                            <span className="text-[#D4A04D] font-bold">₹{item.framePriceCalculated}</span>
+                          </>
+                        ) : (
+                          `₹${item.framePriceCalculated}`
+                        )}
+                      </div>
+                      {item.lensPrice > 0 && (
+                        <div className="text-[#A7A7A7] text-xs">
+                          Lens: {isFreeThisItem ? (
+                            <>
+                              <span className="line-through text-gray-500">₹{item.lensPrice}</span>
+                              <span className="text-green-400 font-semibold ml-1">Free</span>
+                            </>
+                          ) : `₹${item.lensPrice}`}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

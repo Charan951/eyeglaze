@@ -4,6 +4,7 @@ import { Product } from '../../models/Product';
 import { clearCachePattern } from '../../middleware/cache';
 import { Brand } from '../../models/Brand';
 import { Category } from '../../models/Category';
+import { SubCategory } from '../../models/SubCategory';
 import { Warehouse } from '../../models/Warehouse';
 import { ProductVariant } from '../../models/ProductVariant';
 import { AuditLog } from '../../models/AuditLog';
@@ -68,6 +69,25 @@ export async function getAdminProducts(req: Request, res: Response) {
   }
 }
 
+function cleanObjectIdFields(body: any) {
+  if (!body || typeof body !== 'object') return;
+  const keys = [
+    'brandId',
+    'categoryId',
+    'subCategoryId',
+    'subSubCategoryId',
+    'subSubSubCategoryId',
+    'warehouseId',
+    'lensTypeId',
+    'lensId',
+  ];
+  for (const key of keys) {
+    if (key in body && (body[key] === '' || (typeof body[key] === 'string' && !body[key].trim()))) {
+      body[key] = null;
+    }
+  }
+}
+
 export async function createAdminProduct(req: Request, res: Response) {
   try {
     if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
@@ -76,6 +96,7 @@ export async function createAdminProduct(req: Request, res: Response) {
 
     await connectDB();
     const body = req.body || {};
+    cleanObjectIdFields(body);
 
     // SKU Generation & Validation
     if (!body.sku) {
@@ -120,6 +141,19 @@ export async function createAdminProduct(req: Request, res: Response) {
 
     // Set defaults
     body.currentVersion = 1;
+
+    // Auto-populate shape array from subcategory's modalShapes
+    if (body.subCategoryId) {
+      const subcat = await SubCategory.findById(body.subCategoryId);
+      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+        body.shape = subcat.modalShapes;
+      }
+    } else if (body.subCategory) {
+      const subcat = await SubCategory.findOne({ slug: body.subCategory });
+      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+        body.shape = subcat.modalShapes;
+      }
+    }
 
     const product = new Product(body);
     await product.save();
@@ -202,6 +236,7 @@ export async function updateAdminProduct(req: Request, res: Response) {
     await connectDB();
     const { id } = req.params;
     const body = req.body || {};
+    cleanObjectIdFields(body);
 
     const existingProduct = await Product.findById(id);
     if (!existingProduct) return res.status(404).json({ error: 'Product not found' });
@@ -234,6 +269,19 @@ export async function updateAdminProduct(req: Request, res: Response) {
     // Increment version
     const nextVersion = (existingProduct.currentVersion || 1) + 1;
     body.currentVersion = nextVersion;
+
+    // Auto-populate shape array from subcategory's modalShapes
+    if (body.subCategoryId) {
+      const subcat = await SubCategory.findById(body.subCategoryId);
+      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+        body.shape = subcat.modalShapes;
+      }
+    } else if (body.subCategory) {
+      const subcat = await SubCategory.findOne({ slug: body.subCategory });
+      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+        body.shape = subcat.modalShapes;
+      }
+    }
 
     const product = await Product.findByIdAndUpdate(id, { $set: body }, { returnDocument: 'after' });
     if (!product) return res.status(404).json({ error: 'Product not found' });
@@ -293,25 +341,14 @@ export async function deleteAdminProduct(req: Request, res: Response) {
 
     await connectDB();
     const { id } = req.params;
-    const hard = req.query.hard === 'true' && req.user.role === 'admin';
 
-    if (hard) {
-      await Product.findByIdAndDelete(id);
-      await ProductVariant.deleteMany({ productId: id });
-      await AuditLog.deleteMany({ productId: id });
-    } else {
-      await Product.findByIdAndUpdate(id, { isActive: false, status: 'Inactive' });
-      
-      const userObj = await User.findById(req.user.userId);
-      const audit = new AuditLog({
-        productId: id as any,
-        action: 'delete',
-        performedBy: req.user.userId,
-        performedByName: userObj?.name || userObj?.email || 'Admin User',
-        version: 1,
-      });
-      await audit.save();
+    const deletedProduct = await Product.findByIdAndDelete(id);
+    if (!deletedProduct) {
+      return res.status(404).json({ error: 'Product not found' });
     }
+
+    await ProductVariant.deleteMany({ productId: id });
+    await AuditLog.deleteMany({ productId: id });
 
     // Broadcast deletion
     try {
@@ -321,9 +358,9 @@ export async function deleteAdminProduct(req: Request, res: Response) {
     }
 
     await clearCachePattern('cache:/api/products*');
-    return res.status(200).json({ success: true });
-  } catch (error) {
+    return res.status(200).json({ success: true, message: 'Product deleted successfully' });
+  } catch (error: any) {
     console.error('DELETE admin product error:', error);
-    return res.status(500).json({ error: 'Failed to delete product' });
+    return res.status(500).json({ error: error.message || 'Failed to delete product' });
   }
 }

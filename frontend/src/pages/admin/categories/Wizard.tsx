@@ -6,7 +6,7 @@ import * as z from 'zod';
 import api from '../../../lib/api';
 
 const categoryFormSchema = z.object({
-  type: z.enum(['Category', 'SubCategory']),
+  type: z.enum(['Category', 'SubCategory', 'SubSubCategory', 'SubSubSubCategory']),
   
   // Basic Information
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -20,6 +20,7 @@ const categoryFormSchema = z.object({
   // Hierarchy references
   categoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
+  subSubCategoryId: z.string().optional(),
 
   // Attributes
   genders: z.array(z.string()).default([]),
@@ -46,11 +47,26 @@ const categoryFormSchema = z.object({
   // Navigation Menu Mapping
   showInMenu: z.boolean().default(true),
   menuLabel: z.string().optional(),
+  showInNavbar: z.boolean().default(true),
+
+  // SubCategory custom settings
+  linkTo: z.string().optional(),
+  gender: z.string().optional(),
+  shapeModal: z.boolean().default(false),
+  modalShapes: z.array(z.string()).default(['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric']),
+  modalAgeGroups: z.array(z.string()).default(['Kids On Sale', 'Juniors', 'Tweens', 'Teens']),
+
+  // Main Category custom layout settings
+  subCategoryShape: z.enum(['square', 'circle', 'rectangle']).default('square'),
+  subCategorySize: z.enum(['small', 'medium', 'large']).default('medium'),
+  subCategoryColumns: z.number().min(2).max(6).default(4),
 }).refine((data) => {
   if (data.type === 'SubCategory' && !data.categoryId) return false;
+  if (data.type === 'SubSubCategory' && (!data.categoryId || !data.subCategoryId)) return false;
+  if (data.type === 'SubSubSubCategory' && (!data.categoryId || !data.subCategoryId || !data.subSubCategoryId)) return false;
   return true;
 }, {
-  message: "Parent Category is required for Sub-Category",
+  message: "Parent selection is required",
   path: ["categoryId"]
 });
 
@@ -61,12 +77,10 @@ export default function CategoryWizard() {
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-
-
-
-  // Accordion active sections state
-  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+  const [parentCategories, setParentCategories] = useState<any[]>([]);
+  const [subCategoriesForParent, setSubCategoriesForParent] = useState<any[]>([]);
+  const [availableShapes, setAvailableShapes] = useState<string[]>([]);
+  const [availableKidsAgeGroups, setAvailableKidsAgeGroups] = useState<string[]>([]);
 
   const {
     register,
@@ -104,12 +118,96 @@ export default function CategoryWizard() {
       slug: '',
       showInMenu: true,
       menuLabel: '',
+      showInNavbar: true,
+      linkTo: '',
+      gender: '',
+      shapeModal: false,
+      modalShapes: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'],
+      modalAgeGroups: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'],
+      subCategoryShape: 'square',
+      subCategorySize: 'medium',
+      subCategoryColumns: 4,
     }
   });
 
+  const [subSubCategoriesForParent, setSubSubCategoriesForParent] = useState<any[]>([]);
+
   const formValues = watch();
+  const selectedCategoryId = watch('categoryId');
+  const selectedSubCategoryId = watch('subCategoryId');
+
+  // Fetch sub-categories dynamically when categoryId changes
+  useEffect(() => {
+    if (selectedCategoryId) {
+      api.get(`/admin/categories?type=SubCategory&categoryId=${selectedCategoryId}&limit=1000`)
+        .then((res) => {
+          setSubCategoriesForParent(res.data.items || []);
+        })
+        .catch((err) => console.error('Failed to load subcategories for parent:', err));
+    } else {
+      setSubCategoriesForParent([]);
+    }
+  }, [selectedCategoryId]);
+
+  // Fetch sub-sub-categories dynamically when subCategoryId changes
+  useEffect(() => {
+    if (selectedSubCategoryId) {
+      api.get(`/admin/categories?type=SubSubCategory&subCategoryId=${selectedSubCategoryId}&limit=1000`)
+        .then((res) => {
+          setSubSubCategoriesForParent(res.data.items || []);
+        })
+        .catch((err) => console.error('Failed to load sub-sub-categories for parent:', err));
+    } else {
+      setSubSubCategoriesForParent([]);
+    }
+  }, [selectedSubCategoryId]);
+
+  useEffect(() => {
+    api.get('/categories?type=Category')
+      .then((res) => {
+        setParentCategories(res.data || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load parent categories:', err);
+      });
+
+    api.get('/shapes')
+      .then((res) => {
+        const shapesList = res.data.map((s: any) => s.name);
+        const finalShapes = shapesList.length > 0 ? shapesList : ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'];
+        setAvailableShapes(finalShapes);
+        if (!id) {
+          setValue('modalShapes', finalShapes);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load active shapes:', err);
+        const fallback = ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'];
+        setAvailableShapes(fallback);
+        if (!id) {
+          setValue('modalShapes', fallback);
+        }
+      });
+
+    api.get('/kids-age-groups')
+      .then((res) => {
+        const titles = res.data.map((g: any) => g.title);
+        setAvailableKidsAgeGroups(titles.length > 0 ? titles : ['Kids On Sale', 'Juniors', 'Tweens', 'Teens']);
+      })
+      .catch(() => {
+        setAvailableKidsAgeGroups(['Kids On Sale', 'Juniors', 'Tweens', 'Teens']);
+      });
+  }, [id, setValue]);
 
 
+
+
+  // Accordion active sections state
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+  const isCategory = paramType ? paramType === 'Category' : formValues.type === 'Category';
+  const isSubCategory = paramType ? (paramType === 'SubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') : (formValues.type === 'SubCategory' || formValues.type === 'SubSubCategory' || formValues.type === 'SubSubSubCategory');
+  const isSubSubCategory = paramType ? (paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') : (formValues.type === 'SubSubCategory' || formValues.type === 'SubSubSubCategory');
+  const isSubSubSubCategory = paramType ? paramType === 'SubSubSubCategory' : formValues.type === 'SubSubSubCategory';
 
   // Auto-generate code & slug from Category name
   const nameValue = watch('name');
@@ -136,7 +234,7 @@ export default function CategoryWizard() {
         .then((res) => {
           const { category, attributes, filters, seo } = res.data;
           reset({
-            type: category.type || category.targetType || 'Category',
+            type: category.type || category.targetType || (paramType === 'SubSubSubCategory' ? 'SubSubSubCategory' : paramType === 'SubSubCategory' ? 'SubSubCategory' : paramType === 'SubCategory' ? 'SubCategory' : 'Category'),
             name: category.name || '',
             code: category.code || '',
             icon: category.icon || '',
@@ -144,8 +242,16 @@ export default function CategoryWizard() {
             description: category.description || '',
             displayOrder: category.displayOrder || 0,
             status: category.status || 'Active',
-            categoryId: category.categoryId || '',
-            subCategoryId: category.subCategoryId || '',
+            categoryId: (category.categoryId && typeof category.categoryId === 'object' ? category.categoryId._id : category.categoryId) || '',
+            subCategoryId: (category.subCategoryId && typeof category.subCategoryId === 'object' ? category.subCategoryId._id : category.subCategoryId) || '',
+            subSubCategoryId: (category.subSubCategoryId && typeof category.subSubCategoryId === 'object' ? category.subSubCategoryId._id : category.subSubCategoryId) || '',
+            linkTo: category.linkTo || '',
+            gender: category.gender || '',
+            shapeModal: category.shapeModal || false,
+            modalShapes: category.modalShapes || ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'],
+            subCategoryShape: category.subCategoryShape || 'square',
+            subCategorySize: category.subCategorySize || 'medium',
+            subCategoryColumns: category.subCategoryColumns || 4,
             genders: attributes?.genders || [],
             ageGroups: attributes?.ageGroups || [],
             usageTypes: attributes?.usageTypes || [],
@@ -164,6 +270,7 @@ export default function CategoryWizard() {
             slug: category.slug || seo?.slug || '',
             showInMenu: category.showInMenu ?? true,
             menuLabel: category.menuLabel || category.name || '',
+            showInNavbar: category.showInNavbar ?? true,
           });
         })
         .catch(() => showToast('Failed to load category details', 'error'));
@@ -177,6 +284,37 @@ export default function CategoryWizard() {
 
   const toggleAccordion = (name: string) => {
     setActiveAccordion(activeAccordion === name ? null : name);
+  };
+
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploadingBanner(true);
+    try {
+      const res = await api.post('/admin/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setValue('bannerImage', res.data.url);
+      showToast('Image uploaded successfully!', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.response?.data?.error || 'Failed to upload image.', 'error');
+    } finally {
+      setUploadingBanner(false);
+    }
   };
 
 
@@ -196,9 +334,19 @@ export default function CategoryWizard() {
           displayOrder: data.displayOrder,
           status: data.status,
           slug: data.slug,
+          showInNavbar: (data.type === 'Category' || paramType === 'Category') ? data.showInNavbar : undefined,
+          linkTo: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory') ? data.linkTo : undefined,
+          gender: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory') ? data.gender : undefined,
+          shapeModal: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.shapeModal : undefined,
+          modalShapes: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.modalShapes : undefined,
+          subCategoryShape: (data.type === 'Category' || paramType === 'Category') ? data.subCategoryShape : undefined,
+          subCategorySize: (data.type === 'Category' || paramType === 'Category') ? data.subCategorySize : undefined,
+          subCategoryColumns: (data.type === 'Category' || paramType === 'Category') ? data.subCategoryColumns : undefined,
         },
         hierarchy: {
-          categoryId: data.type === 'SubCategory' ? data.categoryId : undefined,
+          categoryId: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || data.type === 'SubSubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') ? data.categoryId : undefined,
+          subCategoryId: (data.type === 'SubSubCategory' || data.type === 'SubSubSubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') ? data.subCategoryId : undefined,
+          subSubCategoryId: (data.type === 'SubSubSubCategory' || paramType === 'SubSubSubCategory') ? data.subSubCategoryId : undefined,
         },
         attributes: {
           genders: data.genders,
@@ -262,7 +410,7 @@ export default function CategoryWizard() {
           </button>
           <div className="h-4 w-px bg-[#2A2A2D]" />
           <h1 className="text-base font-extrabold uppercase tracking-wide text-white">
-            {id ? `Edit ${paramType}` : 'Add Category Tier'}
+            {id ? `Edit ${formValues.name || 'Segment'}` : 'Add Catalog Segment'}
           </h1>
         </div>
         <div className="flex gap-3">
@@ -297,6 +445,78 @@ export default function CategoryWizard() {
                 <span>01.</span> Core Category Details
               </h2>
 
+              {/* Segment Type Selection */}
+              <div>
+                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Segment Type</label>
+                <select
+                  {...register('type')}
+                  disabled={!!id}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none disabled:opacity-50"
+                >
+                  <option value="Category">Main Category</option>
+                  <option value="SubCategory">Sub-Category</option>
+                  <option value="SubSubCategory">Sub-Sub-Category</option>
+                  <option value="SubSubSubCategory">Sub-Sub-Sub-Category</option>
+                </select>
+              </div>
+
+              {/* Parent Category selection (Shown for SubCategory, SubSubCategory, SubSubSubCategory) */}
+              {isSubCategory && (
+                <div>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Category *</label>
+                  <select
+                    {...register('categoryId')}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  >
+                    <option value="">-- Select Parent Category --</option>
+                    {parentCategories.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.categoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.categoryId.message}</p>}
+                </div>
+              )}
+
+              {/* Parent Sub-Category selection (Shown for SubSubCategory and SubSubSubCategory) */}
+              {isSubSubCategory && (
+                <div>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Sub-Category *</label>
+                  <select
+                    {...register('subCategoryId')}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  >
+                    <option value="">-- Select Parent Sub-Category --</option>
+                    {subCategoriesForParent.map((sub) => (
+                      <option key={sub._id} value={sub._id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.subCategoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.subCategoryId.message}</p>}
+                </div>
+              )}
+
+              {/* Parent Sub-Sub-Category selection (Shown for SubSubSubCategory) */}
+              {isSubSubSubCategory && (
+                <div>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Sub-Sub-Category *</label>
+                  <select
+                    {...register('subSubCategoryId')}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  >
+                    <option value="">-- Select Parent Sub-Sub-Category --</option>
+                    {subSubCategoriesForParent.map((ss) => (
+                      <option key={ss._id} value={ss._id}>
+                        {ss.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.subSubCategoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.subSubCategoryId.message}</p>}
+                </div>
+              )}
+
 
 
               {/* Name */}
@@ -311,15 +531,49 @@ export default function CategoryWizard() {
                 {errors.name && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
               </div>
 
-              {/* Banner Image URL */}
+              {/* Banner Image Upload */}
               <div>
-                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Banner Image URL</label>
-                <input
-                  type="text"
-                  {...register('bannerImage')}
-                  placeholder="https://images.lenskart.com/banner.jpg"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
+                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5 font-semibold">Banner Image</label>
+                {formValues.bannerImage ? (
+                  <div className="flex items-center gap-4 bg-[#0B0B0C] border border-[#2A2A2D] p-3 rounded-xl">
+                    <img
+                      src={formValues.bannerImage}
+                      alt="Banner Preview"
+                      className="w-20 h-10 object-cover rounded border border-[#2A2A2D]"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate font-mono">{formValues.bannerImage}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setValue('bannerImage', '')}
+                      className="text-red-400 hover:text-red-300 text-xs font-bold uppercase bg-transparent border-none cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="bannerImageUpload"
+                      onChange={handleImageUpload}
+                      disabled={uploadingBanner}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="bannerImageUpload"
+                      className="flex flex-col items-center justify-center border-2 border-dashed border-[#2A2A2D] hover:border-[#D4A04D]/60 rounded-xl p-6 cursor-pointer bg-[#0B0B0C]/40 transition-colors"
+                    >
+                      <span className="text-xl mb-1">📤</span>
+                      <span className="text-xs font-bold text-gray-400">
+                        {uploadingBanner ? 'Uploading image...' : 'Click to upload category banner'}
+                      </span>
+                      <span className="text-[9px] text-gray-600 mt-1">PNG, JPG, WEBP up to 5MB</span>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Status & Display Sort Order */}
@@ -357,6 +611,191 @@ export default function CategoryWizard() {
                   className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none resize-none"
                 />
               </div>
+
+              {/* Show in Nav Bar Toggle */}
+              {!isSubCategory && (
+                <div className="flex items-center justify-between bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-white text-xs font-bold uppercase tracking-wider block">Show in Navigation Bar</label>
+                    <p className="text-[10px] text-[#A7A7A7]">Toggle whether this main category is displayed in the public header navigation bar.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      {...register('showInNavbar')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-zinc-800 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-gray-400 peer-checked:after:bg-[#D4A04D] after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4A04D]/10 peer-checked:border-[#D4A04D]/35 border border-zinc-700"></div>
+                  </label>
+                </div>
+              )}
+
+              {/* Sub-Category Specific Fields */}
+              {isSubCategory && (
+                <div className="border-t border-[#2A2A2D] pt-6 space-y-6">
+                  <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">Sub-Category Navigation Settings</h3>
+                  
+                  {/* LinkTo */}
+                  <div>
+                    <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Link Destination Override (Optional)</label>
+                    <input
+                      type="text"
+                      {...register('linkTo')}
+                      placeholder="e.g. /products?category=contact-lenses"
+                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    />
+                    <p className="text-[9px] text-gray-500 mt-1">If left blank, it will automatically link to this subcategory list page.</p>
+                  </div>
+
+                  {/* Gender and shape modal */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Gender Filter</label>
+                      <select
+                        {...register('gender')}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                      >
+                        <option value="">None (No filter)</option>
+                        <option value="men">Men</option>
+                        <option value="women">Women</option>
+                        <option value="kids">Kids</option>
+                        <option value="unisex">Unisex</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center pt-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-[#F2F2F2]">
+                        <input
+                          type="checkbox"
+                          {...register('shapeModal')}
+                          className="rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-[#D4A04D]"
+                        />
+                        <span>Show selection modal on click</span>
+                      </label>
+                    </div>
+
+                    {/* Shapes & Kids Age Groups Selection in Modal */}
+                    {formValues.shapeModal && (
+                      <div className="space-y-5 pt-3 col-span-1 md:col-span-2 border-t border-[#2A2A2D]">
+                        
+                        {/* Section 1: Shapes Selection */}
+                        <div className="space-y-2">
+                          <label className="text-[#D4A04D] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                            <span>👓</span> SHAPES TO DISPLAY IN MODAL
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                            {availableShapes.map((shape) => {
+                              const currentShapes = formValues.modalShapes || [];
+                              const isChecked = currentShapes.includes(shape);
+                              return (
+                                <label key={shape} className="flex items-center gap-2 cursor-pointer text-xs text-white hover:text-[#D4A04D] transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setValue('modalShapes', [...currentShapes, shape]);
+                                      } else {
+                                        setValue('modalShapes', currentShapes.filter((s) => s !== shape));
+                                      }
+                                    }}
+                                    className="rounded border-[#2A2A2D] bg-[#121213] text-[#D4A04D] focus:ring-[#D4A04D]"
+                                  />
+                                  <span>{shape}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Section 2: Kids Age Groups Selection */}
+                        <div className="space-y-2 pt-1">
+                          <label className="text-[#D4A04D] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                            <span>🧒</span> KIDS AGE GROUPS TO DISPLAY IN MODAL
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                            {(availableKidsAgeGroups.length > 0
+                              ? availableKidsAgeGroups
+                              : ['Kids On Sale', 'Juniors', 'Tweens', 'Teens']
+                            ).map((groupTitle) => {
+                              const currentAgeGroups = formValues.modalAgeGroups || ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'];
+                              const isChecked = currentAgeGroups.includes(groupTitle);
+                              return (
+                                <label key={groupTitle} className="flex items-center gap-2 cursor-pointer text-xs text-white hover:text-[#D4A04D] transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setValue('modalAgeGroups', [...currentAgeGroups, groupTitle]);
+                                      } else {
+                                        setValue('modalAgeGroups', currentAgeGroups.filter((g) => g !== groupTitle));
+                                      }
+                                    }}
+                                    className="rounded border-[#2A2A2D] bg-[#121213] text-[#D4A04D] focus:ring-[#D4A04D]"
+                                  />
+                                  <span>{groupTitle}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Main Category Display Layout Settings */}
+              {!isSubCategory && (
+                <div className="border-t border-[#2A2A2D] pt-6 space-y-6">
+                  <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider">Sub-Category Layout Design</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Display Shape */}
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Display Shape</label>
+                      <select
+                        {...register('subCategoryShape')}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                      >
+                        <option value="square">Square Card</option>
+                        <option value="circle">Circular Card</option>
+                        <option value="rectangle">Horizontal Rectangle</option>
+                      </select>
+                    </div>
+
+                    {/* Box Size */}
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Box / Card Size</label>
+                      <select
+                        {...register('subCategorySize')}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                      >
+                        <option value="small">Small</option>
+                        <option value="medium">Medium (Standard)</option>
+                        <option value="large">Large</option>
+                      </select>
+                    </div>
+
+                    {/* Columns */}
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Grid Column Count</label>
+                      <select
+                        {...register('subCategoryColumns', { valueAsNumber: true })}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                      >
+                        <option value={2}>2 Columns</option>
+                        <option value={3}>3 Columns</option>
+                        <option value={4}>4 Columns</option>
+                        <option value={5}>5 Columns</option>
+                        <option value={6}>6 Columns</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Collapsible Advanced Settings Panel */}
@@ -614,6 +1053,62 @@ export default function CategoryWizard() {
                 </div>
               )}
             </div>
+
+            {/* Live Subcategory Layout Preview */}
+            {!isSubCategory && (
+              <div className="p-5 border-t border-[#2A2A2D] space-y-4">
+                <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest block">Sub-Category Layout Preview</span>
+                <div 
+                  className="grid gap-3 w-full"
+                  style={{
+                    gridTemplateColumns: `repeat(${formValues.subCategoryColumns || 4}, minmax(0, 1fr))`
+                  }}
+                >
+                  {[
+                    { label: 'Men', img: '/images/men_eyeglasses.png' },
+                    { label: 'Women', img: '/images/women_eyeglasses.png' },
+                    { label: 'Kids', img: '/images/kids_eyeglasses.png' },
+                    { label: 'Accessories', img: '/images/accessories.png' },
+                    { label: 'Lenses', img: '/images/cat_contacts.png' },
+                    { label: 'Premium', img: '/images/hero_model.png' }
+                  ].slice(0, Math.max(formValues.subCategoryColumns || 4, 4)).map((sub, idx) => {
+                    // Determine shape classes
+                    let shapeClass = 'aspect-square rounded-2xl'; // square
+                    if (formValues.subCategoryShape === 'circle') {
+                      shapeClass = 'aspect-square rounded-full';
+                    } else if (formValues.subCategoryShape === 'rectangle') {
+                      shapeClass = 'aspect-[4/3] rounded-2xl';
+                    }
+
+                    // Determine size styling classes
+                    let sizeClass = 'text-[9px] py-1 px-1';
+                    if (formValues.subCategorySize === 'small') {
+                      sizeClass = 'text-[7px] py-0.5 px-0.5';
+                    } else if (formValues.subCategorySize === 'large') {
+                      sizeClass = 'text-[11px] py-2 px-2';
+                    }
+
+                    return (
+                      <div 
+                        key={idx}
+                        className={`relative bg-gradient-to-b from-[#18181A] to-[#0D0D0E] border border-zinc-800/80 overflow-hidden shadow-sm flex flex-col justify-end text-center ${shapeClass}`}
+                      >
+                        {/* Mock image container or background */}
+                        <div className="absolute inset-0 bg-[#2A2A2D] flex items-center justify-center opacity-40">
+                          <span className="text-lg">🕶️</span>
+                        </div>
+                        {/* Text Overlay */}
+                        <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-4 pb-1.5 px-1.5 flex flex-col items-center">
+                          <span className={`font-black text-white uppercase tracking-wider leading-none ${sizeClass}`}>
+                            {sub.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

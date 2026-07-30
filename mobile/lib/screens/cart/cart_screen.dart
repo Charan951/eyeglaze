@@ -716,7 +716,7 @@ class _CartScreenState extends State<CartScreen> {
                       child: ListView.separated(
                         shrinkWrap: true,
                         itemCount: activeCoupons.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final coupon = activeCoupons[index];
                           final code = (coupon['code'] ?? '').toString();
@@ -807,11 +807,11 @@ class _CartScreenState extends State<CartScreen> {
                                           } else {
                                             setSheetState(() => sheetError = '');
                                             await cart.validateCouponCode(code);
-                                            if (cart.couponError != null) {
-                                              setSheetState(() => sheetError = cart.couponError!);
-                                            } else {
-                                              Navigator.pop(context);
-                                            }
+                                             if (cart.couponError != null) {
+                                               setSheetState(() => sheetError = cart.couponError!);
+                                             } else {
+                                               if (context.mounted) Navigator.pop(context);
+                                             }
                                           }
                                         },
                                         style: ElevatedButton.styleFrom(

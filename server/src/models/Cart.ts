@@ -2,9 +2,15 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPower {
   name?: string;
-  RE?: { sph?: number; cyl?: number; axis?: number };
-  LE?: { sph?: number; cyl?: number; axis?: number };
+  RE?: { sph?: number | string; cyl?: number | string; axis?: number | string; addPower?: number | string };
+  LE?: { sph?: number | string; cyl?: number | string; axis?: number | string; addPower?: number | string };
   pd?: number;
+  addPower?: number | string;
+  rightBoxes?: number;
+  leftBoxes?: number;
+  packOption?: string;
+  contactPowerType?: 'manual' | 'upload' | 'later';
+  prescriptionUrl?: string;
 }
 
 export interface ICartItem {
@@ -37,9 +43,15 @@ export interface ICart extends Document {
 const PowerSchema = new Schema(
   {
     name: String,
-    RE: { sph: Number, cyl: Number, axis: Number },
-    LE: { sph: Number, cyl: Number, axis: Number },
+    RE: { sph: Schema.Types.Mixed, cyl: Schema.Types.Mixed, axis: Schema.Types.Mixed, addPower: Schema.Types.Mixed },
+    LE: { sph: Schema.Types.Mixed, cyl: Schema.Types.Mixed, axis: Schema.Types.Mixed, addPower: Schema.Types.Mixed },
     pd: Number,
+    addPower: Schema.Types.Mixed,
+    rightBoxes: Number,
+    leftBoxes: Number,
+    packOption: String,
+    contactPowerType: String,
+    prescriptionUrl: String,
   },
   { _id: false }
 );

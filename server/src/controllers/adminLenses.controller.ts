@@ -21,7 +21,7 @@ export const getLenses = async (req: Request, res: Response) => {
 
 export const createLens = async (req: Request, res: Response) => {
   try {
-    const { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl } = req.body;
+    const { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl, description } = req.body;
     
     if (basePrice < 0) {
       return res.status(400).json({ message: 'Price cannot be negative' });
@@ -45,7 +45,7 @@ export const createLens = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Lens name must be unique within a Lens Type' });
     }
 
-    const newLens = new Lens({ name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl });
+    const newLens = new Lens({ name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl, description });
     await newLens.save();
     
     const populatedLens = await Lens.findById(newLens._id).populate('lensType');
@@ -66,7 +66,7 @@ export const createLens = async (req: Request, res: Response) => {
 export const updateLens = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl } = req.body;
+    const { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl, description } = req.body;
 
     if (basePrice < 0) {
       return res.status(400).json({ message: 'Price cannot be negative' });
@@ -92,7 +92,7 @@ export const updateLens = async (req: Request, res: Response) => {
 
     const updated = await Lens.findByIdAndUpdate(
       id,
-      { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl },
+      { name, lensType, basePrice, status, powerPricing, minSph, maxSph, minCyl, maxCyl, description },
       { returnDocument: 'after' }
     ).populate('lensType');
 

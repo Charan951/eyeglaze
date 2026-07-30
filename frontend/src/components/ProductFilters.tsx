@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-const CATEGORIES = [
-  { value: 'prescription', label: 'Prescription Glasses' },
-  { value: 'sunglasses', label: 'Sunglasses' },
-  { value: 'blue_light', label: 'Blue Light Glasses' },
-  { value: 'contact_lenses', label: 'Contact Lenses' },
-  { value: 'kids', label: 'Kids Eyewear' },
-  { value: 'power-sunglasses', label: 'Special Power' },
-  { value: 'reading-glasses', label: 'Reading Glasses' },
-];
+import api from '../lib/api';
 
 const GENDERS = [
   { value: 'men', label: 'Men' },
@@ -17,31 +8,36 @@ const GENDERS = [
   { value: 'kids', label: 'Kids' },
 ];
 
-const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];
-const SIZES = ['Small', 'Medium', 'Large'];
-const COLORS = ['Black', 'Brown', 'Gold', 'Silver', 'Transparent', 'Pink'];
-const TYPES = ['Full Rim', 'Half Rim', 'Rimless'];
-const MATERIALS = ['Metal', 'Acetate', 'TR90', 'Titanium'];
-const FACESHAPES = ['Round', 'Oval', 'Square', 'Diamond'];
-
 export default function ProductFilters() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [shapesList, setShapesList] = useState<string[]>(['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster']);
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/categories')
+      .then((res) => {
+        setCategoriesList(res.data || []);
+      })
+      .catch((err) => console.error('Failed to load categories filter list:', err));
+
+    api.get('/shapes')
+      .then((res) => {
+        const shapes = res.data.map((s: any) => s.name);
+        if (shapes.length > 0) {
+          setShapesList(shapes);
+        }
+      })
+      .catch((err) => console.error('Failed to load active shapes filter list:', err));
+  }, []);
 
   // Accordion open/close state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     category: true,
+    subCategory: true,
     gender: true,
     shape: true,
-    size: true,
-    brand: true,
-    color: true,
-    type: true,
-    material: false,
-    weight: false,
-    faceShape: false,
     price: true,
-    rating: true,
   });
 
   // Local price range state (to prevent spamming APIs while dragging)
@@ -65,7 +61,6 @@ export default function ProductFilters() {
   });
 
   const clearAll = () => {
-    // Keep search and sort query parameters if present
     const params = new URLSearchParams();
     const search = searchParams.get('search');
     const sort = searchParams.get('sort');
@@ -105,6 +100,22 @@ export default function ProductFilters() {
     navigate(`/products?${params.toString()}`);
   };
 
+  const handleCategoryChange = (slug: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const currentCategory = params.get('category');
+    
+    if (currentCategory === slug) {
+      params.delete('category');
+    } else {
+      params.set('category', slug);
+    }
+    
+    // Clear subcategory when main category changes
+    params.delete('subCategory');
+    params.delete('page');
+    navigate(`/products?${params.toString()}`);
+  };
+
   const renderSectionHeader = (title: string, sectionKey: string) => {
     const isOpen = openSections[sectionKey];
     return (
@@ -125,6 +136,12 @@ export default function ProductFilters() {
     );
   };
 
+  const selectedCategorySlug = searchParams.get('category');
+  const selectedCategory = categoriesList.find(c => c.slug === selectedCategorySlug);
+  const subCategories = selectedCategory 
+    ? (selectedCategory.children || []) 
+    : categoriesList.flatMap(c => c.children || []);
+
   return (
     <div className="space-y-4 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-4 select-none">
       
@@ -143,9 +160,8 @@ export default function ProductFilters() {
         )}
       </div>
 
-      {/* Toggles (Premium & Try in 3D) */}
+      {/* Toggles (Premium) */}
       <div className="py-2 border-b border-[#2A2A2D]/40 space-y-3">
-        {/* Premium Toggle */}
         <div className="flex items-center justify-between py-0.5">
           <span className="text-[#A7A7A7] text-[11px] font-bold uppercase tracking-wider">Premium Only</span>
           <button
@@ -155,7 +171,6 @@ export default function ProductFilters() {
             <div className={`w-3.5 h-3.5 rounded-full absolute top-[2px] transition-all ${searchParams.get('isPremium') === 'true' ? 'left-[18px] bg-black' : 'left-[3px] bg-[#A7A7A7]'}`} />
           </button>
         </div>
-
       </div>
 
       {/* Categories Section */}
@@ -163,19 +178,20 @@ export default function ProductFilters() {
         {renderSectionHeader('Category', 'category')}
         {openSections.category && (
           <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {CATEGORIES.map(cat => {
-              const isChecked = searchParams.get('category') === cat.value;
+            {categoriesList.map(cat => {
+              const isChecked = searchParams.get('category') === cat.slug;
               return (
-                <label key={cat.value} className="flex items-center gap-2.5 cursor-pointer group text-xs">
+                <label key={cat._id} className="flex items-center gap-2.5 cursor-pointer group text-xs">
                   <input
                     type="radio"
                     name="category"
                     checked={isChecked}
-                    onChange={() => updateSingleFilter('category', cat.value)}
+                    onClick={() => handleCategoryChange(cat.slug)}
+                    onChange={() => {}}
                     className="accent-[#D4A04D] w-3.5 h-3.5 cursor-pointer"
                   />
                   <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-[#D4A04D] font-bold' : ''}`}>
-                    {cat.label}
+                    {cat.name}
                   </span>
                 </label>
               );
@@ -183,6 +199,34 @@ export default function ProductFilters() {
           </div>
         )}
       </div>
+
+      {/* Sub-Category Section */}
+      {subCategories.length > 0 && (
+        <div className="border-b border-[#2A2A2D]/40 pb-2">
+          {renderSectionHeader('Sub-Category', 'subCategory')}
+          {openSections.subCategory && (
+            <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
+              {subCategories.map((sub: any) => {
+                const activeSubs = searchParams.get('subCategory')?.split(',') || [];
+                const isChecked = activeSubs.includes(sub.slug);
+                return (
+                  <label key={sub._id || sub.slug} className="flex items-center gap-2.5 cursor-pointer group text-xs">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleFilter('subCategory', sub.slug)}
+                      className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
+                    />
+                    <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
+                      {sub.name}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Gender Section */}
       <div className="border-b border-[#2A2A2D]/40 pb-2">
@@ -215,7 +259,7 @@ export default function ProductFilters() {
         {renderSectionHeader('Shape & Style', 'shape')}
         {openSections.shape && (
           <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {SHAPES.map(shape => {
+            {shapesList.map(shape => {
               const activeShapes = searchParams.get('shape')?.split(',') || [];
               const isChecked = activeShapes.includes(shape);
               return (
@@ -228,150 +272,6 @@ export default function ProductFilters() {
                   />
                   <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
                     {shape}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Size Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Frame Size', 'size')}
-        {openSections.size && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {SIZES.map(size => {
-              const activeSizes = searchParams.get('frameSize')?.split(',') || [];
-              const isChecked = activeSizes.includes(size);
-              return (
-                <label key={size} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('frameSize', size)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {size}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-
-      {/* Color Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Frame Color', 'color')}
-        {openSections.color && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {COLORS.map(color => {
-              const activeColors = searchParams.get('frameColor')?.split(',') || [];
-              const isChecked = activeColors.includes(color);
-              
-              // Custom color dot indicator
-              const colorSwatches: Record<string, string> = {
-                Black: 'bg-black border border-[#2A2A2D]',
-                Brown: 'bg-[#5C3D2E]',
-                Gold: 'bg-[#D4A04D]',
-                Silver: 'bg-[#C0C0C0]',
-                Transparent: 'bg-white/20 border border-dashed border-[#A7A7A7]',
-                Pink: 'bg-[#FF69B4]',
-              };
-
-              return (
-                <label key={color} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('frameColor', color)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${colorSwatches[color] || 'bg-gray-400'}`} />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {color}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Frame Type Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Frame Type', 'type')}
-        {openSections.type && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {TYPES.map(type => {
-              const activeTypes = searchParams.get('frameType')?.split(',') || [];
-              const isChecked = activeTypes.includes(type);
-              return (
-                <label key={type} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('frameType', type)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {type}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Material Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Material', 'material')}
-        {openSections.material && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {MATERIALS.map(mat => {
-              const activeMaterials = searchParams.get('material')?.split(',') || [];
-              const isChecked = activeMaterials.includes(mat);
-              return (
-                <label key={mat} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('material', mat)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {mat}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-
-      {/* Face Shape Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Face Shape', 'faceShape')}
-        {openSections.faceShape && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {FACESHAPES.map(face => {
-              const activeFaces = searchParams.get('faceShape')?.split(',') || [];
-              const isChecked = activeFaces.includes(face);
-              return (
-                <label key={face} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('faceShape', face)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {face}
                   </span>
                 </label>
               );
@@ -406,7 +306,6 @@ export default function ProductFilters() {
           </div>
         )}
       </div>
-
 
     </div>
   );

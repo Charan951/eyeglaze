@@ -54,6 +54,8 @@ const AdminHomepageVideos = lazy(() => import('./pages/admin/HomepageVideos'));
 const AdminReels = lazy(() => import('./pages/admin/Reels'));
 const AdminCoupons = lazy(() => import('./pages/admin/Coupons'));
 const AdminBanners = lazy(() => import('./pages/admin/Banners'));
+const AdminShapesList = lazy(() => import('./pages/admin/shapes/index'));
+const AdminShapeWizard = lazy(() => import('./pages/admin/shapes/Wizard'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -379,6 +381,30 @@ const router = createBrowserRouter(
           element={
             <ProtectedRoute adminOnly>
               <AdminBanners />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/shapes"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminShapesList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/shapes/add"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminShapeWizard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/shapes/edit/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminShapeWizard />
             </ProtectedRoute>
           }
         />

@@ -13,6 +13,10 @@ export interface ICategory extends Document {
   deletedAt?: Date;
   parentCategory?: string; // Backwards compatibility field
   isActive: boolean; // Backwards compatibility field
+  subCategoryShape?: 'square' | 'circle' | 'rectangle';
+  subCategorySize?: 'small' | 'medium' | 'large';
+  subCategoryColumns?: number;
+  showInNavbar?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +40,24 @@ const CategorySchema = new Schema<ICategory>(
     // Backwards compatibility fields
     parentCategory: { type: String },
     isActive: { type: Boolean, default: true },
+    subCategoryShape: {
+      type: String,
+      enum: ['square', 'circle', 'rectangle'],
+      default: 'square',
+    },
+    subCategorySize: {
+      type: String,
+      enum: ['small', 'medium', 'large'],
+      default: 'medium',
+    },
+    subCategoryColumns: {
+      type: Number,
+      default: 4,
+    },
+    showInNavbar: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

@@ -10,6 +10,7 @@ interface Product {
   _id: string;
   sku: string;
   name: string;
+  mrp?: number;
   price: { original: number; selling: number };
   rating?: number;
   reviewCount?: number;
@@ -29,22 +30,7 @@ interface Product {
   }>;
 }
 
-const CATEGORIES = [
-  { value: 'prescription', label: 'Prescription Glasses' },
-  { value: 'sunglasses', label: 'Sunglasses' },
-  { value: 'blue_light', label: 'Blue Light Glasses' },
-  { value: 'contact_lenses', label: 'Contact Lenses' },
-  { value: 'kids', label: 'Kids Eyewear' },
-  { value: 'power-sunglasses', label: 'Special Power' },
-  { value: 'reading-glasses', label: 'Reading Glasses' },
-];
-
 const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];
-const SIZES = ['Small', 'Medium', 'Large'];
-const COLORS = ['Black', 'Brown', 'Gold', 'Silver', 'Transparent', 'Pink'];
-const TYPES = ['Full Rim', 'Half Rim', 'Rimless'];
-const MATERIALS = ['Metal', 'Acetate', 'TR90', 'Titanium'];
-const FACESHAPES = ['Round', 'Oval', 'Square', 'Diamond'];
 
 const mockProducts: Product[] = [
   { _id: '1', sku: 'EG-2041', name: 'Matte Square Frame', price: { original: 999, selling: 1 }, rating: 4.7, reviewCount: 198, isBestseller: true, frame: { type: 'Square' }, images: ['/images/cat_prescription.png'] },
@@ -77,6 +63,26 @@ export default function ProductsPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'tile' | 'list' | 'grid'>('tile');
   const [activeFilterTab, setActiveFilterTab] = useState('price');
+
+  const categoriesList = categoriesData || [];
+  const selectedCategorySlug = searchParams.get('category');
+  const selectedCategory = categoriesList.find((c: any) => c.slug === selectedCategorySlug);
+  const subCategories = selectedCategory 
+    ? (selectedCategory.children || []) 
+    : categoriesList.flatMap((c: any) => c.children || []);
+
+  const handleCategoryChange = (slug: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const currentCategory = params.get('category');
+    if (currentCategory === slug) {
+      params.delete('category');
+    } else {
+      params.set('category', slug);
+    }
+    params.delete('subCategory');
+    params.delete('page');
+    navigate(`/products?${params.toString()}`);
+  };
 
   // Local price range state for mobile slider
   const maxPriceQuery = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : 3000;
@@ -113,7 +119,7 @@ export default function ProductsPage() {
   const activeTier = searchParams.get('tier') || 'All';
   const handleTierChange = (tier: string) => {
     if (tier === 'All') {
-      updateSingleFilter('tier', '');
+      navigate('/products');
     } else {
       updateSingleFilter('tier', tier);
     }
@@ -198,7 +204,7 @@ export default function ProductsPage() {
     navigate(`/products?${params.toString()}`);
   };
 
-  const filterKeys = ['category', 'gender', 'shape', 'frameSize', 'frameColor', 'frameType', 'material', 'faceShape', 'maxPrice', 'isPremium'];
+  const filterKeys = ['category', 'subCategory', 'subSubCategory', 'gender', 'shape', 'maxPrice', 'isPremium'];
   const activeKeys: string[] = [];
   searchParams.forEach((_, key) => {
     if (!activeKeys.includes(key)) {
@@ -210,13 +216,10 @@ export default function ProductsPage() {
   const filterTabs = [
     { id: 'price', label: 'Price' },
     { id: 'category', label: 'Category' },
+    { id: 'subCategory', label: 'Sub-Category' },
+    { id: 'subSubCategory', label: 'Sub-Sub-Category' },
     { id: 'gender', label: 'Gender' },
     { id: 'shape', label: 'Shape & Style' },
-    { id: 'size', label: 'Frame Size' },
-    { id: 'color', label: 'Frame Color' },
-    { id: 'type', label: 'Frame Type' },
-    { id: 'material', label: 'Material' },
-    { id: 'faceShape', label: 'Face Shape' },
     { id: 'toggles', label: 'Toggles' },
   ];
 
@@ -288,63 +291,65 @@ export default function ProductsPage() {
             </button>
           </div>
 
-          {/* Collection Tab Filter Options (All, Essential, Premium, Sale) */}
-          <div className="flex md:hidden items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
-            {[
-              { id: 'All', label: 'All', icon: (active: boolean) => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                </svg>
-              )},
-              { id: 'Essential', label: 'Essential', icon: (active: boolean) => (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                  <circle cx="6" cy="12" r="4" />
-                  <circle cx="18" cy="12" r="4" />
-                  <path d="M10 12h4" />
-                  <path d="M2 12h1M21 12h1" />
-                </svg>
-              )},
-              { id: 'Premium', label: 'Premium', icon: (active: boolean) => (
-                <div className="relative">
+          {/* Collection Tab Filter Options (All, Essential, Premium, Sale) - Hidden for Contact Lens category */}
+          {!['contact-lens', 'contact-lenses', 'contact_lenses', 'contact'].includes((searchParams.get('category') || '').toLowerCase()) && (
+            <div className="flex md:hidden items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
+              {[
+                { id: 'All', label: 'All', icon: (active: boolean) => (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                  </svg>
+                )},
+                { id: 'Premium', label: 'Premium', icon: (active: boolean) => (
+                  <div className="relative">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                      <circle cx="6" cy="12" r="4" />
+                      <circle cx="18" cy="12" r="4" />
+                      <path d="M10 12h4" />
+                      <path d="M2 12h1M21 12h1" />
+                    </svg>
+                    <span className="absolute -top-1.5 -right-2 text-[10px] text-[#D4A04D] animate-pulse">✦</span>
+                  </div>
+                )},
+                { id: 'Essential', label: 'Essential', icon: (active: boolean) => (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
                     <circle cx="6" cy="12" r="4" />
                     <circle cx="18" cy="12" r="4" />
                     <path d="M10 12h4" />
                     <path d="M2 12h1M21 12h1" />
                   </svg>
-                  <span className="absolute -top-1.5 -right-2 text-[10px] text-[#D4A04D] animate-pulse">✦</span>
-                </div>
-              )},
-              { id: 'Sale', label: 'Sale', icon: (active: boolean) => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                  <rect x="3" y="5" width="18" height="14" rx="2" strokeDasharray="3 3" />
-                  <circle cx="12" cy="12" r="2.5" />
-                </svg>
-              )}
-            ].map((tab) => {
-              const active = activeTier === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTierChange(tab.id)}
-                  className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1 bg-transparent border-none cursor-pointer focus:outline-none transition-all duration-300 relative group"
-                >
-                  <div className={`transition-all duration-300 ${active ? 'text-[#D4A04D] scale-110' : 'text-gray-400 group-hover:text-white'}`}>
-                    {tab.icon(active)}
-                  </div>
-                  <span className={`text-[10px] font-black tracking-wide uppercase transition-all duration-300 ${active ? 'text-[#D4A04D]' : 'text-gray-400 group-hover:text-white'}`}>
-                    {tab.label}
-                  </span>
-                  {active && (
-                    <span className="absolute bottom-[-14px] left-0 right-0 h-[2.5px] bg-[#D4A04D] rounded-full shadow-[0_0_8px_#D4A04D]" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                )},
+                { id: 'Sale', label: 'Sale', icon: (active: boolean) => (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
+                    <rect x="3" y="5" width="18" height="14" rx="2" strokeDasharray="3 3" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                )}
+              ].map((tab) => {
+                const active = activeTier === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTierChange(tab.id)}
+                    className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1 bg-transparent border-none cursor-pointer focus:outline-none transition-all duration-300 relative group"
+                  >
+                    <div className={`transition-all duration-300 ${active ? 'text-[#D4A04D] scale-110' : 'text-gray-400 group-hover:text-white'}`}>
+                      {tab.icon(active)}
+                    </div>
+                    <span className={`text-[10px] font-black tracking-wide uppercase transition-all duration-300 ${active ? 'text-[#D4A04D]' : 'text-gray-400 group-hover:text-white'}`}>
+                      {tab.label}
+                    </span>
+                    {active && (
+                      <span className="absolute bottom-[-14px] left-0 right-0 h-[2.5px] bg-[#D4A04D] rounded-full shadow-[0_0_8px_#D4A04D]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -356,6 +361,150 @@ export default function ProductsPage() {
 
         {/* Product Grid / Details List */}
         <div className="flex-1">
+          {/* Contact Lens Top Horizontal Filter Pills (Strict Horizontal 1-Row Equal Grid Layout) */}
+          {['contact-lens', 'contact-lenses', 'contact_lenses', 'contact'].includes((searchParams.get('category') || '').toLowerCase()) && (
+            <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
+              {(() => {
+                const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
+                const currentSubSubCat = (searchParams.get('subSubCategory') || searchParams.get('type') || searchParams.get('power') || '').toLowerCase();
+                const currentDisposable = (searchParams.get('disposable') || searchParams.get('wearTime') || '').toLowerCase();
+
+                // LEVEL 3: When Sub-Sub-Category is selected -> SHOW ONLY Wear Time Buttons (Monthly, Dailies, Bi-Weekly, Yearly)
+                if (currentSubSubCat !== '' || currentDisposable !== '') {
+                  return (
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <div className="grid grid-cols-4 gap-2 sm:gap-3 flex-1">
+                        {[
+                          { label: 'Monthly', value: 'monthly' },
+                          { label: 'Dailies', value: 'daily' },
+                          { label: 'Bi-Weekly', value: 'bi-weekly' },
+                          { label: 'Yearly', value: 'yearly' },
+                        ].map((disp) => {
+                          const active = currentDisposable === disp.value;
+                          return (
+                            <button
+                              key={disp.value}
+                              onClick={() => {
+                                updateSingleFilter('disposable', active ? '' : disp.value);
+                              }}
+                              className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer truncate border ${
+                                active
+                                  ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
+                                  : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
+                              }`}
+                            >
+                              {disp.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const params = new URLSearchParams(searchParams.toString());
+                          params.delete('subSubCategory');
+                          params.delete('type');
+                          params.delete('power');
+                          params.delete('disposable');
+                          navigate(`/products?${params.toString()}`);
+                        }}
+                        className="text-[10px] text-[#D4A04D] hover:underline font-bold bg-transparent border-none cursor-pointer shrink-0 ml-1"
+                      >
+                        ← Back
+                      </button>
+                    </div>
+                  );
+                }
+
+                // LEVEL 2: When Sub-Category is selected -> SHOW ONLY Sub-Sub-Category Buttons (Spherical, Toric / Cylindrical, Multifocal)
+                if (currentSubCat !== '') {
+                  const tabsList = currentSubCat === 'color'
+                    ? [
+                        { label: 'Zero Power', value: 'zero' },
+                        { label: 'With Power', value: 'prescribed' },
+                        { label: 'Color Combos', value: 'combos' },
+                      ]
+                    : currentSubCat === 'solutions-accessories'
+                    ? [
+                        { label: 'Multi-Purpose Solution', value: 'solution' },
+                        { label: 'Lens Cases & Accessories', value: 'accessories' },
+                      ]
+                    : [
+                        { label: 'Spherical', value: 'distance' },
+                        { label: 'Toric / Cylindrical', value: 'toric' },
+                        { label: 'Multifocal', value: 'multifocal' },
+                      ];
+
+                  return (
+                    <div className={`grid grid-cols-${tabsList.length} gap-2 sm:gap-3 w-full`}>
+                      {tabsList.map((typeTab) => {
+                        const active = currentSubSubCat === typeTab.value;
+                        return (
+                          <button
+                            key={typeTab.value}
+                            onClick={() => {
+                              const params = new URLSearchParams(searchParams.toString());
+                              if (active) {
+                                params.delete('subSubCategory');
+                                params.delete('type');
+                                params.delete('power');
+                              } else {
+                                params.set('subSubCategory', typeTab.value);
+                              }
+                              navigate(`/products?${params.toString()}`);
+                            }}
+                            className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
+                              active
+                                ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
+                                : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
+                            }`}
+                          >
+                            {typeTab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // LEVEL 1: When ONLY main category (Contact Lens) is selected -> SHOW ONLY Sub-Category Buttons
+                return (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+                    {[
+                      { label: 'Clear Contacts', value: 'clear' },
+                      { label: 'Color Contacts', value: 'color' },
+                      { label: 'Solution & Accessories', value: 'solutions-accessories' },
+                    ].map((subTab) => {
+                      const active = currentSubCat === subTab.value;
+                      return (
+                        <button
+                          key={subTab.value}
+                          onClick={() => {
+                            const params = new URLSearchParams(searchParams.toString());
+                            if (active) {
+                              params.delete('subCategory');
+                              params.delete('subSubCategory');
+                              params.delete('type');
+                              params.delete('power');
+                            } else {
+                              params.set('subCategory', subTab.value);
+                            }
+                            navigate(`/products?${params.toString()}`);
+                          }}
+                          className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
+                            active
+                              ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
+                              : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
+                          }`}
+                        >
+                          {subTab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
           {loading ? (
             <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>
           ) : products.length === 0 ? (
@@ -533,13 +682,9 @@ export default function ProductsPage() {
                 let hasActiveValues = false;
                 if (tab.id === 'price' && searchParams.has('maxPrice')) hasActiveValues = true;
                 if (tab.id === 'category' && searchParams.has('category')) hasActiveValues = true;
+                if (tab.id === 'subCategory' && searchParams.has('subCategory')) hasActiveValues = true;
                 if (tab.id === 'gender' && searchParams.has('gender')) hasActiveValues = true;
                 if (tab.id === 'shape' && searchParams.has('shape')) hasActiveValues = true;
-                if (tab.id === 'size' && searchParams.has('frameSize')) hasActiveValues = true;
-                if (tab.id === 'color' && searchParams.has('frameColor')) hasActiveValues = true;
-                if (tab.id === 'type' && searchParams.has('frameType')) hasActiveValues = true;
-                if (tab.id === 'material' && searchParams.has('material')) hasActiveValues = true;
-                if (tab.id === 'faceShape' && searchParams.has('faceShape')) hasActiveValues = true;
                 if (tab.id === 'toggles' && searchParams.has('isPremium')) hasActiveValues = true;
 
                 return (
@@ -591,23 +736,85 @@ export default function ProductsPage() {
               {activeFilterTab === 'category' && (
                 <div className="space-y-3.5 animate-fade-in">
                   <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Category</h4>
-                  {CATEGORIES.map(cat => {
-                    const isChecked = searchParams.get('category') === cat.value;
+                  {categoriesList.map((cat: any) => {
+                    const isChecked = searchParams.get('category') === cat.slug;
                     return (
-                      <label key={cat.value} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
+                      <label key={cat._id} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
                         <input
                           type="radio"
                           name="categoryMobile"
                           checked={isChecked}
-                          onChange={() => updateSingleFilter('category', cat.value)}
+                          onClick={() => handleCategoryChange(cat.slug)}
+                          onChange={() => {}}
                           className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
                         />
                         <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-[#D4A04D]' : ''}`}>
-                          {cat.label}
+                          {cat.name}
                         </span>
                       </label>
                     );
                   })}
+                </div>
+              )}
+
+              {activeFilterTab === 'subCategory' && (
+                <div className="space-y-3.5 animate-fade-in">
+                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Sub-Category</h4>
+                  {subCategories.map((sub: any) => {
+                    const activeSubs = searchParams.get('subCategory')?.split(',') || [];
+                    const isChecked = activeSubs.includes(sub.slug);
+                    return (
+                      <label key={sub._id || sub.slug} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleFilter('subCategory', sub.slug)}
+                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
+                        />
+                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
+                          {sub.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {subCategories.length === 0 && (
+                    <p className="text-gray-500 text-xs italic">No subcategories available</p>
+                  )}
+                </div>
+              )}
+
+              {activeFilterTab === 'subSubCategory' && (
+                <div className="space-y-3.5 animate-fade-in">
+                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Sub-Sub-Category</h4>
+                  {(() => {
+                    const selectedSubCategorySlug = searchParams.get('subCategory');
+                    const subSubCategories = subCategories.flatMap((sub: any) => {
+                      if (selectedSubCategorySlug && sub.slug !== selectedSubCategorySlug) return [];
+                      return sub.children || [];
+                    });
+
+                    if (subSubCategories.length === 0) {
+                      return <p className="text-gray-500 text-xs italic">No sub-sub-categories available for selected category</p>;
+                    }
+
+                    return subSubCategories.map((subsub: any) => {
+                      const activeSubSubs = searchParams.get('subSubCategory')?.split(',') || [];
+                      const isChecked = activeSubSubs.includes(subsub.slug);
+                      return (
+                        <label key={subsub._id || subsub.id || subsub.slug} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleFilter('subSubCategory', subsub.slug)}
+                            className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
+                          />
+                          <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
+                            {subsub.name}
+                          </span>
+                        </label>
+                      );
+                    });
+                  })()}
                 </div>
               )}
 
@@ -654,134 +861,6 @@ export default function ProductsPage() {
                         />
                         <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
                           {shape}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {activeFilterTab === 'size' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Frame Size</h4>
-                  {SIZES.map(size => {
-                    const activeSizes = searchParams.get('frameSize')?.split(',') || [];
-                    const isChecked = activeSizes.includes(size);
-                    return (
-                      <label key={size} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('frameSize', size)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {size}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-
-              {activeFilterTab === 'color' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Frame Color</h4>
-                  {COLORS.map(color => {
-                    const activeColors = searchParams.get('frameColor')?.split(',') || [];
-                    const isChecked = activeColors.includes(color);
-                    
-                    const colorSwatches: Record<string, string> = {
-                      Black: 'bg-black border border-[#2A2A2D]',
-                      Brown: 'bg-[#5C3D2E]',
-                      Gold: 'bg-[#D4A04D]',
-                      Silver: 'bg-[#C0C0C0]',
-                      Transparent: 'bg-white/20 border border-dashed border-[#A7A7A7]',
-                      Pink: 'bg-[#FF69B4]',
-                    };
-
-                    return (
-                      <label key={color} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('frameColor', color)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${colorSwatches[color] || 'bg-gray-400'}`} />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {color}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {activeFilterTab === 'type' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Frame Type</h4>
-                  {TYPES.map(type => {
-                    const activeTypes = searchParams.get('frameType')?.split(',') || [];
-                    const isChecked = activeTypes.includes(type);
-                    return (
-                      <label key={type} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('frameType', type)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {type}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {activeFilterTab === 'material' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Material</h4>
-                  {MATERIALS.map(mat => {
-                    const activeMaterials = searchParams.get('material')?.split(',') || [];
-                    const isChecked = activeMaterials.includes(mat);
-                    return (
-                      <label key={mat} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('material', mat)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {mat}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-
-              {activeFilterTab === 'faceShape' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Suitable Face Shape</h4>
-                  {FACESHAPES.map(face => {
-                    const activeFaces = searchParams.get('faceShape')?.split(',') || [];
-                    const isChecked = activeFaces.includes(face);
-                    return (
-                      <label key={face} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('faceShape', face)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {face}
                         </span>
                       </label>
                     );

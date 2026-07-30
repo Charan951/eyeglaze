@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ICategoryFilter extends Document {
   targetId: mongoose.Types.ObjectId;
-  targetType: 'Category' | 'SubCategory';
+  targetType: 'Category' | 'SubCategory' | 'SubSubCategory' | 'SubSubSubCategory';
   enabledFilters: {
     brand: boolean;
     price: boolean;
@@ -25,7 +25,7 @@ const CategoryFilterSchema = new Schema<ICategoryFilter>(
     targetType: {
       type: String,
       required: true,
-      enum: ['Category', 'SubCategory'],
+      enum: ['Category', 'SubCategory', 'SubSubCategory', 'SubSubSubCategory'],
     },
     enabledFilters: {
       brand: { type: Boolean, default: true },

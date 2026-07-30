@@ -181,7 +181,19 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    final price = json['price'] as Map<dynamic, dynamic>?;
+    final priceObj = json['price'];
+    final Map<dynamic, dynamic>? priceMap = priceObj is Map ? priceObj : null;
+    final double? directNum = priceObj is num ? priceObj.toDouble() : null;
+
+    final double origPrice = (priceMap?['original'] as num?)?.toDouble() ??
+        (json['originalPrice'] as num?)?.toDouble() ??
+        directNum ??
+        999.0;
+    final double sellPrice = (priceMap?['selling'] as num?)?.toDouble() ??
+        (json['sellingPrice'] as num?)?.toDouble() ??
+        directNum ??
+        1.0;
+
     return Product(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       sku: (json['sku'] ?? '').toString(),
@@ -195,8 +207,8 @@ class Product {
               ?.map((img) => img.toString())
               .toList() ??
           [],
-      originalPrice: (price?['original'] as num?)?.toDouble() ?? 999,
-      sellingPrice: (price?['selling'] as num?)?.toDouble() ?? 1,
+      originalPrice: origPrice,
+      sellingPrice: sellPrice,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
       soldCount: (json['soldCount'] as num?)?.toInt() ?? 0,

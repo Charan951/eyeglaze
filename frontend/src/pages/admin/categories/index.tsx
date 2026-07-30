@@ -7,10 +7,13 @@ interface CategoryItem {
   name: string;
   code: string;
   slug: string;
-  type: 'Category' | 'SubCategory';
+  type: 'Category' | 'SubCategory' | 'SubSubCategory' | 'SubSubSubCategory';
   displayOrder: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Archived';
   isDeleted: boolean;
+  categoryId?: { _id: string; name: string };
+  subCategoryId?: { _id: string; name: string };
+  subSubCategoryId?: { _id: string; name: string };
 }
 
 export default function CategoriesList() {
@@ -19,18 +22,21 @@ export default function CategoriesList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [filterType] = useState<string>('Category');
-  const [showTrash, setShowTrash] = useState(false);
+  const [filterType, setFilterType] = useState<string>('Category');
+  const showTrash = false; // Trash Bin functionality removed per request
+
+  // Category, SubCategory & SubSubCategory filters
+  const [parentCategories, setParentCategories] = useState<CategoryItem[]>([]);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('');
+  const [subCategoriesForFilter, setSubCategoriesForFilter] = useState<CategoryItem[]>([]);
+  const [selectedSubCategoryFilter, setSelectedSubCategoryFilter] = useState<string>('');
+  const [subSubCategoriesForFilter, setSubSubCategoriesForFilter] = useState<CategoryItem[]>([]);
+  const [selectedSubSubCategoryFilter, setSelectedSubSubCategoryFilter] = useState<string>('');
 
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-
-  // CSV Import state
-  const [csvText, setCsvText] = useState('');
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -38,6 +44,15 @@ export default function CategoriesList() {
       const queryParams = new URLSearchParams();
       if (search) queryParams.set('search', search);
       if (filterType) queryParams.set('type', filterType);
+      if ((filterType === 'SubCategory' || filterType === 'SubSubCategory' || filterType === 'SubSubSubCategory') && selectedCategoryFilter) {
+        queryParams.set('categoryId', selectedCategoryFilter);
+      }
+      if ((filterType === 'SubSubCategory' || filterType === 'SubSubSubCategory') && selectedSubCategoryFilter) {
+        queryParams.set('subCategoryId', selectedSubCategoryFilter);
+      }
+      if (filterType === 'SubSubSubCategory' && selectedSubSubCategoryFilter) {
+        queryParams.set('subSubCategoryId', selectedSubSubCategoryFilter);
+      }
       queryParams.set('isDeleted', String(showTrash));
       queryParams.set('page', String(page));
       queryParams.set('limit', '10');
@@ -51,11 +66,57 @@ export default function CategoriesList() {
     } finally {
       setLoading(false);
     }
-  }, [search, filterType, showTrash, page]);
+  }, [search, filterType, showTrash, page, selectedCategoryFilter, selectedSubCategoryFilter, selectedSubSubCategoryFilter]);
+
+  // Fetch all parent categories for filter dropdown
+  useEffect(() => {
+    api.get('/admin/categories?type=Category&limit=1000')
+      .then(res => {
+        setParentCategories(res.data.items || []);
+      })
+      .catch(err => {
+        console.error('Failed to fetch parent categories for filter:', err);
+      });
+  }, []);
+
+  // Fetch sub-categories when parent category or filterType changes
+  useEffect(() => {
+    if (filterType === 'SubSubCategory' || filterType === 'SubSubSubCategory') {
+      const url = selectedCategoryFilter
+        ? `/admin/categories?type=SubCategory&categoryId=${selectedCategoryFilter}&limit=1000`
+        : '/admin/categories?type=SubCategory&limit=1000';
+      api.get(url)
+        .then(res => {
+          setSubCategoriesForFilter(res.data.items || []);
+        })
+        .catch(err => console.error('Failed to fetch sub-categories for filter:', err));
+    } else {
+      setSubCategoriesForFilter([]);
+    }
+  }, [filterType, selectedCategoryFilter]);
+
+  // Fetch sub-sub-categories when parent sub-category or filterType changes
+  useEffect(() => {
+    if (filterType === 'SubSubSubCategory') {
+      let url = '/admin/categories?type=SubSubCategory&limit=1000';
+      if (selectedSubCategoryFilter) {
+        url = `/admin/categories?type=SubSubCategory&subCategoryId=${selectedSubCategoryFilter}&limit=1000`;
+      } else if (selectedCategoryFilter) {
+        url = `/admin/categories?type=SubSubCategory&categoryId=${selectedCategoryFilter}&limit=1000`;
+      }
+      api.get(url)
+        .then(res => {
+          setSubSubCategoriesForFilter(res.data.items || []);
+        })
+        .catch(err => console.error('Failed to fetch sub-sub-categories for filter:', err));
+    } else {
+      setSubSubCategoriesForFilter([]);
+    }
+  }, [filterType, selectedCategoryFilter, selectedSubCategoryFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterType, showTrash]);
+  }, [search, filterType, showTrash, selectedCategoryFilter, selectedSubCategoryFilter, selectedSubSubCategoryFilter]);
 
   useEffect(() => {
     fetchCategories();
@@ -101,29 +162,6 @@ export default function CategoriesList() {
       setError('Failed to duplicate.');
     }
   };
-
-  // CSV Operations
-  const triggerCSVExport = () => {
-    window.open(`${api.defaults.baseURL}/admin/categories/export`, '_blank');
-  };
-
-  const handleCSVImport = async () => {
-    if (!csvText.trim()) return;
-    setImportStatus('Importing catalog...');
-    try {
-      const res = await api.post('/admin/categories/import', { csvData: csvText });
-      setImportStatus(`Successfully imported ${res.data.importedCount} segments!`);
-      setTimeout(() => {
-        setShowImportModal(false);
-        setCsvText('');
-        setImportStatus(null);
-        fetchCategories();
-      }, 2000);
-    } catch {
-      setImportStatus('CSV Import failed. Check syntax.');
-    }
-  };
-
   return (
     <div className="space-y-6 select-none text-white">
       {error && (
@@ -148,34 +186,146 @@ export default function CategoriesList() {
         </div>
       </div>
 
-      {/* CSV, Filters, Search tools */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-
-        {/* Trash / Active toggler */}
-        <div className="flex gap-2 text-xs font-bold">
-          <button
-            onClick={() => setShowTrash(!showTrash)}
-            className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${showTrash ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-[#18181A] border-zinc-800 text-gray-400 hover:text-white'}`}
-          >
-            🗑️ {showTrash ? 'Show Active' : 'Trash Bin'}
-          </button>
-          <button onClick={() => setShowImportModal(true)} className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-800 text-gray-300 py-1.5 px-3 rounded-lg cursor-pointer">
-            📥 Bulk Import CSV
-          </button>
-          <button onClick={triggerCSVExport} className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-800 text-gray-300 py-1.5 px-3 rounded-lg cursor-pointer">
-            📤 Bulk Export CSV
-          </button>
-        </div>
+      {/* Dynamic Type Tabs */}
+      <div className="flex border-b border-[#2A2A2D] gap-6 text-xs font-bold uppercase tracking-wider">
+        <button
+          onClick={() => {
+            setFilterType('Category');
+            setSelectedCategoryFilter('');
+            setSelectedSubCategoryFilter('');
+          }}
+          className={`pb-3 relative transition-colors cursor-pointer bg-transparent border-none ${
+            filterType === 'Category' ? 'text-[#D4A04D]' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Categories
+          {filterType === 'Category' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A04D]" />
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setFilterType('SubCategory');
+            setSelectedCategoryFilter('');
+            setSelectedSubCategoryFilter('');
+          }}
+          className={`pb-3 relative transition-colors cursor-pointer bg-transparent border-none ${
+            filterType === 'SubCategory' ? 'text-[#D4A04D]' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Sub-Categories
+          {filterType === 'SubCategory' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A04D]" />
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setFilterType('SubSubCategory');
+            setSelectedCategoryFilter('');
+            setSelectedSubCategoryFilter('');
+            setSelectedSubSubCategoryFilter('');
+          }}
+          className={`pb-3 relative transition-colors cursor-pointer bg-transparent border-none ${
+            filterType === 'SubSubCategory' ? 'text-[#D4A04D]' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Sub-Sub-Categories
+          {filterType === 'SubSubCategory' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A04D]" />
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setFilterType('SubSubSubCategory');
+            setSelectedCategoryFilter('');
+            setSelectedSubCategoryFilter('');
+            setSelectedSubSubCategoryFilter('');
+          }}
+          className={`pb-3 relative transition-colors cursor-pointer bg-transparent border-none ${
+            filterType === 'SubSubSubCategory' ? 'text-[#D4A04D]' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Sub-Sub-Sub-Categories
+          {filterType === 'SubSubSubCategory' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A04D]" />
+          )}
+        </button>
       </div>
 
-      <div className="max-w-sm">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by catalog segment name..."
-          className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors"
-        />
+      {/* Search & Category Filter row */}
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+        <div className="max-w-sm flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by catalog segment name..."
+            className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors"
+          />
+        </div>
+
+        {(filterType === 'SubCategory' || filterType === 'SubSubCategory' || filterType === 'SubSubSubCategory') && (
+          <div className="w-full sm:w-60">
+            <select
+              value={selectedCategoryFilter}
+              onChange={e => {
+                setSelectedCategoryFilter(e.target.value);
+                setSelectedSubCategoryFilter('');
+                setSelectedSubSubCategoryFilter('');
+                setPage(1);
+              }}
+              className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors cursor-pointer"
+            >
+              <option value="">All Parent Categories</option>
+              {parentCategories.map(cat => (
+                <option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(filterType === 'SubSubCategory' || filterType === 'SubSubSubCategory') && (
+          <div className="w-full sm:w-60">
+            <select
+              value={selectedSubCategoryFilter}
+              onChange={e => {
+                setSelectedSubCategoryFilter(e.target.value);
+                setSelectedSubSubCategoryFilter('');
+                setPage(1);
+              }}
+              className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors cursor-pointer"
+            >
+              <option value="">All Parent Sub-Categories</option>
+              {subCategoriesForFilter.map(sub => (
+                <option key={sub._id} value={sub._id}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {filterType === 'SubSubSubCategory' && (
+          <div className="w-full sm:w-60">
+            <select
+              value={selectedSubSubCategoryFilter}
+              onChange={e => {
+                setSelectedSubSubCategoryFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors cursor-pointer"
+            >
+              <option value="">All Parent Sub-Sub-Categories</option>
+              {subSubCategoriesForFilter.map(ss => (
+                <option key={ss._id} value={ss._id}>
+                  {ss.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Categories Table */}
@@ -197,13 +347,42 @@ export default function CategoriesList() {
                 {items.map(item => (
                   <tr key={item._id} className="hover:bg-[#1C1C1E] transition-colors">
                     <td className="px-5 py-4">
-                      {item.slug !== 'contact-lenses' && item.slug !== 'contact_lenses' && item.slug !== 'accessories' ? (
-                        <button
-                          onClick={() => navigate(`/admin/lenses?category=${item.slug}`)}
-                          className="font-semibold text-white hover:text-[#D4A04D] hover:underline text-left bg-transparent border-none p-0 cursor-pointer"
-                        >
-                          {item.name}
-                        </button>
+                      {item.type === 'SubSubSubCategory' ? (
+                        <>
+                          <div className="font-semibold text-white">{item.name}</div>
+                          <div className="flex flex-wrap gap-2 text-[9px] font-bold mt-0.5 uppercase tracking-wider">
+                            {item.subSubCategoryId && (
+                              <span className="text-[#D4A04D]">Sub-Sub: {item.subSubCategoryId.name}</span>
+                            )}
+                            {item.subCategoryId && (
+                              <span className="text-[#D4A04D]">Sub: {item.subCategoryId.name}</span>
+                            )}
+                            {item.categoryId && (
+                              <span className="text-gray-400">(Parent: {item.categoryId.name})</span>
+                            )}
+                          </div>
+                        </>
+                      ) : item.type === 'SubSubCategory' ? (
+                        <>
+                          <div className="font-semibold text-white">{item.name}</div>
+                          <div className="flex gap-2 text-[9px] font-bold mt-0.5 uppercase tracking-wider">
+                            {item.subCategoryId && (
+                              <span className="text-[#D4A04D]">Sub-Category: {item.subCategoryId.name}</span>
+                            )}
+                            {item.categoryId && (
+                              <span className="text-gray-400">(Parent: {item.categoryId.name})</span>
+                            )}
+                          </div>
+                        </>
+                      ) : item.type === 'SubCategory' ? (
+                        <>
+                          <div className="font-semibold text-white">{item.name}</div>
+                          {item.categoryId && (
+                            <div className="text-[9px] text-[#D4A04D] font-bold mt-0.5 uppercase tracking-wider">
+                              Parent: {item.categoryId.name}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="font-semibold text-white">{item.name}</div>
                       )}
@@ -226,14 +405,6 @@ export default function CategoriesList() {
                       <div className="flex gap-3 text-xs font-bold">
                         {!item.isDeleted ? (
                           <>
-                            {item.slug !== 'contact-lenses' && item.slug !== 'contact_lenses' && item.slug !== 'accessories' && (
-                              <button
-                                onClick={() => navigate(`/admin/lenses?category=${item.slug}`)}
-                                className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer"
-                              >
-                                Manage Lenses
-                              </button>
-                            )}
                             <button onClick={() => navigate(`/admin/categories/edit/${item.type || 'Category'}/${item._id}`)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Edit</button>
                             <button onClick={() => handleDuplicate(item)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Duplicate</button>
                             <button onClick={() => handleDelete(item)} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
@@ -281,27 +452,7 @@ export default function CategoriesList() {
         </div>
       )}
 
-      {/* CSV Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-[#131314] border border-[#2A2A2D] p-6 rounded-2xl max-w-xl w-full space-y-4 shadow-2xl">
-            <h3 className="text-white text-sm font-extrabold uppercase tracking-wider text-[#D4A04D]">Bulk Import Categories (CSV)</h3>
-            <p className="text-[10px] text-gray-500">Paste your CSV strings containing headers: Type,Name,Code,Slug,ParentCodeOrName,DisplayOrder,Status</p>
-            <textarea
-              value={csvText}
-              onChange={e => setCsvText(e.target.value)}
-              placeholder="e.g.&#10;Type,Name,Code,Slug,ParentCodeOrName,DisplayOrder,Status&#10;Category,Eyeglasses,CAT-MEYE-001,eyeglasses,N/A,1,Active"
-              rows={8}
-              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4 text-xs text-white font-mono focus:outline-none resize-none"
-            />
-            {importStatus && <div className="text-xs font-semibold text-yellow-400 animate-pulse">{importStatus}</div>}
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowImportModal(false)} className="px-4 py-2 rounded-xl text-xs bg-[#2A2A2D] text-white hover:bg-zinc-800 transition-colors font-bold uppercase border-none cursor-pointer">Cancel</button>
-              <button onClick={handleCSVImport} className="px-4 py-2 rounded-xl text-xs bg-[#D4A04D] text-black hover:bg-[#C8923E] transition-colors font-bold uppercase border-none cursor-pointer">Import CSV</button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface WishlistItem {
   rating?: number;
   reviewCount?: number;
   isBestseller?: boolean;
+  offerBadges?: string[];
   images?: string[];
 }
 
@@ -82,7 +83,7 @@ export default function WishlistPage() {
               {/* Image Container */}
               <div className="relative aspect-square bg-[#1A1A1C] flex items-center justify-center p-4 border-b border-[#2A2A2D]/40">
                 {item.images?.[0] ? (
-                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500 rounded-none" />
+                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-contain p-6 group-hover:scale-105 transition-transform duration-500 rounded-none" />
                 ) : (
                   <div className="text-gray-500 text-center">
                     <div className="text-5xl mb-2">👓</div>
@@ -90,14 +91,23 @@ export default function WishlistPage() {
                   </div>
                 )}
                 
-                {item.isBestseller && (
-                  <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase z-20 shadow-md">
-                    BESTSELLER
-                  </span>
-                )}
+                {/* Badge Overlay */}
+                <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-20">
+                  {item.isBestseller && (
+                    <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                      BESTSELLER
+                    </span>
+                  )}
+                  {item.offerBadges?.map((badge: string, idx: number) => (
+                    <span key={idx} className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md font-sans">
+                      {badge}
+                    </span>
+                  ))}
+                </div>
                 
+                {/* Discount Overlay */}
                 {discount > 0 && (
-                  <span className="absolute top-3 right-3 bg-[#D4A04D]/25 border border-[#D4A04D]/40 text-[#D4A04D] text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider z-20 shadow-md">
+                  <span className="absolute top-3 right-3 bg-black border border-zinc-800 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider z-20 shadow-md">
                     {discount}% OFF
                   </span>
                 )}

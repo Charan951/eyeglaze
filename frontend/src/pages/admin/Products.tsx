@@ -8,6 +8,7 @@ interface Product {
   sku: string;
   name: string;
   category: string;
+  mrp?: number;
   price: { original: number; selling: number };
   isActive: boolean;
   isBestseller: boolean;

@@ -77,6 +77,7 @@ export interface IProduct extends Document {
   availableSizes?: ('Small' | 'Medium' | 'Large')[];
   sizeMeasurements?: ISizeMeasurement[];
   offerBadges?: string[];
+  kidsAgeGroups?: string[];
   
   // NEW WIZARD FIELDS BELOW
   barcode?: string;
@@ -85,6 +86,10 @@ export interface IProduct extends Document {
   categoryId?: mongoose.Types.ObjectId;
   subCategoryId?: mongoose.Types.ObjectId;
   subCategory?: string;
+  subSubCategoryId?: mongoose.Types.ObjectId;
+  subSubCategory?: string;
+  subSubSubCategoryId?: mongoose.Types.ObjectId;
+  subSubSubCategory?: string;
   launchDate?: Date;
   sortOrder?: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Scheduled';
@@ -224,7 +229,15 @@ export interface IProduct extends Document {
   // New fields for Special Power and Contacts
   readingPowers?: string[];
   contactPowers?: Array<{ power: string; price: number }>;
+  contactPackOptions?: Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>;
   contactDisposableType?: string;
+  lensMaterial?: string;
+  waterContent?: string;
+  baseCurve?: string;
+  diameter?: string;
+  packaging?: string;
+  powerRange?: string;
+  lensUsage?: string;
   sellAsFrame?: boolean;
   sellWithLens?: boolean;
 
@@ -288,12 +301,15 @@ const ProductSchema = new Schema<IProduct>(
     discountPercent: { type: Number },
     category: {
       type: String,
-      enum: ['prescription', 'sunglasses', 'blue_light', 'contact_lenses', 'kids', 'eyeglasses', 'computer-glasses', 'power-sunglasses', 'reading-glasses', 'accessories'],
     },
     categories: [String],
     gender: {
       type: [String],
       default: ['unisex'],
+    },
+    kidsAgeGroups: {
+      type: [String],
+      default: [],
     },
     compatible: {
       prescription: { type: Boolean, default: false },
@@ -331,8 +347,12 @@ const ProductSchema = new Schema<IProduct>(
     slug: { type: String, required: true, unique: true },
     brandId: { type: Schema.Types.ObjectId, ref: 'Brand' },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
-    subCategoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
+    subCategoryId: { type: Schema.Types.ObjectId, ref: 'SubCategory' },
     subCategory: { type: String },
+    subSubCategoryId: { type: Schema.Types.ObjectId, ref: 'SubSubCategory' },
+    subSubCategory: { type: String },
+    subSubSubCategoryId: { type: Schema.Types.ObjectId, ref: 'SubSubSubCategory' },
+    subSubSubCategory: { type: String },
     launchDate: { type: Date },
     sortOrder: { type: Number, default: 0 },
     status: {
@@ -497,7 +517,22 @@ const ProductSchema = new Schema<IProduct>(
         price: { type: Number }
       }
     ],
+    contactPackOptions: [
+      {
+        packName: { type: String },
+        price: { type: Number },
+        originalPrice: { type: Number },
+        lensesPerBox: { type: Number }
+      }
+    ],
     contactDisposableType: { type: String },
+    lensMaterial: { type: String },
+    waterContent: { type: String },
+    baseCurve: { type: String },
+    diameter: { type: String },
+    packaging: { type: String },
+    powerRange: { type: String },
+    lensUsage: { type: String },
     sellAsFrame: { type: Boolean, default: true },
     sellWithLens: { type: Boolean, default: true },
 
@@ -511,4 +546,7 @@ ProductSchema.index({ status: 1 });
 ProductSchema.index({ brandId: 1 });
 ProductSchema.index({ categoryId: 1 });
 
-export const Product = mongoose.models.Product || mongoose.model<IProduct>('Product', ProductSchema);
+if (mongoose.models.Product) {
+  delete mongoose.models.Product;
+}
+export const Product = mongoose.model<IProduct>('Product', ProductSchema);

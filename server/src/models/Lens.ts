@@ -13,6 +13,7 @@ export interface ILens extends Document {
   lensType: mongoose.Types.ObjectId;
   basePrice: number;
   memberPrice?: number;
+  description?: string;
   displayOrder: number;
   status: 'Active' | 'Inactive';
   powerPricing?: IPowerPricing[];
@@ -30,6 +31,7 @@ const LensSchema = new Schema<ILens>(
     lensType: { type: Schema.Types.ObjectId, ref: 'LensType', required: true },
     basePrice: { type: Number, required: true, min: 0 },
     memberPrice: { type: Number, min: 0 },
+    description: { type: String, default: '' },
     displayOrder: { type: Number, default: 0 },
     status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
     minSph: { type: Number, default: -20 },

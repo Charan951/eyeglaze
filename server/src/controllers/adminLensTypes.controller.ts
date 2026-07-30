@@ -34,12 +34,12 @@ export const getLensTypes = async (req: Request, res: Response) => {
 
 export const createLensType = async (req: Request, res: Response) => {
   try {
-    const { name, status, category = 'eyeglasses' } = req.body;
+    const { name, status, category = 'eyeglasses', description } = req.body;
     const existing = await LensType.findOne({ name, category });
     if (existing) {
       return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
     }
-    const newLensType = new LensType({ name, status, category });
+    const newLensType = new LensType({ name, status, category, description });
     await newLensType.save();
     try {
       getIO().emit('lens_type_changed', { action: 'create', lensType: newLensType });
@@ -58,12 +58,12 @@ export const createLensType = async (req: Request, res: Response) => {
 export const updateLensType = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, status, category } = req.body;
+    const { name, status, category, description } = req.body;
     const existing = await LensType.findOne({ name, category, _id: { $ne: id } });
     if (existing) {
        return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
     }
-    const updated = await LensType.findByIdAndUpdate(id, { name, status, category }, { returnDocument: 'after' });
+    const updated = await LensType.findByIdAndUpdate(id, { name, status, category, description }, { returnDocument: 'after' });
     if (!updated) return res.status(404).json({ message: 'Lens Type not found' });
     try {
       getIO().emit('lens_type_changed', { action: 'update', lensType: updated });

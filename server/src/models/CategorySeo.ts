@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ICategorySeo extends Document {
   targetId: mongoose.Types.ObjectId;
-  targetType: 'Category' | 'SubCategory';
+  targetType: 'Category' | 'SubCategory' | 'SubSubCategory' | 'SubSubSubCategory';
   seoTitle?: string;
   metaDescription?: string;
   keywords?: string;
@@ -19,7 +19,7 @@ const CategorySeoSchema = new Schema<ICategorySeo>(
     targetType: {
       type: String,
       required: true,
-      enum: ['Category', 'SubCategory'],
+      enum: ['Category', 'SubCategory', 'SubSubCategory', 'SubSubSubCategory'],
     },
     seoTitle: { type: String },
     metaDescription: { type: String },

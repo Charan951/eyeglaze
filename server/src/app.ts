@@ -22,6 +22,7 @@ import ticketsRoutes from './routes/tickets.routes';
 import cashbackCampaignsRoutes from './routes/cashbackCampaigns.routes';
 import categoriesRoutes from './routes/categories.routes';
 import aiRoutes from './routes/ai.routes';
+import shapesRoutes from './routes/shapes.routes';
 
 
 import adminProductsRoutes from './routes/admin/products.routes';
@@ -41,6 +42,7 @@ import adminLensesRoutes from './routes/admin/lenses.routes';
 import adminCouponsRoutes from './routes/admin/coupons.routes';
 import reelsRoutes from './routes/reels.routes';
 import adminReelsRoutes from './routes/admin/reels.routes';
+import adminShapesRoutes from './routes/admin/shapes.routes';
 
 dotenv.config();
 
@@ -158,6 +160,7 @@ app.use('/api/reels', reelsRoutes);
 app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/shapes', shapesRoutes);
 
 
 // Auth-required routes
@@ -167,6 +170,19 @@ app.use('/api/prescriptions', requireAuth, prescriptionsRoutes);
 app.use('/api/coupons', optionalAuth, couponsRoutes);
 app.use('/api/wishlist', requireAuth, wishlistRoutes);
 app.use('/api/tickets', requireAuth, ticketsRoutes);
+app.use('/api/upload', requireAdmin(), adminUploadRoutes);
+
+import {
+  getPublicKidsAgeGroups,
+  getAdminKidsAgeGroups,
+  createKidsAgeGroup,
+  updateKidsAgeGroup,
+  deleteKidsAgeGroup,
+  restoreKidsAgeGroup,
+} from './controllers/admin/kidsAgeGroups.controller';
+
+app.get('/api/kids-age-groups', getPublicKidsAgeGroups);
+app.get('/api/kids_age_groups', getPublicKidsAgeGroups);
 
 // Admin routes
 const adminRouter = express.Router();
@@ -184,6 +200,23 @@ adminRouter.use('/reels', adminReelsRoutes);
 adminRouter.use('/lens-types', adminLensTypesRoutes);
 adminRouter.use('/lenses', adminLensesRoutes);
 adminRouter.use('/coupons', adminCouponsRoutes);
+adminRouter.use('/shapes', adminShapesRoutes);
+
+// Kids Age Groups (Support both hyphens & underscores)
+adminRouter.get('/kids-age-groups', getAdminKidsAgeGroups);
+adminRouter.get('/kids_age_groups', getAdminKidsAgeGroups);
+
+adminRouter.post('/kids-age-groups', createKidsAgeGroup);
+adminRouter.post('/kids_age_groups', createKidsAgeGroup);
+
+adminRouter.put('/kids-age-groups/:id', updateKidsAgeGroup);
+adminRouter.put('/kids_age_groups/:id', updateKidsAgeGroup);
+
+adminRouter.delete('/kids-age-groups/:id', deleteKidsAgeGroup);
+adminRouter.delete('/kids_age_groups/:id', deleteKidsAgeGroup);
+
+adminRouter.put('/kids-age-groups/:id/restore', restoreKidsAgeGroup);
+adminRouter.put('/kids_age_groups/:id/restore', restoreKidsAgeGroup);
 
 app.use('/api/admin', requireAdmin(), adminRouter);
 

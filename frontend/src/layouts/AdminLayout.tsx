@@ -14,7 +14,9 @@ import {
   Smartphone,
   Image,
   Tag,
-  LogOut
+  LogOut,
+  Shapes,
+  Eye
 } from 'lucide-react';
 
 interface NavLinkItem {
@@ -37,6 +39,8 @@ const navItems: NavItem[] = [
   { type: 'link', href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { type: 'link', href: '/admin/products', label: 'Products', icon: Glasses },
   { type: 'link', href: '/admin/categories', label: 'Categories', icon: Folder },
+  { type: 'link', href: '/admin/shapes', label: 'Shapes', icon: Shapes },
+  { type: 'link', href: '/admin/lenses', label: 'Lenses', icon: Eye },
   { type: 'link', href: '/admin/orders', label: 'Orders', icon: Package },
   { type: 'link', href: '/admin/inventory', label: 'Inventory', icon: Boxes },
   { type: 'link', href: '/admin/users', label: 'Users', icon: Users },

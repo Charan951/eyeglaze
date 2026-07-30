@@ -139,12 +139,39 @@ export default function LandingPage() {
     }
   };
 
-  const { banners: initialBanners, videos: initialVideos, reels: initialReels, categories: initialCategories, featuredProducts: initialFeaturedProducts } = useLoaderData() as any;
+  const shapesCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollShapesLeft = () => {
+    if (shapesCarouselRef.current) {
+      shapesCarouselRef.current.scrollBy({ left: -240, behavior: 'smooth' });
+    }
+  };
+
+  const scrollShapesRight = () => {
+    if (shapesCarouselRef.current) {
+      shapesCarouselRef.current.scrollBy({ left: 240, behavior: 'smooth' });
+    }
+  };
+
+  const { banners: initialBanners, videos: initialVideos, reels: initialReels, categories: initialCategories, featuredProducts: initialFeaturedProducts, shapes: initialShapes } = useLoaderData() as any;
 
   const [banners, setBanners] = useState<any[]>(initialBanners || []);
+  const [dbShapes, setDbShapes] = useState<any[]>(initialShapes || []);
+  const [dbKidsAgeGroups, setDbKidsAgeGroups] = useState<any[]>([]);
+
   useEffect(() => {
     if (initialBanners) setBanners(initialBanners);
   }, [initialBanners]);
+
+  useEffect(() => {
+    if (initialShapes) setDbShapes(initialShapes);
+  }, [initialShapes]);
+
+  useEffect(() => {
+    api.get('/kids-age-groups')
+      .then((res) => setDbKidsAgeGroups(res.data || []))
+      .catch(() => {});
+  }, []);
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
   const heroBanners = banners.filter((b: any) => b.position === 'hero' && b.isActive);
@@ -230,6 +257,24 @@ export default function LandingPage() {
       });
   };
 
+  const fetchShapes = () => {
+    api.get('/shapes')
+      .then((res) => {
+        setDbShapes(res.data || []);
+      })
+      .catch((err) => {
+        console.error('Error fetching shapes:', err);
+      });
+  };
+
+  // Setup shapes socket listener
+  useEffect(() => {
+    socket.on('shape_changed', fetchShapes);
+    return () => {
+      socket.off('shape_changed', fetchShapes);
+    };
+  }, []);
+
   // Setup banner socket listener
   useEffect(() => {
     socket.on('banner_changed', fetchBanners);
@@ -294,6 +339,20 @@ export default function LandingPage() {
 
 
   const getCategorySubOptions = (cat: any) => {
+    // If the category has children subcategories from the database, use them dynamically!
+    if (cat.children && cat.children.length > 0) {
+      const sortedChildren = [...cat.children].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      return sortedChildren.map((sub: any) => ({
+        label: sub.name,
+        img: sub.bannerImage || sub.icon || '/images/hero_model.png',
+        to: sub.linkTo || `/products?category=${cat.slug}${sub.gender ? `&gender=${sub.gender}` : `&subCategory=${sub.slug}`}`,
+        gender: sub.gender || undefined,
+        shapeModal: sub.shapeModal || false,
+        modalShapes: sub.modalShapes || undefined,
+        subCategorySlug: sub.slug
+      }));
+    }
+
     const slug = cat.slug.toLowerCase();
     
     if (slug === 'eyeglasses' || slug === 'prescription') {
@@ -354,10 +413,16 @@ export default function LandingPage() {
       e.preventDefault();
       const categorySlug = option.categoryOverride || cat.slug;
       setShapeModalCategory(categorySlug);
+      const defaultShapes = dbShapes && dbShapes.length > 0 
+        ? dbShapes.map((s: any) => s.name)
+        : ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'];
+      setShapeModalShapes(option.modalShapes || defaultShapes);
+      
+      setShapeModalSubCategory(option.subCategorySlug || '');
       
       if (option.gender) {
         setShapeModalGender(option.gender);
-        setShapeModalTitle(`${option.label}'s ${cat.name}`);
+        setShapeModalTitle(option.gender === 'kids' ? 'Select Age Group' : `${option.label}'s ${cat.name}`);
       } else {
         setShapeModalGender('');
         setShapeModalTitle(option.label);
@@ -424,6 +489,8 @@ export default function LandingPage() {
   const [shapeModalTitle, setShapeModalTitle] = useState('');
   const [shapeModalCategory, setShapeModalCategory] = useState('');
   const [shapeModalGender, setShapeModalGender] = useState('');
+  const [shapeModalSubCategory, setShapeModalSubCategory] = useState('');
+  const [shapeModalShapes, setShapeModalShapes] = useState<string[]>([]);
 
   // Reels modal states
   const [selectedReel, setSelectedReel] = useState<any | null>(null);
@@ -859,23 +926,39 @@ export default function LandingPage() {
                     </div>
                   )}
                   <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
-                  <div className={`grid gap-6 ${subOptions.length === 3 ? 'grid-cols-3 max-w-3xl' : 'grid-cols-4 max-w-4xl'} mx-auto w-full`}>
+                  <div 
+                    className="grid gap-6 mx-auto w-full justify-center"
+                    style={{
+                      gridTemplateColumns: `repeat(${cat.subCategoryColumns || (subOptions.length === 3 ? 3 : 4)}, minmax(0, 1fr))`,
+                      maxWidth: cat.subCategorySize === 'small' ? '960px' : cat.subCategorySize === 'large' ? '1600px' : '1280px'
+                    }}
+                  >
                     {subOptions.map((item, idx) => (
                       <Link 
                         key={idx} 
                         to={item.to}
                         onClick={(e) => handleSubOptionClick(e, item, cat)}
-                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-square overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                        className={`relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer
+                          ${cat.subCategoryShape === 'circle' ? 'rounded-full aspect-square' : cat.subCategoryShape === 'rectangle' ? 'rounded-2xl aspect-[4/3]' : 'rounded-2xl aspect-square'}
+                        `}
                       >
                         <img 
                           src={item.img} 
                           alt={item.label} 
-                          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                          className="absolute inset-0 w-full h-full object-contain p-3 pb-14 sm:p-5 sm:pb-20 object-center transition-transform duration-500 group-hover:scale-105"
                         />
                         
-                        <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
-                          <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
-                          <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                        <div className={`relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent flex flex-col items-center text-center justify-center transition-all duration-300
+                          ${cat.subCategoryShape === 'circle' ? 'pt-8 pb-8 px-6' : 'pt-12 pb-5 px-4'}
+                        `}>
+                          <span className={`font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors
+                            ${cat.subCategorySize === 'small' ? 'text-xs' : cat.subCategorySize === 'large' ? 'text-base' : 'text-sm'}
+                          `}>
+                            {item.label}
+                          </span>
+                          <span className={`text-[#D4A04D] font-bold uppercase tracking-widest flex items-center justify-center gap-0.5
+                            ${cat.subCategorySize === 'small' ? 'text-[8px] mt-1' : cat.subCategorySize === 'large' ? 'text-xs mt-2' : 'text-[10px] mt-1.5'}
+                          `}>
                             <span>Shop Now</span>
                             <span>→</span>
                           </span>
@@ -1142,23 +1225,38 @@ export default function LandingPage() {
                     </div>
                   )}
                   <h3 className="text-[10px] font-black text-white tracking-widest uppercase">{cat.name}</h3>
-                  <div className={`grid gap-2 ${subOptions.length === 3 ? 'grid-cols-3 max-w-sm' : 'grid-cols-4 max-w-md'} mx-auto w-full`}>
+                  <div 
+                    className="grid gap-2 mx-auto w-full justify-center"
+                    style={{
+                      gridTemplateColumns: `repeat(${cat.subCategoryColumns || (subOptions.length === 3 ? 3 : 4)}, minmax(0, 1fr))`
+                    }}
+                  >
                     {subOptions.map((item, idx) => (
                       <Link 
                         key={idx} 
                         to={item.to}
                         onClick={(e) => handleSubOptionClick(e, item, cat)}
-                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-square overflow-hidden group shadow-md flex flex-col justify-end"
+                        className={`relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 overflow-hidden group shadow-md flex flex-col justify-end
+                          ${cat.subCategoryShape === 'circle' ? 'rounded-full aspect-square' : cat.subCategoryShape === 'rectangle' ? 'rounded-xl aspect-[4/3]' : 'rounded-xl aspect-square'}
+                        `}
                       >
                         <img 
                           src={item.img} 
                           alt={item.label} 
-                          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
+                          className="absolute inset-0 w-full h-full object-contain p-2 pb-10 object-center transition-transform duration-300 group-hover:scale-103"
                         />
                         
-                        <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
-                          <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
-                          <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
+                        <div className={`relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center text-center justify-center
+                          ${cat.subCategoryShape === 'circle' ? 'pt-4 pb-4 px-2' : 'pt-6 pb-2 px-1.5'}
+                        `}>
+                          <span className={`font-black text-white uppercase tracking-wider leading-none
+                            ${cat.subCategorySize === 'small' ? 'text-[6px]' : cat.subCategorySize === 'large' ? 'text-[10px]' : 'text-[8px]'}
+                          `}>
+                            {item.label}
+                          </span>
+                          <span className={`text-[#D4A04D] font-bold uppercase tracking-widest flex items-center justify-center gap-0.5
+                            ${cat.subCategorySize === 'small' ? 'text-[5px] mt-0.5' : cat.subCategorySize === 'large' ? 'text-[8px] mt-1.5' : 'text-[6px] mt-1'}
+                          `}>
                             <span>Shop Now</span>
                             <span>→</span>
                           </span>
@@ -1215,102 +1313,127 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 w-full">
-            {[
-              {
-                name: 'Hexagonal',
-                desc: 'Geometric & Bold',
-                slug: 'hexagonal',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <polygon points="10,15 20,6 35,6 45,15 35,24 20,24" />
-                    <polygon points="55,15 65,6 80,6 90,15 80,24 65,24" />
-                    <path d="M45,13 L55,13 M10,13 L3,13 M90,13 L97,13" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Rectangle',
-                desc: 'Classic & Smart',
-                slug: 'rectangle',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <rect x="12" y="7" width="30" height="16" rx="2" />
-                    <rect x="58" y="7" width="30" height="16" rx="2" />
-                    <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Round',
-                desc: 'Retro & Artistic',
-                slug: 'round',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="27" cy="15" r="10" />
-                    <circle cx="73" cy="15" r="10" />
-                    <path d="M37,15 L63,15 M17,15 L4,15 M83,15 L96,15" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Aviator',
-                desc: 'Retro & Iconic',
-                slug: 'aviator',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
-                    <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
-                    <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Cat-Eye',
-                desc: 'Sleek & Vintage',
-                slug: 'cateye',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M10,8 C25,8 42,12 40,20 C38,25 25,25 15,18 C8,13 8,8 10,8 Z" />
-                    <path d="M90,8 C75,8 58,12 60,20 C62,25 75,25 85,18 C92,13 92,8 90,8 Z" />
-                    <path d="M40,15 L60,15 M8,9 L3,9 M92,9 L97,9" />
-                  </svg>
-                )
-              },
-              {
-                name: 'Clubmaster',
-                desc: 'Sleek & Professional',
-                slug: 'clubmaster',
-                svg: (
-                  <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M14,12 C14,18 20,23 28,23 C36,23 42,18 42,12" strokeWidth="1.2" />
-                    <path d="M58,12 C58,18 64,23 72,23 C80,23 86,18 86,12" strokeWidth="1.2" />
-                    <path d="M12,12 C12,10 18,7 28,7 C38,7 42,10 42,12" strokeWidth="2.5" fill="none" />
-                    <path d="M88,12 C88,10 82,7 72,7 C62,7 58,10 58,12" strokeWidth="2.5" fill="none" />
-                    <path d="M42,13 L58,13 M12,11 L4,11 M88,11 L96,11" />
-                  </svg>
-                )
-              }
-            ].map((shape) => (
-              <Link
-                key={shape.slug}
-                to={`/products?shape=${shape.slug}`}
-                className="bg-[#121212] border border-[#2A2A2D] rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/50 transition-all duration-300 group cursor-pointer"
-              >
-                <div className="h-10 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
-                  {shape.svg}
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-white text-xs font-bold tracking-wider group-hover:text-[#D4A04D] transition-colors">{shape.name}</span>
-                  <span className="text-gray-500 text-[9px] font-semibold">{shape.desc}</span>
-                </div>
-              </Link>
-            ))}
+          {/* Shapes Carousel Container */}
+          <div 
+            ref={shapesCarouselRef}
+            className="flex gap-6 sm:gap-8 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full py-4 justify-start"
+          >
+            {(() => {
+              const fallbackShapes = [
+                {
+                  name: 'Hexagonal',
+                  slug: 'hexagonal',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <polygon points="10,15 20,6 35,6 45,15 35,24 20,24" />
+                      <polygon points="55,15 65,6 80,6 90,15 80,24 65,24" />
+                      <path d="M45,13 L55,13 M10,13 L3,13 M90,13 L97,13" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Rectangle',
+                  slug: 'rectangle',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="12" y="7" width="30" height="16" rx="2" />
+                      <rect x="58" y="7" width="30" height="16" rx="2" />
+                      <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Round',
+                  slug: 'round',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <circle cx="27" cy="15" r="10" />
+                      <circle cx="73" cy="15" r="10" />
+                      <path d="M37,15 L63,15 M17,15 L4,15 M83,15 L96,15" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Aviator',
+                  slug: 'aviator',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
+                      <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
+                      <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Cat-Eye',
+                  slug: 'cateye',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M10,8 C25,8 42,12 40,20 C38,25 25,25 15,18 C8,13 8,8 10,8 Z" />
+                      <path d="M90,8 C75,8 58,12 60,20 C62,25 75,25 85,18 C92,13 92,8 90,8 Z" />
+                      <path d="M40,15 L60,15 M8,9 L3,9 M92,9 L97,9" />
+                    </svg>
+                  )
+                },
+                {
+                  name: 'Clubmaster',
+                  slug: 'clubmaster',
+                  svg: (
+                    <svg className="w-12 h-6 sm:w-16 sm:h-8 text-zinc-700 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M14,12 C14,18 20,23 28,23 C36,23 42,18 42,12" strokeWidth="1.2" />
+                      <path d="M58,12 C58,18 64,23 72,23 C80,23 86,18 86,12" strokeWidth="1.2" />
+                      <path d="M12,12 C12,10 18,7 28,7 C38,7 42,10 42,12" strokeWidth="2.5" fill="none" />
+                      <path d="M88,12 C88,10 82,7 72,7 C62,7 58,10 58,12" strokeWidth="2.5" fill="none" />
+                      <path d="M42,13 L58,13 M12,11 L4,11 M88,11 L96,11" />
+                    </svg>
+                  )
+                }
+              ];
+
+              const shapesToRender = dbShapes && dbShapes.length > 0 ? dbShapes : fallbackShapes;
+
+              return shapesToRender.map((shape: any) => {
+                const isFallback = 'svg' in shape;
+                return (
+                  <Link
+                    key={shape.slug}
+                    to={`/products?shape=${shape.slug}`}
+                    className="flex-shrink-0 snap-start flex flex-col items-center justify-center text-center gap-3.5 group cursor-pointer w-[90px] sm:w-[110px]"
+                  >
+                    {/* Outer White Circle */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white border border-zinc-200/50 flex items-center justify-center p-1.5 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_18px_rgba(212,160,77,0.18)] transition-all duration-300">
+                      {/* Inner Gray Circle */}
+                      <div className="w-full h-full rounded-full bg-[#DCDCDC] flex items-center justify-center p-2.5 overflow-hidden">
+                        {isFallback ? (
+                          shape.svg
+                        ) : (
+                          <img
+                            src={shape.image}
+                            alt={shape.name}
+                            className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {/* Shape Name */}
+                    <span className="text-white text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] group-hover:text-[#D4A04D] transition-colors leading-none">
+                      {shape.name}
+                    </span>
+                  </Link>
+                );
+              });
+            })()}
           </div>
         </section>
 
         {/* Featured Products Section - Full View */}
-        <section className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]">
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]"
+        >
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h2 className="text-lg font-bold uppercase tracking-wider text-white">Featured Products</h2>
@@ -1354,24 +1477,20 @@ export default function LandingPage() {
                   <motion.div 
                     key={productId}
                     onClick={() => navigate(`/products/${productId}`)}
-                    initial={{ opacity: 0, y: 35 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-40px" }}
-                    transition={{ duration: 0.5, delay: pIdx * 0.05 }}
                     whileHover={{ y: -6, borderColor: "rgba(212,160,77,0.6)", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
                     className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group flex flex-col justify-between cursor-pointer"
                   >
                     
                     {/* Image & Badge Container */}
                     <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
-                      <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase">
+                      <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase z-10 shadow-md">
                         {badge}
                       </span>
                       
                       <img 
                         src={imageUrl} 
                         alt={name} 
-                        className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
+                        className="max-h-[70%] max-w-[75%] mt-4 object-contain group-hover:scale-105 transition-transform duration-500"
                       />
 
                       {/* Hover Quick View Overlay */}
@@ -1420,7 +1539,7 @@ export default function LandingPage() {
               </svg>
             </button>
           </div>
-        </section>
+        </motion.section>
 
         {/* New Arrivals Section */}
         <section className="w-full pt-8 border-t border-[#1C1C1E] flex flex-col gap-6">
@@ -2500,84 +2619,155 @@ export default function LandingPage() {
               </button>
             </div>
 
-            {/* Shape Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                {
-                  name: 'Square',
-                  slug: 'square',
-                  svg: (
-                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="15" y="5" width="24" height="20" rx="4" />
-                      <rect x="61" y="5" width="24" height="20" rx="4" />
-                      <path d="M39,15 L61,15 M15,13 L5,13 M85,13 L95,13" />
-                    </svg>
-                  )
-                },
-                {
-                  name: 'Rectangle',
-                  slug: 'rectangle',
-                  svg: (
-                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="12" y="7" width="30" height="16" rx="2" />
-                      <rect x="58" y="7" width="30" height="16" rx="2" />
-                      <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
-                    </svg>
-                  )
-                },
-                {
-                  name: 'Aviator',
-                  slug: 'aviator',
-                  svg: (
-                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M15,9 C20,8 35,8 38,12 C40,18 35,24 27,24 C19,24 13,18 15,9 Z" />
-                      <path d="M85,9 C80,8 65,8 62,12 C60,18 65,24 73,24 C81,24 87,18 85,9 Z" />
-                      <path d="M38,11 L62,11 M36,8 L64,8 M15,12 L4,12 M85,12 L96,12" />
-                    </svg>
-                  )
-                },
-                {
-                  name: 'Geometric',
-                  slug: 'geometric',
-                  svg: (
-                    <svg className="w-16 h-8 text-gray-400 group-hover:text-[#D4A04D] transition-colors" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <polygon points="12,15 20,6 34,6 42,15 34,24 20,24" />
-                      <polygon points="58,15 66,6 80,6 88,15 80,24 66,24" />
-                      <path d="M42,13 L58,13 M12,13 L4,13 M88,13 L96,13" />
-                    </svg>
-                  )
-                }
-              ].map((shape) => (
-                <div
-                  key={shape.slug}
-                  onClick={() => {
-                    setIsShapeModalOpen(false);
-                    const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
-                    navigate(`/products?category=${shapeModalCategory}&shape=${shape.slug}${genderParam}`);
-                  }}
-                  className="bg-[#18181A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/60 hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300 group cursor-pointer"
-                >
-                  <div className="h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                    {shape.svg}
-                  </div>
-                  <span className="text-white text-xs font-bold tracking-wider group-hover:text-[#D4A04D] transition-colors">
-                    {shape.name}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {(() => {
+              const isKidsModal =
+                shapeModalGender === 'kids' ||
+                (shapeModalCategory && shapeModalCategory.toLowerCase().includes('kids')) ||
+                (shapeModalTitle && shapeModalTitle.toLowerCase().includes('kids')) ||
+                (shapeModalShapes && shapeModalShapes.some((s: string) => ['kids on sale', 'juniors', 'tweens', 'teens'].includes(s.toLowerCase())));
 
-            {/* View All Shapes Button */}
-            <button
-              onClick={() => {
-                setIsShapeModalOpen(false);
-                const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
-                navigate(`/products?category=${shapeModalCategory}${genderParam}`);
-              }}
-              className="w-full mt-2 bg-transparent border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-all cursor-pointer"
-            >
-              View All Shapes
-            </button>
+              if (isKidsModal) {
+                const allAgeGroups = dbKidsAgeGroups.length > 0 ? dbKidsAgeGroups : [
+                  { title: 'Kids On Sale', ageRange: 'Special Edition', badgeText: '', image: '/images/kids_special_edition.png', targetSize: 'Sale', colorTheme: 'rose' },
+                  { title: 'Juniors', ageRange: '5 to 8 years', badgeText: 'Juniors', image: '/images/kids_juniors_5_to_8.png', targetSize: 'Small', colorTheme: 'amber' },
+                  { title: 'Tweens', ageRange: '8 to 12 years', badgeText: 'Tweens', image: '/images/kids_tweens_8_to_12.png', targetSize: 'Medium', colorTheme: 'cyan' },
+                  { title: 'Teens', ageRange: '12 to 17 years', badgeText: 'Teens', image: '/images/kids_teens_12_to_17.png', targetSize: 'Large', colorTheme: 'purple' },
+                ];
+
+                const filteredGroups = shapeModalShapes && shapeModalShapes.length > 0 && shapeModalShapes.some(s => ['kids on sale', 'juniors', 'tweens', 'teens'].includes(s.toLowerCase()))
+                  ? shapeModalShapes.map((t: string) => allAgeGroups.find((g: any) => g.title.toLowerCase() === t.toLowerCase())).filter(Boolean)
+                  : allAgeGroups;
+
+                const displayGroups = filteredGroups.length > 0 ? filteredGroups : allAgeGroups;
+
+                return (
+                  <div className="space-y-5">
+                    {/* 2x2 Grid of Age Group Image Cards matching reference design */}
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-4 pt-1">
+                      {displayGroups.map((grp: any, idx: number) => {
+                        const badgeColor = grp.colorTheme === 'rose'
+                          ? 'bg-[#FF5894] text-white'
+                          : grp.colorTheme === 'amber'
+                          ? 'bg-[#FF5894] text-white'
+                          : grp.colorTheme === 'cyan'
+                          ? 'bg-[#396347] text-white'
+                          : 'bg-[#18A0FB] text-white';
+
+                        const displayTitle = grp.ageRange && grp.ageRange !== 'Special Discounts' ? grp.ageRange : (grp.title === 'Kids On Sale' ? 'Special Edition' : grp.title);
+
+                        return (
+                          <div
+                            key={grp._id || idx}
+                            onClick={() => {
+                              setIsShapeModalOpen(false);
+                              if (grp.targetSize === 'Sale') {
+                                navigate(`/products?category=${shapeModalCategory}&gender=kids&isSale=true`);
+                              } else {
+                                navigate(`/products?category=${shapeModalCategory}&gender=kids&size=${grp.targetSize}`);
+                              }
+                            }}
+                            className="flex flex-col items-center cursor-pointer group"
+                          >
+                            {/* Stadium Pill-Shaped Image Banner Container */}
+                            <div className="relative w-full aspect-[1.85/1] rounded-[24px] overflow-hidden bg-[#1A1A1C] border border-[#2A2A2D] shadow-md group-hover:border-[#D4A04D]/70 group-hover:shadow-xl transform group-hover:scale-[1.03] transition-all duration-300">
+                              <img
+                                src={grp.image || '/images/kids_special_edition.png'}
+                                alt={grp.title}
+                                className="w-full h-full object-cover object-center"
+                              />
+                              {/* Overlaid Badge Top-Left */}
+                              {grp.badgeText && grp.badgeText !== 'Offer' && (
+                                <span className={`absolute top-2.5 left-2.5 text-[9.5px] font-black uppercase tracking-wider ${badgeColor} px-2.5 py-0.5 rounded-r-full rounded-l-md shadow-md`}>
+                                  {grp.badgeText}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Bold Title Text Directly Below Banner */}
+                            <h4 className="text-white text-sm sm:text-base font-black text-center tracking-tight mt-2 group-hover:text-[#D4A04D] transition-colors">
+                              {displayTitle}
+                            </h4>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* View All Kids Button */}
+                    <button
+                      onClick={() => {
+                        setIsShapeModalOpen(false);
+                        navigate(`/products?category=${shapeModalCategory}&gender=kids`);
+                      }}
+                      className="w-full mt-3 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-black text-xs uppercase py-3.5 rounded-xl tracking-wider transition-all cursor-pointer shadow-lg"
+                    >
+                      View All Kids Eyewear
+                    </button>
+                  </div>
+                );
+              }
+
+              // Shape Modal
+              const fallbackShapes = [
+                { name: 'Round', slug: 'round', image: '/images/shapes/round.png' },
+                { name: 'Rectangle', slug: 'rectangle', image: '/images/shapes/rectangle.png' },
+                { name: 'Aviator', slug: 'aviator', image: '/images/shapes/aviator.png' },
+                { name: 'Square', slug: 'square', image: '/images/shapes/clubmaster.png' },
+                { name: 'Cat Eye', slug: 'cat-eye', image: '/images/shapes/cat-eye.png' },
+                { name: 'Geometric', slug: 'geometric', image: '/images/shapes/geometric.png' }
+              ];
+
+              const activeShapesList = dbShapes.length > 0 ? dbShapes : fallbackShapes;
+              const mappedShapes = shapeModalShapes
+                .map((sName) => activeShapesList.find((ash) => ash.name.toLowerCase() === sName.toLowerCase()))
+                .filter(Boolean) as typeof activeShapesList;
+
+              const displayShapes = mappedShapes.length > 0 ? mappedShapes : activeShapesList;
+
+              return (
+                <>
+                  {/* Shape Grid */}
+                  <div className="grid grid-cols-3 gap-y-6 gap-x-4 py-2">
+                    {displayShapes.map((shape) => (
+                      <div
+                        key={shape.slug}
+                        onClick={() => {
+                          setIsShapeModalOpen(false);
+                          const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
+                          const subCatParam = shapeModalSubCategory ? `&subCategory=${shapeModalSubCategory}` : '';
+                          navigate(`/products?category=${shapeModalCategory}&shape=${shape.slug}${genderParam}${subCatParam}`);
+                        }}
+                        className="flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                      >
+                        {/* Circle Image container */}
+                        <div className="w-20 h-20 rounded-full bg-white border border-zinc-200/50 flex items-center justify-center p-2.5 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300">
+                          <img 
+                            src={shape.image} 
+                            alt={shape.name}
+                            className="w-16 h-16 object-contain"
+                          />
+                        </div>
+                        <span className="text-[#A7A7A7] text-[10px] font-black uppercase tracking-wider group-hover:text-white transition-colors">
+                          {shape.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* View All Shapes Button */}
+                  <button
+                    onClick={() => {
+                      setIsShapeModalOpen(false);
+                      const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
+                      const subCatParam = shapeModalSubCategory ? `&subCategory=${shapeModalSubCategory}` : '';
+                      navigate(`/products?category=${shapeModalCategory}${genderParam}${subCatParam}`);
+                    }}
+                    className="w-full mt-2 bg-transparent border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-all cursor-pointer"
+                  >
+                    View All Shapes
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

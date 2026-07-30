@@ -155,15 +155,10 @@ export async function deleteCoupon(req: Request, res: Response) {
     await connectDB();
     const { id } = req.params;
     
-    const coupon = await Coupon.findById(id);
-    if (!coupon || coupon.isDeleted) {
+    const coupon = await Coupon.findByIdAndDelete(id);
+    if (!coupon) {
       return res.status(404).json({ error: 'Coupon not found' });
     }
-    
-    coupon.isDeleted = true;
-    coupon.isActive = false;
-    coupon.updatedBy = new mongoose.Types.ObjectId(req.user?.userId);
-    await coupon.save();
     
     await logAudit(req, coupon._id as mongoose.Types.ObjectId, 'delete', { code: coupon.code });
     try {
@@ -171,7 +166,7 @@ export async function deleteCoupon(req: Request, res: Response) {
     } catch (err) {
       console.error('Socket emit error:', err);
     }
-    return res.status(200).json({ message: 'Coupon soft deleted successfully' });
+    return res.status(200).json({ message: 'Coupon deleted permanently from database' });
   } catch (error) {
     console.error('delete coupon error:', error);
     return res.status(500).json({ error: 'Failed to delete coupon' });

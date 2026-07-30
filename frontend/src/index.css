@@ -20,31 +20,38 @@
     from {
       transform: translateX(100%);
     }
+
     to {
       transform: translateX(0);
     }
   }
+
   @keyframes slide-up {
     from {
       transform: translateY(100%);
     }
+
     to {
       transform: translateY(0);
     }
   }
+
   @keyframes fade-in {
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
   }
+
   @keyframes scale-up {
     from {
       transform: scale(0.95);
       opacity: 0;
     }
+
     to {
       transform: scale(1);
       opacity: 1;
@@ -62,7 +69,8 @@
   --white: #F2F2F2;
 }
 
-html, body {
+html,
+body {
   background-color: #0B0B0C;
   color: #F2F2F2;
   font-family: system-ui, -apple-system, sans-serif;
@@ -81,13 +89,16 @@ html, body {
   box-sizing: border-box;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   background-color: #131314;
   border-color: #2A2A2D;
   color: #F2F2F2;
 }
 
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: #A7A7A7;
 }
 
@@ -95,9 +106,11 @@ input::placeholder, textarea::placeholder {
 ::-webkit-scrollbar {
   display: none;
 }
+
 /* Hide scrollbar globally for IE, Edge and Firefox */
 * {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
-

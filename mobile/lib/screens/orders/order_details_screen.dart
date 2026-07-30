@@ -139,7 +139,7 @@ class OrderDetailsScreen extends StatelessWidget {
                     Text('+91 ${order.address!.mobile}', style: const TextStyle(color: AppColors.muted, fontSize: 11)),
                     const SizedBox(height: 8),
                     Text(
-                      '${order.address!.line1}${order.address!.line2 != null && order.address!.line2!.isNotEmpty ? ', ' + order.address!.line2! : ''}\n'
+                      '${order.address!.line1}${order.address!.line2 != null && order.address!.line2!.isNotEmpty ? ', ${order.address!.line2!}' : ''}\n'
                       '${order.address!.city}, ${order.address!.state} - ${order.address!.pincode}',
                       style: const TextStyle(color: AppColors.muted, fontSize: 11, height: 1.4),
                     ),
@@ -163,7 +163,7 @@ class OrderDetailsScreen extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: order.items.length,
-                separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 24),
+                separatorBuilder: (context, index) => const Divider(color: AppColors.border, height: 24),
                 itemBuilder: (context, i) {
                   final item = order.items[i];
                   return Row(

@@ -437,6 +437,7 @@ class _HomeBodyState extends State<_HomeBody> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _GreetingsHeader(),
+          _HeroBannerSlider(),
           _OfferCoupons(),
           _CategoryGrids(),
           _FeaturedProducts(),
@@ -444,6 +445,272 @@ class _HomeBodyState extends State<_HomeBody> {
           SizedBox(height: 80),
         ],
       ),
+    );
+  }
+}
+
+class _HeroBannerSlider extends StatefulWidget {
+  const _HeroBannerSlider();
+
+  @override
+  State<_HeroBannerSlider> createState() => _HeroBannerSliderState();
+}
+
+class _HeroBannerSliderState extends State<_HeroBannerSlider> {
+  final PageController _pageController = PageController();
+  int _activeSlide = 0;
+  Timer? _timer;
+  List<Map<String, String>> _banners = [];
+
+  final List<Map<String, String>> _defaultBanners = const [
+    {
+      'title': 'SUMMER EYEWEAR SALE',
+      'subtitle': 'Flat 50% OFF on Premium Frames & Sunglasses',
+      'tag': 'SEASONAL SALE',
+      'btn': 'SHOP SALE',
+      'image': '/images/sale_eyeglasses.png',
+      'target': 'sunglasses',
+    },
+    {
+      'title': 'GOLD MEMBERSHIP',
+      'subtitle': 'Buy 1 Get 1 Free on All Frames for 1 Year',
+      'tag': 'EXCLUSIVE',
+      'btn': 'EXPLORE GOLD',
+      'image': '/images/hero_model.png',
+      'target': 'gold',
+    },
+    {
+      'title': 'BLUE LIGHT SHIELD',
+      'subtitle': 'Protect Your Eyes with Zero-Power Anti-Glare Lenses',
+      'tag': 'DIGITAL CARE',
+      'btn': 'EXPLORE NOW',
+      'image': '/images/cat_blue_light.png',
+      'target': 'blue_light',
+    },
+    {
+      'title': 'NEW ARRIVALS',
+      'subtitle': 'Discover the Latest Trendsetting Eyewear',
+      'tag': '2026 COLLECTION',
+      'btn': 'VIEW ALL',
+      'image': '/images/promo_new_arrivals.png',
+      'target': 'all',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _banners = List.from(_defaultBanners);
+    _loadBanners();
+    _startTimer();
+  }
+
+  Future<void> _loadBanners() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getBanners();
+      if (list.isNotEmpty && mounted) {
+        final fetched = list.map<Map<String, String>>((b) => {
+          'title': (b['title'] ?? b['name'] ?? 'EYEGLAZE').toString(),
+          'subtitle': (b['subtitle'] ?? b['description'] ?? 'Special Offer').toString(),
+          'tag': (b['tag'] ?? 'PROMOTION').toString().toUpperCase(),
+          'btn': (b['buttonText'] ?? 'EXPLORE NOW').toString().toUpperCase(),
+          'image': (b['image'] ?? b['bannerImage'] ?? '/images/hero_model.png').toString(),
+          'target': (b['linkTo'] ?? b['category'] ?? 'all').toString(),
+        }).toList();
+        setState(() {
+          _banners = fetched;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && _pageController.hasClients) {
+        final next = (_activeSlide + 1) % _banners.length;
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handleBannerTap(String target) {
+    if (target == 'gold') {
+      HomeScreen.state?._showGoldMembershipSheet(context);
+    } else if (target == 'all') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProductsScreen()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ProductsScreen(category: target)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 165,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (idx) => setState(() => _activeSlide = idx),
+            itemCount: _banners.length,
+            itemBuilder: (context, idx) {
+              final item = _banners[idx];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CachedNetworkImage(
+                          imageUrl: AppConfig.resolveImageUrl(item['image']!),
+                          fit: BoxFit.cover,
+                          alignment: Alignment.centerRight,
+                          errorWidget: (_, __, ___) => Container(color: AppColors.card),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.92),
+                                Colors.black.withValues(alpha: 0.75),
+                                Colors.black.withValues(alpha: 0.2),
+                              ],
+                              stops: const [0.0, 0.55, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.gold.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+                              ),
+                              child: Text(
+                                item['tag']!,
+                                style: const TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item['title']!,
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            SizedBox(
+                              width: 200,
+                              child: Text(
+                                item['subtitle']!,
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 10,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () => _handleBannerTap(item['target']!),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'EXPLORE NOW',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(Icons.arrow_forward_rounded, color: Colors.black, size: 12),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _banners.length,
+            (idx) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: _activeSlide == idx ? 14 : 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: _activeSlide == idx ? AppColors.gold : AppColors.muted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }
@@ -1086,6 +1353,19 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   }
 
   List<Map<String, dynamic>> _getCategorySubOptions(dynamic cat) {
+    if (cat['children'] != null && (cat['children'] as List).isNotEmpty) {
+      final childrenList = List<dynamic>.from(cat['children']);
+      childrenList.sort((a, b) => ((a['displayOrder'] ?? 0) as num).compareTo((b['displayOrder'] ?? 0) as num));
+      return childrenList.map<Map<String, dynamic>>((sub) => {
+        'label': (sub['name'] ?? '').toString(),
+        'imagePath': (sub['bannerImage'] ?? sub['icon'] ?? '/images/hero_model.png').toString(),
+        'category': cat['slug']?.toString() ?? '',
+        'gender': sub['gender']?.toString(),
+        'shapeModal': sub['shapeModal'] == true,
+        'subCategorySlug': sub['slug']?.toString(),
+      }).toList();
+    }
+
     final slug = (cat['slug'] ?? '').toString().toLowerCase();
 
     if (slug == 'eyeglasses' || slug == 'prescription') {
@@ -1106,7 +1386,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       ];
     }
 
-    if (slug == 'reading-glasses') {
+    if (slug == 'reading-glasses' || slug == 'special-power') {
       return [
         { 'label': 'Zero Power', 'imagePath': '/images/zero_power_glasses.png', 'category': 'zero-power', 'shapeModal': true },
         { 'label': 'Reading', 'imagePath': '/images/reading_book.png', 'category': cat['slug'], 'shapeModal': true },
@@ -1153,11 +1433,11 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       orElse: () => null,
     );
     final readingCat = _categoriesList.firstWhere(
-      (c) => c['slug'] == 'reading-glasses',
+      (c) => c['slug'] == 'reading-glasses' || c['slug'] == 'special-power',
       orElse: () => null,
     );
 
-    final knownSlugs = ['prescription', 'eyeglasses', 'sunglasses', 'reading-glasses', 'contact-lenses', 'accessories', 'kids'];
+    final knownSlugs = ['prescription', 'eyeglasses', 'sunglasses', 'reading-glasses', 'special-power', 'contact-lenses', 'accessories', 'kids'];
     final dynamicCats = _categoriesList.where((c) => !knownSlugs.contains(c['slug']?.toString().toLowerCase())).toList();
 
     if (eyeglassesCat != null) {
@@ -1195,7 +1475,11 @@ class _CategoryGridsState extends State<_CategoryGrids> {
 
   Widget _buildSection(dynamic cat) {
     final subOptions = _getCategorySubOptions(cat);
-    final title = (cat['name'] ?? cat['code'] ?? '').toString().toUpperCase();
+    final slug = (cat['slug'] ?? '').toString().toLowerCase();
+    String title = (cat['name'] ?? cat['code'] ?? '').toString().toUpperCase();
+    if (slug == 'reading-glasses' || slug == 'special-power') {
+      title = 'SPECIAL POWER';
+    }
 
     final crossCount = subOptions.length == 3 ? 3 : 4;
     final aspect = subOptions.length == 3 ? 1.35 / 1 : 3 / 4.2;
@@ -1218,9 +1502,10 @@ class _CategoryGridsState extends State<_CategoryGrids> {
               imagePath: opt['imagePath'],
               onTap: () {
                 if (opt['shapeModal'] == true) {
+                  final isKids = opt['gender'] == 'kids' || opt['label'].toString().toLowerCase() == 'kids';
                   _showShapeSelectionSheet(
                     context,
-                    title: "${opt['label']}'s ${cat['name'] ?? ''}",
+                    title: isKids ? 'Select Age Group' : "${opt['label']}'s ${cat['name'] ?? ''}",
                     category: opt['category'],
                     gender: opt['gender'],
                   );
@@ -2312,12 +2597,77 @@ class _ShapeSelectionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 4 shapes to select
-    final shapes = [
-      {'label': 'Square', 'value': 'Square'},
-      {'label': 'Rectangle', 'value': 'Rectangle'},
-      {'label': 'Aviator', 'value': 'Aviator'},
-      {'label': 'Geometric', 'value': 'Geometric'},
+    final isKids = gender == 'kids' || title.toLowerCase().contains('kids') || title.toLowerCase().contains('age');
+
+    if (isKids) {
+      return _buildKidsModal(context);
+    }
+
+    return _buildShapeModal(context);
+  }
+
+  Widget _buildKidsModal(BuildContext context) {
+    final kidsOptions = [
+      {
+        'title': 'Special Edition',
+        'image': '/images/kids_eyeglasses.png',
+        'badge': null,
+        'badgeColor': null,
+        'onTap': (BuildContext ctx) {
+          Navigator.pop(ctx);
+          Navigator.push(
+            ctx,
+            MaterialPageRoute(
+              builder: (_) => ProductsScreen(category: category, gender: 'kids', tier: 'Sale'),
+            ),
+          );
+        }
+      },
+      {
+        'title': '5 to 8 years',
+        'image': '/images/cat_kids.png',
+        'badge': 'JUNIORS',
+        'badgeColor': const Color(0xFFEC4899),
+        'onTap': (BuildContext ctx) {
+          Navigator.pop(ctx);
+          Navigator.push(
+            ctx,
+            MaterialPageRoute(
+              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Small'),
+            ),
+          );
+        }
+      },
+      {
+        'title': '8 to 12 years',
+        'image': '/images/kids_eyeglasses.png',
+        'badge': 'TWEENS',
+        'badgeColor': const Color(0xFF10B981),
+        'onTap': (BuildContext ctx) {
+          Navigator.pop(ctx);
+          Navigator.push(
+            ctx,
+            MaterialPageRoute(
+              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Medium'),
+            ),
+          );
+        }
+      },
+      {
+        'title': '12 to 17 years',
+        'image': '/images/kids_sunglasses.png',
+        'badge': 'TEENS',
+        'badgeColor': const Color(0xFF3B82F6),
+        'onTap': (BuildContext ctx) {
+          Navigator.pop(ctx);
+          Navigator.push(
+            ctx,
+            MaterialPageRoute(
+              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Large'),
+            ),
+          );
+        }
+      },
     ];
 
     return SafeArea(
@@ -2327,141 +2677,320 @@ class _ShapeSelectionSheet extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 450),
           child: Container(
             padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Top drag handle
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.muted.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.muted.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.white, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Grid of 4 shapes
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.25,
                 ),
-                itemCount: shapes.length,
-                itemBuilder: (context, idx) {
-                  final shape = shapes[idx];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductsScreen(
-                            category: category,
-                            shape: shape['value'],
-                            gender: gender,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border, width: 1.2),
+                const SizedBox(height: 16),
+                // Header Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'KIDS',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Grid of 4 kids banner cards
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.1,
+                  ),
+                  itemCount: kidsOptions.length,
+                  itemBuilder: (context, idx) {
+                    final opt = kidsOptions[idx];
+                    return GestureDetector(
+                      onTap: () => (opt['onTap'] as Function)(context),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Vector illustration using FrameShapePainter
-                          SizedBox(
-                            width: 80,
-                            height: 44,
-                            child: CustomPaint(
-                              painter: FrameShapePainter(
-                                shape: shape['value']!,
-                                strokeColor: AppColors.white,
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: Image.asset(
+                                      opt['image'] as String,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: AppColors.card,
+                                        child: const Icon(Icons.child_care, color: AppColors.gold, size: 36),
+                                      ),
+                                    ),
+                                  ),
+                                  if (opt['badge'] != null)
+                                    Positioned(
+                                      top: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: opt['badgeColor'] as Color,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          opt['badge'] as String,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            shape['label']!,
+                            opt['title'] as String,
                             style: const TextStyle(
                               color: AppColors.white,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w900,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              // View All Shapes button
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductsScreen(category: category),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.card,
-                  foregroundColor: AppColors.white,
-                  side: const BorderSide(color: AppColors.border, width: 1.2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size(double.infinity, 50),
+                    );
+                  },
                 ),
-                child: const Text(
-                  'View All Shapes',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                const SizedBox(height: 20),
+                // Full Width Gold Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductsScreen(category: category, gender: 'kids'),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: AppColors.background,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'VIEW ALL KIDS EYEWEAR',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildShapeModal(BuildContext context) {
+    final shapes = [
+      {'label': 'AVIATOR', 'value': 'Aviator'},
+      {'label': 'RECTANGLE', 'value': 'Rectangle'},
+      {'label': 'ROUND', 'value': 'Round'},
+      {'label': 'SQUARE', 'value': 'Square'},
+      {'label': 'CAT EYE', 'value': 'Cat Eye'},
+      {'label': 'GEOMETRIC', 'value': 'Geometric'},
+    ];
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.muted.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Header Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      title.toUpperCase(),
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Circular Shape Badges Grid (3 columns)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: shapes.length,
+                  itemBuilder: (context, idx) {
+                    final shape = shapes[idx];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductsScreen(
+                              category: category,
+                              shape: shape['value'],
+                              gender: gender,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Circular Container matching Screenshot 2
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              color: AppColors.card,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.border, width: 1.2),
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: 44,
+                                height: 26,
+                                child: CustomPaint(
+                                  painter: FrameShapePainter(
+                                    shape: shape['value']!,
+                                    strokeColor: AppColors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            shape['label']!,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                // View All Shapes button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductsScreen(category: category, gender: gender),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.card,
+                      foregroundColor: AppColors.white,
+                      side: const BorderSide(color: AppColors.border, width: 1.2),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'VIEW ALL SHAPES',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class FrameShapePainter extends CustomPainter {

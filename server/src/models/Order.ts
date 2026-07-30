@@ -69,10 +69,15 @@ export interface IOrder extends Document {
 const PowerSchema = new Schema(
   {
     name: String,
-    RE: { sph: Number, cyl: Number, axis: Number },
-    LE: { sph: Number, cyl: Number, axis: Number },
+    RE: { sph: Schema.Types.Mixed, cyl: Schema.Types.Mixed, axis: Schema.Types.Mixed, addPower: Schema.Types.Mixed },
+    LE: { sph: Schema.Types.Mixed, cyl: Schema.Types.Mixed, axis: Schema.Types.Mixed, addPower: Schema.Types.Mixed },
     pd: Number,
-    addPower: Number,
+    addPower: Schema.Types.Mixed,
+    rightBoxes: Number,
+    leftBoxes: Number,
+    packOption: String,
+    contactPowerType: String,
+    prescriptionUrl: String,
   },
   { _id: false }
 );

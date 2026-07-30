@@ -19,7 +19,9 @@ interface Product {
   _id: string;
   sku: string;
   name: string;
+  mrp?: number;
   price: { original: number; selling: number };
+  sellingPrice?: number;
   memberPrice?: number;
   nonMemberPrice?: number;
   rating: number;
@@ -65,6 +67,7 @@ interface Product {
   oneRupeeFrameOffer?: boolean;
   readingPowers?: string[];
   contactPowers?: Array<{ power: string; price: number }>;
+  contactPackOptions?: Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>;
   contactDisposableType?: string;
   subCategory?: string;
   sellAsFrame?: boolean;
@@ -82,6 +85,14 @@ interface Product {
   material?: string;
   shape?: string | string[];
   gender?: string | string[];
+  lensMaterial?: string;
+  waterContent?: string;
+  baseCurve?: string;
+  diameter?: string;
+  packaging?: string;
+  disposableType?: string;
+  powerRange?: string;
+  brand?: string;
 }
 
 interface ReviewType {
@@ -178,6 +189,9 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(initialProduct || null);
   const [loading, setLoading] = useState(!initialProduct);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxImageIndex, setLightboxImageIndex] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const quantity = 1;
@@ -465,6 +479,26 @@ export default function ProductDetailPage() {
   const [buyingNow, setBuyingNow] = useState(false);
   const [buyingFrameOnly, setBuyingFrameOnly] = useState(false);
 
+  // Contact Lenses Customer Selection States (LensKart Style)
+  const [contactPowerType, setContactPowerType] = useState<'manual' | 'upload' | 'later'>('manual');
+  const [contactHasRightEye, setContactHasRightEye] = useState(true);
+  const [contactHasLeftEye, setContactHasLeftEye] = useState(true);
+  const [contactRightSph, setContactRightSph] = useState<string>('');
+  const [contactLeftSph, setContactLeftSph] = useState<string>('');
+  const [contactRightBoxes, setContactRightBoxes] = useState<number>(1);
+  const [contactLeftBoxes, setContactLeftBoxes] = useState<number>(1);
+  const [contactPrescriptionUrl, setContactPrescriptionUrl] = useState<string | null>(null);
+  const [isUploadingPrescription, setIsUploadingPrescription] = useState(false);
+  const [selectedPackOption, setSelectedPackOption] = useState<string>('');
+
+  // Toric / Cylindrical & Multifocal specific states
+  const [contactRightCyl, setContactRightCyl] = useState<string>('');
+  const [contactLeftCyl, setContactLeftCyl] = useState<string>('');
+  const [contactRightAxis, setContactRightAxis] = useState<string>('');
+  const [contactLeftAxis, setContactLeftAxis] = useState<string>('');
+  const [contactRightAddPower, setContactRightAddPower] = useState<string>('');
+  const [contactLeftAddPower, setContactLeftAddPower] = useState<string>('');
+
   const getActiveDimensions = () => {
     if (product?.sizeMeasurements && Array.isArray(product.sizeMeasurements)) {
       const match = product.sizeMeasurements.find((item: any) => item.size === selectedSize);
@@ -631,19 +665,77 @@ export default function ProductDetailPage() {
     return () => {};
   }, [id]);
 
+  const isReadingProduct = (prod: any) => {
+    if (!prod) return false;
+    const cat = (prod.category || '').toLowerCase();
+    const sub = (prod.subCategory || '').toLowerCase();
+    const name = (prod.name || '').toLowerCase();
+    const isCatMatch = cat.includes('reading') || cat.includes('power') || cat.includes('special');
+    const isSubMatch = sub.includes('reading');
+    const hasReadingPowers = Array.isArray(prod.readingPowers) && prod.readingPowers.length > 0;
+    return isSubMatch || (isCatMatch && isSubMatch) || name.includes('reading') || hasReadingPowers;
+  };
+
+  const isContactLensProduct = (prod: any) => {
+    if (!prod) return false;
+    const cat = (prod.category || '').toLowerCase();
+    const sub = (prod.subCategory || '').toLowerCase();
+    const name = (prod.name || '').toLowerCase();
+    return (
+      cat.includes('contact') ||
+      (cat.includes('lens') && !cat.includes('frame')) ||
+      sub.includes('contact') ||
+      name.includes('contact') ||
+      (name.includes('lens') && !name.includes('glass') && !name.includes('frame'))
+    );
+  };
+
+  const isToricContactLens = (prod: any) => {
+    if (!isContactLensProduct(prod)) return false;
+    const cat = (prod.category || '').toLowerCase();
+    const sub = (prod.subCategory || '').toLowerCase();
+    const subsub = (prod.subSubCategory || '').toLowerCase();
+    const name = (prod.name || '').toLowerCase();
+    return (
+      cat.includes('toric') || cat.includes('cylinder') ||
+      sub.includes('toric') || sub.includes('cylinder') ||
+      subsub.includes('toric') || subsub.includes('cylinder') ||
+      name.includes('toric') || name.includes('cylinder')
+    );
+  };
+
+  const isMultifocalContactLens = (prod: any) => {
+    if (!isContactLensProduct(prod)) return false;
+    const cat = (prod.category || '').toLowerCase();
+    const sub = (prod.subCategory || '').toLowerCase();
+    const subsub = (prod.subSubCategory || '').toLowerCase();
+    const name = (prod.name || '').toLowerCase();
+    return (
+      cat.includes('multifocal') || cat.includes('progressive') || cat.includes('bifocal') ||
+      sub.includes('multifocal') || sub.includes('progressive') || sub.includes('bifocal') ||
+      subsub.includes('multifocal') || subsub.includes('progressive') || subsub.includes('bifocal') ||
+      name.includes('multifocal') || name.includes('progressive') || name.includes('bifocal')
+    );
+  };
+
   useEffect(() => {
     if (product) {
-      if (product.category === 'power-sunglasses' && product.subCategory === 'reading') {
-        if (product.readingPowers && product.readingPowers.length > 0) {
-          setSelectedReadingPower(product.readingPowers[0]);
+      if (isReadingProduct(product)) {
+        const availablePowers = (product.readingPowers && product.readingPowers.length > 0)
+          ? product.readingPowers
+          : ['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'];
+        if (!selectedReadingPower || !availablePowers.includes(selectedReadingPower)) {
+          setSelectedReadingPower(availablePowers[0]);
         }
-      } else if (product.category === 'contact-lenses') {
-        if (product.contactPowers && product.contactPowers.length > 0) {
-          setSelectedContactPower(product.contactPowers[0].power);
-          setCustomPriceOverride(product.contactPowers[0].price);
-        } else {
-          setCustomPriceOverride(product.price.selling);
-        }
+      } else if (isContactLensProduct(product)) {
+        const packs = (product.contactPackOptions && product.contactPackOptions.length > 0)
+          ? product.contactPackOptions
+          : [
+              { packName: '1 lens/box', price: product.sellingPrice || product.price?.selling || 369 },
+              { packName: '3 lens/box', price: Math.round((product.sellingPrice || product.price?.selling || 369) * 2.5) }
+            ];
+        setSelectedPackOption(packs[0].packName);
+        setCustomPriceOverride(packs[0].price);
       } else {
         setCustomPriceOverride(null);
       }
@@ -687,31 +779,62 @@ export default function ProductDetailPage() {
 
   const getLensPayload = () => {
     if (!product) return undefined;
-    if (product.category === 'contact-lenses') {
+    if (isContactLensProduct(product)) {
       const subCatName = product.subCategory === 'clear-contacts' 
         ? 'Clear Contacts' 
         : product.subCategory === 'color-contacts' 
           ? 'Color Contacts' 
-          : 'Contacts';
+          : (product.contactDisposableType || 'Contact Lenses');
+      
+      const totalBoxes = (contactHasRightEye ? contactRightBoxes : 0) + (contactHasLeftEye ? contactLeftBoxes : 0);
+      const unitPrice = customPriceOverride || product.price.selling;
+
       return {
         lensType: subCatName,
-        lensPrice: customPriceOverride || product.price.selling,
+        lensPrice: unitPrice * (totalBoxes > 0 ? totalBoxes : 1),
         framePrice: 0,
         fittingCharge: 0,
+        packSize: `${totalBoxes > 0 ? totalBoxes : 1} Box(es) (${product.contactDisposableType || 'Standard Pack'})`,
+        prescriptionUrl: contactPowerType === 'upload' ? (contactPrescriptionUrl || undefined) : undefined,
+        powerMode: contactPowerType,
         power: {
-          RE: { sph: parseFloat(selectedContactPower || '0') },
-          LE: { sph: parseFloat(selectedContactPower || '0') }
+          mode: contactPowerType,
+          submitLater: contactPowerType === 'later',
+          prescriptionUrl: contactPrescriptionUrl || undefined,
+          hasRightEye: contactHasRightEye,
+          hasLeftEye: contactHasLeftEye,
+          RE: { 
+            sph: contactHasRightEye ? (parseFloat(contactRightSph || '0') || 0) : null, 
+            cyl: contactHasRightEye && contactRightCyl ? contactRightCyl : undefined,
+            axis: contactHasRightEye && contactRightAxis ? contactRightAxis : undefined,
+            addPower: contactHasRightEye && contactRightAddPower ? contactRightAddPower : undefined,
+            display: contactHasRightEye ? (contactRightSph || 'Plano') : 'N/A',
+            boxes: contactHasRightEye ? contactRightBoxes : 0 
+          },
+          LE: { 
+            sph: contactHasLeftEye ? (parseFloat(contactLeftSph || '0') || 0) : null, 
+            cyl: contactHasLeftEye && contactLeftCyl ? contactLeftCyl : undefined,
+            axis: contactHasLeftEye && contactLeftAxis ? contactLeftAxis : undefined,
+            addPower: contactHasLeftEye && contactLeftAddPower ? contactLeftAddPower : undefined,
+            display: contactHasLeftEye ? (contactLeftSph || 'Plano') : 'N/A',
+            boxes: contactHasLeftEye ? contactLeftBoxes : 0 
+          }
         }
       };
     }
-    if (product.category === 'power-sunglasses' && product.subCategory === 'reading') {
+    if (isReadingProduct(product)) {
+      const pVal = selectedReadingPower || (product.readingPowers && product.readingPowers[0]) || '+1.00';
+      const parsedSph = parseFloat(pVal.replace('+', '')) || 1.0;
       return {
-        lensType: 'Reading',
+        lensType: 'Reading Power',
         lensPrice: 0,
         fittingCharge: 0,
         power: {
-          RE: { sph: parseFloat(selectedReadingPower || '0') },
-          LE: { sph: parseFloat(selectedReadingPower || '0') }
+          name: `Reading (${pVal})`,
+          readingPower: pVal,
+          uploadLater: false,
+          RE: { sph: parsedSph, cyl: 0, axis: 0 },
+          LE: { sph: parsedSph, cyl: 0, axis: 0 }
         }
       };
     }
@@ -908,12 +1031,45 @@ export default function ProductDetailPage() {
         product.images?.[2] || '/images/cat_blue_light.png',
         product.images?.[3] || '/images/cat_contacts.png',
         '/images/hero_model.png' // 5th image: model photo
-      ];  const nextImage = () => {
+      ];
+
+  const nextImage = () => {
     setActiveImageIndex((prev) => (prev + 1) % productImages.length);
   };
   const prevImage = () => {
     setActiveImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
+
+  const nextLightboxImage = () => {
+    setIsZoomed(false);
+    setLightboxImageIndex((prev) => (prev + 1) % productImages.length);
+  };
+  const prevLightboxImage = () => {
+    setIsZoomed(false);
+    setLightboxImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
+  };
+
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+        setIsZoomed(false);
+      } else if (e.key === 'ArrowRight') {
+        setIsZoomed(false);
+        setLightboxImageIndex((prev) => (prev + 1) % productImages.length);
+      } else if (e.key === 'ArrowLeft') {
+        setIsZoomed(false);
+        setLightboxImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isLightboxOpen, productImages.length]);
 
   const productSchema = product ? {
     "@context": "https://schema.org/",
@@ -1006,7 +1162,7 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full relative pb-32 md:pb-0">
+    <div className="max-w-6xl mx-auto w-full relative pb-32 md:pb-12 pt-20 md:pt-24 px-4 sm:px-6">
       <SEO 
         title={`${product.name} (${product.sku})`}
         description={`Buy the premium ${product.name} (${product.sku}) online at EyeGlaze. Made with high-quality ${product.frame?.material || 'TR90'}. Compatible with prescription, progressive, and blue-cut lenses.`}
@@ -1016,14 +1172,22 @@ export default function ProductDetailPage() {
       />
       
       {/* Transparent Floating Header Overlay */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 bg-transparent pointer-events-none max-w-6xl mx-auto">
+      <div className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center justify-between px-4 md:px-8 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none max-w-6xl mx-auto">
         {/* Back Button */}
         <button 
-          onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none pointer-events-auto shadow-md"
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1 && window.history.state && window.history.state.idx > 0) {
+              navigate(-1);
+            } else {
+              const catSlug = product?.category || 'eyeglasses';
+              navigate(catSlug === 'contact_lenses' || catSlug === 'contact-lens' ? '/category/contact-lenses' : '/products');
+            }
+          }}
+          className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white cursor-pointer active:scale-95 hover:scale-105 hover:bg-black/80 transition-all focus:outline-none pointer-events-auto shadow-lg text-white font-bold"
           aria-label="Go Back"
         >
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -1101,10 +1265,29 @@ export default function ProductDetailPage() {
 
             {/* Main image content */}
             <div className="flex-1">
-              <div className="bg-white border-b border-[#2A2A2D]/10 md:bg-[#131314] md:border md:border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center relative overflow-hidden group w-full mb-4 p-8 md:p-6">
-                <img src={productImages[activeImageIndex]} alt={product.name} className="max-w-full max-h-full object-contain rounded-none w-auto h-auto" />
+              <div 
+                onClick={() => {
+                  setLightboxImageIndex(activeImageIndex);
+                  setIsLightboxOpen(true);
+                  setIsZoomed(false);
+                }}
+                className="bg-white border-b border-[#2A2A2D]/10 md:bg-[#131314] md:border md:border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center relative overflow-hidden group w-full mb-4 p-8 md:p-6 cursor-zoom-in"
+              >
+                <img 
+                  src={productImages[activeImageIndex]} 
+                  alt={product.name} 
+                  className="max-w-full max-h-full object-contain rounded-none w-auto h-auto transition-transform duration-300 group-hover:scale-105" 
+                />
                 
-                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5">
+                {/* Visual badge indicator for image click / zoom */}
+                <div className="absolute bottom-3 left-3 bg-black/80 border border-[#D4A04D]/60 text-[#D4A04D] text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md group-hover:bg-[#D4A04D] group-hover:text-black transition-all pointer-events-none">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                  </svg>
+                  <span>Click to show big</span>
+                </div>
+
+                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {product.isBestseller && (
                     <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
                       BESTSELLER
@@ -1117,7 +1300,7 @@ export default function ProductDetailPage() {
                   )}
 
                   {product.offerBadges?.map((badge, idx) => (
-                    <span key={idx} className="bg-purple-600/80 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
+                    <span key={idx} className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
                       {badge}
                     </span>
                   ))}
@@ -1125,7 +1308,10 @@ export default function ProductDetailPage() {
                 
                 {/* 360° overlay */}
                 {product.image360 && (
-                  <div className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md cursor-pointer"
+                  >
                     <span>360°</span>
                     <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
@@ -1134,7 +1320,10 @@ export default function ProductDetailPage() {
                 )}
                 {/* Product Video overlay */}
                 {product.productVideo && (
-                  <div className="absolute bottom-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md">
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-3 right-3 bg-black/75 border border-[#2A2A2D] text-white text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md cursor-pointer"
+                  >
                     <span>VIDEO</span>
                     <svg className="w-3.5 h-3.5 text-[#D4A04D]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
@@ -1144,14 +1333,20 @@ export default function ProductDetailPage() {
 
                 {/* Left/Right Overlaid navigation buttons */}
                 <button 
-                  onClick={prevImage} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }} 
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
                   aria-label="Previous image"
                 >
                   &lt;
                 </button>
                 <button 
-                  onClick={nextImage} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }} 
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-[#2A2A2D] text-white flex items-center justify-center hover:bg-black transition-colors z-20 cursor-pointer"
                   aria-label="Next image"
                 >
@@ -1159,7 +1354,7 @@ export default function ProductDetailPage() {
                 </button>
 
                 {/* Carousel dots overlay */}
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20" onClick={(e) => e.stopPropagation()}>
                   {productImages.map((_, idx) => (
                     <button
                       key={idx}
@@ -1320,14 +1515,27 @@ export default function ProductDetailPage() {
                 const imageSrc = productImages[style.index + 1] || fallbackImages[style.index];
                 
                 return (
-                  <div key={style.title} className="bg-[#131314] border border-[#2A2A2D]/80 rounded-xl relative overflow-hidden group aspect-[4/3] flex items-center justify-center">
+                  <div 
+                    key={style.title} 
+                    onClick={() => {
+                      const imgIndex = style.index + 1 < productImages.length ? style.index + 1 : 0;
+                      setLightboxImageIndex(imgIndex);
+                      setIsLightboxOpen(true);
+                      setIsZoomed(false);
+                    }}
+                    className="bg-[#131314] border border-[#2A2A2D]/80 rounded-xl relative overflow-hidden group aspect-[4/3] flex items-center justify-center cursor-zoom-in"
+                  >
                     <img 
                       src={imageSrc} 
                       alt={style.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                     />
-                    
-
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 bg-gradient-to-t from-black/80 via-transparent to-transparent">
+                      <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                      </svg>
+                      Click to expand
+                    </div>
                   </div>
                 );
               })}
@@ -1360,13 +1568,13 @@ export default function ProductDetailPage() {
                       <span className="text-gray-500 font-medium">Model No:</span>
                       <span className="text-white font-bold">{product.sku}</span>
                     </div>
-                    {product.category !== 'contact-lenses' && (
+                    {!isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Size:</span>
                         <span className="text-white font-bold">{selectedSize}</span>
                       </div>
                     )}
-                    {activeDimensions?.frameWidth && product.category !== 'contact-lenses' && (
+                    {activeDimensions?.frameWidth && !isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Width:</span>
                         <span className="text-white font-bold">{activeDimensions.frameWidth} mm</span>
@@ -1375,7 +1583,7 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {product.category !== 'contact-lenses' && hasAnySpecs && (
+                {!isContactLensProduct(product) && hasAnySpecs && (
                   <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
                     <span className="text-gray-500 font-bold block text-[9px] uppercase tracking-wider">Specifications</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
@@ -1453,6 +1661,63 @@ export default function ProductDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Contact Lens Specifications */}
+                {isContactLensProduct(product) && (
+                  <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
+                    <span className="text-[#D4A04D] font-bold block text-[9px] uppercase tracking-wider">
+                      Lens Specifications
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Lens Material:</span>
+                        <strong className="text-white font-bold">{product.lensMaterial || (product.material && !['TR90', 'Metal', 'Titanium', 'Acetate', 'Plastic'].includes(product.material) ? product.material : 'Silicone Hydrogel')}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Water Content:</span>
+                        <strong className="text-white font-bold">{product.waterContent || '58% Water'}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Base Curve:</span>
+                        <strong className="text-white font-bold">{product.baseCurve || '8.6 mm'}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Diameter:</span>
+                        <strong className="text-white font-bold">{product.diameter || '14.2 mm'}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Packaging:</span>
+                        <strong className="text-white font-bold">{product.packaging || '10 Lenses/box'}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Disposable Type:</span>
+                        <strong className="text-white font-bold">{product.contactDisposableType || product.disposableType || 'Daily Disposable'}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                        <span className="text-gray-500">Power Range:</span>
+                        <strong className="text-white font-bold">{product.powerRange || '-0.50 D to -10.00 D'}</strong>
+                      </div>
+                      {(product.brand || product.manufacturer) && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Brand / Mfr:</span>
+                          <strong className="text-white font-bold">{product.brand || product.manufacturer}</strong>
+                        </div>
+                      )}
+                      {product.countryOfOrigin && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Country of Origin:</span>
+                          <strong className="text-white font-bold">{product.countryOfOrigin}</strong>
+                        </div>
+                      )}
+                      {product.warranty && (
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500">Warranty:</span>
+                          <strong className="text-white font-bold">{product.warranty}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1485,23 +1750,23 @@ export default function ProductDetailPage() {
             {/* Pricing Info */}
             <div className="flex flex-col gap-1 py-1">
               <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                {product.category === 'contact-lenses' ? 'Contact Lens Price' : 'Frame Starting'}
+                {isContactLensProduct(product) ? 'Contact Lens Price' : 'Frame Starting'}
               </span>
               <div className="flex items-baseline gap-2.5 flex-wrap">
                 {/* Member / Non-Member Prices */}
-                {product.category !== 'contact-lenses' && product.memberPrice && (
+                {!isContactLensProduct(product) && product.memberPrice && (
                   <span className="text-3xl font-black text-[#D4A04D]">
                     ₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span>
                   </span>
                 )}
-                {product.category !== 'contact-lenses' && product.nonMemberPrice && (
+                {!isContactLensProduct(product) && product.nonMemberPrice && (
                   <span className="text-2xl font-black text-white">
                     ₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span>
                   </span>
                 )}
                 
                 {/* Fallback/Main price for contact lenses or when member prices are not available */}
-                {(product.category === 'contact-lenses' || !product.memberPrice || !product.nonMemberPrice) && (
+                {(isContactLensProduct(product) || !product.memberPrice || !product.nonMemberPrice) && (
                   <span className="text-3xl font-black text-white">
                     ₹{sellingPrice}
                   </span>
@@ -1513,11 +1778,8 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-
-
-
-          {/* Color Selector */}
-          {product.category !== 'contact-lenses' && colorsToRender.length > 0 && (
+          {/* Color Selector - Hidden for Contact Lenses */}
+          {!isContactLensProduct(product) && colorsToRender.length > 0 && (
             <div>
               <div className="text-white text-xs font-bold uppercase tracking-wider mb-2.5 select-none">
                 SELECT COLOR: <span className="text-[#D4A04D]">{selectedColor?.name || colorsToRender[0].name}</span>
@@ -1545,8 +1807,8 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Choose Size Selector */}
-          {product.category !== 'contact-lenses' && (
+          {/* Choose Size Selector - Hidden for Contact Lenses */}
+          {!isContactLensProduct(product) && (
             <div>
               <div className="flex justify-between items-center mb-2.5 select-none">
                 <span className="text-white text-xs font-bold uppercase tracking-wider">CHOOSE SIZE</span>
@@ -1568,8 +1830,8 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Frame Dimensions Strip */}
-          {product.category !== 'contact-lenses' && product.category !== 'sunglasses' && product.category !== 'power-sunglasses' && hasDimensions && (
+          {/* Frame Dimensions Strip - Hidden for Contact Lenses */}
+          {!isContactLensProduct(product) && product.category !== 'sunglasses' && product.category !== 'power-sunglasses' && hasDimensions && (
             <div>
               <div className="flex justify-between items-center mb-2.5 select-none">
                 <span className="text-white text-xs font-bold uppercase tracking-wider">FRAME DIMENSIONS (in mm)</span>
@@ -1592,7 +1854,7 @@ export default function ProductDetailPage() {
                 <div className="flex flex-col items-center justify-center px-1">
                   <span className="text-[#D4A04D] text-xs mb-1.5">
                     <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </span>
                   <span className="text-gray-500 text-[8px] uppercase font-bold tracking-wider">Lens Width</span>
@@ -1626,19 +1888,26 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-
-
           {/* Reading Glasses Selector (Special Power -> Reading) */}
-          {product.category === 'power-sunglasses' && product.subCategory === 'reading' && product.readingPowers && product.readingPowers.length > 0 && (
+          {isReadingProduct(product) && (
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4.5 space-y-3">
-              <div className="text-white text-xs font-bold uppercase tracking-wider">
-                SELECT READING POWER (SPH)
+              <div className="flex items-center justify-between">
+                <div className="text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <span>👓</span>
+                  <span>SELECT READING POWER (SPH)</span>
+                </div>
+                <span className="text-[10px] text-[#D4A04D] font-extrabold bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/20">
+                  Pre-fitted Power
+                </span>
               </div>
-              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-relaxed">
-                Reading glasses come pre-fitted with identical powers in both lenses:
+              <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider leading-relaxed">
+                Choose diopter power option for this reading frame (same power in both lenses):
               </p>
               <div className="flex flex-wrap gap-2.5">
-                {product.readingPowers.map((power) => {
+                {((product.readingPowers && product.readingPowers.length > 0)
+                  ? product.readingPowers
+                  : ['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00']
+                ).map((power: string) => {
                   const isSelected = selectedReadingPower === power;
                   return (
                     <button
@@ -1647,7 +1916,7 @@ export default function ProductDetailPage() {
                       onClick={() => setSelectedReadingPower(power)}
                       className={`px-4.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer select-none ${
                         isSelected
-                          ? 'bg-[#D4A04D]/15 border-[#D4A04D] text-[#D4A04D]'
+                          ? 'bg-[#D4A04D] border-[#D4A04D] text-black shadow-lg scale-105 font-extrabold'
                           : 'bg-[#0E0E0E] border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/60'
                       }`}
                     >
@@ -1659,51 +1928,386 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Contact Lenses Configuration */}
-          {product.category === 'contact-lenses' && (
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4.5 space-y-4">
-              {product.contactDisposableType && (
-                <div className="flex items-center justify-between border-b border-[#2A2A2D]/60 pb-3">
-                  <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Disposable Type</span>
-                  <span className="text-white text-[10px] font-black bg-[#2A2A2D] px-3 py-1.5 rounded-md uppercase tracking-widest">
-                    {product.contactDisposableType}
-                  </span>
-                </div>
-              )}
+          {/* Contact Lenses Configuration (LensKart Style Widget) */}
+          {isContactLensProduct(product) && (
+            <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 space-y-5 shadow-xl">
+              {/* Power Type Pill */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Power Type:</span>
+                <span className="bg-[#1A1A2E] text-[#D4A04D] border border-[#D4A04D]/40 text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+                  With Power
+                </span>
+              </div>
 
-              {product.contactPowers && product.contactPowers.length > 0 && (
-                <div className="space-y-3.5">
-                  <div className="text-white text-xs font-bold uppercase tracking-wider">
-                    SELECT LENS POWER
-                  </div>
-                  <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-relaxed">
-                    Choose power option (prices update automatically):
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {product.contactPowers.map((cp) => {
-                      const isSelected = selectedContactPower === cp.power;
-                      return (
-                        <button
-                          type="button"
-                          key={cp.power}
-                          onClick={() => {
-                            setSelectedContactPower(cp.power);
-                            setCustomPriceOverride(cp.price);
-                          }}
-                          className={`p-3 rounded-xl text-center transition-all border flex flex-col items-center justify-center gap-1 cursor-pointer select-none ${
-                            isSelected
-                              ? 'bg-[#D4A04D]/15 border-[#D4A04D] text-[#D4A04D]'
-                              : 'bg-[#0E0E0E] border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/60'
-                          }`}
-                        >
-                          <span className="text-xs font-black uppercase tracking-wider">{cp.power} SPH</span>
-                          <span className={`text-[10px] font-extrabold ${isSelected ? 'text-[#D4A04D]' : 'text-gray-500'}`}>₹{cp.price}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* Horizontal Options Block */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* 1. Enter Power Manually */}
+                  <button
+                    type="button"
+                    onClick={() => setContactPowerType('manual')}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                      contactPowerType === 'manual'
+                        ? 'bg-[#18181A] border-[#D4A04D] text-[#D4A04D] shadow-md shadow-[#D4A04D]/10 font-bold'
+                        : 'bg-[#0E0E0E] border-zinc-800 text-gray-400 hover:text-white hover:border-zinc-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${contactPowerType === 'manual' ? 'border-[#D4A04D]' : 'border-gray-500'}`}>
+                        {contactPowerType === 'manual' && <span className="w-1.5 h-1.5 rounded-full bg-[#D4A04D]" />}
+                      </span>
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider font-extrabold leading-tight">
+                        Enter Power Manually
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 2. Upload Prescription */}
+                  <button
+                    type="button"
+                    onClick={() => setContactPowerType('upload')}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                      contactPowerType === 'upload'
+                        ? 'bg-[#18181A] border-[#D4A04D] text-[#D4A04D] shadow-md shadow-[#D4A04D]/10 font-bold'
+                        : 'bg-[#0E0E0E] border-zinc-800 text-gray-400 hover:text-white hover:border-zinc-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${contactPowerType === 'upload' ? 'border-[#D4A04D]' : 'border-gray-500'}`}>
+                        {contactPowerType === 'upload' && <span className="w-1.5 h-1.5 rounded-full bg-[#D4A04D]" />}
+                      </span>
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider font-extrabold leading-tight">
+                        Upload Prescription
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 3. I Will Submit Power Later */}
+                  <button
+                    type="button"
+                    onClick={() => setContactPowerType('later')}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                      contactPowerType === 'later'
+                        ? 'bg-[#18181A] border-[#D4A04D] text-[#D4A04D] shadow-md shadow-[#D4A04D]/10 font-bold'
+                        : 'bg-[#0E0E0E] border-zinc-800 text-gray-400 hover:text-white hover:border-zinc-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${contactPowerType === 'later' ? 'border-[#D4A04D]' : 'border-gray-500'}`}>
+                        {contactPowerType === 'later' && <span className="w-1.5 h-1.5 rounded-full bg-[#D4A04D]" />}
+                      </span>
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider font-extrabold leading-tight">
+                        I Will Submit Power Later
+                      </span>
+                    </div>
+                  </button>
                 </div>
-              )}
+
+                {/* Sub-block content for selected option */}
+                <div className="bg-[#0E0E0E] border border-zinc-800 rounded-xl p-4.5">
+                  {/* Manual Power Form Sub-Block */}
+                  {contactPowerType === 'manual' && (
+                    <div className="space-y-4">
+                      {/* Checkboxes for RIGHT / LEFT */}
+                      <div className="flex items-center gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                          <input
+                            type="checkbox"
+                            checked={contactHasRightEye}
+                            onChange={(e) => setContactHasRightEye(e.target.checked)}
+                            className="w-4 h-4 accent-[#D4A04D]"
+                          />
+                          <span>✓ RIGHT</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                          <input
+                            type="checkbox"
+                            checked={contactHasLeftEye}
+                            onChange={(e) => setContactHasLeftEye(e.target.checked)}
+                            className="w-4 h-4 accent-[#D4A04D]"
+                          />
+                          <span>✓ LEFT</span>
+                        </label>
+                      </div>
+
+                      {/* Spherical (SPH) dropdowns */}
+                      <div className="space-y-1">
+                        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                          Spherical <span className="text-gray-500 font-normal">(SPH)</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <select
+                              disabled={!contactHasRightEye}
+                              value={contactRightSph}
+                              onChange={(e) => {
+                                setContactRightSph(e.target.value);
+                                const matchedCp = product.contactPowers?.find(cp => cp.power === e.target.value);
+                                if (matchedCp) setCustomPriceOverride(matchedCp.price);
+                              }}
+                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                            >
+                              <option value="">Select SPH</option>
+                              {(product.contactPowers && product.contactPowers.length > 0
+                                ? product.contactPowers.map(cp => cp.power)
+                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']
+                              ).map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <select
+                              disabled={!contactHasLeftEye}
+                              value={contactLeftSph}
+                              onChange={(e) => {
+                                setContactLeftSph(e.target.value);
+                                const matchedCp = product.contactPowers?.find(cp => cp.power === e.target.value);
+                                if (matchedCp) setCustomPriceOverride(matchedCp.price);
+                              }}
+                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                            >
+                              <option value="">Select SPH</option>
+                              {(product.contactPowers && product.contactPowers.length > 0
+                                ? product.contactPowers.map(cp => cp.power)
+                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']
+                              ).map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cylindrical (CYL) dropdowns for Toric Lenses */}
+                      {isToricContactLens(product) && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                            Cylindrical <span className="text-gray-500 font-normal">(CYL)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <select
+                                disabled={!contactHasRightEye}
+                                value={contactRightCyl}
+                                onChange={(e) => setContactRightCyl(e.target.value)}
+                                className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                              >
+                                <option value="">Select CYL</option>
+                                {['-0.75', '-1.25', '-1.75', '-2.25', '-2.75', '-3.25', '-3.75'].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select
+                                disabled={!contactHasLeftEye}
+                                value={contactLeftCyl}
+                                onChange={(e) => setContactLeftCyl(e.target.value)}
+                                className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                              >
+                                <option value="">Select CYL</option>
+                                {['-0.75', '-1.25', '-1.75', '-2.25', '-2.75', '-3.25', '-3.75'].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+
+
+                      {/* Reading Power / ADD dropdowns for Multifocal Lenses */}
+                      {isMultifocalContactLens(product) && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                            Reading Power <span className="text-gray-500 font-normal">(ADD)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <select
+                                disabled={!contactHasRightEye}
+                                value={contactRightAddPower}
+                                onChange={(e) => setContactRightAddPower(e.target.value)}
+                                className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                              >
+                                <option value="">Select ADD</option>
+                                {['Low (+1.00)', 'Medium (+1.75)', 'High (+2.50)', '+0.75', '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00', '+3.25', '+3.50'].map(add => (
+                                  <option key={add} value={add}>{add}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <select
+                                disabled={!contactHasLeftEye}
+                                value={contactLeftAddPower}
+                                onChange={(e) => setContactLeftAddPower(e.target.value)}
+                                className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                              >
+                                <option value="">Select ADD</option>
+                                {['Low (+1.00)', 'Medium (+1.75)', 'High (+2.50)', '+0.75', '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00', '+3.25', '+3.50'].map(add => (
+                                  <option key={add} value={add}>{add}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* No. of Boxes dropdowns */}
+                      <div className="space-y-1 pt-1">
+                        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                          No. of Boxes <span className="text-gray-500 font-normal">({product.contactDisposableType || 'box'})</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <select
+                              disabled={!contactHasRightEye}
+                              value={contactRightBoxes}
+                              onChange={(e) => setContactRightBoxes(parseInt(e.target.value) || 1)}
+                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                            >
+                              {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+                                <option key={n} value={n}>{n} Box{n > 1 ? 'es' : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <select
+                              disabled={!contactHasLeftEye}
+                              value={contactLeftBoxes}
+                              onChange={(e) => setContactLeftBoxes(parseInt(e.target.value) || 1)}
+                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
+                            >
+                              {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+                                <option key={n} value={n}>{n} Box{n > 1 ? 'es' : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Prescription Sub-Block */}
+                  {contactPowerType === 'upload' && (
+                    <div className="text-center py-2">
+                      {contactPrescriptionUrl ? (
+                        <div className="relative bg-[#18181A] border border-[#D4A04D]/40 p-3 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <img src={contactPrescriptionUrl} alt="Prescription Preview" className="w-10 h-10 object-cover rounded-lg border border-zinc-800" />
+                            <div className="text-left">
+                              <div className="text-white text-xs font-bold">Prescription Attached ✓</div>
+                              <div className="text-[10px] text-gray-500">Will be verified by optical expert</div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setContactPrescriptionUrl(null)}
+                            className="text-red-400 text-xs font-bold px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 rounded-lg border border-red-500/20 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="border-2 border-dashed border-zinc-800 hover:border-[#D4A04D] rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition-colors bg-[#131314]">
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setIsUploadingPrescription(true);
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  setContactPrescriptionUrl(evt.target?.result as string);
+                                  setIsUploadingPrescription(false);
+                                };
+                                reader.readAsDataURL(file);
+                              } catch {
+                                setIsUploadingPrescription(false);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <span className="text-2xl mb-1.5">📄</span>
+                          <span className="text-white text-xs font-bold">
+                            {isUploadingPrescription ? 'Uploading file...' : 'Click or Drag to Upload Prescription'}
+                          </span>
+                          <span className="text-gray-500 text-[10px] mt-1">Supports JPG, PNG, PDF</span>
+                        </label>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submit Power Later Sub-Block */}
+                  {contactPowerType === 'later' && (
+                    <div className="text-center py-3 px-2">
+                      <span className="text-white text-xs font-extrabold uppercase tracking-wider block">
+                        I Will Submit Power Later
+                      </span>
+                      <span className="text-gray-400 text-[11px] block mt-1.5 font-medium leading-relaxed">
+                        Order now and provide your power details post-purchase or via email. Our team will follow up to assist you!
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Lenses per Pack Display */}
+              <div className="space-y-3 pt-3 border-t border-[#2A2A2D]/60">
+                <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">
+                  Lenses per Pack
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {(product.contactPackOptions && product.contactPackOptions.length > 0
+                    ? product.contactPackOptions
+                    : [
+                        {
+                          packName: '1 lens/box',
+                          price: sellingPrice,
+                          originalPrice: product.mrp || product.price?.original || Math.round(sellingPrice * 1.2)
+                        },
+                        {
+                          packName: '3 lens/box',
+                          price: Math.round(sellingPrice * 2.5),
+                          originalPrice: Math.round((product.mrp || product.price?.original || Math.round(sellingPrice * 1.2)) * 3)
+                        }
+                      ]
+                  ).map((pack, idx) => {
+                    const isSelected = selectedPackOption ? selectedPackOption === pack.packName : idx === 0;
+                    return (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => {
+                          setSelectedPackOption(pack.packName);
+                          setCustomPriceOverride(pack.price);
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-[#1A1A2E] border-2 border-[#D4A04D] text-white shadow-lg scale-[1.02]'
+                            : 'bg-[#18181A] border border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/50'
+                        }`}
+                      >
+                        <div className="text-xs font-extrabold text-white">{pack.packName}</div>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          {pack.originalPrice && (
+                            <span className="text-[10px] text-gray-500 line-through">₹{pack.originalPrice}</span>
+                          )}
+                          <span className={`text-xs font-black ${isSelected ? 'text-[#D4A04D]' : 'text-white'}`}>
+                            ₹{pack.price}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1740,7 +2344,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Call to Actions */}
-          {product.category === 'contact-lenses' || (product.category === 'power-sunglasses' && product.subCategory === 'reading') ? (
+          {isContactLensProduct(product) || isReadingProduct(product) ? (
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
               <button
                 type="button"
@@ -1967,13 +2571,13 @@ export default function ProductDetailPage() {
                       <span className="text-gray-500 font-medium">Model No:</span>
                       <span className="text-white font-bold">{product.sku}</span>
                     </div>
-                    {product.category !== 'contact-lenses' && (
+                    {!isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Size:</span>
                         <span className="text-white font-bold">{selectedSize}</span>
                       </div>
                     )}
-                    {activeDimensions?.frameWidth && product.category !== 'contact-lenses' && (
+                    {activeDimensions?.frameWidth && !isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Width:</span>
                         <span className="text-white font-bold">{activeDimensions.frameWidth} mm</span>
@@ -1982,7 +2586,7 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {product.category !== 'contact-lenses' && hasAnySpecs && (
+                {!isContactLensProduct(product) && hasAnySpecs && (
                   <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
                     <span className="text-gray-500 font-bold block text-[9px] uppercase tracking-wider">Specifications</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
@@ -2045,7 +2649,6 @@ export default function ProductDetailPage() {
                         ))}
                       </div>
                     )}
-
                     <div className="pt-2 flex items-center gap-1.5 text-gray-400 text-[10px] font-medium leading-none">
                       <span className="text-green-500 font-extrabold text-xs">✓</span>
                       <span>Compatible with:</span>
@@ -2932,6 +3535,145 @@ export default function ProductDetailPage() {
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* High-Resolution Image Lightbox Modal */}
+      {isLightboxOpen && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between items-center p-3 md:p-6 select-none animate-fadeIn"
+          onClick={() => {
+            setIsLightboxOpen(false);
+            setIsZoomed(false);
+          }}
+        >
+          {/* Top Bar */}
+          <div 
+            className="w-full max-w-6xl flex items-center justify-between z-20 pb-3 border-b border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-white font-extrabold text-sm md:text-base tracking-wide truncate max-w-[200px] sm:max-w-md">
+                {product.name}
+              </span>
+              <span className="bg-[#D4A04D]/20 text-[#D4A04D] border border-[#D4A04D]/40 text-xs font-mono px-2.5 py-0.5 rounded-full shrink-0">
+                {lightboxImageIndex + 1} / {productImages.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Zoom toggle button */}
+              <button
+                type="button"
+                onClick={() => setIsZoomed(!isZoomed)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition-all cursor-pointer border border-zinc-700"
+                title={isZoomed ? "Zoom Out" : "Zoom In (2x)"}
+              >
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  {isZoomed ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                  )}
+                </svg>
+                <span className="hidden sm:inline">{isZoomed ? "Zoom Out" : "Zoom In"}</span>
+              </button>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLightboxOpen(false);
+                  setIsZoomed(false);
+                }}
+                className="w-9 h-9 rounded-full bg-zinc-900 hover:bg-red-600 text-white flex items-center justify-center text-base font-bold transition-colors cursor-pointer border border-zinc-700 shadow-md"
+                aria-label="Close image lightbox"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Main Image Viewer Area */}
+          <div 
+            className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-2 sm:my-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Prev Image Arrow */}
+            {productImages.length > 1 && (
+              <button
+                type="button"
+                onClick={prevLightboxImage}
+                className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/75 hover:bg-[#D4A04D] hover:text-black border border-white/20 text-white flex items-center justify-center text-xl transition-all cursor-pointer shadow-2xl"
+                aria-label="Previous Image"
+              >
+                ‹
+              </button>
+            )}
+
+            {/* Image Container with Zoom support */}
+            <div 
+              className={`w-full h-full flex items-center justify-center p-2 overflow-auto scrollbar-none ${
+                isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+              }`}
+              onClick={() => setIsZoomed(!isZoomed)}
+            >
+              <img
+                src={productImages[lightboxImageIndex]}
+                alt={`${product.name} zoomed detail ${lightboxImageIndex + 1}`}
+                className={`transition-all duration-300 object-contain rounded-lg shadow-2xl select-none ${
+                  isZoomed
+                    ? 'w-[160%] md:w-[150%] max-h-none transform scale-125'
+                    : 'max-w-full max-h-[72vh] md:max-h-[78vh] w-auto h-auto'
+                }`}
+              />
+            </div>
+
+            {/* Next Image Arrow */}
+            {productImages.length > 1 && (
+              <button
+                type="button"
+                onClick={nextLightboxImage}
+                className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/75 hover:bg-[#D4A04D] hover:text-black border border-white/20 text-white flex items-center justify-center text-xl transition-all cursor-pointer shadow-2xl"
+                aria-label="Next Image"
+              >
+                ›
+              </button>
+            )}
+          </div>
+
+          {/* Bottom Thumbnails Strip */}
+          {productImages.length > 1 && (
+            <div 
+              className="w-full max-w-2xl flex items-center justify-center gap-2 overflow-x-auto py-2 px-3 scrollbar-none z-20"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {productImages.map((img, idx) => {
+                const isSelected = lightboxImageIndex === idx;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setLightboxImageIndex(idx);
+                      setIsZoomed(false);
+                    }}
+                    className={`w-12 h-12 md:w-16 md:h-16 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer bg-white/5 p-1 ${
+                      isSelected
+                        ? 'border-[#D4A04D] scale-105 shadow-lg bg-white/10'
+                        : 'border-white/20 hover:border-white/50 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`Thumbnail ${idx + 1}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

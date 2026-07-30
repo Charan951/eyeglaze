@@ -49,7 +49,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             <img 
               src={product.images[0]} 
               alt={product.name} 
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
+              className="w-full h-full object-contain p-6 group-hover:scale-105 transition-transform duration-500" 
             />
           ) : (
             <div className="text-[#444] text-center py-6">
@@ -71,7 +71,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
               </span>
             )}
             {product.offerBadges?.map((badge, idx) => (
-              <span key={idx} className="bg-purple-600/20 border border-purple-500/30 text-purple-300 text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md uppercase">
+              <span key={idx} className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md tracking-wider uppercase">
                 {badge}
               </span>
             ))}
@@ -79,7 +79,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
 
           {/* Discount Overlay */}
           {discount > 0 && (
-            <span className="absolute top-2 right-2 bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md">
+            <span className="absolute top-2 right-2 bg-black border border-zinc-800 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-md uppercase tracking-wider">
               {discount}% OFF
             </span>
           )}

@@ -7,7 +7,7 @@ interface TreeNode {
   name: string;
   code: string;
   slug: string;
-  type: 'Category' | 'SubCategory';
+  type: 'Category' | 'SubCategory' | 'SubSubCategory' | 'SubSubSubCategory';
   children?: TreeNode[];
 }
 
@@ -59,24 +59,14 @@ export default function CategoryTreeView() {
           {/* Level Tag */}
           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
             node.type === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-            'bg-purple-500/10 text-purple-400'
+            node.type === 'SubCategory' ? 'bg-purple-500/10 text-purple-400' :
+            node.type === 'SubSubCategory' ? 'bg-emerald-500/10 text-emerald-400' :
+            'bg-amber-500/10 text-amber-400'
           }`}>
             {node.type}
           </span>
 
-          {node.slug !== 'contact-lenses' && node.slug !== 'contact_lenses' && node.slug !== 'accessories' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/admin/lenses?category=${node.slug}`);
-              }}
-              className="text-white hover:text-[#D4A04D] hover:underline text-xs font-bold bg-transparent border-none p-0 cursor-pointer text-left"
-            >
-              {node.name}
-            </button>
-          ) : (
-            <span className="text-white text-xs font-bold">{node.name}</span>
-          )}
+          <span className="text-white text-xs font-bold">{node.name}</span>
           <span className="text-gray-500 text-[10px] font-mono">({node.code})</span>
 
           <div className="flex-1" />

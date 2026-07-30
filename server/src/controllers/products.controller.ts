@@ -2,11 +2,14 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
 import { Product } from '../models/Product';
+import { ProductVariant } from '../models/ProductVariant';
+import { AuditLog } from '../models/AuditLog';
 import { Review } from '../models/Review';
 import { Lens } from '../models/Lens';
 import { LensType } from '../models/LensType';
 import { clearCachePattern } from '../middleware/cache';
 import { escapeRegExp } from '../lib/regex';
+import { getIO } from '../lib/socket';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -39,8 +42,8 @@ export async function getProducts(req: Request, res: Response) {
         normalizedList = ['prescription', 'eyeglasses'];
       } else if (category === 'bluelight' || category === 'blue_light' || category === 'computer-glasses') {
         normalizedList = ['blue_light', 'computer-glasses'];
-      } else if (category === 'contact' || category === 'contact-lenses' || category === 'contact_lenses') {
-        normalizedList = ['contact-lenses', 'contact_lenses'];
+      } else if (category === 'contact' || category === 'contact-lenses' || category === 'contact_lenses' || category === 'contact-lens') {
+        normalizedList = ['contact-lenses', 'contact_lenses', 'contact-lens', 'contact'];
       } else if (category === 'power-sunglasses') {
         normalizedList = ['power-sunglasses'];
       } else if (category === 'reading-glasses') {
@@ -67,6 +70,42 @@ export async function getProducts(req: Request, res: Response) {
 
     if (subCategoryId) {
       andConditions.push({ subCategoryId: subCategoryId });
+    }
+
+    const subSubCategory = req.query.subSubCategory as string | undefined;
+    const subSubCategoryId = req.query.subSubCategoryId as string | undefined;
+
+    if (subSubCategory) {
+      const escapedSubSub = escapeRegExp(subSubCategory);
+      const subSubRegex = new RegExp(`^${escapedSubSub.replace(/-/g, ' ')}$|^${escapedSubSub}$`, 'i');
+      andConditions.push({
+        $or: [
+          { subSubCategory: { $regex: subSubRegex } },
+          { subSubCategory: subSubCategory }
+        ]
+      });
+    }
+
+    if (subSubCategoryId) {
+      andConditions.push({ subSubCategoryId: subSubCategoryId });
+    }
+
+    const subSubSubCategory = req.query.subSubSubCategory as string | undefined;
+    const subSubSubCategoryId = req.query.subSubSubCategoryId as string | undefined;
+
+    if (subSubSubCategory) {
+      const escapedSubSubSub = escapeRegExp(subSubSubCategory);
+      const subSubSubRegex = new RegExp(`^${escapedSubSubSub.replace(/-/g, ' ')}$|^${escapedSubSubSub}$`, 'i');
+      andConditions.push({
+        $or: [
+          { subSubSubCategory: { $regex: subSubSubRegex } },
+          { subSubSubCategory: subSubSubCategory }
+        ]
+      });
+    }
+
+    if (subSubSubCategoryId) {
+      andConditions.push({ subSubSubCategoryId: subSubSubCategoryId });
     }
 
     if (search) {
@@ -111,7 +150,26 @@ export async function getProducts(req: Request, res: Response) {
 
     const frameSizes = parseCommaParam(req.query.frameSize || req.query.size);
     if (frameSizes) {
-      andConditions.push({ frameSize: { $in: frameSizes } });
+      const sizeRegexes = frameSizes.map(s => new RegExp(`^${escapeRegExp(s)}$`, 'i'));
+      const ageGroupTerms: string[] = [];
+      if (frameSizes.some(s => s.toLowerCase() === 'small')) ageGroupTerms.push('juniors', 'small');
+      if (frameSizes.some(s => s.toLowerCase() === 'medium')) ageGroupTerms.push('tweens', 'medium');
+      if (frameSizes.some(s => s.toLowerCase() === 'large')) ageGroupTerms.push('teens', 'large');
+      if (frameSizes.some(s => s.toLowerCase() === 'sale')) ageGroupTerms.push('kids on sale', 'sale');
+
+      const ageRegexes = ageGroupTerms.map(a => new RegExp(escapeRegExp(a), 'i'));
+
+      andConditions.push({
+        $or: [
+          { kidsAgeGroups: { $in: ageRegexes } },
+          {
+            $and: [
+              { $or: [{ kidsAgeGroups: { $exists: false } }, { kidsAgeGroups: { $size: 0 } }] },
+              { $or: [{ frameSize: { $in: sizeRegexes } }, { availableSizes: { $in: frameSizes } }] }
+            ]
+          }
+        ]
+      });
     }
 
     const frameColors = parseCommaParam(req.query.frameColor || req.query.color);
@@ -169,9 +227,19 @@ export async function getProducts(req: Request, res: Response) {
 
     const genders = parseCommaParam(req.query.gender);
     if (genders) {
-      const queryGenders = [...genders];
-      const genderRegexes = queryGenders.map(g => new RegExp(`^${escapeRegExp(g)}$`, 'i'));
-      andConditions.push({ gender: { $in: genderRegexes } });
+      const isKidsFilter = genders.some(g => g.toLowerCase() === 'kids');
+      if (isKidsFilter) {
+        andConditions.push({
+          $or: [
+            { gender: { $in: [new RegExp('kids', 'i')] } },
+            { subCategory: { $in: [new RegExp('kids', 'i'), '6a608f61f19254d4d7917ba4'] } },
+            { kidsAgeGroups: { $exists: true, $not: { $size: 0 } } }
+          ]
+        });
+      } else {
+        const genderRegexes = genders.map(g => new RegExp(`^${escapeRegExp(g)}$`, 'i'));
+        andConditions.push({ gender: { $in: genderRegexes } });
+      }
     }
 
     const isPremium = req.query.isPremium as string | undefined;
@@ -179,11 +247,57 @@ export async function getProducts(req: Request, res: Response) {
       andConditions.push({ isPremium: true });
     }
 
-    const tier = req.query.tier as string | undefined;
-    if (tier && tier !== 'All') {
-      andConditions.push({ tier });
+    // Contact Lens specific filters: disposable / wearTime / type / power
+    const disposable = req.query.disposable as string | undefined || req.query.wearTime as string | undefined;
+    if (disposable && disposable.trim() !== '') {
+      const escapedDisp = escapeRegExp(disposable);
+      let dispRegex = new RegExp(escapedDisp, 'i');
+      if (disposable.toLowerCase().includes('daily') || disposable.toLowerCase().includes('dailies')) {
+        dispRegex = /daily|dailies|1-day|day/i;
+      } else if (disposable.toLowerCase().includes('monthly') || disposable.toLowerCase().includes('month')) {
+        dispRegex = /monthly|month|30-day/i;
+      } else if (disposable.toLowerCase().includes('yearly') || disposable.toLowerCase().includes('year')) {
+        dispRegex = /yearly|year|annual/i;
+      } else if (disposable.toLowerCase().includes('bi-weekly') || disposable.toLowerCase().includes('weekly')) {
+        dispRegex = /weekly|bi-weekly|2-week/i;
+      }
+      andConditions.push({
+        $or: [
+          { disposable: { $regex: dispRegex } },
+          { wearTime: { $regex: dispRegex } },
+          { name: { $regex: dispRegex } },
+          { tags: { $regex: dispRegex } },
+          { description: { $regex: dispRegex } }
+        ]
+      });
     }
 
+    const typeParam = req.query.type as string | undefined || req.query.power as string | undefined;
+    if (typeParam && typeParam.trim() !== '') {
+      const escapedType = escapeRegExp(typeParam);
+      let typeRegex = new RegExp(escapedType, 'i');
+      if (typeParam.toLowerCase().includes('toric') || typeParam.toLowerCase().includes('cylinder')) {
+        typeRegex = /toric|astigmatism|cylinder|cylindrical/i;
+      } else if (typeParam.toLowerCase().includes('multi') || typeParam.toLowerCase().includes('focal')) {
+        typeRegex = /multifocal|multi-focal|bifocal|progressive/i;
+      } else if (typeParam.toLowerCase().includes('distance') || typeParam.toLowerCase().includes('spherical')) {
+        typeRegex = /distance|spherical|clear|power/i;
+      } else if (typeParam.toLowerCase().includes('zero')) {
+        typeRegex = /zero|plano|0\.00|no power/i;
+      } else if (typeParam.toLowerCase().includes('solution')) {
+        typeRegex = /solution|cleaner|fluid/i;
+      }
+      andConditions.push({
+        $or: [
+          { subSubCategory: { $regex: typeRegex } },
+          { contactType: { $regex: typeRegex } },
+          { powerType: { $regex: typeRegex } },
+          { type: { $regex: typeRegex } },
+          { name: { $regex: typeRegex } },
+          { tags: { $regex: typeRegex } }
+        ]
+      });
+    }
 
     if (andConditions.length > 0) {
       query.$and = andConditions;
@@ -216,10 +330,30 @@ export async function getProducts(req: Request, res: Response) {
   }
 }
 
+function cleanObjectIdFields(body: any) {
+  if (!body || typeof body !== 'object') return;
+  const keys = [
+    'brandId',
+    'categoryId',
+    'subCategoryId',
+    'subSubCategoryId',
+    'subSubSubCategoryId',
+    'warehouseId',
+    'lensTypeId',
+    'lensId',
+  ];
+  for (const key of keys) {
+    if (key in body && (body[key] === '' || (typeof body[key] === 'string' && !body[key].trim()))) {
+      body[key] = null;
+    }
+  }
+}
+
 export async function createProduct(req: Request, res: Response) {
   try {
     await connectDB();
     const body = req.body || {};
+    cleanObjectIdFields(body);
 
     if (!body.sku) {
       const lastProduct = await Product.findOne().sort({ createdAt: -1 });
@@ -340,6 +474,7 @@ export async function updateProduct(req: Request, res: Response) {
     await connectDB();
     const id = req.params.id as string;
     const body = req.body || {};
+    cleanObjectIdFields(body);
 
     const product = await Product.findByIdAndUpdate(id, { $set: body }, { returnDocument: 'after' });
     if (!product) {
@@ -359,9 +494,22 @@ export async function deleteProduct(req: Request, res: Response) {
     await connectDB();
     const id = req.params.id as string;
 
-    await Product.findByIdAndUpdate(id, { isActive: false });
+    const deletedProduct = await Product.findByIdAndDelete(id);
+    if (!deletedProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    await ProductVariant.deleteMany({ productId: id });
+    await AuditLog.deleteMany({ productId: id });
+
+    try {
+      getIO().emit('product_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
+
     await clearCachePattern('cache:/api/products*');
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, message: 'Product deleted successfully from database' });
   } catch (error) {
     console.error('DELETE product error:', error);
     return res.status(500).json({ error: 'Failed to delete product' });

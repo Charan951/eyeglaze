@@ -3,6 +3,8 @@ import { connectDB } from '../../config/mongodb';
 import { Category } from '../../models/Category';
 import { clearCachePattern } from '../../middleware/cache';
 import { SubCategory } from '../../models/SubCategory';
+import { SubSubCategory } from '../../models/SubSubCategory';
+import { SubSubSubCategory } from '../../models/SubSubSubCategory';
 
 import { CategoryAttribute } from '../../models/CategoryAttribute';
 import { CategoryFilter } from '../../models/CategoryFilter';
@@ -23,6 +25,10 @@ function getModelByType(type: string): mongoose.Model<any> {
       return Category;
     case 'SubCategory':
       return SubCategory;
+    case 'SubSubCategory':
+      return SubSubCategory;
+    case 'SubSubSubCategory':
+      return SubSubSubCategory;
     default:
       throw new Error(`Invalid category type: ${type}`);
   }
@@ -49,24 +55,50 @@ export async function getCategories(req: Request, res: Response) {
       query.status = status;
     }
 
+    const categoryId = req.query.categoryId as string | undefined;
+    const subCategoryId = req.query.subCategoryId as string | undefined;
+    const subSubCategoryId = req.query.subSubCategoryId as string | undefined;
+
+    if (subSubCategoryId && type === 'SubSubSubCategory') {
+      query.subSubCategoryId = subSubCategoryId;
+    }
+    if (subCategoryId && (type === 'SubSubCategory' || type === 'SubSubSubCategory')) {
+      query.subCategoryId = subCategoryId;
+    }
+    if (categoryId && (type === 'SubCategory' || type === 'SubSubCategory' || type === 'SubSubSubCategory')) {
+      query.categoryId = categoryId;
+    }
+
     let items: any[] = [];
     let total = 0;
 
     if (type) {
       const model = getModelByType(type);
-      const docs = await model.find(query).sort({ displayOrder: 1, name: 1 }).skip(skip).limit(limit).lean();
+      let q = model.find(query);
+      if (type === 'SubCategory') {
+        q = q.populate('categoryId', 'name');
+      } else if (type === 'SubSubCategory') {
+        q = q.populate('categoryId', 'name').populate('subCategoryId', 'name');
+      } else if (type === 'SubSubSubCategory') {
+        q = q.populate('categoryId', 'name').populate('subCategoryId', 'name').populate('subSubCategoryId', 'name');
+      }
+      const docs = await q.sort({ displayOrder: 1, name: 1 }).skip(skip).limit(limit).lean();
       items = docs.map((d) => ({ ...d, type }));
       total = await model.countDocuments(query);
     } else {
-      // Gather Category and SubCategory if no type is passed
-      const [cats, subcats] = await Promise.all([
+      // Gather all tiers if no type is passed
+      const [cats, subcats, subsubcats, subsubsubcats] = await Promise.all([
         Category.find(query).lean(),
-        SubCategory.find(query).lean(),
+        SubCategory.find(query).populate('categoryId', 'name').lean(),
+        SubSubCategory.find(query).populate('categoryId', 'name').populate('subCategoryId', 'name').lean(),
+        SubSubSubCategory.find(query).populate('categoryId', 'name').populate('subCategoryId', 'name').populate('subSubCategoryId', 'name').lean(),
       ]);
 
       const all = [
         ...cats.map((c) => ({ ...c, type: 'Category' })),
         ...subcats.map((s) => ({ ...s, type: 'SubCategory' })),
+        ...subsubcats.map((ss) => ({ ...ss, type: 'SubSubCategory' })),
+        ...subsubsubcats.map((sss) => ({ ...sss, type: 'SubSubSubCategory' })),
       ];
 
       // Sort in memory
@@ -88,23 +120,49 @@ export async function getCategoryTree(req: Request, res: Response) {
     await connectDB();
     const query = { isDeleted: false, status: 'Active' };
 
-    const [categories, subCategories] = await Promise.all([
+    const [categories, subCategories, subSubCategories, subSubSubCategories] = await Promise.all([
       Category.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
       SubCategory.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
+      SubSubCategory.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
+      SubSubSubCategory.find(query).sort({ displayOrder: 1, name: 1 }).lean(),
     ]);
 
-    // Build hierarchy
+    // Build 4-level hierarchy
     const tree = categories.map((cat: any) => {
       const catSubcats = subCategories
         .filter((sub: any) => String(sub.categoryId) === String(cat._id))
         .map((sub: any) => {
+          const subsubcats = subSubCategories
+            .filter((subsub: any) => String(subsub.subCategoryId) === String(sub._id))
+            .map((subsub: any) => {
+              const subsubsubcats = subSubSubCategories
+                .filter((subsubsub: any) => String(subsubsub.subSubCategoryId) === String(subsub._id))
+                .map((subsubsub: any) => ({
+                  id: subsubsub._id,
+                  name: subsubsub.name,
+                  code: subsubsub.code,
+                  slug: subsubsub.slug,
+                  type: 'SubSubSubCategory',
+                  children: [],
+                }));
+
+              return {
+                id: subsub._id,
+                name: subsub.name,
+                code: subsub.code,
+                slug: subsub.slug,
+                type: 'SubSubCategory',
+                children: subsubsubcats,
+              };
+            });
+
           return {
             id: sub._id,
             name: sub.name,
             code: sub.code,
             slug: sub.slug,
             type: 'SubCategory',
-            children: [],
+            children: subsubcats,
           };
         });
 
@@ -220,11 +278,42 @@ export async function createCategory(req: Request, res: Response) {
         docData.bannerImage = basic.bannerImage;
         docData.parentCategory = undefined;
         docData.isActive = docData.status === 'Active';
+        docData.subCategoryShape = basic.subCategoryShape ?? 'square';
+        docData.subCategorySize = basic.subCategorySize ?? 'medium';
+        docData.subCategoryColumns = basic.subCategoryColumns ?? 4;
+        docData.showInNavbar = basic.showInNavbar ?? true;
       } else if (type === 'SubCategory') {
         if (!hierarchy?.categoryId) {
           return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
         }
         docData.categoryId = hierarchy.categoryId;
+        docData.icon = basic.icon;
+        docData.bannerImage = basic.bannerImage;
+        docData.linkTo = basic.linkTo;
+        docData.gender = basic.gender;
+        docData.shapeModal = basic.shapeModal ?? false;
+        docData.modalShapes = basic.modalShapes;
+      } else if (type === 'SubSubCategory') {
+        if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
+          return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
+        }
+        docData.categoryId = hierarchy.categoryId;
+        docData.subCategoryId = hierarchy.subCategoryId;
+        docData.icon = basic.icon;
+        docData.bannerImage = basic.bannerImage;
+        docData.linkTo = basic.linkTo;
+        docData.gender = basic.gender;
+      } else if (type === 'SubSubSubCategory') {
+        if (!hierarchy?.categoryId || !hierarchy?.subCategoryId || !hierarchy?.subSubCategoryId) {
+          return res.status(400).json({ error: 'categoryId, subCategoryId, and subSubCategoryId references are required for SubSubSubCategory' });
+        }
+        docData.categoryId = hierarchy.categoryId;
+        docData.subCategoryId = hierarchy.subCategoryId;
+        docData.subSubCategoryId = hierarchy.subSubCategoryId;
+        docData.icon = basic.icon;
+        docData.bannerImage = basic.bannerImage;
+        docData.linkTo = basic.linkTo;
+        docData.gender = basic.gender;
       }
 
       const updatedDoc = await model.findByIdAndUpdate(targetId, { $set: docData }, { returnDocument: 'after' });
@@ -296,6 +385,15 @@ export async function createCategory(req: Request, res: Response) {
       return res.status(201).json({ category: updatedDoc, attributes: attrDoc, filters: filterDoc, seo: seoDoc });
     }
 
+    let rawStatus = basic.status || 'Active';
+    if (typeof rawStatus === 'string') {
+      const lower = rawStatus.trim().toLowerCase();
+      if (lower === 'active') rawStatus = 'Active';
+      else if (lower === 'inactive') rawStatus = 'Inactive';
+      else if (lower === 'draft') rawStatus = 'Draft';
+      else if (lower === 'archived') rawStatus = 'Archived';
+    }
+
     // Prepare tier document
     const docData: Record<string, any> = {
       name: basic.name,
@@ -303,7 +401,7 @@ export async function createCategory(req: Request, res: Response) {
       code: basic.code,
       description: basic.description,
       displayOrder: basic.displayOrder || 0,
-      status: basic.status || 'Active',
+      status: rawStatus,
       isDeleted: false,
     };
 
@@ -312,11 +410,42 @@ export async function createCategory(req: Request, res: Response) {
       docData.bannerImage = basic.bannerImage;
       docData.parentCategory = undefined; // For compatibility
       docData.isActive = docData.status === 'Active';
+      docData.subCategoryShape = basic.subCategoryShape ?? 'square';
+      docData.subCategorySize = basic.subCategorySize ?? 'medium';
+      docData.subCategoryColumns = basic.subCategoryColumns ?? 4;
+      docData.showInNavbar = basic.showInNavbar ?? true;
     } else if (type === 'SubCategory') {
       if (!hierarchy?.categoryId) {
         return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
       }
       docData.categoryId = hierarchy.categoryId;
+      docData.icon = basic.icon;
+      docData.bannerImage = basic.bannerImage;
+      docData.linkTo = basic.linkTo;
+      docData.gender = basic.gender;
+      docData.shapeModal = basic.shapeModal ?? false;
+      docData.modalShapes = basic.modalShapes;
+    } else if (type === 'SubSubCategory') {
+      if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
+        return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
+      }
+      docData.categoryId = hierarchy.categoryId;
+      docData.subCategoryId = hierarchy.subCategoryId;
+      docData.icon = basic.icon;
+      docData.bannerImage = basic.bannerImage;
+      docData.linkTo = basic.linkTo;
+      docData.gender = basic.gender;
+    } else if (type === 'SubSubSubCategory') {
+      if (!hierarchy?.categoryId || !hierarchy?.subCategoryId || !hierarchy?.subSubCategoryId) {
+        return res.status(400).json({ error: 'categoryId, subCategoryId, and subSubCategoryId references are required for SubSubSubCategory' });
+      }
+      docData.categoryId = hierarchy.categoryId;
+      docData.subCategoryId = hierarchy.subCategoryId;
+      docData.subSubCategoryId = hierarchy.subSubCategoryId;
+      docData.icon = basic.icon;
+      docData.bannerImage = basic.bannerImage;
+      docData.linkTo = basic.linkTo;
+      docData.gender = basic.gender;
     }
 
     const newDoc = new model(docData);
@@ -425,14 +554,36 @@ export async function updateCategory(req: Request, res: Response) {
     if (basic?.displayOrder !== undefined) updateObj.displayOrder = basic.displayOrder;
     if (basic?.status) {
       updateObj.status = basic.status;
-      if (type === 'Category') updateObj.isActive = basic.status === 'Active';
+      if (type === 'Category') {
+        updateObj.isActive = basic.status === 'Active';
+      }
+    }
+    if (type === 'Category') {
+      if (basic?.subCategoryShape !== undefined) updateObj.subCategoryShape = basic.subCategoryShape;
+      if (basic?.subCategorySize !== undefined) updateObj.subCategorySize = basic.subCategorySize;
+      if (basic?.subCategoryColumns !== undefined) updateObj.subCategoryColumns = basic.subCategoryColumns;
+      if (basic?.showInNavbar !== undefined) updateObj.showInNavbar = basic.showInNavbar;
     }
     if (basic?.icon !== undefined) updateObj.icon = basic.icon;
     if (basic?.bannerImage !== undefined) updateObj.bannerImage = basic.bannerImage;
 
     // Hierarchy bindings
-    if (type === 'SubCategory' && hierarchy?.categoryId) {
-      updateObj.categoryId = hierarchy.categoryId;
+    if (type === 'SubCategory' || type === 'SubSubCategory' || type === 'SubSubSubCategory') {
+      if (hierarchy?.categoryId) {
+        updateObj.categoryId = hierarchy.categoryId;
+      }
+      if ((type === 'SubSubCategory' || type === 'SubSubSubCategory') && hierarchy?.subCategoryId) {
+        updateObj.subCategoryId = hierarchy.subCategoryId;
+      }
+      if (type === 'SubSubSubCategory' && hierarchy?.subSubCategoryId) {
+        updateObj.subSubCategoryId = hierarchy.subSubCategoryId;
+      }
+      if (basic?.icon !== undefined) updateObj.icon = basic.icon;
+      if (basic?.bannerImage !== undefined) updateObj.bannerImage = basic.bannerImage;
+      if (basic?.linkTo !== undefined) updateObj.linkTo = basic.linkTo;
+      if (basic?.gender !== undefined) updateObj.gender = basic.gender;
+      if (basic?.shapeModal !== undefined) updateObj.shapeModal = basic.shapeModal;
+      if (basic?.modalShapes !== undefined) updateObj.modalShapes = basic.modalShapes;
     }
 
     const updatedDoc = await model.findByIdAndUpdate(id, { $set: updateObj }, { returnDocument: 'after' });
@@ -508,25 +659,13 @@ export async function deleteCategory(req: Request, res: Response) {
 
     await connectDB();
     const { type, id } = req.params;
-    const hard = req.query.hard === 'true' && req.user.role === 'admin';
     const model = getModelByType(type as string);
-
-    if (hard) {
-      await Promise.all([
-        model.findByIdAndDelete(id),
-        CategoryAttribute.deleteMany({ targetId: id, targetType: type }),
-        CategoryFilter.deleteMany({ targetId: id, targetType: type }),
-        CategorySeo.deleteMany({ targetId: id, targetType: type }),
-      ]);
-    } else {
-      // Soft delete
-      await model.findByIdAndUpdate(id, {
-        isDeleted: true,
-        deletedAt: new Date(),
-        status: 'Archived',
-        ...(type === 'Category' ? { isActive: false } : {}),
-      });
-    }
+    await Promise.all([
+      model.findByIdAndDelete(id),
+      CategoryAttribute.deleteMany({ targetId: id, targetType: type }),
+      CategoryFilter.deleteMany({ targetId: id, targetType: type }),
+      CategorySeo.deleteMany({ targetId: id, targetType: type }),
+    ]);
 
     // Save Audit Log
     const userObj = await User.findById(req.user.userId);
@@ -536,7 +675,7 @@ export async function deleteCategory(req: Request, res: Response) {
       targetType: type,
       performedBy: req.user.userId,
       performedByName: userObj?.name || userObj?.email || 'Admin User',
-      changes: { type, id, hard },
+      changes: { type, id, hard: true },
       version: 1,
     });
     await audit.save();

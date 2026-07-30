@@ -106,7 +106,7 @@ export default function CategoriesPage() {
                     <img 
                       src={item.img} 
                       alt={item.label} 
-                      className="w-full h-full object-cover rounded-xl transition-all duration-500 group-hover:scale-102"
+                      className="w-full h-full object-contain p-2 rounded-xl transition-all duration-500 group-hover:scale-102"
                     />
                   </div>
                   <span className="text-[10px] sm:text-xs text-center font-bold text-gray-400 group-hover:text-[#D4A04D] transition-colors mt-2 uppercase tracking-widest leading-none">

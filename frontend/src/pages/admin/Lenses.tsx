@@ -7,6 +7,7 @@ interface LensType {
   _id: string;
   name: string;
   status: 'Active' | 'Inactive';
+  description?: string;
   lensCount?: number;
 }
 
@@ -24,6 +25,7 @@ interface Lens {
   lensType: LensType;
   basePrice: number;
   memberPrice?: number;
+  description?: string;
   displayOrder: number;
   status: 'Active' | 'Inactive';
   powerPricing?: PowerPricing[];
@@ -36,15 +38,37 @@ interface Lens {
 
 export default function AdminLensesPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') || 'eyeglasses';
 
-  const getCategoryDisplayName = (slug: string) => {
-    if (slug === 'eyeglasses' || slug === 'prescription') return 'Eyeglasses';
-    if (slug === 'sunglasses') return 'Sunglasses';
-    if (slug === 'power-sunglasses') return 'Special Power';
-    return slug.charAt(0).toUpperCase() + slug.slice(1);
-  };
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setLoadingCategories(true);
+      try {
+        const res = await api.get('/admin/categories?type=Category&limit=1000');
+        const items = res.data.items || [];
+        const filtered = items.filter((item: any) => 
+          item.slug !== 'contact-lenses' && 
+          item.slug !== 'contact_lenses' && 
+          item.slug !== 'accessories'
+        );
+        setCategories(filtered);
+        
+        const currentCategory = searchParams.get('category');
+        if (filtered.length > 0 && (!currentCategory || !filtered.some((c: any) => c.slug === currentCategory))) {
+          setSearchParams({ category: filtered[0].slug });
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories for lenses:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, [searchParams, setSearchParams]);
 
   const [lensTypes, setLensTypes] = useState<LensType[]>([]);
   const [lenses, setLenses] = useState<Lens[]>([]);
@@ -152,6 +176,7 @@ export default function AdminLensesPage() {
     const payload = {
       name: formData.get('name') as string,
       status: formData.get('status') as string,
+      description: formData.get('description') as string,
       category: categoryParam,
     };
 
@@ -203,6 +228,7 @@ export default function AdminLensesPage() {
       maxSph: Number(formData.get('maxSph')),
       minCyl: Number(formData.get('minCyl')),
       maxCyl: Number(formData.get('maxCyl')),
+      description: formData.get('description') as string,
       powerPricing: [],
     };
 
@@ -318,6 +344,17 @@ export default function AdminLensesPage() {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Description</label>
+                <textarea
+                  name="description"
+                  defaultValue={editingLens?.description || ''}
+                  rows={3}
+                  className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white text-sm focus:border-[#D4A04D] focus:outline-none resize-none"
+                  placeholder="Provide a description of this lens quality and its benefits..."
+                />
+              </div>
             </div>
 
             {/* Right Column: Prescription Power Limits */}
@@ -415,32 +452,51 @@ export default function AdminLensesPage() {
 
       {/* Top Header & Actions */}
       <div className="sticky top-0 bg-[#0B0B0C] z-10 pb-4 border-b border-[#2A2A2D]">
-        <div className="mb-2">
-          <button
-            onClick={() => navigate('/admin/categories')}
-            className="text-xs text-[#A7A7A7] hover:text-[#D4A04D] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors bg-transparent border-none p-0 cursor-pointer"
-          >
-            ← Back to Categories
-          </button>
-        </div>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">
-            {getCategoryDisplayName(categoryParam)} Lens Management
-          </h1>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white uppercase tracking-wide">
+              Lens Management
+            </h1>
+            <p className="text-xs text-[#A7A7A7] mt-1">Configure lens types, pricing, and power limits per category.</p>
+          </div>
           <div className="flex gap-3">
             <button
               onClick={() => { setEditingType(null); setIsTypeModalOpen(true); }}
-              className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-white font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md"
+              className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-white font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md cursor-pointer outline-none"
             >
               + Add Lens Type
             </button>
             <button
               onClick={() => { setEditingLens(null); setIsLensDrawerOpen(true); }}
-              className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md"
+              className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md cursor-pointer outline-none"
             >
               + Add Lens
             </button>
           </div>
+        </div>
+
+        {/* Category Switcher Tabs */}
+        <div className="flex border-b border-[#2A2A2D] gap-2 mb-5">
+          {loadingCategories ? (
+            <div className="text-xs text-[#A7A7A7] font-bold py-2">Loading categories...</div>
+          ) : (
+            categories.map((cat) => {
+              const isActive = categoryParam === cat.slug;
+              return (
+                <button
+                  key={cat._id}
+                  onClick={() => setSearchParams({ category: cat.slug })}
+                  className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 cursor-pointer outline-none focus:outline-none ${
+                    isActive
+                      ? 'border-[#D4A04D] text-[#D4A04D]'
+                      : 'border-transparent text-[#A7A7A7] hover:text-white'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -454,7 +510,7 @@ export default function AdminLensesPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors"
+            className="bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors cursor-pointer"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
@@ -594,6 +650,16 @@ export default function AdminLensesPage() {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#A7A7A7] uppercase tracking-wider mb-2">Description</label>
+                <textarea
+                  name="description"
+                  defaultValue={editingType?.description || ''}
+                  rows={2}
+                  className="w-full bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none resize-none"
+                  placeholder="Provide a description of this lens type..."
+                />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-[#2A2A2D] mt-6">
                 <button
