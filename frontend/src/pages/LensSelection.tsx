@@ -136,8 +136,13 @@ export default function LensSelection() {
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [uploadingPrescription, setUploadingPrescription] = useState(false);
   const [prescriptionName, setPrescriptionName] = useState('');
+  const [prescriptionPhone, setPrescriptionPhone] = useState('');
   const [prescriptionFileToUpload, setPrescriptionFileToUpload] = useState<File | null>(null);
   
+  // Power Options State
+  const [hasSamePower, setHasSamePower] = useState(false);
+  const [hasCylindrical, setHasCylindrical] = useState(false);
+
   // Matches defaults in screenshots
   const [reSph, setReSph] = useState('');
   const [reCyl, setReCyl] = useState('');
@@ -150,6 +155,47 @@ export default function LensSelection() {
   const [leAdd, setLeAdd] = useState('');
   const [rePd, setRePd] = useState('');
   const [lePd, setLePd] = useState('');
+
+  const handleReSphChange = (val: string) => {
+    setReSph(val);
+    if (hasSamePower) setLeSph(val);
+  };
+  const handleLeSphChange = (val: string) => {
+    setLeSph(val);
+    if (hasSamePower) setReSph(val);
+  };
+  const handleReCylChange = (val: string) => {
+    setReCyl(val);
+    if (hasSamePower) setLeCyl(val);
+  };
+  const handleLeCylChange = (val: string) => {
+    setLeCyl(val);
+    if (hasSamePower) setReCyl(val);
+  };
+  const handleReAxisChange = (val: string) => {
+    setReAxis(val);
+    if (hasSamePower) setLeAxis(val);
+  };
+  const handleLeAxisChange = (val: string) => {
+    setLeAxis(val);
+    if (hasSamePower) setReAxis(val);
+  };
+  const handleReAddChange = (val: string) => {
+    setReAdd(val);
+    if (hasSamePower) setLeAdd(val);
+  };
+  const handleLeAddChange = (val: string) => {
+    setLeAdd(val);
+    if (hasSamePower) setReAdd(val);
+  };
+  const handleRePdChange = (val: string) => {
+    setRePd(val);
+    if (hasSamePower) setLePd(val);
+  };
+  const handleLePdChange = (val: string) => {
+    setLePd(val);
+    if (hasSamePower) setRePd(val);
+  };
 
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
@@ -841,25 +887,30 @@ export default function LensSelection() {
         } else if (powerMode === 'enter' && !selectedPrescriptionId) {
           try {
             const isProgressive = selectedType?.type === 'progressive';
+            const effReCyl = hasCylindrical ? (parseFloat(reCyl) || 0) : 0;
+            const effLeCyl = hasCylindrical ? (parseFloat(leCyl) || 0) : 0;
             const payload: any = {
               RE: JSON.stringify({ 
-                sph: parseFloat(reSph), 
-                cyl: parseFloat(reCyl), 
-                axis: parseInt(reAxis) || 0, 
-                ...(isProgressive ? { addPower: parseFloat(reAdd), pd: parseFloat(rePd) } : {}) 
+                sph: parseFloat(reSph) || 0, 
+                cyl: effReCyl, 
+                axis: (hasCylindrical ? parseInt(reAxis) : 0) || 0, 
+                ...(isProgressive ? { addPower: parseFloat(reAdd) || 0, pd: parseFloat(rePd) || 0 } : {}) 
               }),
               LE: JSON.stringify({ 
-                sph: parseFloat(leSph), 
-                cyl: parseFloat(leCyl), 
-                axis: parseInt(leAxis) || 0, 
-                ...(isProgressive ? { addPower: parseFloat(leAdd), pd: parseFloat(lePd) } : {}) 
+                sph: parseFloat(leSph) || 0, 
+                cyl: effLeCyl, 
+                axis: (hasCylindrical ? parseInt(leAxis) : 0) || 0, 
+                ...(isProgressive ? { addPower: parseFloat(leAdd) || 0, pd: parseFloat(lePd) || 0 } : {}) 
               })
             };
             if (isProgressive) {
-              payload.pd = parseFloat(rePd) + parseFloat(lePd);
+              payload.pd = (parseFloat(rePd) || 0) + (parseFloat(lePd) || 0);
             }
             if (prescriptionName.trim()) {
               payload.name = prescriptionName.trim();
+            }
+            if (prescriptionPhone.trim()) {
+              payload.phone = prescriptionPhone.trim();
             }
             await api.post('/prescriptions', payload);
           } catch (err) {
@@ -868,15 +919,18 @@ export default function LensSelection() {
         }
       }
 
+      const effReCyl = hasCylindrical ? (parseSafeFloat(reCyl) || 0) : 0;
+      const effLeCyl = hasCylindrical ? (parseSafeFloat(leCyl) || 0) : 0;
+
       const basePrice = selectedType?.type === 'progressive' 
         ? (selectedSubType?.price || 2499)
         : (getLensPairPrice(
             lensObj,
             powerMode,
             parseSafeFloat(reSph),
-            parseSafeFloat(reCyl),
+            effReCyl,
             parseSafeFloat(leSph),
-            parseSafeFloat(leCyl)
+            effLeCyl
           ) || selectedType?.price || 699);
 
       // Determine power object based on user's choice, not lens type!
@@ -885,17 +939,18 @@ export default function LensSelection() {
         const isProgressive = selectedType?.type === 'progressive';
         powerObj = {
           name: prescriptionName.trim() || undefined,
+          phone: prescriptionPhone.trim() || undefined,
           RE: { 
-            sph: parseFloat(reSph), 
-            cyl: parseFloat(reCyl), 
-            axis: parseInt(reAxis) || 0, 
-            ...(isProgressive ? { addPower: parseFloat(reAdd), pd: parseFloat(rePd) } : {}) 
+            sph: parseFloat(reSph) || 0, 
+            cyl: effReCyl, 
+            axis: (hasCylindrical ? parseInt(reAxis) : 0) || 0, 
+            ...(isProgressive ? { addPower: parseFloat(reAdd) || 0, pd: parseFloat(rePd) || 0 } : {}) 
           },
           LE: { 
-            sph: parseFloat(leSph), 
-            cyl: parseFloat(leCyl), 
-            axis: parseInt(leAxis) || 0, 
-            ...(isProgressive ? { addPower: parseFloat(leAdd), pd: parseFloat(lePd) } : {}) 
+            sph: parseFloat(leSph) || 0, 
+            cyl: effLeCyl, 
+            axis: (hasCylindrical ? parseInt(leAxis) : 0) || 0, 
+            ...(isProgressive ? { addPower: parseFloat(leAdd) || 0, pd: parseFloat(lePd) || 0 } : {}) 
           },
           ...(isProgressive ? {
             pd: parseFloat(rePd) + parseFloat(lePd),
@@ -1003,8 +1058,11 @@ export default function LensSelection() {
 
     // Check validation for both enter and upload modes, regardless of lens type
     if (powerMode === 'enter') {
-      if (!reSph || !leSph || !reCyl || !leCyl) {
-        showAlert('Missing Selection', 'Please select SPH and CYL values for both eyes.');
+      const effectiveReCyl = hasCylindrical ? (reCyl || '0.00') : '0.00';
+      const effectiveLeCyl = hasCylindrical ? (leCyl || '0.00') : '0.00';
+
+      if (!reSph || !leSph || (hasCylindrical && (!reCyl || !leCyl))) {
+        showAlert('Missing Selection', hasCylindrical ? 'Please select SPH and CYL values for both eyes.' : 'Please select SPH values for both eyes.');
         return;
       }
 
@@ -1013,8 +1071,8 @@ export default function LensSelection() {
         return;
       }
 
-      const hasAstigmatismRE = parseFloat(reCyl) !== 0;
-      const hasAstigmatismLE = parseFloat(leCyl) !== 0;
+      const hasAstigmatismRE = hasCylindrical && parseFloat(effectiveReCyl) !== 0;
+      const hasAstigmatismLE = hasCylindrical && parseFloat(effectiveLeCyl) !== 0;
       if (hasAstigmatismRE && (!reAxis || reAxis === '')) {
         showAlert('Missing Axis', 'Please select AXIS for Right Eye astigmatism (when CYL is not 0)');
         return;
@@ -1032,9 +1090,9 @@ export default function LensSelection() {
         const maxCyl = targetLens.maxCyl !== undefined ? targetLens.maxCyl : 6;
 
         const reSphVal = parseFloat(reSph) || 0;
-        const reCylVal = parseFloat(reCyl) || 0;
+        const reCylVal = parseFloat(effectiveReCyl) || 0;
         const leSphVal = parseFloat(leSph) || 0;
-        const leCylVal = parseFloat(leCyl) || 0;
+        const leCylVal = parseFloat(effectiveLeCyl) || 0;
 
         const isReSphOutOfRange = reSphVal < Math.min(minSph, maxSph) || reSphVal > Math.max(minSph, maxSph);
         const isReCylOutOfRange = reCylVal < Math.min(minCyl, maxCyl) || reCylVal > Math.max(minCyl, maxCyl);
@@ -1473,144 +1531,239 @@ export default function LensSelection() {
                     {powerMode === 'enter' && (
                       <div id="manual-power-inputs" className="space-y-6 pt-2 text-left animate-fade-in">
                         <div>
-                          <h4 className="text-white font-bold text-xs uppercase tracking-wider">{selectedType?.displayName || 'Prescription Lenses'}</h4>
-                          <p className="text-gray-500 text-[10px] mt-0.5">For distance or near vision with a single power.</p>
+                          <h3 className="text-white font-extrabold text-base tracking-wide">Enter power manually</h3>
                         </div>
 
-                        {user && savedPrescriptions.length === 0 && (
-                          <p className="text-gray-500 text-[9px] mt-2 italic">
-                            ℹ️ Power entered manually will be saved to your account dashboard for future orders.
-                          </p>
-                        )}
+                        {/* Card containing checkboxes and power table matrix */}
+                        <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-2xl p-4 sm:p-6 space-y-5">
+                          {/* Checkboxes */}
+                          <div className="space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer text-xs sm:text-sm font-semibold text-gray-300 hover:text-white transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={hasSamePower}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setHasSamePower(checked);
+                                  if (checked) {
+                                    if (reSph) setLeSph(reSph);
+                                    if (reCyl) setLeCyl(reCyl);
+                                    if (reAxis) setLeAxis(reAxis);
+                                    if (reAdd) setLeAdd(reAdd);
+                                    if (rePd) setLePd(rePd);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-600 bg-zinc-900 text-[#D4A04D] focus:ring-[#D4A04D] accent-[#D4A04D]"
+                              />
+                              <span>I have same power for both eyes</span>
+                            </label>
 
-                        {/* Grid */}
-                        <div className="space-y-4">
-                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 text-center text-[8px] font-extrabold text-[#A7A7A7] border-b border-[#2A2A2D]/70 pb-2 uppercase tracking-widest`}>
-                            <div className="text-left" />
-                            <div>SPH (Sphere)</div>
-                            <div>CYL (Cylinder)</div>
-                            <div>AXIS</div>
+                            <label className="flex items-center gap-3 cursor-pointer text-xs sm:text-sm font-semibold text-gray-300 hover:text-white transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={hasCylindrical}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setHasCylindrical(checked);
+                                  if (!checked) {
+                                    setReCyl('0.00');
+                                    setLeCyl('0.00');
+                                    setReAxis('');
+                                    setLeAxis('');
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-600 bg-zinc-900 text-[#D4A04D] focus:ring-[#D4A04D] accent-[#D4A04D]"
+                              />
+                              <span>I have cylindrical power</span>
+                            </label>
+                          </div>
+
+                          {/* Power Table Matrix */}
+                          <div className="space-y-4 pt-2">
+                            {/* Column Titles */}
+                            <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center text-xs font-bold text-gray-400 pb-1">
+                              <div>Power</div>
+                              <div className="text-center font-extrabold text-white">Right</div>
+                              <div className="text-center font-extrabold text-white">Left</div>
+                            </div>
+
+                            {/* SPH Row */}
+                            <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                              <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">SPH</div>
+                              <div>
+                                <select
+                                  value={reSph}
+                                  onChange={(e) => handleReSphChange(e.target.value)}
+                                  className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                >
+                                  <option value="">Select</option>
+                                  {SPH_OPTIONS.map(v => (
+                                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <select
+                                  value={leSph}
+                                  onChange={(e) => handleLeSphChange(e.target.value)}
+                                  className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                >
+                                  <option value="">Select</option>
+                                  {SPH_OPTIONS.map(v => (
+                                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* CYL Row */}
+                            {hasCylindrical && (
+                              <>
+                                <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                                  <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">CYL</div>
+                                  <div>
+                                    <select
+                                      value={reCyl}
+                                      onChange={(e) => handleReCylChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {CYL_OPTIONS.map(v => (
+                                        <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <select
+                                      value={leCyl}
+                                      onChange={(e) => handleLeCylChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {CYL_OPTIONS.map(v => (
+                                        <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                {/* AXIS Row */}
+                                <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                                  <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">AXIS</div>
+                                  <div>
+                                    <select
+                                      value={reAxis}
+                                      onChange={(e) => handleReAxisChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <select
+                                      value={leAxis}
+                                      onChange={(e) => handleLeAxisChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Progressive rows */}
                             {selectedType?.type === 'progressive' && (
                               <>
-                                <div>ADD</div>
-                                <div>PD</div>
+                                <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                                  <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">ADD</div>
+                                  <div>
+                                    <select
+                                      value={reAdd}
+                                      onChange={(e) => handleReAddChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      <option value="0.00">0.00</option>
+                                      {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                        <option key={power} value={power.replace('+', '')}>{power}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <select
+                                      value={leAdd}
+                                      onChange={(e) => handleLeAddChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      <option value="0.00">0.00</option>
+                                      {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
+                                        <option key={power} value={power.replace('+', '')}>{power}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
+                                  <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">PD</div>
+                                  <div>
+                                    <select
+                                      value={rePd}
+                                      onChange={(e) => handleRePdChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <select
+                                      value={lePd}
+                                      onChange={(e) => handleLePdChange(e.target.value)}
+                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
+                                    >
+                                      <option value="">Select</option>
+                                      {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
                               </>
                             )}
                           </div>
+                        </div>
 
-                          {/* Right Eye Row */}
-                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 items-center text-center`}>
-                            <div className="text-white text-xs font-black text-left">R (Right)</div>
-                            <div>
-                              <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {SPH_OPTIONS.map(v => (
-                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {CYL_OPTIONS.map(v => (
-                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                                  <option key={v} value={v}>{v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            {selectedType?.type === 'progressive' && (
-                              <>
-                                <div>
-                                  <select value={reAdd} onChange={e => setReAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                    <option value="">Select</option>
-                                    <option value="0.00">0.00</option>
-                                    {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                      <option key={power} value={power.replace('+', '')}>{power}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <select value={rePd} onChange={e => setRePd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                    <option value="">Select</option>
-                                    {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Left Eye Row */}
-                          <div className={`grid ${selectedType?.type === 'progressive' ? 'grid-cols-6' : 'grid-cols-4'} gap-2 items-center text-center`}>
-                            <div className="text-white text-xs font-black text-left">L (Left)</div>
-                            <div>
-                              <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {SPH_OPTIONS.map(v => (
-                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {CYL_OPTIONS.map(v => (
-                                  <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                <option value="">Select</option>
-                                {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                                  <option key={v} value={v}>{v}</option>
-                                ))}
-                              </select>
-                            </div>
-                            {selectedType?.type === 'progressive' && (
-                              <>
-                                <div>
-                                  <select value={leAdd} onChange={e => setLeAdd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                    <option value="">Select</option>
-                                    <option value="0.00">0.00</option>
-                                    {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                      <option key={power} value={power.replace('+', '')}>{power}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <select value={lePd} onChange={e => setLePd(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
-                                    <option value="">Select</option>
-                                    {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </>
-                            )}
+                        {/* Whose prescription is this block */}
+                        <div className="space-y-3 pt-2">
+                          <h4 className="text-white font-bold text-xs sm:text-sm tracking-wide">Whose prescription is this</h4>
+                          <div className="space-y-3">
+                            <input
+                              type="text"
+                              placeholder="Name *"
+                              value={prescriptionName}
+                              onChange={e => setPrescriptionName(e.target.value)}
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3.5 py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D]"
+                            />
+                            <input
+                              type="tel"
+                              placeholder="Phone Number *"
+                              value={prescriptionPhone}
+                              onChange={e => setPrescriptionPhone(e.target.value)}
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3.5 py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D]"
+                            />
                           </div>
                         </div>
 
-                        <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
-                          <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
-                            Save this Power as (Mandatory) <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                            type="text" 
-                            placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
-                            value={prescriptionName}
-                            onChange={e => setPrescriptionName(e.target.value)}
-                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                          />
-                        </div>
                       </div>
                     )}
 

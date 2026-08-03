@@ -492,6 +492,8 @@ export default function ProductDetailPage() {
   const [selectedPackOption, setSelectedPackOption] = useState<string>('');
 
   // Toric / Cylindrical & Multifocal specific states
+  const [contactHasSamePower, setContactHasSamePower] = useState<boolean>(false);
+  const [contactHasCylindrical, setContactHasCylindrical] = useState<boolean>(false);
   const [contactRightCyl, setContactRightCyl] = useState<string>('');
   const [contactLeftCyl, setContactLeftCyl] = useState<string>('');
   const [contactRightAxis, setContactRightAxis] = useState<string>('');
@@ -1240,11 +1242,8 @@ export default function ProductDetailPage() {
         <div className="space-y-6 min-w-0">
           {/* Image Gallery Container */}
           <div className="flex flex-col md:flex-row gap-4 items-stretch">
-            {/* Products photos vertical text and vertical thumbnails on Desktop */}
+            {/* Vertical thumbnails on Desktop */}
             <div className="hidden md:flex flex-col items-center select-none w-16 shrink-0 border-r border-[#2A2A2D]/40 pr-3">
-              <div className="[writing-mode:vertical-lr] rotate-180 uppercase text-[9px] font-black tracking-widest text-[#727275] mb-4 mt-2">
-                Products photos
-              </div>
               <div className="flex flex-col gap-2 overflow-y-auto max-h-[380px] scrollbar-none pb-2">
                 {productImages.map((img, i) => {
                   const isSelected = activeImageIndex === i;
@@ -2008,27 +2007,65 @@ export default function ProductDetailPage() {
                   {/* Manual Power Form Sub-Block */}
                   {contactPowerType === 'manual' && (
                     <div className="space-y-4">
-                      {/* Checkboxes for RIGHT / LEFT */}
-                      <div className="flex items-center gap-6">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                      {/* Checkboxes for Same Power & Cylindrical */}
+                      <div className="space-y-2.5 pb-2">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-200 hover:text-white transition-colors">
                           <input
                             type="checkbox"
-                            checked={contactHasRightEye}
-                            onChange={(e) => setContactHasRightEye(e.target.checked)}
+                            checked={contactHasSamePower}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setContactHasSamePower(checked);
+                              if (checked) {
+                                setContactHasRightEye(true);
+                                setContactHasLeftEye(true);
+                                if (contactRightSph) setContactLeftSph(contactRightSph);
+                                if (contactRightCyl) setContactLeftCyl(contactRightCyl);
+                              }
+                            }}
                             className="w-4 h-4 accent-[#D4A04D]"
                           />
-                          <span>✓ RIGHT</span>
+                          <span>I have same power for both eyes</span>
                         </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-200 hover:text-white transition-colors">
                           <input
                             type="checkbox"
-                            checked={contactHasLeftEye}
-                            onChange={(e) => setContactHasLeftEye(e.target.checked)}
+                            checked={contactHasCylindrical}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setContactHasCylindrical(checked);
+                              if (!checked) {
+                                setContactRightCyl('');
+                                setContactLeftCyl('');
+                              }
+                            }}
                             className="w-4 h-4 accent-[#D4A04D]"
                           />
-                          <span>✓ LEFT</span>
+                          <span>I have cylindrical power</span>
                         </label>
+
+                        <div className="flex items-center gap-6 pt-1 border-t border-[#2A2A2D]">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                            <input
+                              type="checkbox"
+                              checked={contactHasRightEye}
+                              onChange={(e) => setContactHasRightEye(e.target.checked)}
+                              className="w-4 h-4 accent-[#D4A04D]"
+                            />
+                            <span>✓ RIGHT</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-200">
+                            <input
+                              type="checkbox"
+                              checked={contactHasLeftEye}
+                              onChange={(e) => setContactHasLeftEye(e.target.checked)}
+                              className="w-4 h-4 accent-[#D4A04D]"
+                            />
+                            <span>✓ LEFT</span>
+                          </label>
+                        </div>
                       </div>
 
                       {/* Spherical (SPH) dropdowns */}
@@ -2042,8 +2079,10 @@ export default function ProductDetailPage() {
                               disabled={!contactHasRightEye}
                               value={contactRightSph}
                               onChange={(e) => {
-                                setContactRightSph(e.target.value);
-                                const matchedCp = product.contactPowers?.find(cp => cp.power === e.target.value);
+                                const val = e.target.value;
+                                setContactRightSph(val);
+                                if (contactHasSamePower) setContactLeftSph(val);
+                                const matchedCp = product.contactPowers?.find(cp => cp.power === val);
                                 if (matchedCp) setCustomPriceOverride(matchedCp.price);
                               }}
                               className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
@@ -2063,8 +2102,10 @@ export default function ProductDetailPage() {
                               disabled={!contactHasLeftEye}
                               value={contactLeftSph}
                               onChange={(e) => {
-                                setContactLeftSph(e.target.value);
-                                const matchedCp = product.contactPowers?.find(cp => cp.power === e.target.value);
+                                const val = e.target.value;
+                                setContactLeftSph(val);
+                                if (contactHasSamePower) setContactRightSph(val);
+                                const matchedCp = product.contactPowers?.find(cp => cp.power === val);
                                 if (matchedCp) setCustomPriceOverride(matchedCp.price);
                               }}
                               className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
@@ -2081,8 +2122,8 @@ export default function ProductDetailPage() {
                         </div>
                       </div>
 
-                      {/* Cylindrical (CYL) dropdowns for Toric Lenses */}
-                      {isToricContactLens(product) && (
+                      {/* Cylindrical (CYL) dropdowns */}
+                      {(isToricContactLens(product) || contactHasCylindrical) && (
                         <div className="space-y-1 pt-1">
                           <div className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">
                             Cylindrical <span className="text-gray-500 font-normal">(CYL)</span>
