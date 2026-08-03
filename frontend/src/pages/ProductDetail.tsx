@@ -110,7 +110,7 @@ const getMockReviews = (productName: string): ReviewType[] => [
     _id: 'rev-1',
     user: { name: 'Rahul Sharma' },
     rating: 5,
-    title: 'Superb quality and fit!',
+    title: 'Superb quality and fit',
     comment: `The ${productName} fits perfectly. It is extremely lightweight, feels very durable, and the style is very modern. Absolutely love it!`,
     isVerifiedPurchase: true,
     createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
