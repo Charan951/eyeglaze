@@ -622,683 +622,94 @@ export default function UserLayout() {
     if (!activeHover) return null;
 
     const activeHoverLower = (activeHover || '').toLowerCase();
-    const isEyeglasses = activeHoverLower === 'prescription' || activeHoverLower === 'eyeglasses';
-    const isSunglasses = activeHoverLower === 'sunglasses';
-    const isContacts = activeHoverLower === 'contact-lenses' || activeHoverLower === 'contact_lenses' || activeHoverLower === 'contact' || activeHoverLower === 'contact-lens';
-    const isSpecialPower = activeHoverLower === 'special-power' || activeHoverLower === 'special_power' || activeHoverLower === 'special-powers' || activeHoverLower === 'power-sunglasses' || activeHoverLower.includes('special');
-    const isComputer = !isSpecialPower && (activeHoverLower === 'computer-glasses' || activeHoverLower === 'blue_light' || activeHoverLower === 'blue-light' || activeHoverLower === 'reading-glasses');
 
-    if (!isEyeglasses && !isSunglasses && !isContacts && !isComputer && !isSpecialPower) {
-      const dynamicCat = categories.find(c => c.slug === activeHover);
-      if (!dynamicCat || !dynamicCat.children || dynamicCat.children.length === 0) {
-        return null;
-      }
-
+    // Look up category in database category tree
+    const activeCatObj = categories.find((c: any) => {
+      const slug = (c.slug || '').toLowerCase();
       return (
-        <div
-          className="absolute top-full left-1/2 -translate-x-1/2 w-[95vw] max-w-6xl bg-[#0E0E0F]/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl rounded-2xl mt-1 z-50 animate-fade-in"
-          onMouseEnter={handleMegaMenuMouseEnter}
-          onMouseLeave={handleMegaMenuMouseLeave}
-        >
-          <div className="px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-              {dynamicCat.children.map((sub: any) => (
-                <div key={sub.id || sub._id || sub.slug} className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 hover:border-[#D4A04D]/40 transition-all duration-300 flex flex-col justify-between group/card">
-                  <div>
-                    <h3 className="text-white text-xs font-black tracking-wide uppercase">{sub.name}</h3>
-                    <span className="inline-block mt-0.5 text-[8px] font-extrabold uppercase bg-zinc-800 text-gray-400 px-2 py-0.5 rounded-full tracking-wider">
-                      Explore Collection
-                    </span>
-
-                    <div className="mt-2.5 space-y-1.5">
-                      {sub.children && sub.children.length > 0 ? (
-                        sub.children.map((subsub: any) => (
-                          <Link
-                            key={subsub.id || subsub._id || subsub.slug}
-                            to={`/products?category=${dynamicCat.slug}&subCategory=${sub.slug}&subSubCategory=${subsub.slug}`}
-                            className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
-                          >
-                            <span>{subsub.name}</span>
-                            <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
-                          </Link>
-                        ))
-                      ) : (
-                        <>
-                          <Link
-                            to={`/products?category=${dynamicCat.slug}&shape=${sub.name}&gender=men`}
-                            className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
-                          >
-                            <span>Men's {sub.name}</span>
-                            <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
-                          </Link>
-                          <Link
-                            to={`/products?category=${dynamicCat.slug}&shape=${sub.name}&gender=women`}
-                            className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
-                          >
-                            <span>Women's {sub.name}</span>
-                            <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
-                          </Link>
-                          <Link
-                            to={`/products?category=${dynamicCat.slug}&shape=${sub.name}`}
-                            className="flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-[#D4A04D] transition-colors"
-                          >
-                            <span>View All {sub.name}</span>
-                            <span className="text-[10px] transform group-hover/card:translate-x-1 transition-transform">→</span>
-                          </Link>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {dynamicCat.bannerImage ? (
-                <div className="md:col-span-2 relative overflow-hidden rounded-2xl border border-zinc-800 group/promo h-48 md:h-full min-h-[160px] bg-cover bg-center" style={{ backgroundImage: `url(${dynamicCat.bannerImage})` }}>
-                  <div className="absolute inset-0 bg-black/60 group-hover/promo:bg-black/50 transition-colors duration-300" />
-                  <div className="absolute inset-0 p-6 flex flex-col justify-end">
-                    <h4 className="text-white text-lg font-black uppercase tracking-wider">{dynamicCat.name}</h4>
-                    <p className="text-gray-300 text-xs mt-1 max-w-[280px] line-clamp-2">{dynamicCat.description || 'Premium designer frames'}</p>
-                    <Link
-                      to={`/products?category=${dynamicCat.slug}`}
-                      className="inline-flex items-center gap-1.5 mt-3 text-[10px] font-black uppercase bg-[#D4A04D] hover:bg-[#C8923E] text-black py-2 px-4 rounded-lg tracking-wider transition-colors w-fit"
-                    >
-                      Shop Collection
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div className="md:col-span-2 relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-br from-[#1c1c1e] to-[#0c0c0d] p-6 flex flex-col justify-center items-center text-center">
-                  <span className="text-2xl mb-2">✨</span>
-                  <h4 className="text-[#D4A04D] text-xs font-black uppercase tracking-widest">Premium Selection</h4>
-                  <p className="text-gray-500 text-[10px] mt-1 max-w-[200px]">Handcrafted premium quality prescription glasses and custom sunglasses.</p>
-                  <Link to={`/products?category=${dynamicCat.slug}`} className="mt-3 text-[10px] font-black uppercase border border-zinc-700 hover:border-[#D4A04D] hover:text-[#D4A04D] transition-colors py-1.5 px-3 rounded-lg">
-                    Discover More
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        slug === activeHoverLower ||
+        slug.replace(/_/g, '-') === activeHoverLower.replace(/_/g, '-') ||
+        (activeHoverLower === 'prescription' && slug === 'eyeglasses') ||
+        (activeHoverLower === 'blue_light' && (slug === 'computer-glasses' || slug === 'blue_light')) ||
+        (activeHoverLower === 'blue-light' && (slug === 'computer-glasses' || slug === 'blue_light')) ||
+        (activeHoverLower === 'contact-lenses' && (slug === 'contact-lens' || slug === 'contact-lenses')) ||
+        (activeHoverLower === 'contact_lenses' && (slug === 'contact-lens' || slug === 'contact-lenses')) ||
+        (activeHoverLower === 'contact' && (slug === 'contact-lens' || slug === 'contact-lenses')) ||
+        (activeHoverLower === 'special-powers' && (slug === 'special-power' || slug === 'power-sunglasses'))
       );
-    }
+    });
 
     let columns: any[] = [];
-    if (isEyeglasses) {
-      columns = [
-        {
-          title: 'MEN Eyeglasses',
-          badge: 'with FREE lenses',
-          image: '/images/men_eyeglasses.png',
-          items: [
-            getDynamicGroupData('prescription', 'men', {
-              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
-              fallbackPrice: 3000,
-              label: 'John Jacobs | Owndays | Le Petit',
-              to: '/products?category=prescription&gender=men&brand=John%20Jacobs,Owndays,Le%20Petit',
-              fallbackImage: '/images/men_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'men', {
-              brands: ['Vincent Chase', 'Lenskart Air'],
-              fallbackPrice: 1500,
-              label: 'Vincent Chase | Lenskart Air',
-              to: '/products?category=prescription&gender=men&brand=Vincent%20Chase,Lenskart%20Air',
-              fallbackImage: '/images/men_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'men', {
-              brands: ['Hustlr'],
-              fallbackPrice: 500,
-              label: 'Hustlr',
-              to: '/products?category=prescription&gender=men&brand=Hustlr',
-              fallbackImage: '/images/men_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'men', {
-              brands: ['Essentials', 'EyeGlaze'],
-              fallbackPrice: 500,
-              label: 'Essentials',
-              to: '/products?category=prescription&gender=men&brand=Essentials,EyeGlaze',
-              fallbackImage: '/images/men_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'men', {
-              fallbackPrice: 800,
-              label: 'All Brands',
-              to: '/products?category=prescription&gender=men',
-              fallbackImage: '/images/men_eyeglasses.png'
-            })
-          ]
-        },
-        {
-          title: 'WOMEN Eyeglasses',
-          badge: 'with FREE lenses',
-          image: '/images/women_eyeglasses.png',
-          items: [
-            getDynamicGroupData('prescription', 'women', {
-              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
-              fallbackPrice: 3000,
-              label: 'John Jacobs | Owndays | Le Petit',
-              to: '/products?category=prescription&gender=women&brand=John%20Jacobs,Owndays,Le%20Petit',
-              fallbackImage: '/images/women_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'women', {
-              brands: ['Vincent Chase', 'Lenskart Air'],
-              fallbackPrice: 1500,
-              label: 'Vincent Chase | Lenskart Air',
-              to: '/products?category=prescription&gender=women&brand=Vincent%20Chase,Lenskart%20Air',
-              fallbackImage: '/images/women_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'women', {
-              brands: ['Hustlr'],
-              fallbackPrice: 500,
-              label: 'Hustlr',
-              to: '/products?category=prescription&gender=women&brand=Hustlr',
-              fallbackImage: '/images/women_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'women', {
-              brands: ['Essentials', 'EyeGlaze'],
-              fallbackPrice: 500,
-              label: 'Essentials',
-              to: '/products?category=prescription&gender=women&brand=Essentials,EyeGlaze',
-              fallbackImage: '/images/women_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'women', {
-              fallbackPrice: 800,
-              label: 'All Brands',
-              to: '/products?category=prescription&gender=women',
-              fallbackImage: '/images/women_eyeglasses.png'
-            })
-          ]
-        },
-        {
-          title: 'KIDS Eyeglasses',
-          badge: 'with FREE lenses',
-          image: '/images/kids_eyeglasses.png',
-          items: [
-            getDynamicGroupData('prescription', 'kids', {
-              size: 'Small',
-              fallbackPrice: 800,
-              label: 'Juniors | 6 to 8 years',
-              to: '/products?category=prescription&gender=kids&size=Small',
-              fallbackImage: '/images/kids_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'kids', {
-              size: 'Medium',
-              fallbackPrice: 500,
-              label: 'Tweens | 8 to 10 years',
-              to: '/products?category=prescription&gender=kids&size=Medium',
-              fallbackImage: '/images/kids_eyeglasses.png'
-            }),
-            getDynamicGroupData('prescription', 'kids', {
-              size: 'Large',
-              fallbackPrice: 1500,
-              label: 'Teens | 10 to 16 years',
-              to: '/products?category=prescription&gender=kids&size=Large',
-              fallbackImage: '/images/kids_eyeglasses.png'
-            })
-          ]
-        }
-      ];
-    } else if (isSunglasses) {
-      columns = [
-        {
-          title: 'MEN Sunglasses',
-          badge: 'Polarized with UV',
-          image: '/images/men_sunglasses.png',
-          items: [
-            getDynamicGroupData('sunglasses', 'men', {
-              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
-              fallbackPrice: 3000,
-              label: 'John Jacobs | Owndays | Le Petit',
-              to: '/products?category=sunglasses&gender=men&brand=John%20Jacobs,Owndays,Le%20Petit',
-              fallbackImage: '/images/men_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'men', {
-              brands: ['Vincent Chase', 'Lenskart Air'],
-              fallbackPrice: 1500,
-              label: 'Vincent Chase | Lenskart Air',
-              to: '/products?category=sunglasses&gender=men&brand=Vincent%20Chase,Lenskart%20Air',
-              fallbackImage: '/images/men_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'men', {
-              brands: ['Hustlr'],
-              fallbackPrice: 500,
-              label: 'Hustlr',
-              to: '/products?category=sunglasses&gender=men&brand=Hustlr',
-              fallbackImage: '/images/men_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'men', {
-              brands: ['Essentials', 'EyeGlaze'],
-              fallbackPrice: 500,
-              label: 'Essentials',
-              to: '/products?category=sunglasses&gender=men&brand=Essentials,EyeGlaze',
-              fallbackImage: '/images/men_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'men', {
-              fallbackPrice: 800,
-              label: 'All Brands',
-              to: '/products?category=sunglasses&gender=men',
-              fallbackImage: '/images/men_sunglasses.png'
-            })
-          ]
-        },
-        {
-          title: 'WOMEN Sunglasses',
-          badge: 'Polarized with UV',
-          image: '/images/women_sunglasses.png',
-          items: [
-            getDynamicGroupData('sunglasses', 'women', {
-              brands: ['John Jacobs', 'Owndays', 'Le Petit'],
-              fallbackPrice: 3000,
-              label: 'John Jacobs | Owndays | Le Petit',
-              to: '/products?category=sunglasses&gender=women&brand=John%20Jacobs,Owndays,Le%20Petit',
-              fallbackImage: '/images/women_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'women', {
-              brands: ['Vincent Chase', 'Lenskart Air'],
-              fallbackPrice: 1500,
-              label: 'Vincent Chase | Lenskart Air',
-              to: '/products?category=sunglasses&gender=women&brand=Vincent%20Chase,Lenskart%20Air',
-              fallbackImage: '/images/women_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'women', {
-              brands: ['Hustlr'],
-              fallbackPrice: 500,
-              label: 'Hustlr',
-              to: '/products?category=sunglasses&gender=women&brand=Hustlr',
-              fallbackImage: '/images/women_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'women', {
-              brands: ['Essentials', 'EyeGlaze'],
-              fallbackPrice: 500,
-              label: 'Essentials',
-              to: '/products?category=sunglasses&gender=women&brand=Essentials,EyeGlaze',
-              fallbackImage: '/images/women_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'women', {
-              fallbackPrice: 800,
-              label: 'All Brands',
-              to: '/products?category=sunglasses&gender=women',
-              fallbackImage: '/images/women_sunglasses.png'
-            })
-          ]
-        },
-        {
-          title: 'KIDS Sunglasses',
-          badge: 'Polarized with UV',
-          image: '/images/kids_sunglasses.png',
-          items: [
-            getDynamicGroupData('sunglasses', 'kids', {
-              size: 'Small',
-              fallbackPrice: 800,
-              label: 'Juniors | 6 to 8 years',
-              to: '/products?category=sunglasses&gender=kids&size=Small',
-              fallbackImage: '/images/kids_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'kids', {
-              size: 'Medium',
-              fallbackPrice: 500,
-              label: 'Tweens | 8 to 10 years',
-              to: '/products?category=sunglasses&gender=kids&size=Medium',
-              fallbackImage: '/images/kids_sunglasses.png'
-            }),
-            getDynamicGroupData('sunglasses', 'kids', {
-              size: 'Large',
-              fallbackPrice: 1500,
-              label: 'Teens | 10 to 16 years',
-              to: '/products?category=sunglasses&gender=kids&size=Large',
-              fallbackImage: '/images/kids_sunglasses.png'
-            })
-          ]
-        }
-      ];
-    } else if (isContacts) {
-      const contactCat = categories.find((c: any) =>
-        ['contact-lenses', 'contact_lenses', 'contact', 'contact-lens'].includes((c.slug || '').toLowerCase()) ||
-        (c.name || '').toLowerCase().includes('contact')
-      );
 
-      const clearSub = contactCat?.children?.find((s: any) => (s.slug || '').toLowerCase().includes('clear') || (s.name || '').toLowerCase().includes('clear'));
-      const colorSub = contactCat?.children?.find((s: any) => (s.slug || '').toLowerCase().includes('color') || (s.name || '').toLowerCase().includes('color'));
-      const solutionSub = contactCat?.children?.find((s: any) => (s.slug || '').toLowerCase().includes('solution') || (s.name || '').toLowerCase().includes('solution') || (s.slug || '').toLowerCase().includes('accessor'));
-
-      const clearHeaderImg = clearSub?.bannerImage || clearSub?.icon || contactCat?.bannerImage || contactCat?.icon || '/images/cat_contacts.png';
-      const colorHeaderImg = colorSub?.bannerImage || colorSub?.icon || contactCat?.bannerImage || contactCat?.icon || '/images/cat_contacts.png';
-      const solutionHeaderImg = solutionSub?.bannerImage || solutionSub?.icon || '/images/accessories.png';
-
-      // Gather ALL sub-subcategories across all categories in the system so we find any uploaded image by name
-      const allSubSubCats: any[] = [];
-      categories.forEach((cat: any) => {
-        if (cat.children) {
-          cat.children.forEach((sub: any) => {
-            if (sub.type === 'SubSubCategory') {
-              allSubSubCats.push(sub);
-            }
-            if (sub.children && Array.isArray(sub.children)) {
-              sub.children.forEach((subsub: any) => allSubSubCats.push(subsub));
-            }
-          });
-        }
-      });
-
-      const getContactSubItems = (targetSubSlug: string, defaultItems: any[], parentSubObj?: any) => {
-        const matchingSub = parentSubObj || contactCat?.children?.find((s: any) => {
-          const sSlug = (s.slug || '').toLowerCase();
-          const sName = (s.name || '').toLowerCase();
-          const target = targetSubSlug.toLowerCase();
-          return sSlug === target || sSlug.replace(/_/g, '-') === target.replace(/_/g, '-') || sName.includes(target.split('-')[0]);
-        });
-
-        if (matchingSub?.children && matchingSub.children.length > 0) {
-          return matchingSub.children.map((subsub: any) => {
-            const subSubImg = subsub.bannerImage || subsub.icon || matchingSub?.bannerImage || matchingSub?.icon;
-            let finalImage = subSubImg;
-
-            if (!finalImage) {
-              const prodWithImg = products.find((p: any) => {
-                const pSub = (p.subCategory || '').toLowerCase();
-                const pSubSub = (p.subSubCategory || '').toLowerCase();
-                const pName = (p.name || '').toLowerCase();
-                return (
-                  pSubSub === subsub.slug.toLowerCase() ||
-                  pSub === matchingSub.slug.toLowerCase() ||
-                  pName.includes(subsub.name.toLowerCase())
-                ) && (p.thumbnail || (p.images && p.images[0]));
-              });
-              if (prodWithImg) {
-                finalImage = prodWithImg.thumbnail || prodWithImg.images[0];
-              }
-            }
-
-            return {
-              label: subsub.name,
-              price: getDynamicCategoryPrice('contact-lens', 179),
-              to: `/products?category=contact-lens&subCategory=${matchingSub.slug}&subSubCategory=${subsub.slug}`,
-              image: finalImage || '/images/cat_contacts.png'
-            };
-          });
-        }
-
-        return defaultItems.map((item: any) => {
-          const cleanItemLabel = item.label.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const matchingChild = allSubSubCats.find((c: any) => {
-            const cName = (c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            return (cName && (cName.includes(cleanItemLabel) || cleanItemLabel.includes(cName))) && (c.bannerImage || c.icon);
-          });
-
-          let itemImg = item.image;
-          if (matchingChild && (matchingChild.bannerImage || matchingChild.icon)) {
-            itemImg = matchingChild.bannerImage || matchingChild.icon;
-          } else if (matchingSub?.bannerImage || matchingSub?.icon) {
-            itemImg = matchingSub.bannerImage || matchingSub.icon;
-          } else {
-            const prodMatch = products.find((p: any) => {
-              const pSub = (p.subCategory || '').toLowerCase();
-              const pName = (p.name || '').toLowerCase();
-              return (pSub === targetSubSlug || pName.includes(item.label.toLowerCase())) && (p.thumbnail || (p.images && p.images[0]));
-            });
-            if (prodMatch) {
-              itemImg = prodMatch.thumbnail || prodMatch.images[0];
-            }
-          }
-
+    if (activeCatObj && activeCatObj.children && activeCatObj.children.length > 0) {
+      columns = activeCatObj.children.map((sub: any) => {
+        const subHeaderImg = sub.bannerImage || sub.icon || activeCatObj.bannerImage || activeCatObj.icon || '/images/cat_prescription.png';
+        const subSubItems = (sub.children || []).map((subsub: any) => {
+          const subSubImg = subsub.bannerImage || subsub.icon || subHeaderImg;
+          const displayPrice = subsub.startingPrice ? `Starts at ₹${subsub.startingPrice}` : getDynamicCategoryPrice(activeCatObj.slug, 500);
           return {
-            ...item,
-            image: itemImg || item.image || '/images/cat_contacts.png'
+            label: subsub.name,
+            price: displayPrice,
+            to: subsub.linkTo || `/products?category=${activeCatObj.slug}&subCategory=${sub.slug}&subSubCategory=${subsub.slug}`,
+            image: subSubImg
           };
         });
-      };
 
-      columns = [
-        {
-          title: 'CLEAR Contacts',
-          to: '/products?category=contact-lens&subCategory=clear',
-          badge: '10% OFF with Gold',
-          image: clearHeaderImg,
-          items: getContactSubItems('clear', [
-            { label: 'Distance power (-ve)', price: getDynamicCategoryPrice('contact-lens', 249), to: '/products?category=contact-lens&subCategory=clear&type=distance', image: clearHeaderImg },
-            { label: 'Toric/Cylindrical', price: getDynamicCategoryPrice('contact-lens', 349), to: '/products?category=contact-lens&subCategory=clear&type=toric', image: clearHeaderImg },
-            { label: 'Multi-Focal', price: getDynamicCategoryPrice('contact-lens', 2000), to: '/products?category=contact-lens&subCategory=clear&type=multifocal', image: clearHeaderImg },
-            { label: 'All Powers', price: getDynamicCategoryPrice('contact-lens', 249), to: '/products?category=contact-lens&subCategory=clear', image: clearHeaderImg },
-          ], clearSub)
-        },
-        {
-          title: 'COLOR Contacts',
-          to: '/products?category=contact-lens&subCategory=color',
-          badge: '10% OFF with Gold',
-          image: colorHeaderImg,
-          items: getContactSubItems('color', [
-            { label: 'Zero Power', price: getDynamicCategoryPrice('contact-lens', 179), to: '/products?category=contact-lens&subCategory=color&power=zero', image: colorHeaderImg },
-            { label: 'With Power', price: getDynamicCategoryPrice('contact-lens', 199), to: '/products?category=contact-lens&subCategory=color&power=prescribed', image: colorHeaderImg },
-            { label: 'Color Combos', price: 'Buy 4 at the price of 3!', to: '/products?category=contact-lens&subCategory=color&type=combos', image: colorHeaderImg },
-          ], colorSub)
-        },
-        {
-          title: 'Solution & Accessories',
-          to: '/products?category=contact-lens&subCategory=solutions-accessories',
-          badge: '10% OFF with Gold',
-          image: solutionHeaderImg,
-          items: getContactSubItems('solutions-accessories', [
-            { label: 'Solution', price: getDynamicCategoryPrice('contact-lens', 149), to: '/products?category=contact-lens&subCategory=solutions-accessories&type=solution', image: solutionHeaderImg },
-            { label: 'Accessories', price: getDynamicCategoryPrice('contact-lens', 159), to: '/products?category=contact-lens&subCategory=solutions-accessories&type=accessories', image: solutionHeaderImg },
-          ], solutionSub)
-        }
-      ];
-    } else if (isComputer) {
-      columns = [
-        {
-          title: 'Computer Glasses',
-          badge: 'Anti-Glare Screen',
-          image: '/images/cat_blue_light.png',
-          items: getDynamicProducts('blue_light', 'all', {
-            fallbackItems: [
-              { label: 'Vincent Chase Anti-Glare', price: 'Starts at ₹799', to: '/products?category=blue_light', image: '/images/cat_blue_light.png' },
-              { label: 'John Jacobs Blue Cut Clear', price: 'Starts at ₹1299', to: '/products?category=blue_light', image: '/images/cat_blue_light.png' },
-              { label: 'EyeGlaze Gamer Special', price: 'Starts at ₹1999', to: '/products?category=blue_light', image: '/images/cat_blue_light.png' }
+        return {
+          title: sub.name,
+          to: sub.linkTo || `/products?category=${activeCatObj.slug}&subCategory=${sub.slug}`,
+          badge: sub.gender ? `${sub.gender.toUpperCase()} COLLECTION` : (activeCatObj.slug.includes('contact') ? '10% OFF with Gold' : 'with FREE lenses'),
+          image: subHeaderImg,
+          items: subSubItems.length > 0 ? subSubItems : [
+            {
+              label: `Explore ${sub.name}`,
+              price: sub.startingPrice ? `Starts at ₹${sub.startingPrice}` : getDynamicCategoryPrice(activeCatObj.slug, 500),
+              to: sub.linkTo || `/products?category=${activeCatObj.slug}&subCategory=${sub.slug}`,
+              image: subHeaderImg
+            }
+          ]
+        };
+      });
+    } else {
+      // Fallback column rendering if no subcategories exist in db
+      const isEyeglasses = activeHoverLower === 'prescription' || activeHoverLower === 'eyeglasses';
+      const isSunglasses = activeHoverLower === 'sunglasses';
+
+      if (isEyeglasses) {
+        columns = [
+          {
+            title: 'MEN Eyeglasses',
+            badge: 'with FREE lenses',
+            image: '/images/men_eyeglasses.png',
+            items: [
+              getDynamicGroupData('prescription', 'men', { brands: ['John Jacobs', 'Owndays'], fallbackPrice: 3000, label: 'John Jacobs | Owndays', to: '/products?category=prescription&gender=men', fallbackImage: '/images/men_eyeglasses.png' }),
+              getDynamicGroupData('prescription', 'men', { brands: ['Vincent Chase'], fallbackPrice: 1500, label: 'Vincent Chase | Air', to: '/products?category=prescription&gender=men', fallbackImage: '/images/men_eyeglasses.png' }),
             ]
-          })
-        },
-        {
-          title: 'Reading Glasses',
-          badge: 'Ready-to-Wear Power',
-          image: '/images/reading_book.png',
-          items: getDynamicProducts('reading-glasses', 'all', {
-            fallbackItems: [
-              { label: 'Classic Reading Glasses', price: 'Starts at ₹299', to: '/products?category=reading-glasses', image: '/images/reading_book.png' },
-              { label: 'Premium Metallic Reading Frame', price: 'Starts at ₹499', to: '/products?category=reading-glasses', image: '/images/reading_book.png' },
-              { label: 'Folding Pocket Readers', price: 'Starts at ₹1499', to: '/products?category=reading-glasses', image: '/images/reading_book.png' }
+          },
+          {
+            title: 'WOMEN Eyeglasses',
+            badge: 'with FREE lenses',
+            image: '/images/women_eyeglasses.png',
+            items: [
+              getDynamicGroupData('prescription', 'women', { brands: ['John Jacobs'], fallbackPrice: 3000, label: 'John Jacobs | Designer', to: '/products?category=prescription&gender=women', fallbackImage: '/images/women_eyeglasses.png' }),
             ]
-          })
-        },
-        {
-          title: 'Power Sunglasses',
-          badge: 'Prescription Sun',
-          image: '/images/cat_sunglasses.png',
-          items: getDynamicProducts('power-sunglasses', 'all', {
-            fallbackItems: [
-              { label: 'Classic Aviator Power Sun', price: getDynamicCategoryPrice('power-sunglasses', 1999), to: '/products?category=power-sunglasses', image: '/images/cat_sunglasses.png' },
-              { label: 'Modern Wayfarer Power Sun', price: getDynamicCategoryPrice('power-sunglasses', 1499), to: '/products?category=power-sunglasses', image: '/images/cat_sunglasses.png' },
-              { label: 'Cat-Eye Special Power Sun', price: getDynamicCategoryPrice('power-sunglasses', 1799), to: '/products?category=power-sunglasses', image: '/images/cat_sunglasses.png' },
+          }
+        ];
+      } else if (isSunglasses) {
+        columns = [
+          {
+            title: 'MEN Sunglasses',
+            badge: 'Polarized with UV',
+            image: '/images/men_sunglasses.png',
+            items: [
+              getDynamicGroupData('sunglasses', 'men', { fallbackPrice: 1500, label: 'Aviators & Wayfarers', to: '/products?category=sunglasses&gender=men', fallbackImage: '/images/men_sunglasses.png' })
             ]
-          })
-        }
-      ];
-    } else if (isSpecialPower) {
-      return (
-        <div
-          className="absolute top-full left-1/2 -translate-x-1/2 w-[95vw] max-w-6xl bg-[#0E0E0F]/95 backdrop-blur-xl border border-zinc-800/80 shadow-[0_25px_50px_rgba(0,0,0,0.8)] rounded-2xl mt-1 z-50 animate-fade-in select-none"
-          onMouseEnter={handleMegaMenuMouseEnter}
-          onMouseLeave={handleMegaMenuMouseLeave}
-        >
-          <div className="px-6 py-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              
-              {/* 1. PRE-FIT ZERO POWER */}
-              <div className="bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 border border-zinc-800/60 rounded-2xl p-4 hover:border-[#D4A04D]/35 transition-all duration-500 flex flex-col justify-between group/card relative overflow-hidden shadow-lg">
-                <div>
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800/60">
-                    <div>
-                      <h3 className="text-white text-xs font-black tracking-wide uppercase">PRE-FIT ZERO POWER</h3>
-                      <span className="text-[8px] font-extrabold uppercase bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full tracking-wider mt-0.5 inline-block">
-                        Screen Protection
-                      </span>
-                    </div>
-                    <div className="w-10 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs">
-                      👓
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {[
-                      { label: 'EyeGlaze BLU', sub: getDynamicCategoryPrice('blue_light', 600), to: '/products?category=special-power&subCategory=zeropower', img: '/images/cat_blue_light.png' },
-                      { label: 'Hustlr Screen', sub: getDynamicCategoryPrice('blue_light', 500), to: '/products?category=special-power&subCategory=zeropower&brand=Hustlr', img: '/images/cat_blue_light.png' },
-                      { label: 'All Zero Power Brands', sub: getDynamicCategoryPrice('blue_light', 500), to: '/products?category=special-power&subCategory=zeropower', img: '/images/cat_blue_light.png' },
-                    ].map((item, idx) => (
-                      <Link
-                        key={idx}
-                        to={item.to}
-                        onClick={() => setActiveHover(null)}
-                        className="flex items-center gap-3 p-2 rounded-xl bg-zinc-950/30 hover:bg-zinc-800/50 border border-transparent hover:border-zinc-800 transition-all group/item"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center p-1 shrink-0 overflow-hidden">
-                          <img src={item.img} alt={item.label} className="w-full h-full object-contain group-hover/item:scale-110 transition-transform" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-gray-200 group-hover/item:text-[#D4A04D] transition-colors truncate block">{item.label}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold block mt-0.5">{item.sub}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 group-hover/item:text-[#D4A04D] group-hover/item:translate-x-0.5 transition-all font-bold">›</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. PROGRESSIVE Lenses */}
-              <div className="bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 border border-zinc-800/60 rounded-2xl p-4 hover:border-[#D4A04D]/35 transition-all duration-500 flex flex-col justify-between group/card relative overflow-hidden shadow-lg">
-                <div>
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800/60">
-                    <div>
-                      <h3 className="text-white text-xs font-black tracking-wide uppercase">PROGRESSIVE Lenses</h3>
-                      <span className="text-[8px] font-extrabold uppercase bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full tracking-wider mt-0.5 inline-block">
-                        Multi-Focal Vision
-                      </span>
-                    </div>
-                    <div className="w-10 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs">
-                      🔍
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {[
-                      { label: 'Men Progressive', sub: getDynamicCategoryPrice('prescription', 800), to: '/products?category=special-power&subCategory=progressive&gender=men', img: '/images/men_eyeglasses.png' },
-                      { label: 'Women Progressive', sub: getDynamicCategoryPrice('prescription', 800), to: '/products?category=special-power&subCategory=progressive&gender=women', img: '/images/women_eyeglasses.png' },
-                    ].map((item, idx) => (
-                      <Link
-                        key={idx}
-                        to={item.to}
-                        onClick={() => setActiveHover(null)}
-                        className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-950/30 hover:bg-zinc-800/50 border border-transparent hover:border-zinc-800 transition-all group/item"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                          <img src={item.img} alt={item.label} className="w-full h-full object-cover group-hover/item:scale-110 transition-transform" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-gray-200 group-hover/item:text-[#D4A04D] transition-colors truncate block">{item.label}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold block mt-0.5">{item.sub}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 group-hover/item:text-[#D4A04D] group-hover/item:translate-x-0.5 transition-all font-bold">›</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. POWER SUN */}
-              <div className="bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 border border-zinc-800/60 rounded-2xl p-4 hover:border-[#D4A04D]/35 transition-all duration-500 flex flex-col justify-between group/card relative overflow-hidden shadow-lg">
-                <div>
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800/60">
-                    <div>
-                      <h3 className="text-white text-xs font-black tracking-wide uppercase">POWER SUN</h3>
-                      <span className="text-[8px] font-extrabold uppercase bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full tracking-wider mt-0.5 inline-block">
-                        Prescription Sun
-                      </span>
-                    </div>
-                    <div className="w-10 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs">
-                      🕶️
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {[
-                      { label: 'Men Power Sun', sub: getDynamicCategoryPrice('power-sunglasses', 1200), to: '/products?category=special-power&subCategory=powersun&gender=men', img: '/images/men_sunglasses.png' },
-                      { label: 'Women Power Sun', sub: getDynamicCategoryPrice('power-sunglasses', 1200), to: '/products?category=special-power&subCategory=powersun&gender=women', img: '/images/women_sunglasses.png' },
-                    ].map((item, idx) => (
-                      <Link
-                        key={idx}
-                        to={item.to}
-                        onClick={() => setActiveHover(null)}
-                        className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-950/30 hover:bg-zinc-800/50 border border-transparent hover:border-zinc-800 transition-all group/item"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                          <img src={item.img} alt={item.label} className="w-full h-full object-cover group-hover/item:scale-110 transition-transform" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-gray-200 group-hover/item:text-[#D4A04D] transition-colors truncate block">{item.label}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold block mt-0.5">{item.sub}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 group-hover/item:text-[#D4A04D] group-hover/item:translate-x-0.5 transition-all font-bold">›</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. READING */}
-              <div className="bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 border border-zinc-800/60 rounded-2xl p-4 hover:border-[#D4A04D]/35 transition-all duration-500 flex flex-col justify-between group/card relative overflow-hidden shadow-lg">
-                <div>
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800/60">
-                    <div>
-                      <h3 className="text-white text-xs font-black tracking-wide uppercase">READING</h3>
-                      <span className="text-[8px] font-extrabold uppercase bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full tracking-wider mt-0.5 inline-block">
-                        Ready Power
-                      </span>
-                    </div>
-                    <div className="w-10 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs">
-                      📖
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                    {[
-                      { power: '+1.0', value: '+1.00' },
-                      { power: '+1.25', value: '+1.25' },
-                      { power: '+1.5', value: '+1.50' },
-                      { power: '+1.75', value: '+1.75' },
-                      { power: '+2.0', value: '+2.00' },
-                      { power: '+2.25', value: '+2.25' },
-                      { power: '+2.5', value: '+2.50' },
-                      { power: 'View All', value: '' },
-                    ].map((item, idx) => (
-                      <Link
-                        key={idx}
-                        to={item.value ? `/products?category=special-power&subCategory=reading&power=${encodeURIComponent(item.value)}` : '/products?category=special-power&subCategory=reading'}
-                        onClick={() => setActiveHover(null)}
-                        className={`py-2 px-2 rounded-xl text-center text-xs font-bold transition-all border ${
-                          item.power === 'View All'
-                            ? 'bg-[#D4A04D]/15 text-[#D4A04D] border-[#D4A04D]/30 hover:bg-[#D4A04D] hover:text-black font-extrabold'
-                            : 'bg-zinc-900/60 text-gray-300 border-zinc-800 hover:border-[#D4A04D] hover:text-[#D4A04D] hover:bg-zinc-800/80'
-                        }`}
-                      >
-                        {item.power}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      );
+          }
+        ];
+      }
     }
+
+    if (columns.length === 0) return null;
 
     return (
       <div

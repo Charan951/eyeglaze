@@ -16,6 +16,7 @@ export interface ISubSubSubCategory extends Document {
   bannerImage?: string;
   linkTo?: string;
   gender?: string;
+  startingPrice?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +42,7 @@ const SubSubSubCategorySchema = new Schema<ISubSubSubCategory>(
     bannerImage: { type: String },
     linkTo: { type: String },
     gender: { type: String },
+    startingPrice: { type: Number, default: 999 },
   },
   { timestamps: true }
 );

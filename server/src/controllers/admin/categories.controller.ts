@@ -401,6 +401,7 @@ export async function createCategory(req: Request, res: Response) {
       code: basic.code,
       description: basic.description,
       displayOrder: basic.displayOrder || 0,
+      startingPrice: basic.startingPrice !== undefined ? Number(basic.startingPrice) : 999,
       status: rawStatus,
       isDeleted: false,
     };
@@ -552,6 +553,7 @@ export async function updateCategory(req: Request, res: Response) {
     if (basic?.code) updateObj.code = basic.code;
     if (basic?.description !== undefined) updateObj.description = basic.description;
     if (basic?.displayOrder !== undefined) updateObj.displayOrder = basic.displayOrder;
+    if (basic?.startingPrice !== undefined) updateObj.startingPrice = Number(basic.startingPrice);
     if (basic?.status) {
       updateObj.status = basic.status;
       if (type === 'Category') {

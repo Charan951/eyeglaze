@@ -361,31 +361,64 @@ export default function ProductsPage() {
 
         {/* Product Grid / Details List */}
         <div className="flex-1">
-          {/* Contact Lens Top Horizontal Filter Pills (Strict Horizontal 1-Row Equal Grid Layout) */}
-          {['contact-lens', 'contact-lenses', 'contact_lenses', 'contact'].includes((searchParams.get('category') || '').toLowerCase()) && (
-            <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
-              {(() => {
-                const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
-                const currentSubSubCat = (searchParams.get('subSubCategory') || searchParams.get('type') || searchParams.get('power') || '').toLowerCase();
-                const currentDisposable = (searchParams.get('disposable') || searchParams.get('wearTime') || '').toLowerCase();
+          {/* Universal Multi-Tier Top Horizontal Filter Pills (For ALL Categories) */}
+          {(() => {
+            const currentCategorySlug = (searchParams.get('category') || '').toLowerCase();
+            if (!currentCategorySlug) return null;
 
-                // LEVEL 3: When Sub-Sub-Category is selected -> SHOW ONLY Wear Time Buttons (Monthly, Dailies, Bi-Weekly, Yearly)
-                if (currentSubSubCat !== '' || currentDisposable !== '') {
-                  return (
+            const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
+            const currentSubSubCat = (searchParams.get('subSubCategory') || searchParams.get('type') || searchParams.get('power') || '').toLowerCase();
+            const currentSubSubSubCat = (searchParams.get('subSubSubCategory') || searchParams.get('disposable') || searchParams.get('wearTime') || '').toLowerCase();
+
+            // Find active category from categoriesList tree
+            const activeCat = categoriesList.find((c: any) => {
+              const slug = (c.slug || '').toLowerCase();
+              return slug === currentCategorySlug || slug.replace(/_/g, '-') === currentCategorySlug.replace(/_/g, '-') ||
+                (currentCategorySlug === 'prescription' && slug === 'eyeglasses') ||
+                (currentCategorySlug === 'contact-lenses' && (slug === 'contact-lens' || slug === 'contact')) ||
+                (currentCategorySlug === 'contact' && (slug === 'contact-lens' || slug === 'contact-lenses'));
+            });
+
+            const activeSubCatObj = activeCat?.children?.find((s: any) => {
+              const sSlug = (s.slug || '').toLowerCase();
+              return sSlug === currentSubCat || sSlug.replace(/_/g, '-') === currentSubCat.replace(/_/g, '-');
+            });
+
+            const activeSubSubCatObj = activeSubCatObj?.children?.find((ss: any) => {
+              const ssSlug = (ss.slug || '').toLowerCase();
+              return ssSlug === currentSubSubCat || ssSlug.replace(/_/g, '-') === currentSubSubCat.replace(/_/g, '-');
+            });
+
+            // LEVEL 3: When Sub-Sub-Category is selected -> SHOW Sub-Sub-Sub-Categories Pills
+            if (currentSubSubCat !== '') {
+              let subSubSubList: Array<{ label: string; value: string }> = [];
+
+              if (activeSubSubCatObj?.children && activeSubSubCatObj.children.length > 0) {
+                subSubSubList = activeSubSubCatObj.children.map((sss: any) => ({
+                  label: sss.name,
+                  value: sss.slug
+                }));
+              } else if (currentCategorySlug.includes('contact')) {
+                subSubSubList = [
+                  { label: 'Monthly', value: 'monthly' },
+                  { label: 'Dailies', value: 'daily' },
+                  { label: 'Bi-Weekly', value: 'bi-weekly' },
+                  { label: 'Yearly', value: 'yearly' },
+                ];
+              }
+
+              if (subSubSubList.length > 0) {
+                return (
+                  <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
                     <div className="flex items-center justify-between gap-3 w-full">
-                      <div className="grid grid-cols-4 gap-2 sm:gap-3 flex-1">
-                        {[
-                          { label: 'Monthly', value: 'monthly' },
-                          { label: 'Dailies', value: 'daily' },
-                          { label: 'Bi-Weekly', value: 'bi-weekly' },
-                          { label: 'Yearly', value: 'yearly' },
-                        ].map((disp) => {
-                          const active = currentDisposable === disp.value;
+                      <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-1`}>
+                        {subSubSubList.map((sssItem) => {
+                          const active = currentSubSubSubCat === sssItem.value.toLowerCase();
                           return (
                             <button
-                              key={disp.value}
+                              key={sssItem.value}
                               onClick={() => {
-                                updateSingleFilter('disposable', active ? '' : disp.value);
+                                updateSingleFilter('subSubSubCategory', active ? '' : sssItem.value);
                               }}
                               className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer truncate border ${
                                 active
@@ -393,7 +426,7 @@ export default function ProductsPage() {
                                   : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
                               }`}
                             >
-                              {disp.label}
+                              {sssItem.label}
                             </button>
                           );
                         })}
@@ -402,6 +435,7 @@ export default function ProductsPage() {
                         onClick={() => {
                           const params = new URLSearchParams(searchParams.toString());
                           params.delete('subSubCategory');
+                          params.delete('subSubSubCategory');
                           params.delete('type');
                           params.delete('power');
                           params.delete('disposable');
@@ -412,81 +446,110 @@ export default function ProductsPage() {
                         ← Back
                       </button>
                     </div>
-                  );
-                }
+                  </div>
+                );
+              }
+            }
 
-                // LEVEL 2: When Sub-Category is selected -> SHOW ONLY Sub-Sub-Category Buttons (Spherical, Toric / Cylindrical, Multifocal)
-                if (currentSubCat !== '') {
-                  const tabsList = currentSubCat === 'color'
-                    ? [
-                        { label: 'Zero Power', value: 'zero' },
-                        { label: 'With Power', value: 'prescribed' },
-                        { label: 'Color Combos', value: 'combos' },
-                      ]
-                    : currentSubCat === 'solutions-accessories'
-                    ? [
-                        { label: 'Multi-Purpose Solution', value: 'solution' },
-                        { label: 'Lens Cases & Accessories', value: 'accessories' },
-                      ]
-                    : [
-                        { label: 'Spherical', value: 'distance' },
-                        { label: 'Toric / Cylindrical', value: 'toric' },
-                        { label: 'Multifocal', value: 'multifocal' },
-                      ];
+            // LEVEL 2: When Sub-Category is selected -> SHOW Sub-Sub-Category Pills
+            if (currentSubCat !== '') {
+              let subSubList: Array<{ label: string; value: string }> = [];
 
-                  return (
-                    <div className={`grid grid-cols-${tabsList.length} gap-2 sm:gap-3 w-full`}>
-                      {tabsList.map((typeTab) => {
-                        const active = currentSubSubCat === typeTab.value;
-                        return (
-                          <button
-                            key={typeTab.value}
-                            onClick={() => {
-                              const params = new URLSearchParams(searchParams.toString());
-                              if (active) {
-                                params.delete('subSubCategory');
-                                params.delete('type');
-                                params.delete('power');
-                              } else {
-                                params.set('subSubCategory', typeTab.value);
-                              }
-                              navigate(`/products?${params.toString()}`);
-                            }}
-                            className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
-                              active
-                                ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
-                                : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
-                            }`}
-                          >
-                            {typeTab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                }
+              if (activeSubCatObj?.children && activeSubCatObj.children.length > 0) {
+                subSubList = activeSubCatObj.children.map((ss: any) => ({
+                  label: ss.name,
+                  value: ss.slug
+                }));
+              } else if (currentSubCat === 'color') {
+                subSubList = [
+                  { label: 'Zero Power', value: 'zero-power' },
+                  { label: 'With Power', value: 'with-power' },
+                  { label: 'Color Combos', value: 'color-combos' },
+                ];
+              } else if (currentSubCat === 'solutions-accessories') {
+                subSubList = [
+                  { label: 'Solution', value: 'solution' },
+                  { label: 'Accessories', value: 'accessories' },
+                ];
+              } else if (currentCategorySlug.includes('contact')) {
+                subSubList = [
+                  { label: 'Distance Power(-ve)', value: 'distance-power-ve' },
+                  { label: 'Toric/Cylindrical', value: 'toric-cylindrical' },
+                  { label: 'Multi-Focal', value: 'multi-focal' },
+                  { label: 'All Powers', value: 'all-powers' },
+                ];
+              }
 
-                // LEVEL 1: When ONLY main category (Contact Lens) is selected -> SHOW ONLY Sub-Category Buttons
+              if (subSubList.length > 0) {
                 return (
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
-                    {[
-                      { label: 'Clear Contacts', value: 'clear' },
-                      { label: 'Color Contacts', value: 'color' },
-                      { label: 'Solution & Accessories', value: 'solutions-accessories' },
-                    ].map((subTab) => {
-                      const active = currentSubCat === subTab.value;
+                  <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3 flex-1`}>
+                        {subSubList.map((ssItem) => {
+                          const active = currentSubSubCat === ssItem.value.toLowerCase();
+                          return (
+                            <button
+                              key={ssItem.value}
+                              onClick={() => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                if (active) {
+                                  params.delete('subSubCategory');
+                                } else {
+                                  params.set('subSubCategory', ssItem.value);
+                                }
+                                navigate(`/products?${params.toString()}`);
+                              }}
+                              className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
+                                active
+                                  ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
+                                  : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
+                              }`}
+                            >
+                              {ssItem.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const params = new URLSearchParams(searchParams.toString());
+                          params.delete('subCategory');
+                          params.delete('subSubCategory');
+                          params.delete('subSubSubCategory');
+                          navigate(`/products?${params.toString()}`);
+                        }}
+                        className="text-[10px] text-[#D4A04D] hover:underline font-bold bg-transparent border-none cursor-pointer shrink-0 ml-1"
+                      >
+                        ← Back
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+            }
+
+            // LEVEL 1: When Main Category is selected -> SHOW Sub-Category Pills
+            if (activeCat?.children && activeCat.children.length > 0) {
+              const subList = activeCat.children.map((s: any) => ({
+                label: s.name,
+                value: s.slug
+              }));
+
+              return (
+                <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
+                  <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 w-full`}>
+                    {subList.map((sItem: any) => {
+                      const active = currentSubCat === sItem.value.toLowerCase();
                       return (
                         <button
-                          key={subTab.value}
+                          key={sItem.value}
                           onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             if (active) {
                               params.delete('subCategory');
                               params.delete('subSubCategory');
-                              params.delete('type');
-                              params.delete('power');
                             } else {
-                              params.set('subCategory', subTab.value);
+                              params.set('subCategory', sItem.value);
                             }
                             navigate(`/products?${params.toString()}`);
                           }}
@@ -496,15 +559,17 @@ export default function ProductsPage() {
                               : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
                           }`}
                         >
-                          {subTab.label}
+                          {sItem.label}
                         </button>
                       );
                     })}
                   </div>
-                );
-              })()}
-            </div>
-          )}
+                </div>
+              );
+            }
+
+            return null;
+          })()}
           {loading ? (
             <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>
           ) : products.length === 0 ? (

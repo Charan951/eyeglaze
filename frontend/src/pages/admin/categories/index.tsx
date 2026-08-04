@@ -177,8 +177,11 @@ export default function CategoriesList() {
           <p className="text-xs text-gray-500 font-semibold">Organize eyewear product catalog hierarchies dynamically</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigate('/admin/categories/menu-builder')} className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-700 text-[#D4A04D] font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer">
-            🛠️ Menu Builder
+          <button 
+            onClick={() => navigate('/admin/categories/tree')} 
+            className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-700 text-[#D4A04D] font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2"
+          >
+            <span>🌳</span> Tree View
           </button>
           <button onClick={() => navigate('/admin/categories/add')} className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 px-5 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md border-none cursor-pointer">
             + Create Segment
@@ -337,7 +340,7 @@ export default function CategoriesList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] bg-[#1A1A1C]">
-                  <th className="text-left px-5 py-3">Name</th>
+                  <th className="text-left px-5 py-3">Catalog Segment & Hierarchy Path</th>
                   <th className="text-left px-5 py-3">Sort Order</th>
                   <th className="text-left px-5 py-3">Status</th>
                   <th className="text-left px-5 py-3">Actions</th>
@@ -347,45 +350,54 @@ export default function CategoriesList() {
                 {items.map(item => (
                   <tr key={item._id} className="hover:bg-[#1C1C1E] transition-colors">
                     <td className="px-5 py-4">
-                      {item.type === 'SubSubSubCategory' ? (
-                        <>
-                          <div className="font-semibold text-white">{item.name}</div>
-                          <div className="flex flex-wrap gap-2 text-[9px] font-bold mt-0.5 uppercase tracking-wider">
+                      <div className="font-bold text-white text-sm">{item.name}</div>
+                      
+                      {/* Tree Breadcrumb Path */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold mt-1">
+                        {item.type === 'Category' && (
+                          <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/20">Root Category</span>
+                        )}
+                        {item.type === 'SubCategory' && item.categoryId && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <span className="text-gray-300 font-bold">{item.categoryId.name}</span>
+                            <span className="text-[#D4A04D]">➔</span>
+                            <span className="text-[#D4A04D] font-bold">{item.name}</span>
+                          </span>
+                        )}
+                        {item.type === 'SubSubCategory' && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            {item.categoryId && <span>{item.categoryId.name}</span>}
+                            {item.subCategoryId && (
+                              <>
+                                <span className="text-gray-500">➔</span>
+                                <span className="text-gray-300 font-bold">{item.subCategoryId.name}</span>
+                              </>
+                            )}
+                            <span className="text-[#D4A04D]">➔</span>
+                            <span className="text-[#D4A04D] font-bold">{item.name}</span>
+                          </span>
+                        )}
+                        {item.type === 'SubSubSubCategory' && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            {item.categoryId && <span>{item.categoryId.name}</span>}
+                            {item.subCategoryId && (
+                              <>
+                                <span className="text-gray-500">➔</span>
+                                <span>{item.subCategoryId.name}</span>
+                              </>
+                            )}
                             {item.subSubCategoryId && (
-                              <span className="text-[#D4A04D]">Sub-Sub: {item.subSubCategoryId.name}</span>
+                              <>
+                                <span className="text-gray-500">➔</span>
+                                <span className="text-gray-300 font-bold">{item.subSubCategoryId.name}</span>
+                              </>
                             )}
-                            {item.subCategoryId && (
-                              <span className="text-[#D4A04D]">Sub: {item.subCategoryId.name}</span>
-                            )}
-                            {item.categoryId && (
-                              <span className="text-gray-400">(Parent: {item.categoryId.name})</span>
-                            )}
-                          </div>
-                        </>
-                      ) : item.type === 'SubSubCategory' ? (
-                        <>
-                          <div className="font-semibold text-white">{item.name}</div>
-                          <div className="flex gap-2 text-[9px] font-bold mt-0.5 uppercase tracking-wider">
-                            {item.subCategoryId && (
-                              <span className="text-[#D4A04D]">Sub-Category: {item.subCategoryId.name}</span>
-                            )}
-                            {item.categoryId && (
-                              <span className="text-gray-400">(Parent: {item.categoryId.name})</span>
-                            )}
-                          </div>
-                        </>
-                      ) : item.type === 'SubCategory' ? (
-                        <>
-                          <div className="font-semibold text-white">{item.name}</div>
-                          {item.categoryId && (
-                            <div className="text-[9px] text-[#D4A04D] font-bold mt-0.5 uppercase tracking-wider">
-                              Parent: {item.categoryId.name}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="font-semibold text-white">{item.name}</div>
-                      )}
+                            <span className="text-[#D4A04D]">➔</span>
+                            <span className="text-[#D4A04D] font-bold">{item.name}</span>
+                          </span>
+                        )}
+                      </div>
+
                       <div className="text-[10px] text-gray-500 font-mono mt-0.5">{item.slug}</div>
                     </td>
                     <td className="px-5 py-4 text-xs font-semibold">{item.displayOrder}</td>
@@ -402,12 +414,45 @@ export default function CategoriesList() {
                       </button>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex gap-3 text-xs font-bold">
+                      <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
                         {!item.isDeleted ? (
                           <>
-                            <button onClick={() => navigate(`/admin/categories/edit/${item.type || 'Category'}/${item._id}`)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Edit</button>
-                            <button onClick={() => handleDuplicate(item)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Duplicate</button>
-                            <button onClick={() => handleDelete(item)} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
+                            <button onClick={() => navigate(`/admin/categories/edit/${item.type || 'Category'}/${item._id}`)} className="text-gray-400 hover:text-white hover:underline bg-transparent border-none cursor-pointer">Edit</button>
+                            <button onClick={() => handleDuplicate(item)} className="text-gray-400 hover:text-white hover:underline bg-transparent border-none cursor-pointer">Duplicate</button>
+                            <button onClick={() => handleDelete(item)} className="text-red-400 hover:text-red-300 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
+
+                            {/* Direct Add Child Button */}
+                            {item.type === 'Category' && (
+                              <button
+                                onClick={() => navigate(`/admin/categories/add?type=SubCategory&categoryId=${item._id}`)}
+                                className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2.5 py-1 rounded-lg text-[10px] uppercase font-black tracking-wider transition-colors cursor-pointer"
+                              >
+                                + Add Sub-Category
+                              </button>
+                            )}
+                            {item.type === 'SubCategory' && (
+                              <button
+                                onClick={() => {
+                                  const catId = typeof item.categoryId === 'object' ? item.categoryId._id : item.categoryId || '';
+                                  navigate(`/admin/categories/add?type=SubSubCategory&categoryId=${catId}&subCategoryId=${item._id}`);
+                                }}
+                                className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2.5 py-1 rounded-lg text-[10px] uppercase font-black tracking-wider transition-colors cursor-pointer"
+                              >
+                                + Add Sub-Sub
+                              </button>
+                            )}
+                            {item.type === 'SubSubCategory' && (
+                              <button
+                                onClick={() => {
+                                  const catId = typeof item.categoryId === 'object' ? item.categoryId._id : item.categoryId || '';
+                                  const subId = typeof item.subCategoryId === 'object' ? item.subCategoryId._id : item.subCategoryId || '';
+                                  navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${catId}&subCategoryId=${subId}&subSubCategoryId=${item._id}`);
+                                }}
+                                className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2.5 py-1 rounded-lg text-[10px] uppercase font-black tracking-wider transition-colors cursor-pointer"
+                              >
+                                + Add Sub-Sub-Sub
+                              </button>
+                            )}
                           </>
                         ) : (
                           <button onClick={() => handleRestore(item)} className="text-green-400 hover:underline bg-transparent border-none cursor-pointer">Restore</button>

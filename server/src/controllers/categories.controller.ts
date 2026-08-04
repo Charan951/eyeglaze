@@ -112,6 +112,9 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
                   code: subsubsub.code,
                   slug: subsubsub.slug,
                   type: 'SubSubSubCategory',
+                  icon: subsubsub.icon,
+                  bannerImage: subsubsub.bannerImage,
+                  startingPrice: subsubsub.startingPrice || 999,
                   displayOrder: subsubsub.displayOrder,
                 }));
 
@@ -124,6 +127,7 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
                 type: 'SubSubCategory',
                 icon: subsub.icon,
                 bannerImage: subsub.bannerImage,
+                startingPrice: subsub.startingPrice || 999,
                 linkTo: subsub.linkTo,
                 gender: subsub.gender,
                 displayOrder: subsub.displayOrder,
@@ -140,6 +144,7 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
             type: 'SubCategory',
             icon: sub.icon,
             bannerImage: sub.bannerImage,
+            startingPrice: sub.startingPrice || 999,
             linkTo: sub.linkTo,
             gender: sub.gender,
             shapeModal: sub.shapeModal,

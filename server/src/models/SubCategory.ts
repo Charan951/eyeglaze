@@ -14,6 +14,7 @@ export interface ISubCategory extends Document {
   bannerImage?: string;
   linkTo?: string;
   gender?: string;
+  startingPrice?: number;
   shapeModal?: boolean;
   modalShapes?: string[];
   modalAgeGroups?: string[];
@@ -40,6 +41,7 @@ const SubCategorySchema = new Schema<ISubCategory>(
     bannerImage: { type: String },
     linkTo: { type: String },
     gender: { type: String },
+    startingPrice: { type: Number, default: 999 },
     shapeModal: { type: Boolean, default: false },
     modalShapes: { type: [String], default: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'] },
     modalAgeGroups: { type: [String], default: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'] },

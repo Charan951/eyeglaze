@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,6 +15,7 @@ const categoryFormSchema = z.object({
   bannerImage: z.string().optional(),
   description: z.string().optional(),
   displayOrder: z.number().default(0),
+  startingPrice: z.number().optional(),
   status: z.enum(['Draft', 'Active', 'Inactive', 'Archived']).default('Active'),
 
   // Hierarchy references
@@ -74,6 +75,7 @@ type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
 export default function CategoryWizard() {
   const { type: paramType, id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -136,36 +138,84 @@ export default function CategoryWizard() {
   const selectedCategoryId = watch('categoryId');
   const selectedSubCategoryId = watch('subCategoryId');
 
+  const qType = searchParams.get('type');
+  const qCatId = searchParams.get('categoryId');
+  const qSubCatId = searchParams.get('subCategoryId');
+  const qSubSubCatId = searchParams.get('subSubCategoryId');
+
+  // Pre-populate form type & initial query values
+  useEffect(() => {
+    if (!id) {
+      if (qType) setValue('type', qType as any);
+      if (qCatId) setValue('categoryId', qCatId);
+      if (qSubCatId) setValue('subCategoryId', qSubCatId);
+      if (qSubSubCatId) setValue('subSubCategoryId', qSubSubCatId);
+    }
+  }, [id, qType, qCatId, qSubCatId, qSubSubCatId, setValue]);
+
+  // Cascade selection when parentCategories loads
+  useEffect(() => {
+    if (!id && qCatId && parentCategories.length > 0) {
+      setValue('categoryId', qCatId);
+    }
+  }, [id, qCatId, parentCategories, setValue]);
+
+  // Cascade selection when subCategoriesForParent loads
+  useEffect(() => {
+    if (!id && qSubCatId && subCategoriesForParent.length > 0) {
+      setValue('subCategoryId', qSubCatId);
+    }
+  }, [id, qSubCatId, subCategoriesForParent, setValue]);
+
+  // Cascade selection when subSubCategoriesForParent loads
+  useEffect(() => {
+    if (!id && qSubSubCatId && subSubCategoriesForParent.length > 0) {
+      setValue('subSubCategoryId', qSubSubCatId);
+    }
+  }, [id, qSubSubCatId, subSubCategoriesForParent, setValue]);
+
   // Fetch sub-categories dynamically when categoryId changes
   useEffect(() => {
     if (selectedCategoryId) {
       api.get(`/admin/categories?type=SubCategory&categoryId=${selectedCategoryId}&limit=1000`)
         .then((res) => {
-          setSubCategoriesForParent(res.data.items || []);
+          const items = res.data.items || [];
+          setSubCategoriesForParent(items);
+          if (qSubCatId) {
+            setValue('subCategoryId', qSubCatId);
+          }
         })
         .catch((err) => console.error('Failed to load subcategories for parent:', err));
     } else {
       setSubCategoriesForParent([]);
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, qSubCatId, setValue]);
 
   // Fetch sub-sub-categories dynamically when subCategoryId changes
   useEffect(() => {
     if (selectedSubCategoryId) {
       api.get(`/admin/categories?type=SubSubCategory&subCategoryId=${selectedSubCategoryId}&limit=1000`)
         .then((res) => {
-          setSubSubCategoriesForParent(res.data.items || []);
+          const items = res.data.items || [];
+          setSubSubCategoriesForParent(items);
+          if (qSubSubCatId) {
+            setValue('subSubCategoryId', qSubSubCatId);
+          }
         })
         .catch((err) => console.error('Failed to load sub-sub-categories for parent:', err));
     } else {
       setSubSubCategoriesForParent([]);
     }
-  }, [selectedSubCategoryId]);
+  }, [selectedSubCategoryId, qSubSubCatId, setValue]);
 
   useEffect(() => {
-    api.get('/categories?type=Category')
+    api.get('/admin/categories?type=Category&limit=1000')
       .then((res) => {
-        setParentCategories(res.data || []);
+        const items = res.data.items || res.data || [];
+        setParentCategories(items);
+        if (qCatId) {
+          setValue('categoryId', qCatId);
+        }
       })
       .catch((err) => {
         console.error('Failed to load parent categories:', err);
@@ -241,6 +291,7 @@ export default function CategoryWizard() {
             bannerImage: category.bannerImage || '',
             description: category.description || '',
             displayOrder: category.displayOrder || 0,
+            startingPrice: category.startingPrice ?? 999,
             status: category.status || 'Active',
             categoryId: (category.categoryId && typeof category.categoryId === 'object' ? category.categoryId._id : category.categoryId) || '',
             subCategoryId: (category.subCategoryId && typeof category.subCategoryId === 'object' ? category.subCategoryId._id : category.subCategoryId) || '',
@@ -332,6 +383,7 @@ export default function CategoryWizard() {
           bannerImage: data.bannerImage,
           description: data.description,
           displayOrder: data.displayOrder,
+          startingPrice: data.startingPrice,
           status: data.status,
           slug: data.slug,
           showInNavbar: (data.type === 'Category' || paramType === 'Category') ? data.showInNavbar : undefined,
@@ -470,7 +522,7 @@ export default function CategoryWizard() {
                   >
                     <option value="">-- Select Parent Category --</option>
                     {parentCategories.map((c) => (
-                      <option key={c._id} value={c._id}>
+                      <option key={c._id || c.id} value={c._id || c.id}>
                         {c.name}
                       </option>
                     ))}
@@ -489,7 +541,7 @@ export default function CategoryWizard() {
                   >
                     <option value="">-- Select Parent Sub-Category --</option>
                     {subCategoriesForParent.map((sub) => (
-                      <option key={sub._id} value={sub._id}>
+                      <option key={sub._id || sub.id} value={sub._id || sub.id}>
                         {sub.name}
                       </option>
                     ))}
@@ -508,7 +560,7 @@ export default function CategoryWizard() {
                   >
                     <option value="">-- Select Parent Sub-Sub-Category --</option>
                     {subSubCategoriesForParent.map((ss) => (
-                      <option key={ss._id} value={ss._id}>
+                      <option key={ss._id || ss.id} value={ss._id || ss.id}>
                         {ss.name}
                       </option>
                     ))}
@@ -531,53 +583,55 @@ export default function CategoryWizard() {
                 {errors.name && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
               </div>
 
-              {/* Banner Image Upload */}
-              <div>
-                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5 font-semibold">Banner Image</label>
-                {formValues.bannerImage ? (
-                  <div className="flex items-center gap-4 bg-[#0B0B0C] border border-[#2A2A2D] p-3 rounded-xl">
-                    <img
-                      src={formValues.bannerImage}
-                      alt="Banner Preview"
-                      className="w-20 h-10 object-cover rounded border border-[#2A2A2D]"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-white truncate font-mono">{formValues.bannerImage}</p>
+              {/* Banner Image Upload (Hidden for SubSubSubCategory) */}
+              {!isSubSubSubCategory && (
+                <div>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5 font-semibold">Banner Image</label>
+                  {formValues.bannerImage ? (
+                    <div className="flex items-center gap-4 bg-[#0B0B0C] border border-[#2A2A2D] p-3 rounded-xl">
+                      <img
+                        src={formValues.bannerImage}
+                        alt="Banner Preview"
+                        className="w-20 h-10 object-cover rounded border border-[#2A2A2D]"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate font-mono">{formValues.bannerImage}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setValue('bannerImage', '')}
+                        className="text-red-400 hover:text-red-300 text-xs font-bold uppercase bg-transparent border-none cursor-pointer"
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setValue('bannerImage', '')}
-                      className="text-red-400 hover:text-red-300 text-xs font-bold uppercase bg-transparent border-none cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="bannerImageUpload"
-                      onChange={handleImageUpload}
-                      disabled={uploadingBanner}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="bannerImageUpload"
-                      className="flex flex-col items-center justify-center border-2 border-dashed border-[#2A2A2D] hover:border-[#D4A04D]/60 rounded-xl p-6 cursor-pointer bg-[#0B0B0C]/40 transition-colors"
-                    >
-                      <span className="text-xl mb-1">📤</span>
-                      <span className="text-xs font-bold text-gray-400">
-                        {uploadingBanner ? 'Uploading image...' : 'Click to upload category banner'}
-                      </span>
-                      <span className="text-[9px] text-gray-600 mt-1">PNG, JPG, WEBP up to 5MB</span>
-                    </label>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="bannerImageUpload"
+                        onChange={handleImageUpload}
+                        disabled={uploadingBanner}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="bannerImageUpload"
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-[#2A2A2D] hover:border-[#D4A04D]/60 rounded-xl p-6 cursor-pointer bg-[#0B0B0C]/40 transition-colors"
+                      >
+                        <span className="text-xl mb-1">📤</span>
+                        <span className="text-xs font-bold text-gray-400">
+                          {uploadingBanner ? 'Uploading image...' : 'Click to upload category banner'}
+                        </span>
+                        <span className="text-[9px] text-gray-600 mt-1">PNG, JPG, WEBP up to 5MB</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Status & Display Sort Order */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Status, Display Sort Order & Starting Price */}
+              <div className={`grid grid-cols-1 ${!isSubSubSubCategory ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-5`}>
                 <div>
                   <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Display Sort Order</label>
                   <input
@@ -587,8 +641,20 @@ export default function CategoryWizard() {
                   />
                 </div>
 
+                {!isSubSubSubCategory && (
+                  <div>
+                    <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Starting Price (₹)</label>
+                    <input
+                      type="number"
+                      {...register('startingPrice', { valueAsNumber: true })}
+                      placeholder="999"
+                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    />
+                  </div>
+                )}
+
                 <div>
-                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Status</label>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5 font-semibold">Status</label>
                   <select
                     {...register('status')}
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
@@ -798,161 +864,6 @@ export default function CategoryWizard() {
               )}
             </div>
 
-            {/* Collapsible Advanced Settings Panel */}
-            <div className="space-y-4">
-              <div className="text-[#A7A7A7] text-[10px] font-black uppercase tracking-widest px-2">
-                02. Advanced Schema Settings (Optional)
-              </div>
-
-              {/* Accordion 1: Catalog Attributes */}
-              <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden shadow-xl transition-all">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('attributes')}
-                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#1A1A1C] transition-colors cursor-pointer border-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-base text-[#D4A04D]">🏷️</span>
-                    <div>
-                      <span className="text-white text-xs font-extrabold uppercase tracking-wider block">Target Catalog Attributes</span>
-                      <span className="text-[10px] text-[#A7A7A7] block mt-0.5">Demographics, Face Shapes, Occasions & Usage targets</span>
-                    </div>
-                  </div>
-                  <span className={`text-xs text-[#A7A7A7] transition-transform duration-200 ${activeAccordion === 'attributes' ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {activeAccordion === 'attributes' && (
-                  <div className="p-6 border-t border-[#2A2A2D] bg-[#0E0E0F] space-y-6">
-                    {/* Gender target */}
-                    <div className="space-y-2.5">
-                      <label className="text-[#A7A7A7] text-[9px] font-extrabold uppercase tracking-widest block">Gender Target</label>
-                      <div className="flex gap-2.5 flex-wrap">
-                        {['Men', 'Women', 'Kids', 'Unisex'].map(g => {
-                          const current = formValues.genders || [];
-                          const isChecked = current.includes(g);
-                          return (
-                            <label key={g} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30 scale-[1.02]' : 'bg-[#0B0B0C] text-[#A7A7A7] border-zinc-800 hover:text-white'}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) setValue('genders', [...current, g]);
-                                  else setValue('genders', current.filter(x => x !== g));
-                                }}
-                                className="hidden"
-                              />
-                              <span>{g}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Age groups target */}
-                    <div className="space-y-2.5">
-                      <label className="text-[#A7A7A7] text-[9px] font-extrabold uppercase tracking-widest block">Age Groups Target</label>
-                      <div className="flex gap-2.5 flex-wrap">
-                        {['0-5', '6-12', '13-18', '18-25', '26-35', '36-50', '50+'].map(age => {
-                          const current = formValues.ageGroups || [];
-                          const isChecked = current.includes(age);
-                          return (
-                            <label key={age} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30 scale-[1.02]' : 'bg-[#0B0B0C] text-[#A7A7A7] border-zinc-800 hover:text-white'}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) setValue('ageGroups', [...current, age]);
-                                  else setValue('ageGroups', current.filter(x => x !== age));
-                                }}
-                                className="hidden"
-                              />
-                              <span>{age}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Usage Types target */}
-                    <div className="space-y-2.5">
-                      <label className="text-[#A7A7A7] text-[9px] font-extrabold uppercase tracking-widest block">Usage Type Targets</label>
-                      <div className="flex gap-2.5 flex-wrap">
-                        {['Daily Wear', 'Office Wear', 'Computer Use', 'Reading', 'Driving', 'Gaming', 'Sports', 'Outdoor', 'Fashion'].map(u => {
-                          const current = formValues.usageTypes || [];
-                          const isChecked = current.includes(u);
-                          return (
-                            <label key={u} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30 scale-[1.02]' : 'bg-[#0B0B0C] text-[#A7A7A7] border-zinc-800 hover:text-white'}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) setValue('usageTypes', [...current, u]);
-                                  else setValue('usageTypes', current.filter(x => x !== u));
-                                }}
-                                className="hidden"
-                              />
-                              <span>{u}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Face Shape targets */}
-                    <div className="space-y-2.5">
-                      <label className="text-[#A7A7A7] text-[9px] font-extrabold uppercase tracking-widest block">Face Shape Compatibility</label>
-                      <div className="flex gap-2.5 flex-wrap">
-                        {['Round', 'Oval', 'Square', 'Heart', 'Diamond', 'Rectangle', 'Triangle'].map(f => {
-                          const current = formValues.faceShapes || [];
-                          const isChecked = current.includes(f);
-                          return (
-                            <label key={f} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30 scale-[1.02]' : 'bg-[#0B0B0C] text-[#A7A7A7] border-zinc-800 hover:text-white'}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) setValue('faceShapes', [...current, f]);
-                                  else setValue('faceShapes', current.filter(x => x !== f));
-                                }}
-                                className="hidden"
-                              />
-                              <span>{f}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Occasion targets */}
-                    <div className="space-y-2.5">
-                      <label className="text-[#A7A7A7] text-[9px] font-extrabold uppercase tracking-widest block">Occasions</label>
-                      <div className="flex gap-2.5 flex-wrap">
-                        {['Casual', 'Formal', 'Business', 'Travel', 'Party', 'Sports'].map(o => {
-                          const current = formValues.occasions || [];
-                          const isChecked = current.includes(o);
-                          return (
-                            <label key={o} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30 scale-[1.02]' : 'bg-[#0B0B0C] text-[#A7A7A7] border-zinc-800 hover:text-white'}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) setValue('occasions', [...current, o]);
-                                  else setValue('occasions', current.filter(x => x !== o));
-                                }}
-                                className="hidden"
-                              />
-                              <span>{o}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
-
             {/* Bottom Actions Form Footer */}
             <div className="flex justify-end gap-3 border-t border-[#2A2A2D] pt-6">
               <button
@@ -1034,24 +945,6 @@ export default function CategoryWizard() {
                 </div>
               </div>
 
-              {/* Demographics targets */}
-              {((formValues.genders && formValues.genders.length > 0) || (formValues.ageGroups && formValues.ageGroups.length > 0)) && (
-                <div className="space-y-1.5 border-t border-zinc-800/60 pt-3">
-                  <span className="text-zinc-500 text-[8px] font-black uppercase tracking-wider block">Demographics Compatibility</span>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {formValues.genders?.map(g => (
-                      <span key={g} className="bg-[#D4A04D]/10 border border-[#D4A04D]/25 text-[#D4A04D] px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase">
-                        {g}
-                      </span>
-                    ))}
-                    {formValues.ageGroups?.map(a => (
-                      <span key={a} className="bg-zinc-800 border border-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase">
-                        Age: {a}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Live Subcategory Layout Preview */}
