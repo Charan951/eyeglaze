@@ -52,8 +52,10 @@ export default function Offers() {
 
   useEffect(() => {
     socket.on('coupon_changed', fetchCoupons);
+    socket.on('banner_changed', fetchCoupons);
     return () => {
       socket.off('coupon_changed', fetchCoupons);
+      socket.off('banner_changed', fetchCoupons);
     };
   }, []);
 

@@ -21,6 +21,7 @@ const Orders = lazy(() => import('./pages/Orders'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const SavedPowers = lazy(() => import('./pages/SavedPowers'));
+const SavedAddresses = lazy(() => import('./pages/SavedAddresses'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
 const Membership = lazy(() => import('./pages/Membership'));
 const Offers = lazy(() => import('./pages/Offers'));
@@ -45,6 +46,9 @@ const AdminOrders = lazy(() => import('./pages/admin/Orders'));
 const AdminInventory = lazy(() => import('./pages/admin/Inventory'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
+const AdminReviews = lazy(() => import('./pages/admin/Reviews'));
+const AdminBlogs = lazy(() => import('./pages/admin/Blogs'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminLenses = lazy(() => import('./pages/admin/Lenses'));
 const AdminCategoriesList = lazy(() => import('./pages/admin/categories/index'));
 const AdminCategoryWizard = lazy(() => import('./pages/admin/categories/Wizard'));
@@ -58,10 +62,10 @@ const AdminShapesList = lazy(() => import('./pages/admin/shapes/index'));
 const AdminShapeWizard = lazy(() => import('./pages/admin/shapes/Wizard'));
 
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [pathname, search]);
   return null;
 }
 
@@ -124,14 +128,7 @@ const router = createBrowserRouter(
         <Route path="/contact" element={<Contact />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
-        <Route
-          path="/wishlist"
-          element={
-            <ProtectedRoute>
-              <Wishlist />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/cart" element={<Cart />} />
         <Route
           path="/checkout"
@@ -174,17 +171,21 @@ const router = createBrowserRouter(
           />
           <Route
             path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
+            element={<Profile />}
           />
           <Route
             path="/saved-powers"
             element={
               <ProtectedRoute>
                 <SavedPowers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/saved-addresses"
+            element={
+              <ProtectedRoute>
+                <SavedAddresses />
               </ProtectedRoute>
             }
           />
@@ -349,6 +350,30 @@ const router = createBrowserRouter(
           element={
             <ProtectedRoute adminOnly>
               <AdminTickets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reviews"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminReviews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/blogs"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminBlogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminSettings />
             </ProtectedRoute>
           }
         />

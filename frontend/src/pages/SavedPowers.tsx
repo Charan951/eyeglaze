@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
+import { socket } from '../lib/socket';
 
 interface EyePower {
   sph?: number;
@@ -25,6 +27,7 @@ interface SavedPrescription {
 
 export default function SavedPowersPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [prescriptions, setPrescriptions] = useState<SavedPrescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -58,6 +61,18 @@ export default function SavedPowersPage() {
       fetchPrescriptions();
     }
   }, [user]);
+
+  // Setup real-time socket listener for prescription updates
+  useEffect(() => {
+    const handlePrescriptionChanged = () => {
+      fetchPrescriptions();
+    };
+
+    socket.on('prescription_changed', handlePrescriptionChanged);
+    return () => {
+      socket.off('prescription_changed', handlePrescriptionChanged);
+    };
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this saved power?')) return;
@@ -142,16 +157,28 @@ export default function SavedPowersPage() {
       <SEO robots="noindex, nofollow" title="Saved Powers & Prescriptions" />
 
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Saved Powers</h1>
-          <p className="text-gray-500 text-sm">
-            Manage your saved eye powers and uploaded doctor prescriptions.
-          </p>
+      <div className="flex justify-between items-center w-full gap-3 border-b border-[#2A2A2D] pb-4">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+            title="Back to Profile"
+          >
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white mb-0.5">Saved Powers</h1>
+            <p className="text-gray-400 text-xs">
+              Manage your saved eye powers and prescriptions.
+            </p>
+          </div>
         </div>
+
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2.5 px-6 rounded-xl text-xs tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+          className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2 px-3.5 sm:py-2.5 sm:px-6 rounded-xl text-[10px] sm:text-xs tracking-wider transition-all cursor-pointer shrink-0 border-none shadow-md"
         >
           {showAddForm ? '✕ Cancel' : '+ Add Here My Power'}
         </button>
@@ -289,10 +316,14 @@ export default function SavedPowersPage() {
       ) : error ? (
         <div className="text-center py-12 text-red-400">{error}</div>
       ) : prescriptions.length === 0 ? (
-        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-12 text-center text-gray-500 text-sm">
-          <div className="text-5xl mb-4">👓</div>
-          <p className="font-semibold">No saved powers yet.</p>
-          <p className="text-xs text-gray-600 mt-1">Configure and save your power during checkout or add one manually above.</p>
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-12 text-center text-gray-500 text-sm space-y-3">
+          <svg className="w-10 h-10 text-[#D4A04D] mx-auto" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="5">
+            <circle cx="27" cy="15" r="10" />
+            <circle cx="73" cy="15" r="10" />
+            <path d="M37,15 L63,15" />
+          </svg>
+          <p className="font-semibold text-white">No saved powers yet.</p>
+          <p className="text-xs text-gray-500">Configure and save your power during checkout or add one manually above.</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">

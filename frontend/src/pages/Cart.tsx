@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
 import { socket } from '../lib/socket';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CartItem {
   id: string;
@@ -24,6 +25,8 @@ interface CartItem {
   lensPayload?: any;
   power?: any;
   product?: any;
+  priceLocked?: boolean;
+  originalPrice?: number;
 }
 
 interface Coupon {
@@ -85,6 +88,11 @@ export default function CartPage() {
   const [couponSuccess, setCouponSuccess] = useState('');
   const [userRemovedCoupon, setUserRemovedCoupon] = useState(false);
 
+  // Mobile Bottom Sheet Modal States
+  const [activeLensModalItem, setActiveLensModalItem] = useState<any | null>(null);
+  const [activePowerModalItem, setActivePowerModalItem] = useState<any | null>(null);
+  const [viewPrescriptionModalUrl, setViewPrescriptionModalUrl] = useState<string | null>(null);
+
   // Fetch active coupons
   useEffect(() => {
     const fetchCoupons = () => {
@@ -104,14 +112,19 @@ export default function CartPage() {
     };
   }, []);
 
-  // Listen to real-time cart changes from backend
+  // Listen to real-time cart, product, and inventory changes from backend
   useEffect(() => {
     const handleCartChanged = () => {
       setRefreshKey(prev => prev + 1);
     };
     socket.on('cart_changed', handleCartChanged);
+    socket.on('product_changed', handleCartChanged);
+    socket.on('inventory_changed', handleCartChanged);
+
     return () => {
       socket.off('cart_changed', handleCartChanged);
+      socket.off('product_changed', handleCartChanged);
+      socket.off('inventory_changed', handleCartChanged);
     };
   }, []);
 
@@ -166,6 +179,8 @@ export default function CartPage() {
                 lensType,
                 lensSubType,
                 lensQuality,
+                priceLocked: !!item.priceLocked || !!lensType,
+                originalPrice: item.originalPrice,
               };
             });
             setItems(mapped);
@@ -208,6 +223,8 @@ export default function CartPage() {
           lensType: item.lensType,
           lensSubType: item.lensSubType,
           lensQuality: item.lensQuality,
+          priceLocked: !!item.priceLocked || !!item.lensType,
+          originalPrice: item.originalPrice,
         }));
         setItems(mapped);
       })
@@ -250,17 +267,19 @@ export default function CartPage() {
     const nonMemberPriceVal = item.product?.nonMemberPrice !== undefined ? Number(item.product.nonMemberPrice) : undefined;
 
     // Member Price / ₹1 Frame check
-    if (items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
+    if (!item.priceLocked && items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
       const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
       const regularPrice = memberPriceVal !== undefined ? memberPriceVal : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
       oneRupeeFramesCount += allowed;
-    } else if (memberPriceVal !== undefined && isMember) {
+    } else if (memberPriceVal !== undefined && isMember && !item.priceLocked) {
       framePrice = memberPriceVal;
-    } else if (nonMemberPriceVal !== undefined && !isMember) {
+    } else if (nonMemberPriceVal !== undefined && !isMember && !item.priceLocked) {
       framePrice = nonMemberPriceVal;
-    } else if (item.product?.price?.selling !== undefined && !isMember) {
+    } else if (item.product?.price?.selling !== undefined && !isMember && !item.priceLocked) {
+      // Skip this live-price re-sync for contact lens items: their box price is
+      // carried entirely in lensPrice, with framePrice deliberately stored as 0.
       framePrice = item.product.price.selling;
     }
 
@@ -271,12 +290,20 @@ export default function CartPage() {
     };
   });
 
+  // Auto-apply BOGO when user is a member and total item quantity is at least 2
+  useEffect(() => {
+    const totalQty = items.reduce((sum, i) => sum + (i.qty || 1), 0);
+    if (isMember && totalQty >= 2 && !hasUsedBogoThisMonth && !userRemovedCoupon && !applyBogo) {
+      setApplyBogo(true);
+    }
+  }, [isMember, items, hasUsedBogoThisMonth, userRemovedCoupon, applyBogo]);
+
   const appliedCouponObj = activeCoupons.find(c => c.code === appliedCoupon);
   const isBogoCouponApplied = appliedCouponObj?.discountType === 'bogo' || appliedCoupon === 'BOGO' || applyBogo;
 
   // Populate BOGO items with unique key per quantity index
   itemsWithPricing.forEach(item => {
-    if (isBogoCouponApplied && item.product?.buy1Get1) {
+    if (isBogoCouponApplied && item.product?.buy1Get1 !== false) {
       for (let index = 0; index < item.qty; index++) {
         buy1Get1Items.push({
           id: `${item._id || item.id}_${index}`,
@@ -305,7 +332,7 @@ export default function CartPage() {
 
   // 1. Total Item Price (undiscounted)
   const itemsSubtotal = itemsWithPricing.reduce((s, i) => {
-    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    const originalFramePrice = i.lensType ? (i.framePrice ?? 0) : (i as any).priceLocked ? ((i as any).originalPrice ?? i.framePrice ?? 0) : (i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1);
     return s + (originalFramePrice + i.lensPrice) * i.qty;
   }, 0);
 
@@ -314,7 +341,7 @@ export default function CartPage() {
 
   // 3. Product/Membership discount
   const productDiscounts = itemsWithPricing.reduce((s, i) => {
-    const originalFramePrice = i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1;
+    const originalFramePrice = i.lensType ? (i.framePrice ?? 0) : (i as any).priceLocked ? ((i as any).originalPrice ?? i.framePrice ?? 0) : (i.product?.nonMemberPrice ?? i.product?.price?.selling ?? i.framePrice ?? 1);
     return s + Math.max(0, originalFramePrice - i.framePriceCalculated) * i.qty;
   }, 0);
 
@@ -599,21 +626,21 @@ export default function CartPage() {
   }
 
   return (
-    <div>
+    <div className="w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 mx-auto">
       <SEO robots="noindex, nofollow" title="Shopping Cart" />
-      <h1 className="text-2xl font-bold text-white mb-6">Your Cart ({items.length} item{items.length !== 1 ? 's' : ''})</h1>
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-6">Your Cart ({items.length} item{items.length !== 1 ? 's' : ''})</h1>
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Cart Items */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-5">
           {renderedItems.map(item => {
             if (item.isPseudo) {
               return (
-                <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex flex-col sm:flex-row gap-4 animate-fade-in">
+                <div key={item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 flex flex-col sm:flex-row gap-5 animate-fade-in shadow-xl">
                   {/* Product Image */}
-                  <div className="w-full sm:w-36 h-40 sm:h-36 bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border border-[#D4A04D]/35 rounded-none overflow-hidden flex flex-col items-center justify-center flex-shrink-0 relative p-3 text-center">
-                    <span className="text-[#D4A04D] font-serif font-black tracking-wider text-xs leading-none">EYEGLAZE</span>
-                    <span className="text-[#A7A7A7] text-[8px] font-bold uppercase tracking-widest mt-1">MEMBERSHIP</span>
+                  <div className="w-full sm:w-48 md:w-56 h-44 sm:h-48 bg-gradient-to-br from-[#1E1911] via-[#16120C] to-[#0E0E0F] border border-[#D4A04D]/35 rounded-2xl overflow-hidden flex flex-col items-center justify-center flex-shrink-0 relative p-4 text-center">
+                    <span className="text-[#D4A04D] font-serif font-black tracking-wider text-sm leading-none">EYEGLAZE</span>
+                    <span className="text-[#A7A7A7] text-[9px] font-bold uppercase tracking-widest mt-1.5">MEMBERSHIP</span>
                   </div>
 
                   <div className="flex-1">
@@ -648,200 +675,324 @@ export default function CartPage() {
               (item.category || '').toLowerCase().includes('contact') ||
               (item.product?.category || '').toLowerCase().includes('contact') ||
               item.isContactLens ||
-              (typeof item.lens === 'string' && item.lens.toLowerCase().includes('contact')) ||
-              item.product?.sellAsFrame === false ||
-              item.product?.sellWithLens === false
+              (typeof item.lens === 'string' && item.lens.toLowerCase().includes('contact'))
             );
 
             return (
-              <div key={item.uniqueKey || item.id} className="bg-[#131314] border border-[#2A2A2D] rounded-none p-4 flex flex-col sm:flex-row gap-4 relative">
-                {/* Product Image */}
-                <div className="w-full sm:w-36 h-40 sm:h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 relative">
-                  {isFreeThisItem && (
-                    <div className="absolute top-0 left-0 bg-[#00A86B] text-white font-black text-[8px] uppercase tracking-wider px-2 py-0.5 z-10 rounded-br shadow-md">
-                      FREE
+              <React.Fragment key={item.uniqueKey || item.id}>
+                {/* Mobile View Item Card (Lenskart Inspired compact layout - image copy 7) */}
+                <div className="block sm:hidden bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3.5 relative shadow-lg">
+                  <div className="flex gap-3 items-stretch">
+                    {/* Left Product Image Container */}
+                    <div className="w-28 h-28 shrink-0 bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl flex items-center justify-center p-2 relative">
+                      {isFreeThisItem && (
+                        <div className="absolute top-1 left-1 bg-[#00A86B] text-white font-black text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm z-10">
+                          FREE
+                        </div>
+                      )}
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-3xl">👓</span>
+                      )}
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-[#222]/90 border border-white/10 text-white font-bold text-[8px] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+                        Bestseller ⚡
+                      </div>
                     </div>
-                  )}
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-contain p-2" />
-                  ) : (
-                    <span className="text-3xl">👓</span>
-                  )}
-                </div>
 
-                <div className="flex-1">
-                  <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
-                    {item.name}
-                  </div>
-                  <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
-                  {item.lens && !isContactLensItem && (
-                    <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
-                  )}
-                  {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-4 mt-3 max-w-sm text-left">
-                      {/* Header block */}
-                      <div className="flex justify-between items-center border-b border-[#2A2A2D]/50 pb-2 mb-2.5">
-                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                          {item.power.uploadLater ? 'Doctor Prescription' : 'Manually Entered Power'}
-                        </span>
-                        {item.power.name && (
-                          <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2 py-0.5 rounded border border-[#D4A04D]/25 uppercase text-[9px] font-black tracking-wide">
-                            {item.power.name}
-                          </span>
-                        )}
+                    {/* Right Item Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between relative pr-5">
+                      {/* Top Remove Button */}
+                      <button
+                        onClick={() => remove(item)}
+                        className="absolute top-0 right-0 text-gray-400 hover:text-white text-xs bg-zinc-800/80 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer border-none p-0 z-10"
+                        title="Remove Item"
+                      >
+                        ✕
+                      </button>
+
+                      <div>
+                        <h3 className="text-white font-bold text-sm leading-tight truncate">{item.name}</h3>
+                        <p className="text-[#A7A7A7] text-[11px] font-medium mt-0.5">{item.sku} · {item.color}</p>
                       </div>
 
-                      {/* Content block */}
-                      {item.power.uploadLater ? (
-                        <div className="text-xs text-gray-400 font-semibold flex items-center gap-1.5 py-1">
-                          <span>Prescription:</span>
-                          <span className="text-[#D4A04D] font-bold">
-                            {item.power.uploadedFileUrl ? '📄 Document Uploaded' : '⏳ Upload Later'}
+                      {/* Interactive Lens & Power Dropdowns */}
+                      <div className="space-y-1 mt-1">
+                        {!isContactLensItem && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setActiveLensModalItem(item)}
+                              className="text-[#00A86B] hover:text-[#00C980] text-xs font-extrabold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 text-left"
+                            >
+                              <span className="underline decoration-dashed underline-offset-2">{item.lens || item.lensType || 'Anti-Glare Premium'}</span>
+                              <span className="text-[9px]">▼</span>
+                            </button>
+                            <span className="text-gray-400 text-[10px] block leading-tight mt-0.5">{item.lensSubType || item.lensQuality || 'Double Side Anti-Glare'}</span>
+                          </div>
+                        )}
+
+                        {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setActivePowerModalItem(item)}
+                              className="text-[#00A86B] hover:text-[#00C980] text-xs font-extrabold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 text-left"
+                            >
+                              <span className="underline decoration-dashed underline-offset-2">
+                                {item.power.name ? `Eye power for ${item.power.name}` : item.power.uploadLater ? 'Prescription uploaded' : 'Eye power for self'}
+                              </span>
+                              <span className="text-[9px]">▼</span>
+                            </button>
+                          </div>
+                        )}
+
+                        <div>
+                          <span className="text-[9px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider inline-block">
+                            Next day delivery
                           </span>
                         </div>
-                      ) : (
-                        (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
-                          <div className="space-y-2">
-                            {/* Table Header: hidden on mobile */}
-                            <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-[#2A2A2D]/30 pb-1.5">
-                              <div className="text-left" />
-                              <div>SPH</div>
-                              <div>CYL</div>
-                              <div>AXIS</div>
-                            </div>
+                      </div>
 
-                            {/* Right Eye Row */}
-                            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs">
-                              <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Right Eye</div>
-                              <div className="w-full grid grid-cols-3 sm:contents gap-2">
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
-                                  <span className="text-white font-bold">{formatValue(item.power.RE?.sph)}</span>
-                                </div>
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
-                                  <span className="text-white font-bold">{formatValue(item.power.RE?.cyl)}</span>
-                                </div>
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
-                                  <span className="text-white font-mono">{item.power.RE?.axis ?? '0'}°</span>
+                      {/* Bottom Row */}
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#2A2A2D]">
+                        <span className="text-gray-400 text-xs font-semibold">Frame + Lens</span>
+                        <span className="text-white font-extrabold text-sm">
+                          {isFreeThisItem ? 'FREE' : `₹${(item.framePriceCalculated + (item.lensPrice || 0)) * item.qty}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop View Item Card (Full Detailed Card) */}
+                <div className="hidden sm:flex bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 sm:p-6 flex-col md:flex-row gap-6 relative shadow-xl">
+                  {/* Product Image */}
+                  <div className="w-full md:w-56 lg:w-60 h-48 sm:h-52 md:h-56 bg-[#1A1A1C] border border-[#2A2A2D] rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0 relative group">
+                    {isFreeThisItem && (
+                      <div className="absolute top-2 left-2 bg-[#00A86B] text-white font-black text-[9px] uppercase tracking-wider px-2.5 py-1 z-10 rounded-lg shadow-lg">
+                        FREE
+                      </div>
+                    )}
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-4xl">👓</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
+                      {item.name}
+                    </div>
+                    <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
+                    {item.lens && !isContactLensItem && (
+                      <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
+                    )}
+                    {item.power && (item.power.name || item.power.uploadLater || item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                      <div className="bg-[#18181A] border border-[#2A2A2D] rounded-2xl p-4 sm:p-5 mt-4 w-full text-left shadow-md">
+                        {/* Header block */}
+                        <div className="flex justify-between items-center border-b border-[#2A2A2D]/60 pb-3 mb-3">
+                          <span className="text-xs sm:text-sm font-bold text-gray-300 uppercase tracking-wider">
+                            {item.power.uploadLater ? 'Doctor Prescription' : 'Manually Entered Power'}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {item.power.name && (
+                              <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2.5 py-1 rounded-md border border-[#D4A04D]/30 uppercase text-xs font-black tracking-wide">
+                                {item.power.name}
+                              </span>
+                            )}
+                            <Link
+                              to={`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=3&cartItemId=${item.id || item._id}`}
+                              className="text-[#D4A04D] hover:text-[#F0C980] text-xs font-extrabold uppercase tracking-wider flex items-center gap-1 hover:underline ml-2"
+                            >
+                              <span>Edit Power</span> ✏️
+                            </Link>
+                          </div>
+                        </div>
+
+                        {/* Content block */}
+                        {item.power.uploadLater ? (
+                          <div className="text-sm text-gray-300 font-semibold flex items-center gap-2 py-2">
+                            <span>Prescription:</span>
+                            <span className="text-[#D4A04D] font-bold">
+                              {item.power.uploadedFileUrl ? '📄 Document Uploaded' : '⏳ Upload Later'}
+                            </span>
+                          </div>
+                        ) : (
+                          (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                            <div className="space-y-3">
+                              {/* Table Header */}
+                              <div className="hidden sm:grid grid-cols-4 gap-2 text-center text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-[#2A2A2D]/40 pb-2">
+                                <div className="text-left font-bold text-gray-300">EYE</div>
+                                <div>SPH</div>
+                                <div>CYL</div>
+                                <div>AXIS</div>
+                              </div>
+
+                              {/* Right Eye Row */}
+                              <div className="flex flex-col sm:grid sm:grid-cols-4 gap-2 text-center text-xs sm:text-sm">
+                                <div className="text-left font-bold text-gray-300 self-start sm:self-center">Right Eye</div>
+                                <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                                    <span className="text-white font-bold">{formatValue(item.power.RE?.sph)}</span>
+                                  </div>
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                                    <span className="text-white font-bold">{formatValue(item.power.RE?.cyl)}</span>
+                                  </div>
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                                    <span className="text-white font-mono">{item.power.RE?.axis ?? '0'}°</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Left Eye Row */}
-                            <div className="flex flex-col sm:grid sm:grid-cols-4 gap-1.5 sm:gap-2 text-center text-xs pt-1.5 sm:pt-0">
-                              <div className="text-left font-semibold text-gray-400 self-start sm:self-center">Left Eye</div>
-                              <div className="w-full grid grid-cols-3 sm:contents gap-2">
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
-                                  <span className="text-white font-bold">{formatValue(item.power.LE?.sph)}</span>
-                                </div>
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
-                                  <span className="text-white font-bold">{formatValue(item.power.LE?.cyl)}</span>
-                                </div>
-                                <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-1.5 sm:p-0 rounded-lg">
-                                  <span className="sm:hidden text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
-                                  <span className="text-white font-mono">{item.power.LE?.axis ?? '0'}°</span>
+                              {/* Left Eye Row */}
+                              <div className="flex flex-col sm:grid sm:grid-cols-4 gap-2 text-center text-xs sm:text-sm pt-2 sm:pt-0 border-t sm:border-t-0 border-[#2A2A2D]/30">
+                                <div className="text-left font-bold text-gray-300 self-start sm:self-center">Left Eye</div>
+                                <div className="w-full grid grid-cols-3 sm:contents gap-2">
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">SPH</span>
+                                    <span className="text-white font-bold">{formatValue(item.power.LE?.sph)}</span>
+                                  </div>
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">CYL</span>
+                                    <span className="text-white font-bold">{formatValue(item.power.LE?.cyl)}</span>
+                                  </div>
+                                  <div className="flex flex-col sm:contents bg-[#0B0B0C] sm:bg-transparent p-2 sm:p-0 rounded-lg">
+                                    <span className="sm:hidden text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 text-center">AXIS</span>
+                                    <span className="text-white font-mono">{item.power.LE?.axis ?? '0'}°</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* PD */}
-                            {item.power.pd !== undefined && (
-                              <div className="pt-2 border-t border-[#2A2A2D]/30 text-[10px] flex justify-between">
-                                <span className="text-gray-500 font-semibold">PD (Pupillary Distance)</span>
-                                <span className="text-white font-bold">{item.power.pd} mm</span>
+                              {/* PD */}
+                              {item.power.pd !== undefined && (
+                                <div className="pt-2.5 border-t border-[#2A2A2D]/40 text-xs flex justify-between">
+                                  <span className="text-gray-400 font-semibold">PD (Pupillary Distance)</span>
+                                  <span className="text-[#D4A04D] font-bold">{item.power.pd} mm</span>
+                                </div>
+                              )}
+
+                              {/* ADD Power (Multifocal) */}
+                              {(item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower) && (
+                                <div className="pt-2.5 border-t border-[#2A2A2D]/40 text-xs flex justify-between">
+                                  <span className="text-gray-400 font-semibold">Reading Power (ADD)</span>
+                                  <span className="text-[#D4A04D] font-bold">
+                                    {item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        )}
+
+                        {/* Whose prescription is this section */}
+                        {(Boolean(item.power?.prescriptionName?.trim() || item.power?.name?.trim()) || Boolean(item.power?.prescriptionPhone?.trim() || item.power?.phone?.trim())) && (
+                          <div className="mt-3 pt-3 border-t border-[#2A2A2D]/60 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+                            {(item.power.prescriptionName?.trim() || item.power.name?.trim()) && (
+                              <div className="text-gray-300 font-medium">
+                                Prescription For: <span className="text-white font-bold">{item.power.prescriptionName || item.power.name}</span>
                               </div>
                             )}
-
-                            {/* ADD Power (Multifocal) */}
-                            {(item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower) && (
-                              <div className="pt-2 border-t border-[#2A2A2D]/30 text-[10px] flex justify-between">
-                                <span className="text-gray-500 font-semibold">Reading Power (ADD)</span>
-                                <span className="text-[#D4A04D] font-bold">
-                                  {item.power.RE?.addPower || item.power.LE?.addPower || item.power.addPower}
-                                </span>
+                            {(item.power.prescriptionPhone?.trim() || item.power.phone?.trim()) && (
+                              <div className="text-[#D4A04D] font-mono text-xs font-semibold flex items-center gap-1.5 bg-[#0B0B0C] px-2.5 py-1 rounded-md border border-[#2A2A2D]">
+                                <span>📞</span> {item.power.prescriptionPhone || item.power.phone}
                               </div>
                             )}
                           </div>
-                        )
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-4 mt-3">
-                    <button
-                      onClick={() => handleRepeat(item)}
-                      className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
-                    >
-                      Repeat
-                    </button>
-                    <button
-                      onClick={() => remove(item)}
-                      className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
-                  <div className="text-white font-bold">
-                    {isFreeThisItem ? (
-                      <>
-                        <span className="line-through text-xs font-normal text-gray-500 mr-1.5">₹{item.framePriceCalculated + item.lensPrice}</span>
-                        <span className="text-green-400">Free</span>
-                      </>
-                    ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
-                      <div className="flex flex-col sm:items-end">
-                        <div className="flex items-baseline gap-1.5 justify-start sm:justify-end">
-                          <span className="line-through text-xs font-normal text-gray-500">
-                            ₹{((item.product?.price?.selling || item.framePrice) + item.lensPrice) * item.qty}
-                          </span>
-                          <span className="text-white font-bold text-base">
-                            ₹{(item.framePriceCalculated + item.lensPrice) * item.qty}
-                          </span>
-                        </div>
-                        <span className="text-[#D4A04D] text-[9.5px] font-black uppercase tracking-wider mt-0.5">
-                          ✦ Gold Member Price
-                        </span>
-                      </div>
-                    ) : (
-                      `₹${(item.framePriceCalculated + item.lensPrice) * item.qty}`
-                    )}
-                  </div>
-                  {!isContactLensItem && (
-                    <>
-                      <div className="text-[#A7A7A7] text-xs mt-1">
-                        Frame: {isFreeThisItem ? (
-                          <>
-                            <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
-                            <span className="text-green-400 font-semibold ml-1">Free</span>
-                          </>
-                        ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
-                          <>
-                            <span className="line-through text-gray-500 mr-1">₹{item.product?.price?.selling || item.framePrice}</span>
-                            <span className="text-[#D4A04D] font-bold">₹{item.framePriceCalculated}</span>
-                          </>
-                        ) : (
-                          `₹${item.framePriceCalculated}`
                         )}
                       </div>
-                      {item.lensPrice > 0 && (
-                        <div className="text-[#A7A7A7] text-xs">
-                          Lens: {isFreeThisItem ? (
+                    )}
+                    <div className="flex items-center gap-4 mt-3">
+                      {!isContactLensItem && (
+                        <Link
+                          to={`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=1&cartItemId=${item.id || item._id}`}
+                          className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          🔍 Change Lens
+                        </Link>
+                      )}
+                      <Link
+                        to={`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=3&cartItemId=${item.id || item._id}`}
+                        className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        ✏️ Edit Power
+                      </Link>
+                      <button
+                        onClick={() => handleRepeat(item)}
+                        className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Repeat
+                      </button>
+                      <button
+                        onClick={() => remove(item)}
+                        className="text-red-400 text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
+                    <div className="text-white font-bold">
+                      {isFreeThisItem ? (
+                        <>
+                          <span className="line-through text-xs font-normal text-gray-500 mr-1.5">₹{item.framePriceCalculated + item.lensPrice}</span>
+                          <span className="text-green-400">Free</span>
+                        </>
+                      ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                        <div className="flex flex-col sm:items-end">
+                          <div className="flex items-baseline gap-1.5 justify-start sm:justify-end">
+                            <span className="line-through text-xs font-normal text-gray-500">
+                              ₹{((item.product?.price?.selling || item.framePrice) + item.lensPrice) * item.qty}
+                            </span>
+                            <span className="text-white font-bold text-base">
+                              ₹{(item.framePriceCalculated + item.lensPrice) * item.qty}
+                            </span>
+                          </div>
+                          <span className="text-[#D4A04D] text-[9.5px] font-black uppercase tracking-wider mt-0.5">
+                            ✦ Gold Member Price
+                          </span>
+                        </div>
+                      ) : (
+                        `₹${(item.framePriceCalculated + item.lensPrice) * item.qty}`
+                      )}
+                    </div>
+                    {!isContactLensItem && (
+                      <>
+                        <div className="text-[#A7A7A7] text-xs mt-1">
+                          Frame: {isFreeThisItem ? (
                             <>
-                              <span className="line-through text-gray-500">₹{item.lensPrice}</span>
+                              <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
                               <span className="text-green-400 font-semibold ml-1">Free</span>
                             </>
-                          ) : `₹${item.lensPrice}`}
+                          ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                            <>
+                              <span className="line-through text-gray-500 mr-1">₹{item.product?.price?.selling || item.framePrice}</span>
+                              <span className="text-[#D4A04D] font-bold">₹{item.framePriceCalculated}</span>
+                            </>
+                          ) : (
+                            `₹${item.framePriceCalculated}`
+                          )}
                         </div>
-                      )}
-                    </>
-                  )}
+                        {item.lensPrice > 0 && (
+                          <div className="text-[#A7A7A7] text-xs">
+                            Lens: {isFreeThisItem ? (
+                              <>
+                                <span className="line-through text-gray-500">₹{item.lensPrice}</span>
+                                <span className="text-green-400 font-semibold ml-1">Free</span>
+                              </>
+                            ) : `₹${item.lensPrice}`}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -865,13 +1016,46 @@ export default function CartPage() {
                   <span className="text-white font-semibold">₹{itemsSubtotal}</span>
                 </div>
                 {showItemPriceDropdown && (
-                  <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-1.5 text-xs text-[#A7A7A7] border-l border-[#2A2A2D] ml-1">
+                  <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-2 text-xs text-[#A7A7A7] border-l border-[#2A2A2D] ml-1">
                     {itemsWithPricing.map(item => {
-                      const originalFramePrice = item.product?.nonMemberPrice ?? item.product?.price?.selling ?? item.framePrice ?? 1;
+                      if (item.lensType || (item as any).priceLocked) {
+                        // Contact lenses / price-locked add-ons (e.g. a discounted lens
+                        // solution): no separate "frame" concept, just one line with the
+                        // already-inclusive total.
+                        const boxCount = (item as any).lensPayload?.power?.RE?.boxes + (item as any).lensPayload?.power?.LE?.boxes || undefined;
+                        const boxLabel = (item as any).lensPayload?.packSize || (boxCount ? `${boxCount} Box(es)` : null);
+                        const total = (item.framePriceCalculated + (item.lensPrice || 0)) * item.qty;
+                        const original = (item as any).originalPrice;
+                        const originalTotal = original != null ? (original + (item.lensPrice || 0)) * item.qty : null;
+                        return (
+                          <div key={item.id} className="flex justify-between text-white font-medium">
+                            <span className="max-w-[70%] truncate">
+                              {item.name}
+                              {boxLabel && <span className="text-gray-500 font-normal"> · {boxLabel}</span>}
+                            </span>
+                            <span>
+                              ₹{total}
+                              {originalTotal != null && originalTotal !== total && (
+                                <span className="text-gray-500 line-through ml-1.5 font-normal">₹{originalTotal}</span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const originalFramePrice = item.product?.price?.mrp ?? item.product?.nonMemberPrice ?? item.product?.price?.selling ?? item.framePrice ?? 1;
                       return (
-                        <div key={item.id} className="flex justify-between">
-                          <span className="max-w-[70%] truncate">{item.name} (x{item.qty})</span>
-                          <span>₹{(originalFramePrice + item.lensPrice) * item.qty}</span>
+                        <div key={item.id} className="space-y-1">
+                          <div className="flex justify-between text-white font-medium">
+                            <span className="max-w-[70%] truncate">{item.name} (Frame)</span>
+                            <span>₹{originalFramePrice * item.qty}</span>
+                          </div>
+                          {item.lensPrice > 0 && (
+                            <div className="flex justify-between text-gray-400 pl-2">
+                              <span className="max-w-[70%] truncate">↳ Lens ({item.lens || 'Prescription Lens'})</span>
+                              <span>₹{item.lensPrice * item.qty}</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -895,13 +1079,13 @@ export default function CartPage() {
                     <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-1.5 text-xs text-green-400/70 border-l border-green-500/20 ml-1">
                       {productDiscounts > 0 && (
                         <div className="flex justify-between">
-                          <span>Product Discount</span>
+                          <span>{isOneRupeeFrameActive ? '1 Rupee Frame Offer' : 'Gold Member Price Discount'}</span>
                           <span>-₹{productDiscounts}</span>
                         </div>
                       )}
                       {bogoDiscount > 0 && (
                         <div className="flex justify-between">
-                          <span>Buy 1 Get 1 Offer</span>
+                          <span>Buy 1 Get 1 (BOGO) Offer</span>
                           <span>-₹{bogoDiscount}</span>
                         </div>
                       )}
@@ -1023,8 +1207,10 @@ export default function CartPage() {
                   onClick={() => {
                     if (applyBogo) {
                       setApplyBogo(false);
+                      setUserRemovedCoupon(true);
                     } else {
                       setApplyBogo(true);
+                      setUserRemovedCoupon(false);
                       handleRemoveCoupon();
                     }
                   }}
@@ -1270,6 +1456,273 @@ export default function CartPage() {
           </div>
         </div>
       )}
+
+      {/* Lens Details Bottom Sheet Modal (Mobile) */}
+      <AnimatePresence>
+        {activeLensModalItem && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveLensModalItem(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xs cursor-pointer"
+            />
+
+            {/* Bottom Sheet Panel */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-full sm:max-w-lg bg-[#131314] border-t sm:border border-[#2A2A2D] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl z-10 space-y-4 max-h-[85vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-[#2A2A2D] pb-3">
+                <h3 className="text-white font-extrabold text-base tracking-wide">Lens Details</h3>
+                <button
+                  onClick={() => setActiveLensModalItem(null)}
+                  className="w-8 h-8 rounded-full bg-[#1C1C1E] text-gray-400 hover:text-white flex items-center justify-center border-none cursor-pointer text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Cart Item Header Card */}
+              <div className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-3 flex gap-3 items-center">
+                <img
+                  src={activeLensModalItem.image || '/images/cat_prescription.png'}
+                  alt={activeLensModalItem.name}
+                  className="w-14 h-14 object-contain bg-black/40 rounded-lg p-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-bold text-xs truncate">{activeLensModalItem.name}</h4>
+                  <p className="text-[#A7A7A7] text-[10px] mt-0.5">{activeLensModalItem.sku} · {activeLensModalItem.color}</p>
+                  <span className="text-[#00A86B] font-extrabold text-xs block mt-0.5">
+                    {activeLensModalItem.lens || 'Anti-Glare Premium'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-white font-extrabold text-xs">
+                    ₹{activeLensModalItem.lensPrice || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Lens Package Info */}
+              <div className="bg-[#18181A] border border-[#2A2A2D] rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 bg-[#00A86B]/10 border border-[#00A86B]/30 rounded-xl flex items-center justify-center text-xl">
+                    🔍
+                  </div>
+                  <div>
+                    <span className="text-[#00A86B] font-black text-[10px] uppercase tracking-wider block">LENS PACKAGE</span>
+                    <h5 className="text-white font-bold text-sm">{activeLensModalItem.lens || 'Anti-Glare Premium'}</h5>
+                  </div>
+                </div>
+
+                <p className="text-gray-300 text-xs leading-relaxed border-t border-[#2A2A2D] pt-3">
+                  {activeLensModalItem.lensSubType || activeLensModalItem.lensQuality || 'Double Side Anti-Glare / Blue-cut coating with Hydrophobic scratch resistant protection.'}
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] text-gray-400 font-medium">
+                  <div className="flex items-center gap-1.5 bg-[#131314] p-2 rounded-lg border border-[#2A2A2D]">
+                    <span className="text-green-400">✓</span> Anti-Glare Coating
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-[#131314] p-2 rounded-lg border border-[#2A2A2D]">
+                    <span className="text-green-400">✓</span> UV400 Protection
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-[#131314] p-2 rounded-lg border border-[#2A2A2D]">
+                    <span className="text-green-400">✓</span> Scratch Resistant
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-[#131314] p-2 rounded-lg border border-[#2A2A2D]">
+                    <span className="text-green-400">✓</span> Dust & Water Repellent
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setActiveLensModalItem(null)}
+                  className="flex-1 bg-[#222] hover:bg-[#333] text-white font-bold text-xs uppercase py-3 rounded-xl border-none cursor-pointer"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => {
+                    const item = activeLensModalItem;
+                    setActiveLensModalItem(null);
+                    navigate(`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=1&cartItemId=${item.id || item._id}`);
+                  }}
+                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-xl border-none cursor-pointer"
+                >
+                  Change Lens
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Power Details Bottom Sheet Modal (Mobile) */}
+      <AnimatePresence>
+        {activePowerModalItem && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActivePowerModalItem(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xs cursor-pointer"
+            />
+
+            {/* Bottom Sheet Panel */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-full sm:max-w-lg bg-[#131314] border-t sm:border border-[#2A2A2D] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl z-10 space-y-4 max-h-[85vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-[#2A2A2D] pb-3">
+                <h3 className="text-white font-extrabold text-base tracking-wide">Power Details</h3>
+                <button
+                  onClick={() => setActivePowerModalItem(null)}
+                  className="w-8 h-8 rounded-full bg-[#1C1C1E] text-gray-400 hover:text-white flex items-center justify-center border-none cursor-pointer text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Item Header Card */}
+              <div className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl p-3 flex gap-3 items-center">
+                <img
+                  src={activePowerModalItem.image || '/images/cat_prescription.png'}
+                  alt={activePowerModalItem.name}
+                  className="w-14 h-14 object-contain bg-black/40 rounded-lg p-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-bold text-xs truncate">{activePowerModalItem.name}</h4>
+                  <p className="text-[#A7A7A7] text-[10px] mt-0.5">{activePowerModalItem.sku} · {activePowerModalItem.color}</p>
+                  <span className="text-[#00A86B] font-extrabold text-xs block mt-0.5">
+                    {activePowerModalItem.lens || 'Anti-Glare Premium'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-white font-extrabold text-xs">
+                    ₹{(activePowerModalItem.framePriceCalculated + (activePowerModalItem.lensPrice || 0)) * activePowerModalItem.qty}
+                  </span>
+                </div>
+              </div>
+
+              {/* Prescription Section */}
+              <div className="bg-[#18181A] border border-[#2A2A2D] rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-[#2A2A2D] pb-2">
+                  <span className="text-xs font-extrabold text-white uppercase tracking-wider">Prescription Profile</span>
+                  {activePowerModalItem.power?.name && (
+                    <span className="text-[#D4A04D] bg-[#D4A04D]/10 px-2.5 py-0.5 rounded border border-[#D4A04D]/30 uppercase text-[10px] font-black tracking-wide">
+                      {activePowerModalItem.power.name}
+                    </span>
+                  )}
+                </div>
+
+                {activePowerModalItem.power?.uploadLater ? (
+                  <div className="space-y-3 py-2">
+                    <div className="flex items-center gap-2.5 text-xs text-gray-300">
+                      <span className="text-lg">📄</span>
+                      <span className="font-semibold">
+                        {activePowerModalItem.power.uploadedFileUrl ? 'Prescription Document Uploaded' : 'Prescription to be uploaded later'}
+                      </span>
+                    </div>
+                    {activePowerModalItem.power.uploadedFileUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setViewPrescriptionModalUrl(activePowerModalItem.power.uploadedFileUrl)}
+                        className="w-full bg-[#D4A04D]/10 border border-[#D4A04D]/40 hover:bg-[#D4A04D]/20 text-[#D4A04D] font-extrabold text-xs py-2.5 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                      >
+                        🔍 View Prescription Document
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  activePowerModalItem.power && (
+                    <div className="space-y-2 pt-1">
+                      {/* Table Header */}
+                      <div className="grid grid-cols-4 gap-1 text-center text-[10px] font-extrabold text-gray-400 uppercase tracking-widest border-b border-[#2A2A2D] pb-1.5">
+                        <div className="text-left font-bold text-gray-300">EYE</div>
+                        <div>SPH</div>
+                        <div>CYL</div>
+                        <div>AXIS</div>
+                      </div>
+
+                      {/* Right Eye Row */}
+                      <div className="grid grid-cols-4 gap-1 text-center text-xs font-bold text-white items-center py-1">
+                        <div className="text-left text-gray-300 font-bold">Right Eye</div>
+                        <div>{formatValue(activePowerModalItem.power.RE?.sph)}</div>
+                        <div>{formatValue(activePowerModalItem.power.RE?.cyl)}</div>
+                        <div className="font-mono text-gray-300">{activePowerModalItem.power.RE?.axis ?? '0'}°</div>
+                      </div>
+
+                      {/* Left Eye Row */}
+                      <div className="grid grid-cols-4 gap-1 text-center text-xs font-bold text-white items-center py-1 border-t border-[#2A2A2D]/40 pt-1.5">
+                        <div className="text-left text-gray-300 font-bold">Left Eye</div>
+                        <div>{formatValue(activePowerModalItem.power.LE?.sph)}</div>
+                        <div>{formatValue(activePowerModalItem.power.LE?.cyl)}</div>
+                        <div className="font-mono text-gray-300">{activePowerModalItem.power.LE?.axis ?? '0'}°</div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setActivePowerModalItem(null)}
+                  className="flex-1 bg-[#222] hover:bg-[#333] text-white font-bold text-xs uppercase py-3 rounded-xl border-none cursor-pointer"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => {
+                    const item = activePowerModalItem;
+                    setActivePowerModalItem(null);
+                    navigate(`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=3&cartItemId=${item.id || item._id}`);
+                  }}
+                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-xl border-none cursor-pointer"
+                >
+                  Change Power
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Full-screen Prescription Lightbox Modal */}
+      <AnimatePresence>
+        {viewPrescriptionModalUrl && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <button
+              onClick={() => setViewPrescriptionModalUrl(null)}
+              className="absolute top-4 right-4 text-white text-xl bg-zinc-800/80 rounded-full w-10 h-10 flex items-center justify-center border-none cursor-pointer z-10"
+            >
+              ✕
+            </button>
+            <div className="max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/20">
+              <img
+                src={viewPrescriptionModalUrl}
+                alt="Prescription Document"
+                className="max-w-full max-h-[85vh] object-contain"
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

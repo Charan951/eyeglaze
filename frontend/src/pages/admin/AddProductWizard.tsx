@@ -38,6 +38,12 @@ const wizardSchema = z.object({
   tier: z.enum(['Essential', 'Premium', 'Sale', 'None']).default('None'),
   isBestseller: z.boolean().default(false),
   isPremium: z.boolean().default(false),
+  isLensSolution: z.boolean().default(false),
+  linkedSolutions: z.array(z.object({
+    solutionId: z.string(),
+    discountPercent: z.number().optional(),
+    overridePrice: z.number().optional()
+  })).optional(),
   offerBadgesText: z.string().optional(),
 
   // Pricing
@@ -215,6 +221,11 @@ const wizardSchema = z.object({
     price: z.number(),
     originalPrice: z.number().optional(),
     lensesPerBox: z.number().optional()
+  })).default([]),
+  solutionVariants: z.array(z.object({
+    volume: z.string(),
+    price: z.number(),
+    originalPrice: z.number().optional()
   })).default([])
 });
 
@@ -325,6 +336,8 @@ const defaultValues: WizardFormData = {
   tier: 'None',
   isBestseller: false,
   isPremium: false,
+  isLensSolution: false,
+  linkedSolutions: [],
   offerBadgesText: '',
 
   costPrice: 0,
@@ -452,6 +465,7 @@ const defaultValues: WizardFormData = {
   readingPowers: [],
   contactPowers: [],
   contactPackOptions: [],
+  solutionVariants: [],
   contactDisposableType: '',
   sellAsFrame: true,
   sellWithLens: true
@@ -491,6 +505,8 @@ export default function AddProductWizard() {
   const [customLensMinCyl, setCustomLensMinCyl] = useState('-6');
   const [customLensMaxCyl, setCustomLensMaxCyl] = useState('6');
   const [contactPackConfigs, setContactPackConfigs] = useState<Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>>([]);
+  const [solutionVariantConfigs, setSolutionVariantConfigs] = useState<Array<{ volume: string; price: number; originalPrice?: number }>>([]);
+  const [availableSolutions, setAvailableSolutions] = useState<Array<{ _id: string; name: string; sku: string; thumbnail?: string; sellingPrice?: number; mrp?: number; price?: { selling?: number; original?: number } }>>([]);
 
   // Autosave tracking
   const [lastAutoSaved, setLastAutoSaved] = useState<string | null>(null);
@@ -523,6 +539,10 @@ export default function AddProductWizard() {
     setValue('contactPackOptions', contactPackConfigs);
   }, [contactPackConfigs, setValue]);
 
+  useEffect(() => {
+    setValue('solutionVariants', solutionVariantConfigs);
+  }, [solutionVariantConfigs, setValue]);
+
   // Register custom fields manually so react-hook-form/zod includes them in handleSubmit payload
   useEffect(() => {
     register('gender');
@@ -537,6 +557,8 @@ export default function AddProductWizard() {
     register('readingPowers');
     register('contactPowers');
     register('contactPackOptions');
+    register('solutionVariants');
+    register('linkedSolutions');
     register('contactDisposableType');
     register('sellAsFrame');
     register('sellWithLens');
@@ -563,6 +585,16 @@ export default function AddProductWizard() {
       /contact/i.test(currentCategory)
     )
   );
+  const isSolutionProduct = Boolean(
+    isContactLenses && (
+      (/solution/i.test(String(formValues.subSubCategory || '')) && !/accessor/i.test(String(formValues.subSubCategory || ''))) ||
+      formValues.isLensSolution
+    )
+  );
+  const isAccessoryProduct = Boolean(
+    isContactLenses && /accessor/i.test(String(formValues.subSubCategory || ''))
+  );
+  const isNonPowerContactProduct = isSolutionProduct || isAccessoryProduct;
   const isPowerSunglasses = currentCategory === 'power-sunglasses';
   const isReading = String(currentSubCategory || '').toLowerCase().includes('reading');
   const subCatNameOrSlug = currentSubCategory || formValues.subCategoryId || '';
@@ -655,11 +687,17 @@ export default function AddProductWizard() {
     async function loadData() {
       setLoadingMeta(true);
       try {
-        const [treeRes, shapesRes] = await Promise.all([
+        const [treeRes, shapesRes, solutionsRes] = await Promise.all([
           api.get('/admin/categories/tree'),
-          api.get('/shapes').catch(() => ({ data: [] }))
+          api.get('/shapes').catch(() => ({ data: [] })),
+          api.get('/admin/products?category=contact-lens&limit=500').catch(() => ({ data: {} }))
         ]);
         setCategoryTree(treeRes.data.tree || []);
+        setAvailableSolutions(
+          (solutionsRes.data.products || []).filter(
+            (p: any) => p.isLensSolution || /solution/i.test(p.subSubCategory || '')
+          )
+        );
         setAvailableShapes(shapesRes.data.length > 0 ? shapesRes.data : [
           { name: 'Round', slug: 'round' },
           { name: 'Rectangle', slug: 'rectangle' },
@@ -703,6 +741,12 @@ export default function AddProductWizard() {
             tier: p.tier || 'None',
             isBestseller: p.isBestseller || false,
             isPremium: p.isPremium || false,
+            isLensSolution: p.isLensSolution || false,
+            linkedSolutions: Array.isArray(p.linkedSolutions) ? p.linkedSolutions.map((s: any) => ({
+              solutionId: typeof s === 'object' ? (s.solutionId?._id || s.solutionId || s._id || s) : s,
+              discountPercent: typeof s === 'object' ? s.discountPercent : undefined,
+              overridePrice: typeof s === 'object' ? s.overridePrice : undefined,
+            })) : [],
             offerBadgesText: p.offerBadges ? p.offerBadges.join(', ') : '',
             
             costPrice: p.costPrice || 0,
@@ -827,6 +871,10 @@ export default function AddProductWizard() {
           if (p.contactPackOptions && Array.isArray(p.contactPackOptions)) {
             setContactPackConfigs(p.contactPackOptions);
             setValue('contactPackOptions', p.contactPackOptions, { shouldValidate: true });
+          }
+          if (p.solutionVariants && Array.isArray(p.solutionVariants)) {
+            setSolutionVariantConfigs(p.solutionVariants);
+            setValue('solutionVariants', p.solutionVariants, { shouldValidate: true });
           }
           if (p.contactPowers && Array.isArray(p.contactPowers)) {
             setValue('contactPowers', p.contactPowers, { shouldValidate: true });
@@ -1747,202 +1795,266 @@ export default function AddProductWizard() {
                 {errors.name && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.name.message}</p>}
               </div>
 
-              <div className={`grid grid-cols-1 ${isSunglasses ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-6`}>
-                {/* Category Dropdown */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Category *</label>
-                  <select
-                    {...register('category')}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setValue('category', val);
-                      setValue('subCategory', '');
-                      setValue('subCategoryId', '');
-                      setValue('subSubCategory', '');
-                      setValue('subSubCategoryId', '');
-                      setValue('subSubSubCategory', '');
-                      setValue('subSubSubCategoryId', '');
-                      const matched = categoryTree.find((c: any) => c.slug === val);
-                      setValue('categoryId', matched ? matched.id : '');
-                    }}
-                    className={`w-full bg-[#0B0B0C] border rounded-xl px-4 py-2.5 text-white text-sm font-bold focus:outline-none ${
-                      errors.category ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
-                    }`}
-                  >
-                    <option value="">-- Choose Category --</option>
-                    {categoryTree.map((c: any) => (
-                      <option key={c.id} value={c.slug}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.category && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.category.message}</p>}
-                </div>
+              {/* Category Hierarchy Selection */}
+              {(() => {
+                const matchedParent = categoryTree.find(
+                  (c: any) =>
+                    c.slug === currentCategory ||
+                    c.id === currentCategory ||
+                    c._id === currentCategory ||
+                    c.id === formValues.categoryId ||
+                    c._id === formValues.categoryId
+                );
 
-                {/* Subcategory Dropdown */}
-                {!isSunglasses && (
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Subcategory</label>
-                    <select
-                      {...register('subCategory')}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setValue('subCategory', val);
-                        setValue('subSubCategory', '');
-                        setValue('subSubCategoryId', '');
-                        setValue('subSubSubCategory', '');
-                        setValue('subSubSubCategoryId', '');
-                        const matchedParent = categoryTree.find((c: any) => c.slug === currentCategory);
-                        const matchedSub = matchedParent?.children?.find((s: any) => s.slug === val || s.name === val || s.id === val);
-                        setValue('subCategoryId', matchedSub ? matchedSub.id : '');
-                        if (val.toLowerCase().includes('kids') || matchedSub?.name?.toLowerCase().includes('kids')) {
-                          const currentGenders = formValues.gender || [];
-                          if (!currentGenders.includes('kids')) {
-                            setValue('gender', [...currentGenders, 'kids']);
-                          }
-                        }
-                      }}
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                    >
-                      <option value="">-- Choose Subcategory --</option>
-                      {categoryTree
-                        .find((c: any) => c.slug === currentCategory)
-                        ?.children?.map((sub: any) => (
-                          <option key={sub.id} value={sub.slug}>
-                            {sub.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                )}
+                const subCategoriesList = matchedParent?.children || [];
 
-                {/* Sub-Sub-Category Dropdown */}
-                {(() => {
-                  const matchedParent = categoryTree.find((c: any) => c.slug === currentCategory);
-                  const currentSubVal = watch('subCategory');
-                  const currentSubIdVal = watch('subCategoryId');
-                  const matchedSub = matchedParent?.children?.find((s: any) => s.slug === currentSubVal || s.name === currentSubVal || s.id === currentSubIdVal);
-                  const subsubList = matchedSub?.children || [];
-                  if (subsubList.length === 0) return null;
-                  return (
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Category</label>
-                      <select
-                        {...register('subSubCategory')}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setValue('subSubCategory', val);
-                          setValue('subSubSubCategory', '');
-                          setValue('subSubSubCategoryId', '');
-                          const matchedSubSub = subsubList.find((ss: any) => ss.slug === val || ss.name === val || ss.id === val);
-                          setValue('subSubCategoryId', matchedSubSub ? matchedSubSub.id : '');
-                        }}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                      >
-                        <option value="">-- Choose Sub-Sub-Category --</option>
-                        {subsubList.map((ss: any) => (
-                          <option key={ss.id} value={ss.slug}>
-                            {ss.name}
-                          </option>
-                        ))}
-                      </select>
+                const currentSubVal = watch('subCategory');
+                const currentSubIdVal = watch('subCategoryId');
+                const matchedSub = subCategoriesList.find(
+                  (s: any) =>
+                    s.slug === currentSubVal ||
+                    s.name === currentSubVal ||
+                    s.id === currentSubVal ||
+                    s._id === currentSubVal ||
+                    s.id === currentSubIdVal ||
+                    s._id === currentSubIdVal
+                );
+
+                const subSubCategoriesList = matchedSub?.children || [];
+
+                const currentSubSubVal = watch('subSubCategory');
+                const currentSubSubIdVal = watch('subSubCategoryId');
+                const matchedSubSub = subSubCategoriesList.find(
+                  (ss: any) =>
+                    ss.slug === currentSubSubVal ||
+                    ss.name === currentSubSubVal ||
+                    ss.id === currentSubSubVal ||
+                    ss._id === currentSubSubVal ||
+                    ss.id === currentSubSubIdVal ||
+                    ss._id === currentSubSubIdVal
+                );
+
+                const subSubSubCategoriesList = matchedSubSub?.children || [];
+
+                const matchedSubSubSubItem = subSubSubCategoriesList.find(
+                  (sss: any) =>
+                    sss.slug === formValues.subSubSubCategory ||
+                    sss.name === formValues.subSubSubCategory ||
+                    sss.id === formValues.subSubSubCategory ||
+                    sss._id === formValues.subSubSubCategory ||
+                    sss.id === formValues.subSubSubCategoryId ||
+                    sss._id === formValues.subSubSubCategoryId
+                );
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                      {/* Category Dropdown */}
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Category *</label>
+                        <select
+                          {...register('category')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setValue('category', val);
+                            setValue('subCategory', '');
+                            setValue('subCategoryId', '');
+                            setValue('subSubCategory', '');
+                            setValue('subSubCategoryId', '');
+                            setValue('subSubSubCategory', '');
+                            setValue('subSubSubCategoryId', '');
+                            const matched = categoryTree.find((c: any) => c.slug === val || c.id === val || c._id === val);
+                            setValue('categoryId', matched ? matched.id || matched._id : '');
+                          }}
+                          className={`w-full bg-[#0B0B0C] border rounded-xl px-3 py-2.5 text-white text-xs md:text-sm font-bold focus:outline-none transition-colors ${
+                            errors.category ? 'border-red-500 animate-pulse' : 'border-[#2A2A2D] focus:border-[#D4A04D]'
+                          }`}
+                          title={matchedParent?.name || 'Select Category'}
+                        >
+                          <option value="">-- Choose Category --</option>
+                          {categoryTree.map((c: any) => (
+                            <option key={c.id || c._id} value={c.slug || c.id || c._id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.category && <p className="text-red-400 text-[10px] mt-1 font-semibold">{errors.category.message}</p>}
+                      </div>
+
+                      {/* Subcategory Dropdown (Shown if parent has subcategories) */}
+                      {subCategoriesList.length > 0 && (
+                        <div>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Subcategory</label>
+                          <select
+                            {...register('subCategory')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setValue('subCategory', val);
+                              setValue('subSubCategory', '');
+                              setValue('subSubCategoryId', '');
+                              setValue('subSubSubCategory', '');
+                              setValue('subSubSubCategoryId', '');
+                              const matchedSubItem = subCategoriesList.find(
+                                (s: any) => s.slug === val || s.name === val || s.id === val || s._id === val
+                              );
+                              setValue('subCategoryId', matchedSubItem ? matchedSubItem.id || matchedSubItem._id : '');
+                              if (val.toLowerCase().includes('kids') || matchedSubItem?.name?.toLowerCase().includes('kids')) {
+                                const currentGenders = formValues.gender || [];
+                                if (!currentGenders.includes('kids')) {
+                                  setValue('gender', [...currentGenders, 'kids']);
+                                }
+                              }
+                            }}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
+                            title={matchedSub?.name || 'Select Subcategory'}
+                          >
+                            <option value="">-- Choose Subcategory --</option>
+                            {subCategoriesList.map((sub: any) => (
+                              <option key={sub.id || sub._id} value={sub.slug || sub.id || sub._id}>
+                                {sub.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Sub-Sub-Category Dropdown (Shown if subcategory has sub-sub categories) */}
+                      {currentSubVal && subSubCategoriesList.length > 0 && (
+                        <div>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Category</label>
+                          <select
+                            {...register('subSubCategory')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setValue('subSubCategory', val);
+                              setValue('subSubSubCategory', '');
+                              setValue('subSubSubCategoryId', '');
+                              const matchedSubSubItem = subSubCategoriesList.find(
+                                (ss: any) => ss.slug === val || ss.name === val || ss.id === val || ss._id === val
+                              );
+                              setValue('subSubCategoryId', matchedSubSubItem ? matchedSubSubItem.id || matchedSubSubItem._id : '');
+                            }}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
+                            title={matchedSubSub?.name || 'Select Sub-Sub-Category'}
+                          >
+                            <option value="">-- Choose Sub-Sub-Category --</option>
+                            {subSubCategoriesList.map((ss: any) => (
+                              <option key={ss.id || ss._id} value={ss.slug || ss.id || ss._id}>
+                                {ss.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Sub-Sub-Sub-Category Dropdown (Shown if sub-sub category has sub-sub-sub categories) */}
+                      {currentSubSubVal && subSubSubCategoriesList.length > 0 && (
+                        <div>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Sub-Category</label>
+                          <select
+                            {...register('subSubSubCategory')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setValue('subSubSubCategory', val);
+                              const matchedItem = subSubSubCategoriesList.find(
+                                (sss: any) => sss.slug === val || sss.name === val || sss.id === val || sss._id === val
+                              );
+                              setValue('subSubSubCategoryId', matchedItem ? matchedItem.id || matchedItem._id : '');
+                            }}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
+                            title={matchedSubSubSubItem?.name || 'Select Sub-Sub-Sub-Category'}
+                          >
+                            <option value="">-- Choose Sub-Sub-Sub-Category --</option>
+                            {subSubSubCategoriesList.map((sss: any) => (
+                              <option key={sss.id || sss._id} value={sss.slug || sss.id || sss._id}>
+                                {sss.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Status */}
+                      <div>
+                        <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Status</label>
+                        <select
+                          {...register('status')}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                        >
+                          <option value="Draft">Draft</option>
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Scheduled">Scheduled</option>
+                        </select>
+                      </div>
+
+                      {/* Product Tier/Collection - Hidden for Contact Lenses */}
+                      {!isContactLenses && (
+                        <div>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tier / Collection</label>
+                          <select
+                            {...register('tier')}
+                            className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                          >
+                            <option value="None">None</option>
+                            <option value="Premium">Premium</option>
+                            <option value="Essential">Essential</option>
+                            <option value="Sale">Sale</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
-                  );
-                })()}
 
-                {/* Sub-Sub-Sub-Category Dropdown */}
-                {(() => {
-                  const matchedParent = categoryTree.find((c: any) => c.slug === currentCategory);
-                  const currentSubVal = watch('subCategory');
-                  const currentSubIdVal = watch('subCategoryId');
-                  const matchedSub = matchedParent?.children?.find((s: any) => s.slug === currentSubVal || s.name === currentSubVal || s.id === currentSubIdVal);
-                  const currentSubSubVal = watch('subSubCategory');
-                  const currentSubSubIdVal = watch('subSubCategoryId');
-                  const matchedSubSub = matchedSub?.children?.find((ss: any) => ss.slug === currentSubSubVal || ss.name === currentSubSubVal || ss.id === currentSubSubIdVal);
-                  const subsubsubList = matchedSubSub?.children || [];
-                  if (subsubsubList.length === 0) return null;
-                  return (
-                    <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Sub-Category</label>
-                      <select
-                        {...register('subSubSubCategory')}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setValue('subSubSubCategory', val);
-                          const matchedSubSubSub = subsubsubList.find((sss: any) => sss.slug === val || sss.name === val || sss.id === val);
-                          setValue('subSubSubCategoryId', matchedSubSubSub ? matchedSubSubSub.id : '');
-                        }}
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                      >
-                        <option value="">-- Choose Sub-Sub-Sub-Category --</option>
-                        {subsubsubList.map((sss: any) => (
-                          <option key={sss.id} value={sss.slug}>
-                            {sss.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })()}
-
-                {/* Status */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Status</label>
-                  <select
-                    {...register('status')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                  >
-                    <option value="Draft">Draft</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Scheduled">Scheduled</option>
-                  </select>
-                </div>
-
-                {/* Product Tier/Collection - Hidden for Contact Lenses */}
-                {!isContactLenses && (
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tier / Collection</label>
-                    <select
-                      {...register('tier')}
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                    >
-                      <option value="None">None</option>
-                      <option value="Premium">Premium</option>
-                      <option value="Essential">Essential</option>
-                      <option value="Sale">Sale</option>
-                    </select>
+                    {/* Clean Text Breadcrumb Path (Slash-separated, no card box) */}
+                    {(matchedParent || matchedSub || matchedSubSub || matchedSubSubSubItem) && (
+                      <div className="flex items-center gap-2 flex-wrap text-sm md:text-base font-medium py-1 px-1 select-none">
+                        {matchedParent && (
+                          <span className={matchedSub ? "text-slate-400 font-normal" : "text-white font-bold"}>
+                            {matchedParent.name}
+                          </span>
+                        )}
+                        {matchedSub && (
+                          <>
+                            <span className="text-slate-500 font-bold">/</span>
+                            <span className={matchedSubSub ? "text-slate-400 font-normal" : "text-white font-bold"}>
+                              {matchedSub.name}
+                            </span>
+                          </>
+                        )}
+                        {matchedSubSub && (
+                          <>
+                            <span className="text-slate-500 font-bold">/</span>
+                            <span className={matchedSubSubSubItem ? "text-slate-400 font-normal" : "text-white font-bold"}>
+                              {matchedSubSub.name}
+                            </span>
+                          </>
+                        )}
+                        {matchedSubSubSubItem && (
+                          <>
+                            <span className="text-slate-500 font-bold">/</span>
+                            <span className="text-white font-bold">
+                              {matchedSubSubSubItem.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })()}
 
-                {/* Sort Order */}
-                <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sort Order</label>
-                  <input
-                    type="number"
-                    {...register('sortOrder', { valueAsNumber: true })}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                </div>
+              {/* Sort Order */}
+              <div className="max-w-xs">
+                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sort Order</label>
+                <input
+                  type="number"
+                  {...register('sortOrder', { valueAsNumber: true })}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Gender (Multiple Selection) - Hidden for Contact Lenses */}
-                {!isContactLenses && (
-                  <div>
-                    <MultiSelectDropdown
-                      label="Gender (Target Audience) *"
-                      options={[
-                        { value: 'men', label: 'Male' },
-                        { value: 'women', label: 'Female' },
-                        { value: 'kids', label: 'Kids' }
-                      ]}
-                      selectedValues={formValues.gender || []}
-                      onChange={(values) => setValue('gender', values)}
-                      placeholder="Select gender targets..."
-                    />
-                  </div>
-                )}
+
 
                 {/* Kids Age Groups Selection - Shown when Subcategory is Kids or Gender is Kids */}
                 {isKids && (
@@ -2314,7 +2426,7 @@ export default function AddProductWizard() {
                   )}
                 </div>
               )}
-              {isContactLenses && (
+              {isContactLenses && !isNonPowerContactProduct && (
                 <div className="bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40 space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2A2A2D]/60 pb-3">
                     <div>
@@ -2322,7 +2434,7 @@ export default function AddProductWizard() {
                       <p className="text-[10px] text-gray-400">Select lenses pack size / duration and configure power options for customers.</p>
                     </div>
                   </div>
-                  
+
                   {/* Lenses per Pack Options Section */}
                   <div className="space-y-4 pt-4 border-t border-[#2A2A2D]/40">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2615,6 +2727,122 @@ export default function AddProductWizard() {
                 </div>
               )}
 
+              {isSolutionProduct && (
+                <div className="bg-[#18181A] p-6 rounded-2xl border border-[#2A2A2D]/40 space-y-4">
+                  <div>
+                    <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">Quantity / Volume Options</h3>
+                    <p className="text-[10px] text-gray-400">Configure the volume variants customers can pick (e.g. 60 ml, 120 ml, 360 ml), each with its own MRP and selling price.</p>
+                  </div>
+
+                  {/* Variant Manual Input Row */}
+                  <div className="flex flex-wrap items-end gap-3 bg-[#0B0B0C] p-4 rounded-xl border border-zinc-800/80">
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Volume / Title</label>
+                      <input
+                        type="text"
+                        id="new-solution-volume"
+                        placeholder="e.g. 60 ml"
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Price (₹)</label>
+                      <input
+                        type="number"
+                        id="new-solution-price"
+                        placeholder="e.g. 149"
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">MRP (₹)</label>
+                      <input
+                        type="number"
+                        id="new-solution-original-price"
+                        placeholder="e.g. 199"
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const volInput = document.getElementById('new-solution-volume') as HTMLInputElement;
+                        const priceInput = document.getElementById('new-solution-price') as HTMLInputElement;
+                        const origInput = document.getElementById('new-solution-original-price') as HTMLInputElement;
+
+                        const volume = volInput?.value?.trim();
+                        const price = parseFloat(priceInput?.value);
+                        const origPrice = parseFloat(origInput?.value);
+
+                        if (!volume) {
+                          showToast('Volume / title is required (e.g. 60 ml)', 'error');
+                          return;
+                        }
+                        if (isNaN(price) || price < 0) {
+                          showToast('Valid selling price is required', 'error');
+                          return;
+                        }
+                        if (solutionVariantConfigs.some(v => v.volume.toLowerCase() === volume.toLowerCase())) {
+                          showToast('This volume option already exists', 'error');
+                          return;
+                        }
+
+                        setSolutionVariantConfigs([
+                          ...solutionVariantConfigs,
+                          { volume, price, originalPrice: !isNaN(origPrice) ? origPrice : undefined }
+                        ]);
+
+                        if (volInput) volInput.value = '';
+                        if (priceInput) priceInput.value = '';
+                        if (origInput) origInput.value = '';
+                        showToast(`Added volume option ${volume}`, 'success');
+                      }}
+                      className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase tracking-wider rounded-lg px-4 py-2.5 transition-colors cursor-pointer border-none"
+                    >
+                      Add Option
+                    </button>
+                  </div>
+
+                  {/* Variants Table */}
+                  {solutionVariantConfigs.length > 0 ? (
+                    <div className="overflow-hidden border border-zinc-800/80 rounded-xl bg-[#0B0B0C]">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="bg-zinc-900/40 text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D]/40">
+                            <th className="py-2.5 px-4">Volume</th>
+                            <th className="py-2.5 px-4">Selling Price</th>
+                            <th className="py-2.5 px-4">MRP (Original)</th>
+                            <th className="py-2.5 px-4 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#2A2A2D]/30 text-gray-300 font-semibold">
+                          {solutionVariantConfigs.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-zinc-900/10">
+                              <td className="py-2.5 px-4 text-white font-bold">{item.volume}</td>
+                              <td className="py-2.5 px-4 text-[#D4A04D] font-extrabold">₹{item.price}</td>
+                              <td className="py-2.5 px-4 text-gray-500 line-through">{item.originalPrice ? `₹${item.originalPrice}` : '-'}</td>
+                              <td className="py-2.5 px-4 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => setSolutionVariantConfigs(solutionVariantConfigs.filter((_, i) => i !== idx))}
+                                  className="text-red-400 hover:text-red-300 text-xs font-bold bg-red-500/10 px-2 py-1 rounded"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 bg-[#0B0B0C] border border-dashed border-zinc-800 rounded-xl text-gray-500 text-xs italic">
+                      No volume options added yet. Add one above (e.g. 60 ml, 120 ml, 360 ml, 500 ml).
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Long Description removed */}
 
               {/* Tags removed */}
@@ -2876,9 +3104,10 @@ export default function AddProductWizard() {
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 3: Lens Specifications & Product Details</h2>
               
               {/* Technical Specifications */}
+              {!isNonPowerContactProduct && (
               <div className="bg-[#18181A] p-5 rounded-2xl border border-[#2A2A2D]/40 space-y-4">
                 <h3 className="text-white text-xs font-bold uppercase tracking-wider text-gray-300">Technical Lens Specifications</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {/* Lens Material */}
                   <div>
@@ -2971,6 +3200,7 @@ export default function AddProductWizard() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Trust & Delivery Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -3029,6 +3259,103 @@ export default function AddProductWizard() {
                   />
                 </div>
               </div>
+
+              {/* Linked Lens Solutions (cart cross-sell) */}
+              {!isNonPowerContactProduct && (
+              <div className="bg-[#18181A] p-5 rounded-2xl border border-[#2A2A2D]/40 space-y-3">
+                <h3 className="text-white text-xs font-bold uppercase tracking-wider text-gray-300">Lens Solutions Cross-Sell</h3>
+                <p className="text-gray-500 text-[10px]">
+                  Choose which solution products are offered in the "Choose Lens Solution" popup when this lens is added to cart.
+                  Any product under Contact Lens → Solution shows here automatically; you can also flag one manually with "Mark as Lens Solution" (Step 6).
+                </p>
+                {availableSolutions.length === 0 ? (
+                  <div className="text-gray-600 text-[10px] italic py-2">
+                    No solution products found yet. Create one under Contact Lens → Solution &amp; Accessories → Solution.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {availableSolutions.map((sol) => {
+                      const links: Array<{ solutionId: string; discountPercent?: number; overridePrice?: number }> = watch('linkedSolutions') || [];
+                      const linkIdx = links.findIndex((l) => l.solutionId === sol._id);
+                      const link = linkIdx >= 0 ? links[linkIdx] : undefined;
+                      const selected = !!link;
+                      const basePrice = sol.price?.selling ?? sol.sellingPrice ?? sol.mrp ?? 0;
+                      const finalPrice = link?.overridePrice != null
+                        ? link.overridePrice
+                        : link?.discountPercent
+                          ? Math.round(basePrice * (1 - link.discountPercent / 100))
+                          : basePrice;
+
+                      const updateLink = (patch: Partial<{ discountPercent?: number; overridePrice?: number }>) => {
+                        const next = [...links];
+                        if (linkIdx >= 0) {
+                          next[linkIdx] = { ...next[linkIdx], ...patch };
+                          setValue('linkedSolutions', next, { shouldValidate: true });
+                        }
+                      };
+
+                      return (
+                        <div
+                          key={sol._id}
+                          className={`rounded-lg border transition-colors ${
+                            selected ? 'border-[#D4A04D] bg-[#D4A04D]/10' : 'border-[#2A2A2D]'
+                          }`}
+                        >
+                          <label className="flex items-center gap-2 px-3 py-2 cursor-pointer text-xs font-semibold text-gray-300">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setValue('linkedSolutions', [...links, { solutionId: sol._id }], { shouldValidate: true });
+                                } else {
+                                  setValue('linkedSolutions', links.filter((l) => l.solutionId !== sol._id), { shouldValidate: true });
+                                }
+                              }}
+                              className="w-4 h-4 accent-[#D4A04D] shrink-0"
+                            />
+                            <span className={`truncate flex-1 ${selected ? 'text-[#D4A04D]' : ''}`}>{sol.name}</span>
+                            <span className="text-gray-400 text-[10px] font-bold shrink-0">₹{basePrice}</span>
+                          </label>
+
+                          {selected && (
+                            <div className="flex flex-wrap items-end gap-3 px-3 pb-3 pt-1 border-t border-[#2A2A2D]/60">
+                              <div className="w-32">
+                                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider block mb-1">Discount %</label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  placeholder="e.g. 10"
+                                  value={link?.discountPercent ?? ''}
+                                  onChange={(e) => updateLink({ discountPercent: e.target.value === '' ? undefined : Number(e.target.value), overridePrice: undefined })}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                                />
+                              </div>
+                              <div className="w-32">
+                                <label className="text-gray-500 text-[9px] font-bold uppercase tracking-wider block mb-1">Or Fixed Price (₹)</label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  placeholder={`e.g. ${basePrice}`}
+                                  value={link?.overridePrice ?? ''}
+                                  onChange={(e) => updateLink({ overridePrice: e.target.value === '' ? undefined : Number(e.target.value), discountPercent: undefined })}
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                                />
+                              </div>
+                              <div className="text-[10px] text-gray-500 pb-2">
+                                Price shown in popup: <span className="text-[#D4A04D] font-extrabold">₹{finalPrice}</span>
+                                {finalPrice !== basePrice && <span className="line-through ml-1 text-gray-600">₹{basePrice}</span>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              )}
             </div>
           )}
 
@@ -3797,6 +4124,10 @@ export default function AddProductWizard() {
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
                   <input type="checkbox" {...register('isPremium')} className="w-4 h-4 accent-[#D4A04D]" />
                   <span>Mark as Premium (Shows Premium badge)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
+                  <input type="checkbox" {...register('isLensSolution')} className="w-4 h-4 accent-[#D4A04D]" />
+                  <span>Mark as Lens Solution (Selectable as a cart add-on for contact lenses)</span>
                 </label>
               </div>
 

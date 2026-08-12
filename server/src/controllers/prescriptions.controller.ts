@@ -5,6 +5,7 @@ import { connectDB } from '../config/mongodb';
 import { Prescription } from '../models/Prescription';
 import sharp from 'sharp';
 import { uploadToS3 } from '../lib/s3';
+import { getIO } from '../lib/socket';
 
 // Configure S3 check
 const isS3Configured = !!(
@@ -79,6 +80,12 @@ export async function savePrescription(req: Request, res: Response) {
     });
 
     await prescription.save();
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('prescription_changed', { action: 'create', prescription });
+      getIO().emit('prescription_changed', { action: 'create', prescription });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     return res.status(201).json({ prescription });
   } catch (error) {
     console.error('POST prescription error:', error);
@@ -104,6 +111,12 @@ export async function deletePrescription(req: Request, res: Response) {
     const deleted = await Prescription.findOneAndDelete({ _id: id, user: req.user!.userId });
     if (!deleted) {
       return res.status(404).json({ error: 'Prescription not found or unauthorized' });
+    }
+    try {
+      getIO().to(`user-${req.user!.userId}`).emit('prescription_changed', { action: 'delete', id });
+      getIO().emit('prescription_changed', { action: 'delete', id });
+    } catch (err) {
+      console.error('Socket emit error:', err);
     }
     return res.status(200).json({ message: 'Prescription deleted successfully' });
   } catch (error) {

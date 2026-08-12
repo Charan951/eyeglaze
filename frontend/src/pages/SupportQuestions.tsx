@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 interface FAQ {
@@ -66,6 +67,7 @@ const FAQS: FAQ[] = [
 ];
 
 export default function SupportQuestions() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedIndices, setExpandedIndices] = useState<Record<string, boolean>>({});
@@ -94,10 +96,22 @@ export default function SupportQuestions() {
 
   return (
     <div className="space-y-8 text-white min-h-screen pb-12">
-      <SEO 
+      <SEO
         title="Help Center FAQs | Optical Queries Answered"
         description="Browse help topics on frame sizing, prescription verification, order tracking, and optical lens coatings at EyeGlaze Support."
       />
+
+      {/* Mobile-only Back to Profile */}
+      <button
+        type="button"
+        onClick={() => navigate('/profile')}
+        className="md:hidden inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4A04D] font-bold transition-colors cursor-pointer bg-transparent border-none p-0"
+      >
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span>Back to Profile</span>
+      </button>
 
       {/* Header */}
       <div className="flex flex-col gap-2">

@@ -512,7 +512,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'deliveryAddress': {
           'fullName': _nameCtrl.text.trim(),
           'mobile': _phoneCtrl.text.trim(),
-          if (_altPhoneCtrl.text.trim().isNotEmpty) 'alternativeNumber': _altPhoneCtrl.text.trim(),
+          'alternativeNumber': _altPhoneCtrl.text.trim(),
           'line1': _line1Ctrl.text.trim(),
           'line2': _line2Ctrl.text.trim(),
           'city': _cityCtrl.text.trim(),
@@ -809,10 +809,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 TextFormField(
                   controller: _altPhoneCtrl,
                   style: const TextStyle(color: AppColors.white),
-                  decoration: const InputDecoration(labelText: 'Alternative Number (Optional)', prefixText: '+91 '),
+                  decoration: const InputDecoration(labelText: 'Alternative Number', prefixText: '+91 '),
                   keyboardType: TextInputType.phone,
                   validator: (val) {
-                    if (val == null || val.isEmpty) return null;
+                    if (val == null || val.isEmpty) return 'Required field';
                     final digitsOnly = val.replaceAll(RegExp(r'[^0-9]'), '');
                     String clean = digitsOnly;
                     if (clean.startsWith('91') && clean.length == 12) {

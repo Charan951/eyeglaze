@@ -273,9 +273,15 @@ export async function createCategory(req: Request, res: Response) {
         deletedAt: null,
       };
 
+      docData.bannerImageEnabled = basic.bannerImageEnabled ?? false;
+      docData.bannerImage = docData.bannerImageEnabled ? basic.bannerImage : '';
+      if (type !== 'Category') {
+        docData.startingPriceEnabled = basic.startingPriceEnabled ?? false;
+        docData.startingPrice = docData.startingPriceEnabled ? Number(basic.startingPrice) : null;
+      }
+
       if (type === 'Category') {
         docData.icon = basic.icon;
-        docData.bannerImage = basic.bannerImage;
         docData.parentCategory = undefined;
         docData.isActive = docData.status === 'Active';
         docData.subCategoryShape = basic.subCategoryShape ?? 'square';
@@ -288,11 +294,11 @@ export async function createCategory(req: Request, res: Response) {
         }
         docData.categoryId = hierarchy.categoryId;
         docData.icon = basic.icon;
-        docData.bannerImage = basic.bannerImage;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
         docData.shapeModal = basic.shapeModal ?? false;
         docData.modalShapes = basic.modalShapes;
+        docData.showInNavbar = basic.showInNavbar ?? true;
       } else if (type === 'SubSubCategory') {
         if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
           return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
@@ -300,7 +306,6 @@ export async function createCategory(req: Request, res: Response) {
         docData.categoryId = hierarchy.categoryId;
         docData.subCategoryId = hierarchy.subCategoryId;
         docData.icon = basic.icon;
-        docData.bannerImage = basic.bannerImage;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
       } else if (type === 'SubSubSubCategory') {
@@ -311,7 +316,6 @@ export async function createCategory(req: Request, res: Response) {
         docData.subCategoryId = hierarchy.subCategoryId;
         docData.subSubCategoryId = hierarchy.subSubCategoryId;
         docData.icon = basic.icon;
-        docData.bannerImage = basic.bannerImage;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
       }
@@ -363,7 +367,7 @@ export async function createCategory(req: Request, res: Response) {
               keywords: seo?.keywords || '',
               canonicalUrl: seo?.canonicalUrl || '',
               slug: seo?.slug || slug,
-              ogImage: seo?.ogImage || basic.bannerImage || '',
+              ogImage: seo?.ogImage || docData.bannerImage || '',
             },
           },
           { upsert: true, returnDocument: 'after' }
@@ -395,20 +399,27 @@ export async function createCategory(req: Request, res: Response) {
     }
 
     // Prepare tier document
+    const bannerImageEnabled = basic.bannerImageEnabled ?? false;
+    const startingPriceEnabled = basic.startingPriceEnabled ?? false;
     const docData: Record<string, any> = {
       name: basic.name,
       slug,
       code: basic.code,
       description: basic.description,
       displayOrder: basic.displayOrder || 0,
-      startingPrice: basic.startingPrice !== undefined ? Number(basic.startingPrice) : 999,
       status: rawStatus,
       isDeleted: false,
+      bannerImageEnabled,
+      bannerImage: bannerImageEnabled ? basic.bannerImage : '',
     };
+
+    if (type !== 'Category') {
+      docData.startingPriceEnabled = startingPriceEnabled;
+      docData.startingPrice = startingPriceEnabled ? Number(basic.startingPrice) : null;
+    }
 
     if (type === 'Category') {
       docData.icon = basic.icon;
-      docData.bannerImage = basic.bannerImage;
       docData.parentCategory = undefined; // For compatibility
       docData.isActive = docData.status === 'Active';
       docData.subCategoryShape = basic.subCategoryShape ?? 'square';
@@ -421,11 +432,11 @@ export async function createCategory(req: Request, res: Response) {
       }
       docData.categoryId = hierarchy.categoryId;
       docData.icon = basic.icon;
-      docData.bannerImage = basic.bannerImage;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
       docData.shapeModal = basic.shapeModal ?? false;
       docData.modalShapes = basic.modalShapes;
+      docData.showInNavbar = basic.showInNavbar ?? true;
     } else if (type === 'SubSubCategory') {
       if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
         return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
@@ -433,7 +444,6 @@ export async function createCategory(req: Request, res: Response) {
       docData.categoryId = hierarchy.categoryId;
       docData.subCategoryId = hierarchy.subCategoryId;
       docData.icon = basic.icon;
-      docData.bannerImage = basic.bannerImage;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
     } else if (type === 'SubSubSubCategory') {
@@ -444,7 +454,6 @@ export async function createCategory(req: Request, res: Response) {
       docData.subCategoryId = hierarchy.subCategoryId;
       docData.subSubCategoryId = hierarchy.subSubCategoryId;
       docData.icon = basic.icon;
-      docData.bannerImage = basic.bannerImage;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
     }
@@ -491,7 +500,7 @@ export async function createCategory(req: Request, res: Response) {
         keywords: seo?.keywords || '',
         canonicalUrl: seo?.canonicalUrl || '',
         slug: seo?.slug || slug,
-        ogImage: seo?.ogImage || basic.bannerImage || '',
+        ogImage: seo?.ogImage || docData.bannerImage || '',
       }).save(),
     ]);
 
@@ -553,7 +562,10 @@ export async function updateCategory(req: Request, res: Response) {
     if (basic?.code) updateObj.code = basic.code;
     if (basic?.description !== undefined) updateObj.description = basic.description;
     if (basic?.displayOrder !== undefined) updateObj.displayOrder = basic.displayOrder;
-    if (basic?.startingPrice !== undefined) updateObj.startingPrice = Number(basic.startingPrice);
+    if (type !== 'Category' && basic?.startingPriceEnabled !== undefined) {
+      updateObj.startingPriceEnabled = basic.startingPriceEnabled;
+      updateObj.startingPrice = basic.startingPriceEnabled ? Number(basic.startingPrice) : null;
+    }
     if (basic?.status) {
       updateObj.status = basic.status;
       if (type === 'Category') {
@@ -567,7 +579,10 @@ export async function updateCategory(req: Request, res: Response) {
       if (basic?.showInNavbar !== undefined) updateObj.showInNavbar = basic.showInNavbar;
     }
     if (basic?.icon !== undefined) updateObj.icon = basic.icon;
-    if (basic?.bannerImage !== undefined) updateObj.bannerImage = basic.bannerImage;
+    if (basic?.bannerImageEnabled !== undefined) {
+      updateObj.bannerImageEnabled = basic.bannerImageEnabled;
+      updateObj.bannerImage = basic.bannerImageEnabled ? (basic.bannerImage || '') : '';
+    }
 
     // Hierarchy bindings
     if (type === 'SubCategory' || type === 'SubSubCategory' || type === 'SubSubSubCategory') {
@@ -581,11 +596,11 @@ export async function updateCategory(req: Request, res: Response) {
         updateObj.subSubCategoryId = hierarchy.subSubCategoryId;
       }
       if (basic?.icon !== undefined) updateObj.icon = basic.icon;
-      if (basic?.bannerImage !== undefined) updateObj.bannerImage = basic.bannerImage;
       if (basic?.linkTo !== undefined) updateObj.linkTo = basic.linkTo;
       if (basic?.gender !== undefined) updateObj.gender = basic.gender;
       if (basic?.shapeModal !== undefined) updateObj.shapeModal = basic.shapeModal;
       if (basic?.modalShapes !== undefined) updateObj.modalShapes = basic.modalShapes;
+      if (type === 'SubCategory' && basic?.showInNavbar !== undefined) updateObj.showInNavbar = basic.showInNavbar;
     }
 
     const updatedDoc = await model.findByIdAndUpdate(id, { $set: updateObj }, { returnDocument: 'after' });
@@ -621,7 +636,7 @@ export async function updateCategory(req: Request, res: Response) {
             keywords: seo?.keywords || '',
             canonicalUrl: seo?.canonicalUrl || '',
             slug: seo?.slug || basic?.slug || existingDoc.slug,
-            ogImage: seo?.ogImage || basic?.bannerImage || '',
+            ogImage: seo?.ogImage || updateObj.bannerImage || existingDoc.bannerImage || '',
           },
         },
         { upsert: true }

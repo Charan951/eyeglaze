@@ -849,12 +849,25 @@ export async function refreshToken(req: Request, res: Response) {
     }
 
     const presentedHash = crypto.createHash('sha256').update(token).digest('hex');
-    
+    const GRACE_WINDOW_MS = 10 * 1000; // 10s
+
     if (session.refreshTokenHash !== presentedHash) {
-      console.warn(`[SECURITY ALERT] Refresh token reuse detected for user ${payload.userId}. Revoking all sessions.`);
-      await Session.deleteMany({ userId: payload.userId });
-      clearAuthCookies(res);
-      return res.status(401).json({ error: 'Security breach detected. Please log in again.' });
+      // A different browser tab may have already rotated this token a moment
+      // ago (cookies are shared across tabs, and several can race to refresh
+      // the same about-to-expire token at once). If the presented token
+      // matches the one we JUST rotated away from, treat it as that benign
+      // race — re-issue fresh cookies from current state — instead of
+      // nuking every session the user has. Only a hash that matches neither
+      // the current nor the just-rotated-out token is treated as reuse.
+      const withinGraceWindow = session.previousTokenRotatedAt &&
+        Date.now() - session.previousTokenRotatedAt.getTime() < GRACE_WINDOW_MS;
+
+      if (!(withinGraceWindow && session.previousRefreshTokenHash === presentedHash)) {
+        console.warn(`[SECURITY ALERT] Refresh token reuse detected for user ${payload.userId}. Revoking all sessions.`);
+        await Session.deleteMany({ userId: payload.userId });
+        clearAuthCookies(res);
+        return res.status(401).json({ error: 'Security breach detected. Please log in again.' });
+      }
     }
 
     const user = await User.findById(payload.userId);
@@ -865,8 +878,10 @@ export async function refreshToken(req: Request, res: Response) {
 
     const newAccessToken = signAccessToken({ userId: user._id.toString(), role: user.role });
     const newRefreshToken = signRefreshToken({ userId: user._id.toString(), role: user.role, sessionId: session._id.toString() });
-
     const newHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+
+    session.previousRefreshTokenHash = session.refreshTokenHash;
+    session.previousTokenRotatedAt = new Date();
     session.refreshTokenHash = newHash;
     session.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await session.save();

@@ -13,9 +13,11 @@ export interface ISubSubCategory extends Document {
   deletedAt?: Date;
   icon?: string;
   bannerImage?: string;
+  bannerImageEnabled?: boolean;
   linkTo?: string;
   gender?: string;
   startingPrice?: number;
+  startingPriceEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,9 +40,11 @@ const SubSubCategorySchema = new Schema<ISubSubCategory>(
     deletedAt: { type: Date },
     icon: { type: String },
     bannerImage: { type: String },
+    bannerImageEnabled: { type: Boolean, default: false },
     linkTo: { type: String },
     gender: { type: String },
-    startingPrice: { type: Number, default: 999 },
+    startingPrice: { type: Number, default: null },
+    startingPriceEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

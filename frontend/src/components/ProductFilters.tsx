@@ -143,7 +143,7 @@ export default function ProductFilters() {
     : categoriesList.flatMap(c => c.children || []);
 
   return (
-    <div className="space-y-4 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-4 select-none">
+    <div className="space-y-4 select-none pr-2">
       
       {/* Top Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[#2A2A2D]">

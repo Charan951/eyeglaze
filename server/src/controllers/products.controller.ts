@@ -377,11 +377,12 @@ export async function getProductById(req: Request, res: Response) {
     await connectDB();
     const id = req.params.id as string;
 
+    const solutionSelect = 'name sku thumbnail images price sellingPrice mrp';
     let product;
     if (id.startsWith('EG-')) {
-      product = await Product.findOne({ sku: id }).populate('lensTypes');
+      product = await Product.findOne({ sku: id }).populate('lensTypes').populate('linkedSolutions.solutionId', solutionSelect);
     } else if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findById(id).populate('lensTypes');
+      product = await Product.findById(id).populate('lensTypes').populate('linkedSolutions.solutionId', solutionSelect);
     } else {
       return res.status(400).json({ error: 'Invalid product ID' });
     }

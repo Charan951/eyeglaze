@@ -29,6 +29,13 @@ export interface ICartItem {
   fittingCharge: number;
   deliveryCharge: number;
   appliedOffers?: string[];
+  /** When true, framePrice was explicitly set at add-time (e.g. contact lens box pricing,
+   *  or a discounted lens-solution cross-sell) and must never be re-synced to the live
+   *  catalog price on cart read. */
+  priceLocked?: boolean;
+  /** The undiscounted catalog price at add-time, kept alongside a locked/overridden
+   *  framePrice so the cart can still show "was ₹X" savings for cross-sell discounts. */
+  originalPrice?: number;
 }
 
 export interface ICart extends Document {
@@ -71,6 +78,8 @@ const CartItemSchema = new Schema<ICartItem>({
   fittingCharge: { type: Number, default: 0 },
   deliveryCharge: { type: Number, default: 99 },
   appliedOffers: [{ type: String }],
+  priceLocked: { type: Boolean, default: false },
+  originalPrice: { type: Number },
 });
 
 const CartSchema = new Schema<ICart>({

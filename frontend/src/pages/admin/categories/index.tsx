@@ -321,7 +321,7 @@ export default function CategoriesList() {
               className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors cursor-pointer"
             >
               <option value="">All Parent Sub-Sub-Categories</option>
-              {subSubCategoriesForFilter.map(ss => (
+              {subSubCategoriesForFilter.filter(ss => !/solution/i.test(ss.name || '')).map(ss => (
                 <option key={ss._id} value={ss._id}>
                   {ss.name}
                 </option>
@@ -441,7 +441,7 @@ export default function CategoriesList() {
                                 + Add Sub-Sub
                               </button>
                             )}
-                            {item.type === 'SubSubCategory' && (
+                            {item.type === 'SubSubCategory' && !/solution/i.test(item.name || '') && (
                               <button
                                 onClick={() => {
                                   const catId = typeof item.categoryId === 'object' ? item.categoryId._id : item.categoryId || '';

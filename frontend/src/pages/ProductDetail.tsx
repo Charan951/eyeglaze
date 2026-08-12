@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate, useLoaderData } from 'react-router-dom';
 import StarRating from '../components/ui/StarRating';
 import AddToCartButton from '../components/AddToCartButton';
+import PowerPicker from '../components/PowerPicker';
 import ProductCard from '../components/ui/ProductCard';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -93,6 +94,21 @@ interface Product {
   disposableType?: string;
   powerRange?: string;
   brand?: string;
+  solutionVariants?: Array<{ volume: string; price: number; originalPrice?: number }>;
+  linkedSolutions?: Array<{
+    solutionId: {
+      _id: string;
+      name: string;
+      sku?: string;
+      thumbnail?: string;
+      images?: string[];
+      price?: { original?: number; selling?: number };
+      sellingPrice?: number;
+      mrp?: number;
+    };
+    discountPercent?: number;
+    overridePrice?: number;
+  }>;
 }
 
 interface ReviewType {
@@ -235,11 +251,51 @@ export default function ProductDetailPage() {
       const backendReviews = initialProduct.reviews || [];
       if (backendReviews.length > 0) {
         setReviews(backendReviews);
+        // Keep the headline rating/count in sync with the real reviews we have,
+        // instead of trusting the product's separately-stored (often stale/seeded) fields.
+        const avgRating = backendReviews.reduce((sum: number, r: ReviewType) => sum + r.rating, 0) / backendReviews.length;
+        setProduct(prev => prev ? {
+          ...prev,
+          rating: Number(avgRating.toFixed(1)),
+          reviewCount: backendReviews.length,
+        } : prev);
       } else {
         setReviews(getMockReviews(initialProduct.name || 'Frame'));
       }
     }
   }, [initialProduct]);
+
+  // Setup Product & Inventory Socket Listener
+  useEffect(() => {
+    if (!id) return;
+
+    const reloadProduct = () => {
+      api.get(`/products/${id}`)
+        .then((res) => {
+          const updated = res.data.product || res.data;
+          if (updated) {
+            setProduct(updated);
+          }
+        })
+        .catch((err) => {
+          console.error('Socket reload product error:', err);
+        });
+    };
+
+    const handleProductChange = (data: any) => {
+      if (!data || !data.id || data.id === id || data.product?._id === id) {
+        reloadProduct();
+      }
+    };
+
+    socket.on('product_changed', handleProductChange);
+    socket.on('inventory_changed', handleProductChange);
+
+    return () => {
+      socket.off('product_changed', handleProductChange);
+      socket.off('inventory_changed', handleProductChange);
+    };
+  }, [id]);
 
   // Scroll to hide sticky bottom bar state
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
@@ -478,6 +534,10 @@ export default function ProductDetailPage() {
   const [customPriceOverride, setCustomPriceOverride] = useState<number | null>(null);
   const [buyingNow, setBuyingNow] = useState(false);
   const [buyingFrameOnly, setBuyingFrameOnly] = useState(false);
+  const [showSolutionModal, setShowSolutionModal] = useState(false);
+  const [addingSolution, setAddingSolution] = useState(false);
+  const [selectedSolutionVariantIdx, setSelectedSolutionVariantIdx] = useState(0);
+  const [solutionSiblings, setSolutionSiblings] = useState<Array<{ _id: string; name: string; volumeLabel: string; price: number; originalPrice?: number }>>([]);
 
   // Contact Lenses Customer Selection States (LensKart Style)
   const [contactPowerType, setContactPowerType] = useState<'manual' | 'upload' | 'later'>('manual');
@@ -537,10 +597,6 @@ export default function ProductDetailPage() {
   const isInWishlist = product ? wishlist.includes(product._id) : false;
 
   const handleWishlistToggle = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
     if (!product) return;
     await toggleWishlist(product._id);
   };
@@ -603,11 +659,12 @@ export default function ProductDetailPage() {
 
   // review form states
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewName, setReviewName] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // Accordion States for Restructured Product Page
   const [showFaqAccordion, setShowFaqAccordion] = useState(true);
@@ -692,6 +749,23 @@ export default function ProductDetailPage() {
     );
   };
 
+  const isSolutionProductPage = (prod: any) => {
+    if (!prod) return false;
+    const subsub = (prod.subSubCategory || '').toLowerCase();
+    return (
+      (prod.solutionVariants && prod.solutionVariants.length > 0) ||
+      (subsub.includes('solution') && !subsub.includes('accessor'))
+    );
+  };
+
+  const isAccessoryProductPage = (prod: any) => {
+    if (!prod) return false;
+    const subsub = (prod.subSubCategory || '').toLowerCase();
+    return subsub.includes('accessor');
+  };
+
+  const isNonPowerContactProductPage = (prod: any) => isSolutionProductPage(prod) || isAccessoryProductPage(prod);
+
   const isToricContactLens = (prod: any) => {
     if (!isContactLensProduct(prod)) return false;
     const cat = (prod.category || '').toLowerCase();
@@ -729,6 +803,13 @@ export default function ProductDetailPage() {
         if (!selectedReadingPower || !availablePowers.includes(selectedReadingPower)) {
           setSelectedReadingPower(availablePowers[0]);
         }
+      } else if (isContactLensProduct(product) && isSolutionProductPage(product)) {
+        if (product.solutionVariants && product.solutionVariants.length > 0) {
+          setSelectedSolutionVariantIdx(0);
+          setCustomPriceOverride(product.solutionVariants[0].price);
+        } else {
+          setCustomPriceOverride(null);
+        }
       } else if (isContactLensProduct(product)) {
         const packs = (product.contactPackOptions && product.contactPackOptions.length > 0)
           ? product.contactPackOptions
@@ -743,6 +824,46 @@ export default function ProductDetailPage() {
       }
     }
   }, [product]);
+
+  // For solution products, other volumes (60ml/120ml/300ml etc.) are typically
+  // separate catalog entries, not variants of this one product. Look up siblings
+  // by stripping the volume out of the name and matching the rest.
+  useEffect(() => {
+    let active = true;
+    const fetchSiblings = async () => {
+      if (!product || !isContactLensProduct(product) || !isSolutionProductPage(product)) {
+        setSolutionSiblings([]);
+        return;
+      }
+      const baseName = product.name.replace(/\d+\s*ml\b/i, '').trim();
+      if (!baseName) {
+        setSolutionSiblings([]);
+        return;
+      }
+      try {
+        const res = await api.get('/products', { params: { search: baseName, subSubCategory: 'solution', limit: 20 } });
+        const list = (res.data.products || []) as any[];
+        const siblings = list
+          .map((p) => {
+            const match = p.name.match(/(\d+\s*ml)\b/i);
+            if (!match) return null;
+            return {
+              _id: p._id,
+              name: p.name,
+              volumeLabel: match[1].replace(/\s+/g, '').toUpperCase(),
+              price: p.price?.selling ?? p.sellingPrice ?? 0,
+              originalPrice: p.price?.original,
+            };
+          })
+          .filter((p): p is { _id: string; name: string; volumeLabel: string; price: number; originalPrice: number | undefined } => !!p);
+        if (active) setSolutionSiblings(siblings);
+      } catch {
+        if (active) setSolutionSiblings([]);
+      }
+    };
+    fetchSiblings();
+    return () => { active = false; };
+  }, [product?._id]);
 
   if (loading || !product) {
     return <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>;
@@ -781,8 +902,8 @@ export default function ProductDetailPage() {
 
   const getLensPayload = () => {
     if (!product) return undefined;
-    if (isContactLensProduct(product)) {
-      const subCatName = product.subCategory === 'clear-contacts' 
+    if (isContactLensProduct(product) && !isNonPowerContactProductPage(product)) {
+      const subCatName = product.subCategory === 'clear-contacts'
         ? 'Clear Contacts' 
         : product.subCategory === 'color-contacts' 
           ? 'Color Contacts' 
@@ -843,6 +964,59 @@ export default function ProductDetailPage() {
     return undefined;
   };
 
+  const addToCartDirect = async (
+    targetProduct: { _id: string; name: string; sku?: string; thumbnail?: string; images?: string[]; price?: { selling?: number }; sellingPrice?: number },
+    opts: { qty?: number; color?: string; lensPayload?: any; priceOverride?: number; originalPrice?: number } = {}
+  ) => {
+    const qty = opts.qty ?? 1;
+    const color = opts.color;
+    const lensPayload = opts.lensPayload;
+    const priceOverride = opts.priceOverride;
+    const originalPrice = opts.originalPrice;
+
+    if (!user) {
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
+      const existingIdx = cart.findIndex(
+        (item: any) =>
+          item.productId === targetProduct._id &&
+          (item.color || 'Default') === (color || 'Default') &&
+          item.lensType === (lensPayload?.lensType || undefined)
+      );
+      if (existingIdx >= 0) {
+        cart[existingIdx].qty += qty;
+        if (priceOverride != null) {
+          cart[existingIdx].framePrice = priceOverride;
+          cart[existingIdx].priceLocked = true;
+          if (originalPrice != null) cart[existingIdx].originalPrice = originalPrice;
+        }
+      } else {
+        cart.push({
+          id: `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          productId: targetProduct._id,
+          qty,
+          color: color || 'Default',
+          name: targetProduct.name,
+          sku: targetProduct.sku || '',
+          framePrice: priceOverride ?? targetProduct.price?.selling ?? targetProduct.sellingPrice ?? 1,
+          priceLocked: priceOverride != null || !!lensPayload,
+          originalPrice: priceOverride != null ? (originalPrice ?? targetProduct.price?.selling ?? targetProduct.sellingPrice) : undefined,
+          lensPrice: lensPayload?.lensPrice || 0,
+          fittingCharge: lensPayload ? 99 : 0,
+          image: targetProduct.thumbnail || targetProduct.images?.[0] || '',
+          lens: lensPayload ? (lensPayload.lensType || 'Lens') : '',
+          lensType: lensPayload?.lensType || undefined,
+          power: lensPayload?.power || undefined,
+          lensPayload,
+        });
+      }
+      localStorage.setItem('guest_cart', JSON.stringify(cart));
+    } else {
+      await api.post('/cart', { productId: targetProduct._id, qty, color, lens: lensPayload, priceOverride, originalPrice });
+    }
+    await fetchCartCount();
+  };
+
   const handleBuyNow = async () => {
     if (!product) return;
     setBuyingNow(true);
@@ -863,6 +1037,11 @@ export default function ProductDetailPage() {
 
         if (existingIdx >= 0) {
           cart[existingIdx].qty += quantity;
+          if (lensPayload && typeof lensPayload.framePrice === 'number') {
+            cart[existingIdx].framePrice = lensPayload.framePrice;
+            cart[existingIdx].lensPrice = lensPayload.lensPrice || 0;
+            cart[existingIdx].priceLocked = true;
+          }
         } else {
           const newItem = {
             id: `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -871,12 +1050,13 @@ export default function ProductDetailPage() {
             color: selectedColor?.name || 'Matte Black',
             name: product.name,
             sku: product.sku,
-            framePrice: product.price?.selling ?? 1,
+            framePrice: lensPayload && typeof lensPayload.framePrice === 'number' ? lensPayload.framePrice : (product.price?.selling ?? 1),
+            priceLocked: !!lensPayload,
             lensPrice: lensPayload?.lensPrice || 0,
             fittingCharge: lensPayload ? 99 : 0,
             image: product.images?.[0] || '',
-            lens: lensPayload 
-              ? `${lensPayload.lensType || 'Lens'}${lensPayload.power?.RE?.sph ? ` (${lensPayload.power.RE.sph > 0 ? '+' : ''}${lensPayload.power.RE.sph})` : ''}` 
+            lens: lensPayload
+              ? `${lensPayload.lensType || 'Lens'}${lensPayload.power?.RE?.sph ? ` (${lensPayload.power.RE.sph > 0 ? '+' : ''}${lensPayload.power.RE.sph})` : ''}`
               : '',
             lensType: lensPayload?.lensType || undefined,
             power: lensPayload?.power || undefined,
@@ -890,7 +1070,8 @@ export default function ProductDetailPage() {
           productId: product._id,
           qty: quantity,
           color: selectedColor?.name,
-          lens: lensPayload
+          lens: lensPayload,
+          priceOverride: lensPayload && typeof lensPayload.framePrice === 'number' ? lensPayload.framePrice : undefined
         });
       }
       await fetchCartCount();
@@ -959,45 +1140,53 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleReviewSubmit = () => {
-    if (!reviewName || !reviewTitle || !reviewComment) {
+  const handleReviewSubmit = async () => {
+    if (!user) {
+      setReviewError('Please log in to write a review.');
+      return;
+    }
+    if (!reviewTitle || !reviewComment) {
       return;
     }
 
-    const newReview: ReviewType = {
-      _id: `local-rev-${Date.now()}`,
-      user: { name: reviewName },
-      rating: reviewRating,
-      title: reviewTitle,
-      comment: reviewComment,
-      isVerifiedPurchase: true,
-      createdAt: new Date().toISOString(),
-    };
+    setSubmittingReview(true);
+    setReviewError('');
+    try {
+      const res = await api.post(`/reviews/${product._id}`, {
+        rating: reviewRating,
+        title: reviewTitle,
+        comment: reviewComment,
+      });
 
-    setReviews(prev => [newReview, ...prev]);
+      const newReview: ReviewType = res.data.review;
+      setReviews(prev => [newReview, ...prev]);
 
-    // update product review count and average rating locally
-    const newCount = (product.reviewCount || 0) + 1;
-    const newRating =
-      ((product.rating || 0) * (product.reviewCount || 0) + reviewRating) / newCount;
-    
-    setProduct(prev => prev ? {
-      ...prev,
-      reviewCount: newCount,
-      rating: Number(newRating.toFixed(1)),
-    } : null);
+      // update product review count and average rating locally
+      const newCount = (product.reviewCount || 0) + 1;
+      const newRating =
+        ((product.rating || 0) * (product.reviewCount || 0) + reviewRating) / newCount;
 
-    setReviewSuccess(true);
-    // Reset form fields
-    setReviewName('');
-    setReviewTitle('');
-    setReviewComment('');
-    setReviewRating(5);
+      setProduct(prev => prev ? {
+        ...prev,
+        reviewCount: newCount,
+        rating: Number(newRating.toFixed(1)),
+      } : null);
 
-    setTimeout(() => {
-      setShowReviewForm(false);
-      setReviewSuccess(false);
-    }, 2000);
+      setReviewSuccess(true);
+      // Reset form fields
+      setReviewTitle('');
+      setReviewComment('');
+      setReviewRating(5);
+
+      setTimeout(() => {
+        setShowReviewForm(false);
+        setReviewSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      setReviewError(err.response?.data?.error || 'Failed to submit review. Please try again.');
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   // Base gallery images (color-specific or general product images)
@@ -1164,7 +1353,7 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full relative pb-32 md:pb-12 pt-20 md:pt-24 px-4 sm:px-6">
+    <div className="max-w-6xl mx-auto w-full relative pb-32 md:pb-12 pt-2 md:pt-4 px-4 sm:px-6">
       <SEO 
         title={`${product.name} (${product.sku})`}
         description={`Buy the premium ${product.name} (${product.sku}) online at EyeGlaze. Made with high-quality ${product.frame?.material || 'TR90'}. Compatible with prescription, progressive, and blue-cut lenses.`}
@@ -1173,75 +1362,114 @@ export default function ProductDetailPage() {
         schema={productSchema}
       />
       
-      {/* Transparent Floating Header Overlay */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center justify-between px-4 md:px-8 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none max-w-6xl mx-auto">
-        {/* Back Button */}
-        <button 
+      {/* Top Breadcrumbs & Back Navigation (Desktop only — mobile uses the overlay row on the image below) */}
+      <div className="hidden xl:flex items-center justify-between mb-4 pt-1">
+        <button
           type="button"
           onClick={() => {
-            if (window.history.length > 1 && window.history.state && window.history.state.idx > 0) {
-              navigate(-1);
+            const catSlug = (product?.category || '').toLowerCase();
+            if (catSlug) {
+              navigate(`/products?category=${encodeURIComponent(catSlug)}`);
             } else {
-              const catSlug = product?.category || 'eyeglasses';
-              navigate(catSlug === 'contact_lenses' || catSlug === 'contact-lens' ? '/category/contact-lenses' : '/products');
+              navigate('/products');
             }
           }}
-          className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white cursor-pointer active:scale-95 hover:scale-105 hover:bg-black/80 transition-all focus:outline-none pointer-events-auto shadow-lg text-white font-bold"
-          aria-label="Go Back"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4A04D] font-bold transition-colors cursor-pointer bg-transparent border-none p-0"
         >
-          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
+          <span>Back to Products</span>
         </button>
-        
-        {/* Right Action Buttons */}
-        <div className="flex items-center gap-3 pointer-events-auto">
+
+        <div className="flex items-center gap-3">
           {/* Share Button */}
-          <button 
+          <button
             onClick={handleShareClick}
-            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none pointer-events-auto shadow-md"
+            className="w-9 h-9 rounded-full bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] cursor-pointer transition-colors"
             aria-label="Share Product"
           >
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.028-2.014m0 0a3 3 0 10-2.243-4.077L7.545 6.586m0 0a3 3 0 100 5.828l5.029 2.514m0 0a3 3 0 102.243-4.077L9.268 9.546" />
             </svg>
           </button>
 
           {/* Wishlist Button */}
-          <button 
+          <button
             onClick={handleWishlistToggle}
-            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none shadow-md"
+            className="w-9 h-9 rounded-full bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D] flex items-center justify-center text-gray-300 hover:text-red-500 cursor-pointer transition-colors"
             aria-label="Wishlist"
           >
-            <svg width="18" height="18" fill={isInWishlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={isInWishlist ? "text-red-500" : "text-white"}>
+            <svg width="16" height="16" fill={isInWishlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={isInWishlist ? "text-red-500" : "text-gray-300"}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </button>
-
-          {/* Cart Button */}
-          <Link 
-            to="/cart"
-            className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform focus:outline-none shadow-md relative"
-            aria-label="Cart"
-          >
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#D4A04D] text-black font-extrabold text-[7px] w-4 h-4 rounded-full flex items-center justify-center border border-black">
-                {cartCount}
-              </span>
-            )}
-          </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full overflow-hidden">
-        
+
         {/* Left Column (Image Gallery & Media & Accordions) */}
         <div className="space-y-6 min-w-0">
-          {/* Image Gallery Container */}
-          <div className="flex flex-col md:flex-row gap-4 items-stretch">
+          {/* Image Gallery Container — full-bleed on mobile so the hero image extends under the (hidden) header */}
+          <div className="relative -mx-4 sm:-mx-6 -mt-2 xl:mx-0 xl:mt-0 flex flex-col md:flex-row gap-4 items-stretch">
+            {/* Mobile-only floating icon overlay on top of the image, replacing the hidden global header */}
+            <div className="xl:hidden absolute top-3 left-3 right-6 z-30 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const catSlug = (product?.category || '').toLowerCase();
+                  if (catSlug) {
+                    navigate(`/products?category=${encodeURIComponent(catSlug)}`);
+                  } else {
+                    navigate('/products');
+                  }
+                }}
+                className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer"
+                aria-label="Back to Products"
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleShareClick}
+                  className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer"
+                  aria-label="Share Product"
+                >
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.028-2.014m0 0a3 3 0 10-2.243-4.077L7.545 6.586m0 0a3 3 0 100 5.828l5.029 2.514m0 0a3 3 0 102.243-4.077L9.268 9.546" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={handleWishlistToggle}
+                  className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center cursor-pointer"
+                  aria-label="Wishlist"
+                >
+                  <svg width="20" height="20" fill={isInWishlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={isInWishlist ? "text-red-500" : "text-white"}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={() => navigate('/cart')}
+                  className="relative w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white cursor-pointer"
+                  aria-label="Cart"
+                >
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.98-4.706 2.532-7.235.108-.49-.276-.948-.777-.948H5.106M7.5 14.25L5.106 5.272M6 18.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                  </svg>
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-[#D4A04D] text-black text-[10px] font-black w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
             {/* Vertical thumbnails on Desktop */}
             <div className="hidden md:flex flex-col items-center select-none w-16 shrink-0 border-r border-[#2A2A2D]/40 pr-3">
               <div className="flex flex-col gap-2 overflow-y-auto max-h-[380px] scrollbar-none pb-2">
@@ -1286,7 +1514,7 @@ export default function ProductDetailPage() {
                   <span>Click to show big</span>
                 </div>
 
-                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="absolute top-16 xl:top-3 left-3 z-20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {product.isBestseller && (
                     <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">
                       BESTSELLER
@@ -1384,6 +1612,7 @@ export default function ProductDetailPage() {
                   );
                 })}
               </div>
+
             </div>
           </div>
 
@@ -1567,6 +1796,86 @@ export default function ProductDetailPage() {
                       <span className="text-gray-500 font-medium">Model No:</span>
                       <span className="text-white font-bold">{product.sku}</span>
                     </div>
+                    {isSolutionProductPage(product) && (
+                      <>
+                        {product.waterContent && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Water Content:</span>
+                            <span className="text-white font-bold">{product.waterContent}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Gender:</span>
+                          <span className="text-white font-bold">
+                            {Array.isArray(product.gender) ? (product.gender[0] || 'Unisex') : (product.gender || 'Unisex')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Contact Lens Solution Quantity:</span>
+                          <span className="text-white font-bold">
+                            {product.solutionVariants?.[selectedSolutionVariantIdx]?.volume || product.packaging || 'N/A'}
+                          </span>
+                        </div>
+                        {product.brand && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Brand Name:</span>
+                            <span className="text-white font-bold">{product.brand}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Product Type:</span>
+                          <span className="text-white font-bold">Contact lens-solution</span>
+                        </div>
+                        {product.manufacturer && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Manufacturer Details:</span>
+                            <span className="text-white font-bold">{product.manufacturer}</span>
+                          </div>
+                        )}
+                        {product.countryOfOrigin && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Country of Origin:</span>
+                            <span className="text-white font-bold">{product.countryOfOrigin}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {isAccessoryProductPage(product) && (
+                      <>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Gender:</span>
+                          <span className="text-white font-bold">
+                            {Array.isArray(product.gender) ? (product.gender[0] || 'Unisex') : (product.gender || 'Unisex')}
+                          </span>
+                        </div>
+                        {product.brand && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Brand Name:</span>
+                            <span className="text-white font-bold">{product.brand}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Product Type:</span>
+                          <span className="text-white font-bold">Accessories</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Type:</span>
+                          <span className="text-white font-bold">Accessories</span>
+                        </div>
+                        {product.manufacturer && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Manufacturer Details:</span>
+                            <span className="text-white font-bold">{product.manufacturer}</span>
+                          </div>
+                        )}
+                        {product.countryOfOrigin && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Country of Origin:</span>
+                            <span className="text-white font-bold">{product.countryOfOrigin}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
                     {!isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Size:</span>
@@ -1662,7 +1971,7 @@ export default function ProductDetailPage() {
                 )}
 
                 {/* Contact Lens Specifications */}
-                {isContactLensProduct(product) && (
+                {isContactLensProduct(product) && !isNonPowerContactProductPage(product) && (
                   <div className="border-t border-[#2A2A2D]/40 pt-4 space-y-4">
                     <span className="text-[#D4A04D] font-bold block text-[9px] uppercase tracking-wider">
                       Lens Specifications
@@ -1927,8 +2236,73 @@ export default function ProductDetailPage() {
             </div>
           )}
 
+          {/* Quantity / Volume selector for solution products.
+              Prefer real sibling products (each volume is usually its own catalog
+              entry) so clicking a volume navigates to that product's own page;
+              fall back to this product's own solutionVariants pricing tiers only
+              when no sibling products were found. */}
+          {isContactLensProduct(product) && isSolutionProductPage(product) && (
+            solutionSiblings.length > 0 ? (
+              <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 space-y-3 shadow-xl">
+                <h3 className="text-white text-sm font-extrabold">Quantity</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {solutionSiblings.map((sib) => {
+                    const isCurrent = sib._id === product._id;
+                    return (
+                      <button
+                        key={sib._id}
+                        type="button"
+                        onClick={() => {
+                          if (!isCurrent) navigate(`/products/${sib._id}`);
+                        }}
+                        className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
+                          isCurrent
+                            ? 'border-[#D4A04D] bg-[#D4A04D]/10'
+                            : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="text-gray-300 text-xs font-bold">{sib.volumeLabel}</div>
+                        {sib.originalPrice && sib.originalPrice > sib.price ? (
+                          <div className="text-gray-500 text-[10px] line-through">₹{sib.originalPrice}</div>
+                        ) : null}
+                        <div className="text-white text-sm font-extrabold">₹{sib.price}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : product.solutionVariants && product.solutionVariants.length > 0 ? (
+              <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 space-y-3 shadow-xl">
+                <h3 className="text-white text-sm font-extrabold">Quantity</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {product.solutionVariants.map((variant, idx) => (
+                    <button
+                      key={variant.volume}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSolutionVariantIdx(idx);
+                        setCustomPriceOverride(variant.price);
+                      }}
+                      className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
+                        selectedSolutionVariantIdx === idx
+                          ? 'border-[#D4A04D] bg-[#D4A04D]/10'
+                          : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="text-gray-300 text-xs font-bold">{variant.volume}</div>
+                      {variant.originalPrice ? (
+                        <div className="text-gray-500 text-[10px] line-through">₹{variant.originalPrice}</div>
+                      ) : null}
+                      <div className="text-white text-sm font-extrabold">₹{variant.price}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          )}
+
           {/* Contact Lenses Configuration (LensKart Style Widget) */}
-          {isContactLensProduct(product) && (
+          {isContactLensProduct(product) && !isNonPowerContactProductPage(product) && (
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 space-y-5 shadow-xl">
               {/* Power Type Pill */}
               <div className="flex items-center gap-2">
@@ -2075,49 +2449,39 @@ export default function ProductDetailPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <select
+                            <PowerPicker
+                              label="Spherical · Right Eye"
                               disabled={!contactHasRightEye}
                               value={contactRightSph}
-                              onChange={(e) => {
-                                const val = e.target.value;
+                              placeholder="Select SPH"
+                              onChange={(val) => {
                                 setContactRightSph(val);
                                 if (contactHasSamePower) setContactLeftSph(val);
                                 const matchedCp = product.contactPowers?.find(cp => cp.power === val);
                                 if (matchedCp) setCustomPriceOverride(matchedCp.price);
                               }}
-                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
-                            >
-                              <option value="">Select SPH</option>
-                              {(product.contactPowers && product.contactPowers.length > 0
+                              options={product.contactPowers && product.contactPowers.length > 0
                                 ? product.contactPowers.map(cp => cp.power)
-                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']
-                              ).map(p => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
+                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']}
+                            />
                           </div>
 
                           <div>
-                            <select
+                            <PowerPicker
+                              label="Spherical · Left Eye"
                               disabled={!contactHasLeftEye}
                               value={contactLeftSph}
-                              onChange={(e) => {
-                                const val = e.target.value;
+                              placeholder="Select SPH"
+                              onChange={(val) => {
                                 setContactLeftSph(val);
                                 if (contactHasSamePower) setContactRightSph(val);
                                 const matchedCp = product.contactPowers?.find(cp => cp.power === val);
                                 if (matchedCp) setCustomPriceOverride(matchedCp.price);
                               }}
-                              className="w-full bg-[#18181A] border border-[#2A2A2D] disabled:opacity-40 rounded-lg px-3 py-2 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none"
-                            >
-                              <option value="">Select SPH</option>
-                              {(product.contactPowers && product.contactPowers.length > 0
+                              options={product.contactPowers && product.contactPowers.length > 0
                                 ? product.contactPowers.map(cp => cp.power)
-                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']
-                              ).map(p => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
+                                : ['-0.50', '-0.75', '-1.00', '-1.25', '-1.50', '-1.75', '-2.00', '-2.25', '-2.50', '-2.75', '-3.00', '-3.25', '-3.50', '-3.75', '-4.00', '-4.50', '-5.00', '-5.50', '-6.00', 'Plano (0.00)', '+0.50', '+1.00', '+1.50', '+2.00', '+2.50', '+3.00', '+3.50', '+4.00']}
+                            />
                           </div>
                         </div>
                       </div>
@@ -2396,13 +2760,23 @@ export default function ProductDetailPage() {
                 {buyingNow ? 'Processing...' : 'BUY NOW'}
               </button>
               <div className="flex-1 w-full">
-                <AddToCartButton
-                  productId={product._id}
-                  color={selectedColor?.name}
-                  product={product}
-                  lensPayload={getLensPayload()}
-                  className="w-full bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none text-center"
-                />
+                {product.linkedSolutions && product.linkedSolutions.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSolutionModal(true)}
+                    className="w-full bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none text-center"
+                  >
+                    ADD TO CART
+                  </button>
+                ) : (
+                  <AddToCartButton
+                    productId={product._id}
+                    color={selectedColor?.name}
+                    product={product}
+                    lensPayload={getLensPayload()}
+                    className="w-full bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none text-center"
+                  />
+                )}
               </div>
             </div>
           ) : (
@@ -2612,6 +2986,86 @@ export default function ProductDetailPage() {
                       <span className="text-gray-500 font-medium">Model No:</span>
                       <span className="text-white font-bold">{product.sku}</span>
                     </div>
+                    {isSolutionProductPage(product) && (
+                      <>
+                        {product.waterContent && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Water Content:</span>
+                            <span className="text-white font-bold">{product.waterContent}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Gender:</span>
+                          <span className="text-white font-bold">
+                            {Array.isArray(product.gender) ? (product.gender[0] || 'Unisex') : (product.gender || 'Unisex')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Contact Lens Solution Quantity:</span>
+                          <span className="text-white font-bold">
+                            {product.solutionVariants?.[selectedSolutionVariantIdx]?.volume || product.packaging || 'N/A'}
+                          </span>
+                        </div>
+                        {product.brand && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Brand Name:</span>
+                            <span className="text-white font-bold">{product.brand}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Product Type:</span>
+                          <span className="text-white font-bold">Contact lens-solution</span>
+                        </div>
+                        {product.manufacturer && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Manufacturer Details:</span>
+                            <span className="text-white font-bold">{product.manufacturer}</span>
+                          </div>
+                        )}
+                        {product.countryOfOrigin && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Country of Origin:</span>
+                            <span className="text-white font-bold">{product.countryOfOrigin}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {isAccessoryProductPage(product) && (
+                      <>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Gender:</span>
+                          <span className="text-white font-bold">
+                            {Array.isArray(product.gender) ? (product.gender[0] || 'Unisex') : (product.gender || 'Unisex')}
+                          </span>
+                        </div>
+                        {product.brand && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Brand Name:</span>
+                            <span className="text-white font-bold">{product.brand}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Product Type:</span>
+                          <span className="text-white font-bold">Accessories</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                          <span className="text-gray-500 font-medium">Type:</span>
+                          <span className="text-white font-bold">Accessories</span>
+                        </div>
+                        {product.manufacturer && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Manufacturer Details:</span>
+                            <span className="text-white font-bold">{product.manufacturer}</span>
+                          </div>
+                        )}
+                        {product.countryOfOrigin && (
+                          <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
+                            <span className="text-gray-500 font-medium">Country of Origin:</span>
+                            <span className="text-white font-bold">{product.countryOfOrigin}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
                     {!isContactLensProduct(product) && (
                       <div className="flex justify-between border-b border-[#2A2A2D]/40 pb-1.5">
                         <span className="text-gray-500 font-medium">Frame Size:</span>
@@ -2798,17 +3252,22 @@ export default function ProductDetailPage() {
           </div>
           <button
             onClick={() => {
+              if (!user) {
+                navigate('/login');
+                return;
+              }
               setShowReviewForm(!showReviewForm);
               setReviewSuccess(false);
+              setReviewError('');
             }}
             className="self-start sm:self-auto bg-transparent border border-[#D4A04D] text-[#D4A04D] font-bold py-2.5 px-5 rounded-xl text-sm hover:bg-[#D4A04D]/10 transition-all cursor-pointer"
           >
-            {showReviewForm ? 'Cancel Review' : 'Write a Review'}
+            {!user ? 'Login to Write a Review' : showReviewForm ? 'Cancel Review' : 'Write a Review'}
           </button>
         </div>
 
-        {/* Write Review Form */}
-        {showReviewForm && (
+        {/* Write Review Form (logged-in users only) */}
+        {showReviewForm && user && (
           <div className="mb-10 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 max-w-xl transition-all">
             <h3 className="text-white font-bold text-lg mb-4">Share Your Feedback</h3>
             {reviewSuccess ? (
@@ -2818,17 +3277,11 @@ export default function ProductDetailPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div>
-                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Your Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={reviewName}
-                    onChange={e => setReviewName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  />
-                </div>
+                {reviewError && (
+                  <div className="text-red-400 bg-red-400/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs font-semibold">
+                    {reviewError}
+                  </div>
+                )}
                 <div>
                   <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Rating</label>
                   <div className="flex gap-2">
@@ -2869,9 +3322,10 @@ export default function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={handleReviewSubmit}
-                  className="bg-[#D4A04D] text-black font-bold uppercase py-2.5 px-6 rounded-xl text-sm hover:opacity-90 transition-opacity cursor-pointer border-none"
+                  disabled={submittingReview}
+                  className="bg-[#D4A04D] text-black font-bold uppercase py-2.5 px-6 rounded-xl text-sm hover:opacity-90 transition-opacity cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Submit Review
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
                 </button>
               </div>
             )}
@@ -2889,13 +3343,11 @@ export default function ProductDetailPage() {
           </div>
 
           <div className="md:col-span-2 space-y-2 flex flex-col justify-center">
-            {[
-              { stars: 5, pct: 75, count: Math.round(product.reviewCount * 0.75) },
-              { stars: 4, pct: 15, count: Math.round(product.reviewCount * 0.15) },
-              { stars: 3, pct: 6, count: Math.round(product.reviewCount * 0.06) },
-              { stars: 2, pct: 3, count: Math.round(product.reviewCount * 0.03) },
-              { stars: 1, pct: 1, count: Math.round(product.reviewCount * 0.01) },
-            ].map(row => (
+            {[5, 4, 3, 2, 1].map(stars => {
+              const count = reviews.filter(r => Math.round(r.rating) === stars).length;
+              const pct = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
+              return { stars, pct, count };
+            }).map(row => (
               <div key={row.stars} className="flex items-center gap-3 text-sm">
                 <span className="text-[#A7A7A7] w-3 text-right">{row.stars}</span>
                 <span className="text-[#A7A7A7] text-xs">★</span>
@@ -3370,6 +3822,101 @@ export default function ProductDetailPage() {
 
 
 
+      {/* Choose Lens Solution (contact lens cart cross-sell) */}
+      {showSolutionModal && product && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !addingSolution && setShowSolutionModal(false)}
+        >
+          <div
+            className="bg-[#131314] border border-[#2A2A2D] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A2D] shrink-0">
+              <h3 className="text-white text-base sm:text-lg font-extrabold">Choose Lens Solution</h3>
+              <button
+                type="button"
+                onClick={() => setShowSolutionModal(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 text-lg transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {(product.linkedSolutions || []).map((link) => {
+                const sol = link.solutionId;
+                if (!sol) return null;
+                const basePrice = sol.price?.selling ?? sol.sellingPrice ?? sol.mrp ?? 0;
+                const finalPrice = link.overridePrice != null
+                  ? link.overridePrice
+                  : link.discountPercent
+                    ? Math.round(basePrice * (1 - link.discountPercent / 100))
+                    : basePrice;
+                return (
+                  <div key={sol._id} className="flex items-center gap-3 bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-3">
+                    <img
+                      src={sol.thumbnail || sol.images?.[0] || '/images/cat_prescription.png'}
+                      alt={sol.name}
+                      className="w-14 h-14 object-contain rounded-lg bg-[#18181A] shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-xs font-bold line-clamp-2">{sol.name}</div>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        {finalPrice <= 0 ? (
+                          <span className="text-[#D4A04D] text-sm font-extrabold">FREE</span>
+                        ) : (
+                          <span className="text-[#D4A04D] text-sm font-extrabold">₹{finalPrice}</span>
+                        )}
+                        {finalPrice !== basePrice && (
+                          <span className="text-gray-500 text-[10px] line-through">₹{basePrice}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={addingSolution}
+                      onClick={async () => {
+                        setAddingSolution(true);
+                        try {
+                          await addToCartDirect(product, { color: selectedColor?.name, lensPayload: getLensPayload() });
+                          await addToCartDirect(sol, { qty: 1, priceOverride: finalPrice, originalPrice: basePrice });
+                          setShowSolutionModal(false);
+                        } finally {
+                          setAddingSolution(false);
+                        }
+                      }}
+                      className="shrink-0 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2 px-3.5 rounded-lg text-[10px] tracking-wider transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-[#2A2A2D] shrink-0">
+              <button
+                type="button"
+                disabled={addingSolution}
+                onClick={async () => {
+                  setAddingSolution(true);
+                  try {
+                    await addToCartDirect(product, { color: selectedColor?.name, lensPayload: getLensPayload() });
+                    setShowSolutionModal(false);
+                  } finally {
+                    setAddingSolution(false);
+                  }
+                }}
+                className="w-full bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {addingSolution ? 'Adding...' : 'Skip to Cart'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reels Modal Player */}
       {isReelModalOpen && selectedReel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -3718,8 +4265,44 @@ export default function ProductDetailPage() {
         </div>
       )}
 
+      {/* Mobile-Only Sticky Bottom Action Bar (Image 16) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0E0E0F]/95 border-t border-zinc-800 p-3 backdrop-blur-lg flex items-center justify-between md:hidden shadow-2xl">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.open('https://wa.me/?text=Hi%20EyeGlaze', '_blank')}
+            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
+          >
+            <span className="text-sm">💬</span>
+            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy on Chat</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/contact')}
+            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
+          >
+            <span className="text-sm">🏠</span>
+            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy at Home</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/contact')}
+            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
+          >
+            <span className="text-sm">🏪</span>
+            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy at Store</span>
+          </button>
+        </div>
+
+        <Link
+          to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
+          className="bg-[#0B0C1E] border border-[#D4A04D]/40 text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold text-xs uppercase px-5 py-3 rounded-xl tracking-wider transition-all duration-300 shadow-lg text-center"
+        >
+          Select Lenses
+        </Link>
+      </div>
+
       {/* Padding for sticky bar */}
-      <div className="h-32 md:hidden" />
+      <div className="h-24 md:hidden" />
     </div>
   );
 }

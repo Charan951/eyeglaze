@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
 import SEO from '../components/SEO';
@@ -23,6 +23,7 @@ interface Order {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchOrders = () => {
     api.get('/orders')
@@ -52,7 +53,18 @@ export default function OrdersPage() {
   return (
     <div>
       <SEO robots="noindex, nofollow" title="My Orders" />
-      <h1 className="text-2xl font-bold text-white mb-6">My Orders</h1>
+      <div className="flex items-center gap-2.5 border-b border-[#2A2A2D] pb-4 mb-6">
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+          title="Back to Profile"
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-bold text-white">My Orders</h1>
+      </div>
 
       {orders.length === 0 ? (
         <div className="text-center py-24">

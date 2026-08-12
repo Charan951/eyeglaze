@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import type React from 'react';
 import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from '../components/ui/ProductCard';
 import ProductFilters from '../components/ProductFilters';
 import api from '../lib/api';
@@ -150,16 +152,20 @@ export default function ProductsPage() {
       });
   };
 
-  // Setup product changed socket listener
+  // Setup product and inventory socket listeners
   useEffect(() => {
     const handleProductChange = () => {
       loadProducts();
     };
 
     socket.on('product_changed', handleProductChange);
+    socket.on('inventory_changed', handleProductChange);
+    socket.on('category_changed', handleProductChange);
 
     return () => {
       socket.off('product_changed', handleProductChange);
+      socket.off('inventory_changed', handleProductChange);
+      socket.off('category_changed', handleProductChange);
     };
   }, [searchParams]);
 
@@ -232,128 +238,112 @@ export default function ProductsPage() {
   ];
 
   return (
-    <div className="min-h-screen pb-16 md:pb-6">
+    <div className="min-h-screen pb-16 md:pb-6 px-4 sm:px-6 lg:px-8 w-full max-w-[1920px] mx-auto">
       <SEO 
         title="Shop Luxury Designer Eyeglasses & Sunglasses"
         description="Explore our curated collection of premium designer frames, eyeglasses, and prescription sunglasses. Find the perfect shape and fit for your face."
         keywords="designer glasses, luxury eyewear, shop eyeglasses, prescription sunglasses, round frames, square frames, wayfarer"
       />
       
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+      {/* Title & Search Box on Same Line */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pt-2">
         <div>
-          <h1 className="text-2xl font-bold text-white">All Products</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-baseline gap-2.5">
+            <span>{selectedCategory?.name || 'All Eyeglasses'}</span>
+            <span className="text-xs md:text-sm font-semibold text-gray-500 font-mono">
+              ({total ? `${total} Items` : `${products.length} Items`})
+            </span>
+          </h1>
         </div>
-      </div>
 
-      {/* Sticky Search & Tab Filters Row */}
-      <div className={`sticky ${isHeaderVisible ? 'top-16 xl:top-28' : 'top-0'} z-30 bg-[#0B0B0C] py-3.5 mb-6 transition-all duration-300 w-full border-b border-[#2A2A2D]/20`}>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 w-full sm:w-72 md:w-80 sm:ml-auto">
-            <div className="relative w-full">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                id="search-input"
-                type="text"
-                placeholder="Search products by name..."
-                value={searchVal}
-                onChange={(e) => setSearchVal(e.target.value)}
-                className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"
-              />
-              {searchVal && (
-                <button
-                  onClick={() => {
-                    setSearchVal('');
-                    updateSingleFilter('search', '');
-                  }}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1"
-                  title="Clear Search"
-                >
-                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="flex md:hidden items-center justify-center bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D] text-white w-9 h-9 rounded-xl transition-colors cursor-pointer select-none shrink-0"
-              title="Open Filters"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="18" x2="20" y2="18" />
+        <div className="flex items-center gap-2 w-full sm:w-72 md:w-80">
+          <div className="relative w-full">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </button>
+            </span>
+            <input
+              id="search-input"
+              type="text"
+              placeholder="Search products by name..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"
+            />
+            {searchVal && (
+              <button
+                onClick={() => {
+                  setSearchVal('');
+                  updateSingleFilter('search', '');
+                }}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1"
+                title="Clear Search"
+              >
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
-
-          {/* Collection Tab Filter Options (All, Essential, Premium, Sale) - Hidden for Contact Lens category */}
-          {!['contact-lens', 'contact-lenses', 'contact_lenses', 'contact'].includes((searchParams.get('category') || '').toLowerCase()) && (
-            <div className="flex md:hidden items-center justify-around bg-[#131314]/30 border border-[#2A2A2D]/40 rounded-2xl py-3 px-2 w-full max-w-md mx-auto select-none">
-              {[
-                { id: 'All', label: 'All', icon: (active: boolean) => (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                  </svg>
-                )},
-                { id: 'Premium', label: 'Premium', icon: (active: boolean) => (
-                  <div className="relative">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                      <circle cx="6" cy="12" r="4" />
-                      <circle cx="18" cy="12" r="4" />
-                      <path d="M10 12h4" />
-                      <path d="M2 12h1M21 12h1" />
-                    </svg>
-                    <span className="absolute -top-1.5 -right-2 text-[10px] text-[#D4A04D] animate-pulse">✦</span>
-                  </div>
-                )},
-                { id: 'Essential', label: 'Essential', icon: (active: boolean) => (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                    <circle cx="6" cy="12" r="4" />
-                    <circle cx="18" cy="12" r="4" />
-                    <path d="M10 12h4" />
-                    <path d="M2 12h1M21 12h1" />
-                  </svg>
-                )},
-                { id: 'Sale', label: 'Sale', icon: (active: boolean) => (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} className="transition-all duration-300">
-                    <rect x="3" y="5" width="18" height="14" rx="2" strokeDasharray="3 3" />
-                    <circle cx="12" cy="12" r="2.5" />
-                  </svg>
-                )}
-              ].map((tab) => {
-                const active = activeTier === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleTierChange(tab.id)}
-                    className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1 bg-transparent border-none cursor-pointer focus:outline-none transition-all duration-300 relative group"
-                  >
-                    <div className={`transition-all duration-300 ${active ? 'text-[#D4A04D] scale-110' : 'text-gray-400 group-hover:text-white'}`}>
-                      {tab.icon(active)}
-                    </div>
-                    <span className={`text-[10px] font-black tracking-wide uppercase transition-all duration-300 ${active ? 'text-[#D4A04D]' : 'text-gray-400 group-hover:text-white'}`}>
-                      {tab.label}
-                    </span>
-                    {active && (
-                      <span className="absolute bottom-[-14px] left-0 right-0 h-[2.5px] bg-[#D4A04D] rounded-full shadow-[0_0_8px_#D4A04D]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className="flex md:hidden items-center justify-center bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D] text-white w-9 h-9 rounded-xl transition-colors cursor-pointer select-none shrink-0"
+            title="Open Filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-8">
+      {/* Sub-Category Icon Tabs Strip (Image 15: All, Essential, Premium, Sale) */}
+      <div className="flex md:hidden items-center gap-3 overflow-x-auto py-2 mb-4 scrollbar-none border-b border-[#2A2A2D]/50 select-none">
+        {[
+          { id: 'All', label: 'All', icon: '👓' },
+          { id: 'Essential', label: 'Essential', icon: '👓' },
+          { id: 'Premium', label: 'Premium', icon: '👓' },
+          { id: 'Sale', label: 'Sale', icon: '🏷️' }
+        ].map((tab) => {
+          const isActive = activeTier === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTierChange(tab.id)}
+              className={`flex flex-col items-center gap-1 min-w-[70px] py-1.5 px-3 rounded-xl transition-all duration-200 border cursor-pointer ${
+                isActive
+                  ? 'border-[#D4A04D] bg-[#D4A04D]/10 text-white'
+                  : 'border-transparent text-gray-400 hover:text-white'
+              }`}
+            >
+              <span className="text-xl">{tab.icon}</span>
+              <span className={`text-[11px] font-black uppercase tracking-wider ${isActive ? 'text-[#D4A04D]' : ''}`}>
+                {tab.label}
+              </span>
+              {isActive && <div className="w-6 h-0.5 bg-[#D4A04D] rounded-full mt-0.5" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Size Banner Card (Image 15: "Not sure about your size? Size changes with face") */}
+      <div className="flex md:hidden items-center justify-between p-4 mb-5 rounded-2xl bg-gradient-to-r from-blue-950/40 via-zinc-900 to-indigo-950/40 border border-blue-500/20 shadow-md">
+        <div className="space-y-1.5 max-w-[65%]">
+          <h4 className="text-white font-extrabold text-xs sm:text-sm">Not sure about your size?</h4>
+          <p className="text-gray-400 text-[10px]">Size changes with face profile</p>
+          <button className="mt-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors cursor-pointer border-none">
+            Find my fit
+          </button>
+        </div>
+        <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center shrink-0">
+          <img src="/images/women_eyeglasses.png" alt="Find Fit" className="w-full h-full object-cover" />
+        </div>
+      </div>
+
+      <div className="flex gap-6 md:gap-8">
         {/* Sidebar Filters - Desktop only */}
         <div className="w-56 flex-shrink-0 hidden md:block">
           <ProductFilters />
@@ -361,14 +351,16 @@ export default function ProductsPage() {
 
         {/* Product Grid / Details List */}
         <div className="flex-1">
-          {/* Universal Multi-Tier Top Horizontal Filter Pills (For ALL Categories) */}
+          {/* Clean Text Breadcrumb Path (as shown in image copy.png, replacing card box & pills) */}
           {(() => {
             const currentCategorySlug = (searchParams.get('category') || '').toLowerCase();
-            if (!currentCategorySlug) return null;
-
             const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
             const currentSubSubCat = (searchParams.get('subSubCategory') || searchParams.get('type') || searchParams.get('power') || '').toLowerCase();
             const currentSubSubSubCat = (searchParams.get('subSubSubCategory') || searchParams.get('disposable') || searchParams.get('wearTime') || '').toLowerCase();
+            const currentGender = (searchParams.get('gender') || '').toLowerCase();
+            const currentShape = (searchParams.get('shape') || '').toLowerCase();
+
+            if (!currentCategorySlug && !currentSubCat && !currentSubSubCat) return null;
 
             // Find active category from categoriesList tree
             const activeCat = categoriesList.find((c: any) => {
@@ -389,187 +381,220 @@ export default function ProductsPage() {
               return ssSlug === currentSubSubCat || ssSlug.replace(/_/g, '-') === currentSubSubCat.replace(/_/g, '-');
             });
 
-            // LEVEL 3: When Sub-Sub-Category is selected -> SHOW Sub-Sub-Sub-Categories Pills
-            if (currentSubSubCat !== '') {
-              let subSubSubList: Array<{ label: string; value: string }> = [];
+            const activeSubSubSubCatObj = activeSubSubCatObj?.children?.find((sss: any) => {
+              const sssSlug = (sss.slug || '').toLowerCase();
+              return sssSlug === currentSubSubSubCat || sssSlug.replace(/_/g, '-') === currentSubSubSubCat.replace(/_/g, '-');
+            });
 
-              if (activeSubSubCatObj?.children && activeSubSubCatObj.children.length > 0) {
-                subSubSubList = activeSubSubCatObj.children.map((sss: any) => ({
-                  label: sss.name,
-                  value: sss.slug
-                }));
-              } else if (currentCategorySlug.includes('contact')) {
-                subSubSubList = [
-                  { label: 'Monthly', value: 'monthly' },
-                  { label: 'Dailies', value: 'daily' },
-                  { label: 'Bi-Weekly', value: 'bi-weekly' },
-                  { label: 'Yearly', value: 'yearly' },
-                ];
-              }
+            // Format labels cleanly
+            const catLabel = activeCat?.name || (currentCategorySlug ? currentCategorySlug.charAt(0).toUpperCase() + currentCategorySlug.slice(1) : '');
+            const subLabel = activeSubCatObj?.name || (currentSubCat ? currentSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
+            const subSubLabel = activeSubSubCatObj?.name || (currentSubSubCat ? currentSubSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
+            const subSubSubLabel = activeSubSubSubCatObj?.name || (currentSubSubSubCat ? currentSubSubSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
 
-              if (subSubSubList.length > 0) {
-                return (
-                  <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
-                    <div className="flex items-center justify-between gap-3 w-full">
-                      <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-1`}>
-                        {subSubSubList.map((sssItem) => {
-                          const active = currentSubSubSubCat === sssItem.value.toLowerCase();
-                          return (
-                            <button
-                              key={sssItem.value}
-                              onClick={() => {
-                                updateSingleFilter('subSubSubCategory', active ? '' : sssItem.value);
-                              }}
-                              className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer truncate border ${
-                                active
-                                  ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
-                                  : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
-                              }`}
-                            >
-                              {sssItem.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.delete('subSubCategory');
-                          params.delete('subSubSubCategory');
-                          params.delete('type');
-                          params.delete('power');
-                          params.delete('disposable');
-                          navigate(`/products?${params.toString()}`);
-                        }}
-                        className="text-[10px] text-[#D4A04D] hover:underline font-bold bg-transparent border-none cursor-pointer shrink-0 ml-1"
-                      >
-                        ← Back
-                      </button>
-                    </div>
-                  </div>
-                );
+            // Construct breadcrumb items list
+            const items: Array<{ label: string; onClick?: () => void }> = [];
+            items.push({ label: 'Eyewear', onClick: () => navigate('/products') });
+
+            if (catLabel) {
+              items.push({
+                label: catLabel,
+                onClick: () => {
+                  const params = new URLSearchParams();
+                  params.set('category', currentCategorySlug);
+                  navigate(`/products?${params.toString()}`);
+                }
+              });
+            }
+
+            if (subLabel) {
+              items.push({
+                label: subLabel,
+                onClick: () => {
+                  const params = new URLSearchParams();
+                  if (currentCategorySlug) params.set('category', currentCategorySlug);
+                  params.set('subCategory', currentSubCat);
+                  navigate(`/products?${params.toString()}`);
+                }
+              });
+            }
+
+            if (subSubLabel) {
+              items.push({
+                label: subSubLabel,
+                onClick: () => {
+                  const params = new URLSearchParams();
+                  if (currentCategorySlug) params.set('category', currentCategorySlug);
+                  if (currentSubCat) params.set('subCategory', currentSubCat);
+                  params.set('subSubCategory', currentSubSubCat);
+                  navigate(`/products?${params.toString()}`);
+                }
+              });
+            }
+
+            if (subSubSubLabel) {
+              items.push({
+                label: subSubSubLabel
+              });
+            } else if (currentGender || currentShape) {
+              const extraLabel = [currentGender, currentShape].filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              if (extraLabel && !subSubLabel) {
+                items.push({ label: extraLabel });
               }
             }
 
-            // LEVEL 2: When Sub-Category is selected -> SHOW Sub-Sub-Category Pills
-            if (currentSubCat !== '') {
-              let subSubList: Array<{ label: string; value: string }> = [];
+            if (items.length <= 1) return null;
 
-              if (activeSubCatObj?.children && activeSubCatObj.children.length > 0) {
-                subSubList = activeSubCatObj.children.map((ss: any) => ({
-                  label: ss.name,
-                  value: ss.slug
-                }));
-              } else if (currentSubCat === 'color') {
-                subSubList = [
-                  { label: 'Zero Power', value: 'zero-power' },
-                  { label: 'With Power', value: 'with-power' },
-                  { label: 'Color Combos', value: 'color-combos' },
-                ];
-              } else if (currentSubCat === 'solutions-accessories') {
-                subSubList = [
-                  { label: 'Solution', value: 'solution' },
-                  { label: 'Accessories', value: 'accessories' },
-                ];
-              } else if (currentCategorySlug.includes('contact')) {
-                subSubList = [
-                  { label: 'Distance Power(-ve)', value: 'distance-power-ve' },
-                  { label: 'Toric/Cylindrical', value: 'toric-cylindrical' },
-                  { label: 'Multi-Focal', value: 'multi-focal' },
-                  { label: 'All Powers', value: 'all-powers' },
-                ];
-              }
-
-              if (subSubList.length > 0) {
-                return (
-                  <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
-                    <div className="flex items-center justify-between gap-3 w-full">
-                      <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3 flex-1`}>
-                        {subSubList.map((ssItem) => {
-                          const active = currentSubSubCat === ssItem.value.toLowerCase();
-                          return (
-                            <button
-                              key={ssItem.value}
-                              onClick={() => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                if (active) {
-                                  params.delete('subSubCategory');
-                                } else {
-                                  params.set('subSubCategory', ssItem.value);
-                                }
-                                navigate(`/products?${params.toString()}`);
-                              }}
-                              className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
-                                active
-                                  ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
-                                  : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
-                              }`}
-                            >
-                              {ssItem.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const params = new URLSearchParams(searchParams.toString());
-                          params.delete('subCategory');
-                          params.delete('subSubCategory');
-                          params.delete('subSubSubCategory');
-                          navigate(`/products?${params.toString()}`);
-                        }}
-                        className="text-[10px] text-[#D4A04D] hover:underline font-bold bg-transparent border-none cursor-pointer shrink-0 ml-1"
-                      >
-                        ← Back
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-            }
-
-            // LEVEL 1: When Main Category is selected -> SHOW Sub-Category Pills
-            if (activeCat?.children && activeCat.children.length > 0) {
-              const subList = activeCat.children.map((s: any) => ({
-                label: s.name,
-                value: s.slug
-              }));
-
-              return (
-                <div className="mb-6 bg-[#131314] border border-[#2A2A2D]/80 rounded-2xl p-3 sm:p-4 shadow-xl select-none animate-fade-in">
-                  <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 w-full`}>
-                    {subList.map((sItem: any) => {
-                      const active = currentSubCat === sItem.value.toLowerCase();
-                      return (
-                        <button
-                          key={sItem.value}
-                          onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            if (active) {
-                              params.delete('subCategory');
-                              params.delete('subSubCategory');
-                            } else {
-                              params.set('subCategory', sItem.value);
-                            }
-                            navigate(`/products?${params.toString()}`);
-                          }}
-                          className={`w-full text-center py-2 px-1 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer border ${
-                            active
-                              ? 'bg-[#D4A04D] text-black border-[#D4A04D] font-black shadow-[0_0_10px_rgba(212,160,77,0.4)] scale-[1.02]'
-                              : 'bg-[#1C1C1E] text-gray-300 border-[#2A2A2D] hover:border-[#D4A04D]/60 hover:text-white'
-                          }`}
+            return (
+              <div className="mb-6 flex items-center gap-2 flex-wrap text-sm md:text-base font-medium select-none">
+                {items.map((item, index) => {
+                  const isLast = index === items.length - 1;
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      {index > 0 && <span className="text-slate-500 font-bold">/</span>}
+                      {isLast ? (
+                        <span className="text-white font-bold">{item.label}</span>
+                      ) : (
+                        <span
+                          onClick={item.onClick}
+                          className="text-slate-400 hover:text-[#D4A04D] transition-colors cursor-pointer"
                         >
-                          {sItem.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            }
-
-            return null;
+                          {item.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
           })()}
+
+          {/* Sub-Sub-Category Tabs: always shows All / Bestsellers / New Arrivals,
+              plus one tab per Sub-Sub-Sub-Category when this Sub-Sub-Category has any. */}
+          {(() => {
+            const currentCategorySlug = (searchParams.get('category') || '').toLowerCase();
+            const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
+            const currentSubSubCat = (searchParams.get('subSubCategory') || '').toLowerCase();
+            const currentSubSubSubCat = (searchParams.get('subSubSubCategory') || '').toLowerCase();
+            const currentSort = searchParams.get('sort') || '';
+
+            if (!currentSubCat) return null;
+
+            const activeCat = categoriesList.find((c: any) => (c.slug || '').toLowerCase() === currentCategorySlug);
+            const activeSubCatObj = activeCat?.children?.find((s: any) => (s.slug || '').toLowerCase() === currentSubCat);
+            const activeSubSubCatObj = activeSubCatObj?.children?.find((ss: any) => (ss.slug || '').toLowerCase() === currentSubSubCat);
+
+            // At the SubCategory level (no SubSubCategory chosen yet), the tabs
+            // drill into SubSubCategories. Once a SubSubCategory is chosen, the
+            // tabs drill one level deeper into its SubSubSubCategories.
+            const tabParam = currentSubSubCat ? 'subSubSubCategory' : 'subSubCategory';
+            const children = currentSubSubCat ? (activeSubSubCatObj?.children || []) : (activeSubCatObj?.children || []);
+            const activeTabValue = currentSubSubCat ? currentSubSubSubCat : currentSubSubCat;
+
+            const goToSubSubSub = (slug: string | null) => {
+              const params = new URLSearchParams(searchParams.toString());
+              if (slug) {
+                params.set(tabParam, slug);
+              } else {
+                params.delete(tabParam);
+              }
+              if (tabParam === 'subSubCategory') {
+                params.delete('subSubSubCategory');
+              }
+              params.delete('page');
+              navigate(`/products?${params.toString()}`);
+            };
+
+            const GridIcon = () => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              </svg>
+            );
+            const BestsellerIcon = () => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="8" r="5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5L7 21l5-3 5 3-1.5-8.5" />
+              </svg>
+            );
+            const NewIcon = () => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+              </svg>
+            );
+            const TagIcon = () => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.59 13.41L13.41 20.6a2 2 0 01-2.83 0l-7.17-7.18a2 2 0 010-2.83l7.19-7.18a2 2 0 011.41-.59H19a2 2 0 012 2v6.42a2 2 0 01-.41 1.17z" />
+                <circle cx="8" cy="8" r="1.5" />
+              </svg>
+            );
+
+            type Tab = { key: string; label: string; icon: React.ComponentType; isActive: boolean; onClick: () => void };
+
+            const goToAll = () => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete('sort');
+              params.delete(tabParam);
+              if (tabParam === 'subSubCategory') {
+                params.delete('subSubSubCategory');
+              }
+              params.delete('page');
+              navigate(`/products?${params.toString()}`);
+            };
+
+            const goToSort = (sort: string) => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.set('sort', sort);
+              params.delete('page');
+              navigate(`/products?${params.toString()}`);
+            };
+
+            const allTab: Tab = { key: 'all', label: 'All', icon: GridIcon, isActive: !currentSort && !activeTabValue, onClick: goToAll };
+
+            // Only real, admin-created sub-categories are ever shown here.
+            // The generic Bestsellers/New Arrivals tabs are a fallback for when
+            // none exist yet — they never appear alongside real category names.
+            const tabs: Tab[] = children.length > 0
+              ? [
+                  allTab,
+                  ...children.map((c: any) => {
+                    const slug = (c.slug || '').toLowerCase();
+                    return {
+                      key: slug,
+                      label: c.name,
+                      icon: TagIcon,
+                      isActive: activeTabValue === slug,
+                      onClick: () => goToSubSubSub(slug),
+                    };
+                  }),
+                ]
+              : [
+                  allTab,
+                  { key: 'bestseller', label: 'Bestsellers', icon: BestsellerIcon, isActive: currentSort === 'bestseller', onClick: () => goToSort('bestseller') },
+                  { key: 'newest', label: 'New Arrivals', icon: NewIcon, isActive: currentSort === 'newest', onClick: () => goToSort('newest') },
+                ];
+
+            return (
+              <div className="flex items-center gap-6 overflow-x-auto pb-3 mb-6 scrollbar-none border-b border-[#2A2A2D]">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={tab.onClick}
+                    className={`shrink-0 flex items-center gap-2 pb-3 px-1 text-sm font-bold uppercase tracking-wide transition-colors cursor-pointer bg-transparent border-none border-b-[3px] -mb-px ${
+                      tab.isActive ? 'text-[#D4A04D] border-[#D4A04D]' : 'text-gray-500 hover:text-white border-transparent'
+                    }`}
+                  >
+                    <tab.icon />
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           {loading ? (
             <div className="text-center py-24 text-[#A7A7A7]">Loading...</div>
           ) : products.length === 0 ? (
@@ -721,8 +746,15 @@ export default function ProductsPage() {
       )}
 
       {/* FULLSCREEN FILTER DRAWER FOR MOBILE */}
-      {isFilterOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0B0B0C] flex flex-col select-none">
+      <AnimatePresence>
+        {isFilterOpen && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed inset-0 z-50 bg-[#0B0B0C] flex flex-col select-none"
+          >
           {/* Header */}
           <div className="h-14 border-b border-[#2A2A2D] flex items-center justify-between px-4 bg-[#131314] shrink-0">
             <span className="text-white font-extrabold text-sm uppercase tracking-wider flex items-center gap-1.5">
@@ -970,8 +1002,9 @@ export default function ProductsPage() {
               Apply
             </button>
           </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

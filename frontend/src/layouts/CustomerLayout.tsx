@@ -11,6 +11,7 @@ const customerNavSections = [
       { href: '/orders', label: 'My Orders', icon: '📦' },
       { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
       { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
+      { href: '/saved-addresses', label: 'Saved Addresses', icon: '📍' },
       { href: '/profile', label: 'My Profile', icon: '👤' },
     ],
   },
@@ -64,6 +65,13 @@ export default function CustomerLayout() {
     };
   }, [isMobileMenuOpen]);
 
+  // Profile has its own complete, self-contained view for both guests and
+  // logged-in users (mobile and desktop) — it must not be forced through
+  // this sidebar shell's login redirect the way Orders/Membership/etc. are.
+  if (location.pathname === '/profile') {
+    return <Outlet />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0B0B0C]">
@@ -88,26 +96,6 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#0B0B0C] w-full overflow-x-clip">
-      {/* Mobile Top Header */}
-      <header className="md:hidden bg-[#0A0A0A] border-b border-[#2A2A2D] h-16 px-4 flex items-center justify-between fixed top-0 left-0 right-0 z-40 w-full select-none">
-        <button 
-          onClick={() => navigate('/')}
-          className="text-gray-400 hover:text-white p-1 focus:outline-none transition-colors cursor-pointer bg-transparent border-none"
-          aria-label="Go to Home"
-        >
-          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </button>
-
-        <Link to="/account" className="flex flex-col items-center text-center select-none">
-          <span className="text-[#D4A04D] font-serif text-[16px] tracking-[0.2em] uppercase font-bold leading-none">EYEGLAZE</span>
-          <span className="text-[#D4A04D]/80 font-sans text-[7px] tracking-[0.25em] uppercase mt-1 font-bold">CUSTOMER PORTAL</span>
-        </Link>
-
-        <div className="w-9 h-9" />
-      </header>
-
       {/* Desktop Sidebar (hidden on mobile) */}
       <aside className="hidden md:flex w-60 bg-[#0A0A0A] border-r border-[#2A2A2D] flex-col py-6 px-4 gap-1 flex-shrink-0 select-none">
         <div className="px-3 mb-8">
@@ -263,7 +251,7 @@ export default function CustomerLayout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto mt-16 md:mt-0">
+      <main className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto px-4 py-6 md:px-10 md:py-8">
           <Outlet />
         </div>

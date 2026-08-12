@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 interface Step {
@@ -37,6 +38,7 @@ const PRODUCTION_STEPS: Step[] = [
 
 export default function AboutEyeglaze() {
   const [activeStep, setActiveStep] = useState(0);
+  const navigate = useNavigate();
 
   const stats = [
     { label: 'Optics Accuracy', value: '100%' },
@@ -47,10 +49,22 @@ export default function AboutEyeglaze() {
 
   return (
     <div className="space-y-8 text-white min-h-screen pb-12">
-      <SEO 
+      <SEO
         title="About EyeGlaze | Digital Laboratory & Craftsmanship"
         description="Discover the technology behind EyeGlaze. Learn about our direct-to-consumer frames, computerized lens cutting, and quality control."
       />
+
+      {/* Mobile-only Back to Profile */}
+      <button
+        type="button"
+        onClick={() => navigate('/profile')}
+        className="md:hidden inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4A04D] font-bold transition-colors cursor-pointer bg-transparent border-none p-0"
+      >
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span>Back to Profile</span>
+      </button>
 
       {/* Header */}
       <div className="flex flex-col gap-2">

@@ -6,6 +6,7 @@ export interface ICategory extends Document {
   code: string; // Auto-generated or user supplied
   icon?: string;
   bannerImage?: string;
+  bannerImageEnabled?: boolean;
   description?: string;
   displayOrder: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Archived';
@@ -28,6 +29,7 @@ const CategorySchema = new Schema<ICategory>(
     code: { type: String, required: true, unique: true },
     icon: { type: String },
     bannerImage: { type: String },
+    bannerImageEnabled: { type: Boolean, default: false },
     description: { type: String },
     displayOrder: { type: Number, default: 0 },
     status: {

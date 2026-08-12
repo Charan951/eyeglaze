@@ -340,7 +340,10 @@ class _HomeScreenState extends State<HomeScreen> {
             } else {
               return IconButton(
                 icon: const Icon(Icons.menu, color: AppColors.white),
-                onPressed: () {},
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AccountScreen()),
+                ),
               );
             }
           },

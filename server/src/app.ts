@@ -23,6 +23,9 @@ import cashbackCampaignsRoutes from './routes/cashbackCampaigns.routes';
 import categoriesRoutes from './routes/categories.routes';
 import aiRoutes from './routes/ai.routes';
 import shapesRoutes from './routes/shapes.routes';
+import reviewsRoutes from './routes/reviews.routes';
+import settingsRoutes from './routes/settings.routes';
+import blogsRoutes from './routes/blogs.routes';
 
 
 import adminProductsRoutes from './routes/admin/products.routes';
@@ -43,6 +46,9 @@ import adminCouponsRoutes from './routes/admin/coupons.routes';
 import reelsRoutes from './routes/reels.routes';
 import adminReelsRoutes from './routes/admin/reels.routes';
 import adminShapesRoutes from './routes/admin/shapes.routes';
+import adminReviewsRoutes from './routes/admin/reviews.routes';
+import adminSettingsRoutes from './routes/admin/settings.routes';
+import adminBlogsRoutes from './routes/admin/blogs.routes';
 
 dotenv.config();
 
@@ -170,6 +176,9 @@ app.use('/api/prescriptions', requireAuth, prescriptionsRoutes);
 app.use('/api/coupons', optionalAuth, couponsRoutes);
 app.use('/api/wishlist', requireAuth, wishlistRoutes);
 app.use('/api/tickets', requireAuth, ticketsRoutes);
+app.use('/api/reviews', requireAuth, reviewsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/blogs', blogsRoutes);
 app.use('/api/upload', requireAdmin(), adminUploadRoutes);
 
 import {
@@ -201,6 +210,9 @@ adminRouter.use('/lens-types', adminLensTypesRoutes);
 adminRouter.use('/lenses', adminLensesRoutes);
 adminRouter.use('/coupons', adminCouponsRoutes);
 adminRouter.use('/shapes', adminShapesRoutes);
+adminRouter.use('/reviews', adminReviewsRoutes);
+adminRouter.use('/settings', adminSettingsRoutes);
+adminRouter.use('/blogs', adminBlogsRoutes);
 
 // Kids Age Groups (Support both hyphens & underscores)
 adminRouter.get('/kids-age-groups', getAdminKidsAgeGroups);

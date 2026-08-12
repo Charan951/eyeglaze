@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -23,6 +24,7 @@ interface Card {
 
 export default function WalletPage() {
   const { user, checkAuth } = useAuth();
+  const navigate = useNavigate();
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
@@ -73,11 +75,22 @@ export default function WalletPage() {
       <SEO robots="noindex, nofollow" title="My Wallet" />
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2">My Wallet</h1>
-        <p className="text-gray-500 text-sm">
-          View your balance, add funds, and monitor recent transactions.
-        </p>
+      <div className="flex items-center gap-2.5 border-b border-[#2A2A2D] pb-4">
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+          title="Back to Profile"
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-0.5">My Wallet</h1>
+          <p className="text-gray-500 text-xs">
+            View your balance, add funds, and monitor recent transactions.
+          </p>
+        </div>
       </div>
 
       <div className="max-w-4xl grid grid-cols-1 md:grid-cols-12 gap-8 items-start">

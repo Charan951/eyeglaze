@@ -9,13 +9,13 @@ class AppConfig {
       return 'https://api.eyeglaze.in/api';
     }
     if (kIsWeb) {
-      return 'http://localhost:5000/api';
+      return 'http://localhost:5001/api';
     }
     if (Platform.isAndroid) {
-      // Since we run 'adb reverse tcp:5000 tcp:5000', physical devices and emulators can access localhost (127.0.0.1) directly.
-      return 'http://127.0.0.1:5000/api';
+      // Since we run 'adb reverse tcp:5001 tcp:5001', physical devices and emulators can access localhost (127.0.0.1) directly.
+      return 'http://127.0.0.1:5001/api';
     }
-    return 'http://localhost:5000/api';
+    return 'http://localhost:5001/api';
   }
 
   static String resolveImageUrl(String url) {

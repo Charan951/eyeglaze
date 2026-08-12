@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import AddToCartButton from '../components/AddToCartButton';
 import { useAuth } from '../context/AuthContext';
@@ -20,12 +20,25 @@ interface WishlistItem {
 export default function WishlistPage() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toggleWishlist } = useAuth();
+  const { user, wishlist, toggleWishlist } = useAuth();
+  const navigate = useNavigate();
 
   const fetchWishlist = async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/wishlist');
-      setWishlistItems(res.data?.wishlist || []);
+      if (user) {
+        const res = await api.get('/wishlist');
+        setWishlistItems(res.data?.wishlist || []);
+      } else {
+        // Guests keep their wishlist as a list of product IDs in localStorage
+        // (see AuthContext) — look each one up to render full product cards.
+        const results = await Promise.all(
+          wishlist.map((id) =>
+            api.get(`/products/${id}`).then((res) => res.data?.product).catch(() => null)
+          )
+        );
+        setWishlistItems(results.filter(Boolean));
+      }
     } catch (error) {
       console.error('Failed to fetch wishlist:', error);
     } finally {
@@ -35,7 +48,8 @@ export default function WishlistPage() {
 
   useEffect(() => {
     fetchWishlist();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, wishlist.length]);
 
   const handleRemove = async (productId: string) => {
     // Optimistically update local list
@@ -69,9 +83,20 @@ export default function WishlistPage() {
   return (
     <div className="space-y-8 pb-12">
       <SEO robots="noindex, nofollow" title="My Wishlist" />
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2 uppercase tracking-wide">My Wishlist</h1>
-        <p className="text-gray-500 text-sm">You have saved {wishlistItems.length} frame{wishlistItems.length !== 1 ? 's' : ''}.</p>
+      <div className="flex items-center gap-2.5 border-b border-[#2A2A2D] pb-4">
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+          title="Back to Profile"
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-0.5 uppercase tracking-wide">My Wishlist</h1>
+          <p className="text-gray-500 text-xs">You have saved {wishlistItems.length} frame{wishlistItems.length !== 1 ? 's' : ''}.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

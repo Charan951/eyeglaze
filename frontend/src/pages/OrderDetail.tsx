@@ -19,6 +19,9 @@ interface IOrderItem {
   lensSubType?: string;
   power?: {
     name?: string;
+    phone?: string;
+    prescriptionName?: string;
+    prescriptionPhone?: string;
     uploadLater?: boolean;
     uploadedFileUrl?: string;
     RE?: { sph?: number; cyl?: number; axis?: number };
@@ -85,7 +88,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     const handleOrderUpdate = (data: any) => {
-      if (data?.order?._id === id || data?.order?.orderId === id || data?.id === id) {
+      if (!data || !data.order || data.order._id === id || data.order.orderId === id || data.order.orderNumber === id || data.id === id) {
         fetchOrder();
       }
     };
@@ -379,6 +382,14 @@ export default function OrderDetailPage() {
                         {item.power.pd && (
                           <div className="text-[#A7A7A7] text-xs pt-2 border-t border-[#2D2D30]/30">
                             Pupillary Distance (PD): <span className="text-white font-medium">{item.power.pd}mm</span>
+                          </div>
+                        )}
+                        {(item.power.prescriptionName || item.power.name || item.power.prescriptionPhone || item.power.phone) && (
+                          <div className="text-xs pt-2 border-t border-[#2D2D30]/30 flex flex-wrap justify-between items-center gap-1">
+                            <span className="text-gray-400">Prescription For: <strong className="text-white">{item.power.prescriptionName || item.power.name}</strong></span>
+                            {(item.power.prescriptionPhone || item.power.phone) && (
+                              <span className="text-[#D4A04D] font-mono text-[11px]">📞 {item.power.prescriptionPhone || item.power.phone}</span>
+                            )}
                           </div>
                         )}
                       </div>

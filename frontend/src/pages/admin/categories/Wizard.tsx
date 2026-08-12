@@ -13,9 +13,14 @@ const categoryFormSchema = z.object({
   code: z.string().min(2, 'Code must be at least 2 characters'),
   icon: z.string().optional(),
   bannerImage: z.string().optional(),
+  bannerImageEnabled: z.boolean().default(false),
   description: z.string().optional(),
-  displayOrder: z.number().default(0),
-  startingPrice: z.number().optional(),
+  displayOrder: z.preprocess((v) => (typeof v === 'number' && isNaN(v) ? 0 : v), z.number().default(0)),
+  // Empty/disabled number inputs parse to NaN via valueAsNumber — treat that
+  // the same as "not provided" instead of failing validation with a cryptic
+  // "expected number, received NaN" error.
+  startingPrice: z.preprocess((v) => (typeof v === 'number' && isNaN(v) ? undefined : v), z.number().optional()),
+  startingPriceEnabled: z.boolean().default(false),
   status: z.enum(['Draft', 'Active', 'Inactive', 'Archived']).default('Active'),
 
   // Hierarchy references
@@ -60,7 +65,7 @@ const categoryFormSchema = z.object({
   // Main Category custom layout settings
   subCategoryShape: z.enum(['square', 'circle', 'rectangle']).default('square'),
   subCategorySize: z.enum(['small', 'medium', 'large']).default('medium'),
-  subCategoryColumns: z.number().min(2).max(6).default(4),
+  subCategoryColumns: z.preprocess((v) => (typeof v === 'number' && isNaN(v) ? 4 : v), z.number().min(2).max(6).default(4)),
 }).refine((data) => {
   if (data.type === 'SubCategory' && !data.categoryId) return false;
   if (data.type === 'SubSubCategory' && (!data.categoryId || !data.subCategoryId)) return false;
@@ -99,8 +104,10 @@ export default function CategoryWizard() {
       code: '',
       icon: '👓',
       bannerImage: '',
+      bannerImageEnabled: false,
       description: '',
       displayOrder: 0,
+      startingPriceEnabled: false,
       status: 'Active',
       genders: ['Unisex'],
       ageGroups: ['18-25', '26-35'],
@@ -258,6 +265,7 @@ export default function CategoryWizard() {
   const isSubCategory = paramType ? (paramType === 'SubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') : (formValues.type === 'SubCategory' || formValues.type === 'SubSubCategory' || formValues.type === 'SubSubSubCategory');
   const isSubSubCategory = paramType ? (paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') : (formValues.type === 'SubSubCategory' || formValues.type === 'SubSubSubCategory');
   const isSubSubSubCategory = paramType ? paramType === 'SubSubSubCategory' : formValues.type === 'SubSubSubCategory';
+  const isExactSubCategory = paramType ? paramType === 'SubCategory' : formValues.type === 'SubCategory';
 
   // Auto-generate code & slug from Category name
   const nameValue = watch('name');
@@ -289,9 +297,11 @@ export default function CategoryWizard() {
             code: category.code || '',
             icon: category.icon || '',
             bannerImage: category.bannerImage || '',
+            bannerImageEnabled: category.bannerImageEnabled ?? !!category.bannerImage,
             description: category.description || '',
             displayOrder: category.displayOrder || 0,
             startingPrice: category.startingPrice ?? 999,
+            startingPriceEnabled: category.startingPriceEnabled ?? (category.startingPrice != null),
             status: category.status || 'Active',
             categoryId: (category.categoryId && typeof category.categoryId === 'object' ? category.categoryId._id : category.categoryId) || '',
             subCategoryId: (category.subCategoryId && typeof category.subCategoryId === 'object' ? category.subCategoryId._id : category.subCategoryId) || '',
@@ -371,6 +381,28 @@ export default function CategoryWizard() {
 
 
 
+  // Field names -> human-readable labels, so the "missing required field" toast
+  // actually tells the admin what to fix instead of silently doing nothing.
+  const fieldLabels: Record<string, string> = {
+    name: 'Category Name',
+    slug: 'Slug',
+    categoryId: 'Parent Category',
+    subCategoryId: 'Parent Sub-Category',
+    subSubCategoryId: 'Parent Sub-Sub-Category',
+  };
+
+  const onInvalid = (formErrors: typeof errors) => {
+    const messages = Object.entries(formErrors)
+      .map(([key, err]: [string, any]) => err?.message || (fieldLabels[key] ? `${fieldLabels[key]} is required` : null))
+      .filter(Boolean);
+    showToast(
+      messages.length > 0
+        ? `Please fix: ${messages.join(', ')}`
+        : 'Please fill in all required fields before publishing.',
+      'error'
+    );
+  };
+
   const onSubmit = async (data: CategoryFormData) => {
     setIsSaving(true);
     try {
@@ -380,13 +412,15 @@ export default function CategoryWizard() {
           name: data.name,
           code: data.code,
           icon: data.icon,
-          bannerImage: data.bannerImage,
+          bannerImage: data.bannerImageEnabled ? data.bannerImage : '',
+          bannerImageEnabled: data.bannerImageEnabled,
           description: data.description,
           displayOrder: data.displayOrder,
-          startingPrice: data.startingPrice,
+          startingPrice: data.startingPriceEnabled ? data.startingPrice : undefined,
+          startingPriceEnabled: data.startingPriceEnabled,
           status: data.status,
           slug: data.slug,
-          showInNavbar: (data.type === 'Category' || paramType === 'Category') ? data.showInNavbar : undefined,
+          showInNavbar: (data.type === 'Category' || data.type === 'SubCategory' || paramType === 'Category' || paramType === 'SubCategory') ? data.showInNavbar : undefined,
           linkTo: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory') ? data.linkTo : undefined,
           gender: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory') ? data.gender : undefined,
           shapeModal: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.shapeModal : undefined,
@@ -425,7 +459,7 @@ export default function CategoryWizard() {
           keywords: '',
           canonicalUrl: '',
           slug: data.slug,
-          ogImage: data.bannerImage || '',
+          ogImage: (data.bannerImageEnabled ? data.bannerImage : '') || '',
         },
       };
 
@@ -449,8 +483,17 @@ export default function CategoryWizard() {
     <div className="min-h-screen bg-[#0B0B0C] text-[#F2F2F2] flex flex-col pb-24 select-none">
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl border text-sm font-bold animate-slide-in ${toast.type === 'success' ? 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20' : 'bg-[#FF4444]/10 text-[#FF4444] border-[#FF4444]/20'}`}>
-          {toast.type === 'success' ? '✓ ' : '✕ '} {toast.message}
+        <div
+          className={`fixed top-20 right-6 z-[60] max-w-md px-5 py-4 rounded-xl shadow-2xl border-2 text-sm font-bold flex items-start gap-2.5 animate-slide-in ${
+            toast.type === 'success'
+              ? 'bg-[#0F2A16] text-[#6FE896] border-[#2FA84F]'
+              : 'bg-[#3A0E0E] text-white border-[#FF5252]'
+          }`}
+        >
+          <span className={`text-base leading-none shrink-0 ${toast.type === 'success' ? 'text-[#6FE896]' : 'text-[#FF6B6B]'}`}>
+            {toast.type === 'success' ? '✓' : '✕'}
+          </span>
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -475,7 +518,7 @@ export default function CategoryWizard() {
           </button>
           <button
             type="button"
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleSubmit(onSubmit, onInvalid)}
             disabled={isSaving}
             className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg disabled:opacity-50 border-none cursor-pointer"
           >
@@ -489,7 +532,7 @@ export default function CategoryWizard() {
         
         {/* Left Side: Form Editor */}
         <div className="lg:col-span-8 space-y-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
             
             {/* Primary Details Card */}
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-6">
@@ -586,46 +629,66 @@ export default function CategoryWizard() {
               {/* Banner Image Upload (Hidden for SubSubSubCategory) */}
               {!isSubSubSubCategory && (
                 <div>
-                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5 font-semibold">Banner Image</label>
-                  {formValues.bannerImage ? (
-                    <div className="flex items-center gap-4 bg-[#0B0B0C] border border-[#2A2A2D] p-3 rounded-xl">
-                      <img
-                        src={formValues.bannerImage}
-                        alt="Banner Preview"
-                        className="w-20 h-10 object-cover rounded border border-[#2A2A2D]"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-white truncate font-mono">{formValues.bannerImage}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setValue('bannerImage', '')}
-                        className="text-red-400 hover:text-red-300 text-xs font-bold uppercase bg-transparent border-none cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider font-semibold">Banner Image</label>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
                       <input
-                        type="file"
-                        accept="image/*"
-                        id="bannerImageUpload"
-                        onChange={handleImageUpload}
-                        disabled={uploadingBanner}
-                        className="hidden"
+                        type="checkbox"
+                        {...register('bannerImageEnabled')}
+                        onChange={(e) => {
+                          setValue('bannerImageEnabled', e.target.checked);
+                          if (!e.target.checked) setValue('bannerImage', '');
+                        }}
+                        className="sr-only peer"
                       />
-                      <label
-                        htmlFor="bannerImageUpload"
-                        className="flex flex-col items-center justify-center border-2 border-dashed border-[#2A2A2D] hover:border-[#D4A04D]/60 rounded-xl p-6 cursor-pointer bg-[#0B0B0C]/40 transition-colors"
-                      >
-                        <span className="text-xl mb-1">📤</span>
-                        <span className="text-xs font-bold text-gray-400">
-                          {uploadingBanner ? 'Uploading image...' : 'Click to upload category banner'}
-                        </span>
-                        <span className="text-[9px] text-gray-600 mt-1">PNG, JPG, WEBP up to 5MB</span>
-                      </label>
-                    </div>
+                      <div className="w-9 h-5 bg-zinc-800 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-gray-400 peer-checked:after:bg-[#D4A04D] after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#D4A04D]/10 peer-checked:border-[#D4A04D]/35 border border-zinc-700"></div>
+                    </label>
+                  </div>
+                  {formValues.bannerImageEnabled ? (
+                    formValues.bannerImage ? (
+                      <div className="flex items-center gap-4 bg-[#0B0B0C] border border-[#2A2A2D] p-3 rounded-xl">
+                        <img
+                          src={formValues.bannerImage}
+                          alt="Banner Preview"
+                          className="w-20 h-10 object-cover rounded border border-[#2A2A2D]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-white truncate font-mono">{formValues.bannerImage}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setValue('bannerImage', '')}
+                          className="text-red-400 hover:text-red-300 text-xs font-bold uppercase bg-transparent border-none cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id="bannerImageUpload"
+                          onChange={handleImageUpload}
+                          disabled={uploadingBanner}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="bannerImageUpload"
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-[#2A2A2D] hover:border-[#D4A04D]/60 rounded-xl p-6 cursor-pointer bg-[#0B0B0C]/40 transition-colors"
+                        >
+                          <span className="text-xl mb-1">📤</span>
+                          <span className="text-xs font-bold text-gray-400">
+                            {uploadingBanner ? 'Uploading image...' : 'Click to upload category banner'}
+                          </span>
+                          <span className="text-[9px] text-gray-600 mt-1">PNG, JPG, WEBP up to 5MB</span>
+                        </label>
+                      </div>
+                    )
+                  ) : (
+                    <p className="text-[10px] text-[#A7A7A7] bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3">
+                      Turn on the toggle to upload a banner image for this segment.
+                    </p>
                   )}
                 </div>
               )}
@@ -643,12 +706,23 @@ export default function CategoryWizard() {
 
                 {!isSubSubSubCategory && (
                   <div>
-                    <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Starting Price (₹)</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider">Starting Price (₹)</label>
+                      <label className="relative inline-flex items-center cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          {...register('startingPriceEnabled')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-zinc-800 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-gray-400 peer-checked:after:bg-[#D4A04D] after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#D4A04D]/10 peer-checked:border-[#D4A04D]/35 border border-zinc-700"></div>
+                      </label>
+                    </div>
                     <input
                       type="number"
                       {...register('startingPrice', { valueAsNumber: true })}
                       placeholder="999"
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                      disabled={!formValues.startingPriceEnabled}
+                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                     />
                   </div>
                 )}
@@ -810,6 +884,24 @@ export default function CategoryWizard() {
                       </div>
                     )}
                   </div>
+
+                  {/* Show in Nav Bar Toggle (Sub-Category only) */}
+                  {isExactSubCategory && (
+                    <div className="flex items-center justify-between bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-white text-xs font-bold uppercase tracking-wider block">Show in Navigation Bar</label>
+                        <p className="text-[10px] text-[#A7A7A7]">Toggle whether this sub-category appears as a column in the header mega menu. It will still show on the category page and grid regardless of this setting.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                        <input
+                          type="checkbox"
+                          {...register('showInNavbar')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-800 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-gray-400 peer-checked:after:bg-[#D4A04D] after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4A04D]/10 peer-checked:border-[#D4A04D]/35 border border-zinc-700"></div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -902,7 +994,7 @@ export default function CategoryWizard() {
 
             {/* Banner Section Mock */}
             <div className="relative aspect-[16/7] bg-[#18181A] flex items-center justify-center overflow-hidden border-b border-[#2A2A2D]/85">
-              {formValues.bannerImage ? (
+              {formValues.bannerImageEnabled && formValues.bannerImage ? (
                 <img
                   src={formValues.bannerImage}
                   alt="Category Banner Preview"

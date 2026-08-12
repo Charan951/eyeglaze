@@ -1224,43 +1224,34 @@ export default function LandingPage() {
                       <BannerSlider items={mobileTopBanners} objectFit="object-cover" />
                     </div>
                   )}
-                  <h3 className="text-[10px] font-black text-white tracking-widest uppercase">{cat.name}</h3>
-                  <div 
-                    className="grid gap-2 mx-auto w-full justify-center"
+                  <h3 className="text-xs font-black text-white tracking-widest uppercase">{cat.name}</h3>
+                  <div
+                    className="grid gap-2.5 mx-auto w-full justify-center"
                     style={{
                       gridTemplateColumns: `repeat(${cat.subCategoryColumns || (subOptions.length === 3 ? 3 : 4)}, minmax(0, 1fr))`
                     }}
                   >
                     {subOptions.map((item, idx) => (
-                      <Link 
-                        key={idx} 
+                      <Link
+                        key={idx}
                         to={item.to}
                         onClick={(e) => handleSubOptionClick(e, item, cat)}
-                        className={`relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 overflow-hidden group shadow-md flex flex-col justify-end
-                          ${cat.subCategoryShape === 'circle' ? 'rounded-full aspect-square' : cat.subCategoryShape === 'rectangle' ? 'rounded-xl aspect-[4/3]' : 'rounded-xl aspect-square'}
-                        `}
+                        className="flex flex-col items-center gap-1.5 group"
                       >
-                        <img 
-                          src={item.img} 
-                          alt={item.label} 
-                          className="absolute inset-0 w-full h-full object-contain p-2 pb-10 object-center transition-transform duration-300 group-hover:scale-103"
-                        />
-                        
-                        <div className={`relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center text-center justify-center
-                          ${cat.subCategoryShape === 'circle' ? 'pt-4 pb-4 px-2' : 'pt-6 pb-2 px-1.5'}
+                        <div className={`relative w-full bg-[#111112] border border-zinc-800/80 overflow-hidden shadow-md
+                          ${cat.subCategoryShape === 'rectangle' ? 'rounded-xl aspect-[4/3]' : 'rounded-full aspect-square'}
                         `}>
-                          <span className={`font-black text-white uppercase tracking-wider leading-none
-                            ${cat.subCategorySize === 'small' ? 'text-[6px]' : cat.subCategorySize === 'large' ? 'text-[10px]' : 'text-[8px]'}
-                          `}>
-                            {item.label}
-                          </span>
-                          <span className={`text-[#D4A04D] font-bold uppercase tracking-widest flex items-center justify-center gap-0.5
-                            ${cat.subCategorySize === 'small' ? 'text-[5px] mt-0.5' : cat.subCategorySize === 'large' ? 'text-[8px] mt-1.5' : 'text-[6px] mt-1'}
-                          `}>
-                            <span>Shop Now</span>
-                            <span>→</span>
-                          </span>
+                          <img
+                            src={item.img}
+                            alt={item.label}
+                            className="absolute inset-0 w-full h-full object-contain p-2.5 object-center transition-transform duration-300 group-hover:scale-105"
+                          />
                         </div>
+                        <span className={`font-bold text-white text-center leading-tight
+                          ${cat.subCategorySize === 'small' ? 'text-[9px]' : cat.subCategorySize === 'large' ? 'text-xs' : 'text-[10px]'}
+                        `}>
+                          {item.label}
+                        </span>
                       </Link>
                     ))}
                   </div>
@@ -1279,12 +1270,12 @@ export default function LandingPage() {
                     {/* Card 1 - Special Promo Full Width */}
                     <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 flex items-center justify-between min-h-[110px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
                       <div className="flex flex-col gap-1 max-w-[60%] z-10">
-                        <span className="text-white text-[7px] font-bold tracking-widest uppercase">Special Promo</span>
-                        <h3 className="text-[#D4A04D] text-xs font-extrabold leading-none">UP TO 50% OFF</h3>
-                        <p className="text-gray-400 text-[8px] font-semibold leading-tight line-clamp-1">On Selected Sunglasses</p>
-                        <button 
+                        <span className="text-white text-[9px] font-bold tracking-widest uppercase">Special Promo</span>
+                        <h3 className="text-[#D4A04D] text-sm font-extrabold leading-none">UP TO 50% OFF</h3>
+                        <p className="text-gray-400 text-[10px] font-semibold leading-tight line-clamp-1">On Selected Sunglasses</p>
+                        <button
                           onClick={() => navigate('/products?category=sunglasses')}
-                          className="mt-1.5 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] font-bold uppercase py-1 px-2.5 rounded transition-all duration-300 cursor-pointer"
+                          className="mt-1.5 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[9px] font-bold uppercase py-1 px-2.5 rounded transition-all duration-300 cursor-pointer"
                         >
                           SHOP NOW
                         </button>

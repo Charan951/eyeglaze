@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
@@ -16,6 +17,7 @@ interface SupportTicket {
 }
 
 export default function SupportContact() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,26 +127,36 @@ export default function SupportContact() {
       />
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2">Contact Support</h1>
-        <p className="text-gray-500 text-sm">
-          Get in touch with our certified optometrist panel or general helpline. Choose a channel below or submit an inquiry ticket.
-        </p>
+      <div className="flex items-center gap-2.5 border-b border-[#2A2A2D] pb-4">
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+          title="Back to Profile"
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-0.5">Contact Support</h1>
+          <p className="text-gray-400 text-xs">
+            Get in touch with our certified optometrist panel or submit an inquiry ticket.
+          </p>
+        </div>
       </div>
 
-      {/* Contact Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* WhatsApp Card */}
-        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 flex flex-col justify-between hover:border-green-500/40 transition-colors group">
-          <div className="space-y-3">
+      {/* Contact Channels (WhatsApp Support) */}
+      <div className="w-full">
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-green-500/40 transition-colors group">
+          <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <span className="text-2xl w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center">💬</span>
+              <span className="text-xl w-9 h-9 bg-green-500/10 rounded-xl flex items-center justify-center">💬</span>
               <div>
                 <h3 className="text-sm font-bold">WhatsApp Support</h3>
                 <span className="text-green-500 text-[10px] uppercase tracking-wider font-semibold">Fast Response</span>
               </div>
             </div>
-            <p className="text-gray-400 text-xs leading-relaxed">
+            <p className="text-gray-400 text-xs leading-relaxed mt-2 sm:mt-1">
               Message our prescription review panel for swift advice on cylinder, axis, and power readings.
             </p>
           </div>
@@ -152,62 +164,9 @@ export default function SupportContact() {
             href="https://wa.me/919876543210?text=Hi%20EyeGlaze%20optics%20support%20team,%20I%20have%20a%20question%20regarding%20my%20prescription%20order."
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 w-full text-center bg-green-600 hover:bg-green-500 text-white font-extrabold text-[10px] uppercase py-2.5 rounded-xl transition-colors tracking-wider cursor-pointer"
+            className="w-full sm:w-auto shrink-0 text-center bg-green-600 hover:bg-green-500 text-white font-extrabold text-xs uppercase px-6 py-2.5 rounded-xl transition-colors tracking-wider cursor-pointer shadow-md"
           >
             Open WhatsApp Chat
-          </a>
-        </div>
-
-        {/* Email Card */}
-        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 flex flex-col justify-between hover:border-blue-500/40 transition-colors group">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">✉️</span>
-              <div>
-                <h3 className="text-sm font-bold">Email Desk</h3>
-                <span className="text-blue-400 text-[10px] uppercase tracking-wider font-semibold">Response under 12 Hrs</span>
-              </div>
-            </div>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Email us raw scans of prescription slips, customize request alterations, or send general feedback.
-            </p>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <a
-              href="mailto:support@eyeglaze.com"
-              className="flex-1 text-center bg-[#252528] hover:bg-[#2F2F32] border border-[#3A3A3D] text-white font-extrabold text-[10px] uppercase py-2.5 rounded-xl transition-colors tracking-wider cursor-pointer"
-            >
-              Compose Mail
-            </a>
-            <button
-              onClick={handleCopyEmail}
-              className="px-3 bg-blue-600/10 border border-blue-500/20 text-blue-400 hover:bg-blue-600/20 text-xs rounded-xl transition-colors cursor-pointer"
-              title="Copy Email Address"
-            >
-              {showCopied ? 'Copied! ✓' : '📋'}
-            </button>
-          </div>
-        </div>
-
-        {/* Helpline Card */}
-        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-5 flex flex-col justify-between hover:border-[#D4A04D]/40 transition-colors group">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl w-10 h-10 bg-[#D4A04D]/10 rounded-xl flex items-center justify-center">📞</span>
-              <div>
-                <h3 className="text-sm font-bold">Toll-Free Helpline</h3>
-                <span className="text-[#D4A04D] text-[10px] uppercase tracking-wider font-semibold">10 AM - 7 PM (Mon-Sat)</span>
-              </div>
-            </div>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Call our Central Optical Laboratory in Gurugram for urgent issues related to delivery dispatch.
-            </p>
-          </div>
-          <a
-            href="tel:18004195888"
-            className="mt-4 w-full text-center bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase py-2.5 rounded-xl transition-colors tracking-wider cursor-pointer"
-          >
-            Call 1800-419-5888
           </a>
         </div>
       </div>

@@ -110,11 +110,13 @@ export default function InventoryPage() {
     fetchInventory();
 
     socket.on('product_changed', fetchInventory);
+    socket.on('inventory_changed', fetchInventory);
     socket.on('order_changed', fetchInventory);
 
     return () => {
       active = false;
       socket.off('product_changed', fetchInventory);
+      socket.off('inventory_changed', fetchInventory);
       socket.off('order_changed', fetchInventory);
     };
   }, []);

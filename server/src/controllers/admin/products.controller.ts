@@ -55,6 +55,7 @@ export async function getAdminProducts(req: Request, res: Response) {
       ];
     }
     if (category) query.category = category;
+    if (req.query.isLensSolution !== undefined) query.isLensSolution = req.query.isLensSolution === 'true';
 
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([

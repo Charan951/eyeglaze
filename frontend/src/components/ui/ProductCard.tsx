@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import StarRating from './StarRating';
+import { useAuth } from '../../context/AuthContext';
 
 interface ProductCardProps {
   product: {
@@ -29,27 +31,44 @@ interface ProductCardProps {
     }>;
     availableSizes?: Array<string>;
     offerBadges?: Array<string>;
+    category?: string;
+    subCategory?: string;
+    subSubCategory?: string;
   };
   layout?: 'grid' | 'horizontal';
 }
 
 export default function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
+  const { wishlist, toggleWishlist } = useAuth();
+  const isWishlisted = wishlist.includes(product._id);
+
   const discount = Math.round(
     ((product.price.original - product.price.selling) / product.price.original) * 100
+  );
+
+  const isFrameProduct = !/contact|lens/i.test(
+    `${product.category || ''} ${product.subCategory || ''} ${product.subSubCategory || ''}`
   );
 
   const isRow = layout === 'horizontal';
 
   return (
     <Link to={`/products/${product._id}`} className="block group">
-      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-none overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col w-full'}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        whileHover={{ y: -5 }}
+        whileTap={{ scale: 0.98 }}
+        className={`bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)] transition-[border-color,box-shadow] duration-300 flex ${isRow ? 'flex-row' : 'flex-col w-full'} shadow-lg`}>
         {/* Image wrapper */}
-        <div className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-square w-full border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
+        <div className={`relative ${isRow ? 'w-[42%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-[4/3] w-full border-b border-[#2A2A2D]/40'} bg-[#161618] flex items-center justify-center overflow-hidden`}>
           {product.images?.[0] ? (
             <img 
               src={product.images[0]} 
               alt={product.name} 
-              className="w-full h-full object-contain p-6 group-hover:scale-105 transition-transform duration-500" 
+              className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500" 
             />
           ) : (
             <div className="text-[#444] text-center py-6">
@@ -58,117 +77,115 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
             </div>
           )}
           
-          {/* Badge Overlay */}
-          <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+          {/* Top-left Rating Badge (Image 15) */}
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 z-10">
+            {product.rating !== undefined ? (
+              <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1">
+                <span className="text-[#D4A04D]">★</span> {product.rating}
+              </span>
+            ) : (
+              <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1">
+                <span className="text-[#D4A04D]">★</span> 4.8
+              </span>
+            )}
+
             {product.isBestseller && (
-              <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md tracking-wider uppercase">
-                ★ Bestseller
+              <span className="bg-[#00BBA6] text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                POWERED
               </span>
             )}
-            {product.isPremium && (
-              <span className="bg-black/90 border border-[#D4A04D]/60 text-[#D4A04D] text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md tracking-widest uppercase">
-                ✦ Premium
-              </span>
-            )}
-            {product.offerBadges?.map((badge, idx) => (
-              <span key={idx} className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded shadow-md tracking-wider uppercase">
-                {badge}
-              </span>
-            ))}
           </div>
 
-          {/* Discount Overlay */}
-          {discount > 0 && (
-            <span className="absolute top-2 right-2 bg-black border border-zinc-800 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-md uppercase tracking-wider">
-              {discount}% OFF
+          {/* Top-right Wishlist Heart Button */}
+          <motion.button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleWishlist(product._id);
+            }}
+            whileTap={{ scale: 0.75 }}
+            animate={isWishlisted ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+            transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
+            className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center transition-colors z-10 ${
+              isWishlisted ? 'text-red-500' : 'text-gray-300 hover:text-red-400'
+            }`}
+            title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+          >
+            <svg width="14" height="14" fill={isWishlisted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </motion.button>
+
+          {/* Bottom Image Overlay: View Similar & Color Dots (Image 15) */}
+          <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
+            <span className="bg-black/80 backdrop-blur-md text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-md border border-white/10 flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              View Similar
             </span>
-          )}
 
-        </div>
-
-        {/* Info */}
-        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-4' : 'p-3.5'}`}>
-          <div className="space-y-1">
-            {/* Top row: Brand & Price */}
-            <div className="flex justify-between items-start gap-2">
-              {/* Brand Header */}
-              <div className="text-[#D4A04D] text-[9px] font-extrabold uppercase tracking-widest truncate">
-                {product.brand || 'EyeGlaze'}
-              </div>
-              
-              {/* Price Section */}
-              <div className="flex items-baseline gap-1 shrink-0">
-                {product.memberPrice && (
-                  <span className="text-[#D4A04D] font-black text-xs md:text-sm">₹{product.memberPrice} <span className="text-[#A7A7A7] text-[6px]">(Member)</span></span>
-                )}
-                {product.nonMemberPrice && (
-                  <span className="text-white font-black text-xs md:text-sm">₹{product.nonMemberPrice} <span className="text-[#A7A7A7] text-[6px]">(Non-Member)</span></span>
-                )}
-                {!product.memberPrice && !product.nonMemberPrice && (
-                  <>
-                    <span className="text-white font-black text-xs md:text-sm">₹{product.price.selling}</span>
-                    {product.price.original > product.price.selling && (
-                      <span className="text-[#A7A7A7] text-[9px] line-through font-medium">₹{product.price.original}</span>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Product Title */}
-            <div className="block">
-              <div className="text-[#F2F2F2] font-extrabold text-xs md:text-sm line-clamp-1 group-hover:text-[#D4A04D] transition-colors mt-0.5">
-                {product.name}
-              </div>
-            </div>
-
-            {/* Meta Tags (Shape/Type/Size) */}
-            <div className="flex gap-1 flex-wrap text-[8px] font-semibold text-[#A7A7A7] leading-none pt-0.5">
-              {product.shape && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase truncate max-w-[65px]">
-                  {Array.isArray(product.shape) ? product.shape[0] : product.shape}
-                </span>
-              )}
-              {product.frameType && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase truncate max-w-[65px]">
-                  {product.frameType}
-                </span>
-              )}
-              {product.frameSize && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase">
-                  {product.frameSize}
-                </span>
-              )}
-            </div>
-
-            {/* Colors Swatches */}
+            {/* Colors dots (dynamic, from product's own colors) */}
             {product.colors && product.colors.length > 0 && (
-              <div className="flex gap-1 items-center h-4 pt-0.5">
-                {product.colors.slice(0, 4).map((col, idx) => (
-                  <div 
-                    key={idx} 
-                    title={col.name}
-                    className="w-2.5 h-2.5 rounded-full border border-white/20 transition-transform duration-200 hover:scale-125 cursor-pointer shadow-sm shrink-0"
-                    style={{ backgroundColor: col.hex }}
+              <div className="flex items-center gap-1">
+                {product.colors.slice(0, 3).map((color, idx) => (
+                  <span
+                    key={idx}
+                    title={color.name}
+                    className="w-2.5 h-2.5 rounded-full border border-white/40 shadow-sm"
+                    style={{ backgroundColor: color.hex }}
                   />
                 ))}
-                {product.colors.length > 4 && (
-                  <span className="text-[#A7A7A7] text-[8px] font-bold">+{product.colors.length - 4}</span>
+                {product.colors.length > 3 && (
+                  <span className="text-[8px] font-bold text-gray-400 bg-black/70 px-1 py-0.2 rounded">
+                    +{product.colors.length - 3}
+                  </span>
                 )}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Bottom row: Star Rating only */}
-          <div className="border-t border-[#2A2A2D]/20 pt-1.5">
-            {product.rating !== undefined && (
-              <div className="scale-90 origin-left h-4 flex items-center">
-                <StarRating rating={product.rating} reviewCount={product.reviewCount} />
+        {/* Info Content Section (Image 15) */}
+        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-3.5' : 'p-3.5'}`}>
+          <div className="space-y-2">
+            {/* Title */}
+            <div className="text-white font-extrabold text-xs md:text-sm line-clamp-2 group-hover:text-[#D4A04D] transition-colors">
+              {product.name}
+            </div>
+
+            {/* Frame Specs Pill */}
+            {isFrameProduct && (
+              <div className="flex items-center gap-1.5 flex-wrap text-[8px] font-bold">
+                <span className="bg-zinc-900 text-gray-400 border border-zinc-800 px-2 py-0.5 rounded uppercase">
+                  FRAME WIDTH 139 mm (M)
+                </span>
               </div>
             )}
+
+            {/* Price section with Free BLU lenses tag */}
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-white font-black text-sm md:text-base">₹{product.price.selling}</span>
+                  {isFrameProduct && (
+                    <span className="text-[#00BBA6] text-[9px] font-bold">with Free BLU lenses</span>
+                  )}
+                </div>
+                {product.price.original > product.price.selling && (
+                  <div className="flex items-center gap-1 text-[9px]">
+                    <span className="text-gray-500 line-through">₹{product.price.original}</span>
+                    <span className="text-blue-400 font-extrabold">({discount}% OFF)</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </Link>
   );
 }

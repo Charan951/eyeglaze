@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
 import api from '../lib/api';
+import { socket } from '../lib/socket';
 
 interface Address {
   id?: string;
@@ -20,9 +22,9 @@ interface Address {
 }
 
 export default function ProfilePage() {
-  const { user, checkAuth, logout } = useAuth();
+  const { user, checkAuth, logout, login } = useAuth();
   const navigate = useNavigate();
-  
+
   // Personal Info State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -30,6 +32,68 @@ export default function ProfilePage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+
+  // Guest "Login / Signup" bottom sheet state
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const [sheetTab, setSheetTab] = useState<'login' | 'register'>('login');
+  const [sheetName, setSheetName] = useState('');
+  const [sheetEmail, setSheetEmail] = useState('');
+  const [sheetPassword, setSheetPassword] = useState('');
+  const [sheetShowPassword, setSheetShowPassword] = useState(false);
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState('');
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+
+  // Guests tapping anything that needs an account get the login sheet
+  // instead of being bounced to a separate full-page /login route.
+  const requireLogin = (destination: string) => {
+    if (user) {
+      navigate(destination);
+      return;
+    }
+    setPendingRedirect(destination);
+    setSheetError('');
+    setSheetTab('login');
+    setShowLoginSheet(true);
+  };
+
+  const handleSheetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSheetError('');
+    setSheetLoading(true);
+    try {
+      if (sheetTab === 'register') {
+        if (!sheetName || !sheetEmail || !sheetPassword) {
+          setSheetError('All fields are required');
+          setSheetLoading(false);
+          return;
+        }
+        const res = await api.post('/auth/register', { name: sheetName, email: sheetEmail, password: sheetPassword });
+        if (res.data?.user) await login(res.data.user);
+      } else {
+        if (!sheetEmail || !sheetPassword) {
+          setSheetError('Email and password are required');
+          setSheetLoading(false);
+          return;
+        }
+        const res = await api.post('/auth/login', { email: sheetEmail, password: sheetPassword });
+        if (res.data?.user) await login(res.data.user);
+      }
+      setShowLoginSheet(false);
+      setSheetName('');
+      setSheetEmail('');
+      setSheetPassword('');
+      if (pendingRedirect) {
+        navigate(pendingRedirect);
+        setPendingRedirect(null);
+      }
+    } catch (err: any) {
+      setSheetError(err.response?.data?.error || 'Something went wrong. Please try again.');
+    } finally {
+      setSheetLoading(false);
+    }
+  };
 
   // Security & Device Sessions State
   const [sessions, setSessions] = useState<any[]>([]);
@@ -53,6 +117,21 @@ export default function ProfilePage() {
       fetchSessions();
     }
   }, [user]);
+
+  // Real-time user profile & address socket update
+  useEffect(() => {
+    const handleUserChanged = () => {
+      checkAuth();
+      if (user) fetchSessions();
+    };
+
+    socket.on('user_changed', handleUserChanged);
+    socket.on('address_changed', handleUserChanged);
+    return () => {
+      socket.off('user_changed', handleUserChanged);
+      socket.off('address_changed', handleUserChanged);
+    };
+  }, [checkAuth, user]);
 
   const handleRevokeSession = async (sessId: string) => {
     if (!window.confirm('Are you sure you want to log out this device?')) return;
@@ -352,434 +431,659 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="max-w-2xl mx-auto space-y-5 pb-16 pt-2 px-3 sm:px-6 text-white select-none">
       <SEO robots="noindex, nofollow" title="My Profile" />
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2">My Profile</h1>
-        <p className="text-gray-500 text-sm">Manage your personal settings and shipping addresses.</p>
-      </div>
 
-      <div className="max-w-4xl space-y-8">
-        
-        {/* Personal Information */}
-        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <span>👤</span> Personal Information
-          </h2>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
+      {/* ========================================== */}
+      {/* DESKTOP / WEB VIEW: Strictly Edit Profile */}
+      {/* ========================================== */}
+      <div className="hidden xl:block space-y-6">
+        {!user ? (
+          <div className="flex flex-col items-center justify-center text-center gap-4 bg-[#131314] border border-[#2A2A2D] rounded-2xl p-16 shadow-xl">
+            <div className="w-16 h-16 rounded-full border-2 border-[#D4A04D]/40 bg-[#D4A04D]/10 flex items-center justify-center text-[#D4A04D] text-2xl">👤</div>
+            <div>
+              <h2 className="text-lg font-extrabold text-white">Login or Signup to get started</h2>
+              <p className="text-gray-400 text-xs mt-1.5 max-w-sm">
+                Sign in to view your profile, track orders, and get access to exclusive deals.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 px-8 rounded-xl tracking-wider transition-colors shadow-md border-none cursor-pointer"
+            >
+              Login / Signup
+            </button>
+          </div>
+        ) : (
+        <>
+        <div className="border-b border-[#2A2A2D] pb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-white">Edit Profile</h1>
+            <p className="text-gray-400 text-xs mt-1">
+              Update your personal details, contact information, and account settings.
+            </p>
+          </div>
+          <span className="text-[#D4A04D] text-xs font-bold uppercase tracking-wider bg-[#D4A04D]/10 px-3 py-1 rounded-full border border-[#D4A04D]/25">
+            {user?.membershipActive ? 'Gold Member' : 'Regular Member'}
+          </span>
+        </div>
+
+        <div className="bg-[#131314] border border-[#2A2A2D] text-white rounded-2xl p-6 shadow-xl space-y-6">
+          <div className="flex items-center gap-4 border-b border-[#2A2A2D] pb-5">
+            <div className="w-16 h-16 rounded-full border-2 border-[#D4A04D]/50 bg-[#D4A04D]/10 flex items-center justify-center text-[#D4A04D] font-black text-2xl shrink-0">
+              {user ? (user.name ? user.name[0].toUpperCase() : 'U') : '👤'}
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-white">
+                {user?.name || 'User Account'}
+              </h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {user?.email || 'No email associated'}
+              </p>
+            </div>
+          </div>
+
+          {profileSuccess && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Profile updated successfully!</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveProfile} className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name</label>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name *</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
+                  placeholder="Enter your full name"
                 />
               </div>
+
               <div>
-                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Email Address</label>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Email Address *</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
+                  placeholder="Enter email address"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Phone Number *</label>
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
+                placeholder="Enter phone number"
+              />
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 px-8 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50 shadow-md"
+              >
+                {isSavingProfile ? 'Saving Changes...' : 'Save Profile Changes'}
+              </button>
+            </div>
+          </form>
+
+          {/* Desktop Actions */}
+          <div className="pt-5 border-t border-[#2A2A2D] flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate('/');
+              }}
+              className="bg-[#1C1C1E] hover:bg-red-500/20 text-red-400 font-bold uppercase py-2.5 px-5 rounded-xl text-xs tracking-wider transition-colors border border-red-500/30 cursor-pointer"
+            >
+              Log Out
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount}
+              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold uppercase py-2.5 px-5 rounded-xl text-xs tracking-wider transition-colors border border-red-500/30 cursor-pointer disabled:opacity-50"
+            >
+              {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+            </button>
+          </div>
+        </div>
+        </>
+        )}
+      </div>
+
+      {/* ========================================== */}
+      {/* MOBILE VIEW: Unchanged Full Dashboard View */}
+      {/* ========================================== */}
+      <div className="xl:hidden space-y-5">
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between pb-2 border-b border-[#2A2A2D]">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => navigate('/')}
+              className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+              title="Back to Home Page"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-extrabold text-white">My Profile</h1>
+          </div>
+
+          <div className="flex items-center gap-3.5">
+            <button onClick={() => navigate('/wishlist')} className="text-gray-300 hover:text-[#D4A04D] bg-transparent border-none cursor-pointer p-0 transition-colors" title="Wishlist">
+              <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+            <button onClick={() => navigate('/cart')} className="text-gray-300 hover:text-[#D4A04D] bg-transparent border-none cursor-pointer p-0 transition-colors" title="Cart">
+              <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Top Welcome Card */}
+        <div className="bg-[#131314] border border-[#2A2A2D] text-white rounded-2xl p-5 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-full border border-[#D4A04D]/40 bg-[#D4A04D]/10 flex items-center justify-center text-[#D4A04D] font-black text-lg shrink-0">
+                {user ? (user.name ? user.name[0].toUpperCase() : 'U') : '👤'}
+              </div>
               <div>
-                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Phone Number</label>
+                <h2 className="text-base font-extrabold text-white">
+                  {user ? `Hi ${user.name || 'Specsy'}!` : 'Hi Specsy!'}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5 leading-snug">
+                  {user
+                    ? user.email || 'Manage your orders, saved powers, and membership.'
+                    : 'Login or Signup to track your orders and get access to exclusive deals.'}
+                </p>
+              </div>
+            </div>
+
+            {user && (
+              <button
+                onClick={() => setIsEditProfileOpen(true)}
+                className="bg-[#D4A04D]/10 hover:bg-[#D4A04D]/20 text-[#D4A04D] border border-[#D4A04D]/30 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
+              >
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>Edit Profile</span>
+              </button>
+            )}
+          </div>
+
+          {!user ? (
+            <button
+              onClick={() => {
+                setPendingRedirect(null);
+                setSheetError('');
+                setSheetTab('login');
+                setShowLoginSheet(true);
+              }}
+              className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-xl block text-center tracking-wider transition-colors shadow-md border-none cursor-pointer"
+            >
+              Login / Signup
+            </button>
+          ) : (
+            <div className="pt-3 border-t border-[#2A2A2D] text-xs flex items-center justify-between">
+              <span className="font-semibold text-gray-400">
+                Membership Status: <strong className="text-[#D4A04D] uppercase">{user.membershipActive ? 'Gold Member' : 'Regular Member'}</strong>
+              </span>
+              <span className="text-[#D4A04D] text-[10px] font-bold uppercase tracking-wider bg-[#D4A04D]/10 px-2 py-0.5 rounded-full border border-[#D4A04D]/20">Active</span>
+            </div>
+          )}
+        </div>
+
+        {/* 3 Quick Action Cards Row */}
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => requireLogin('/orders')}
+            className="bg-[#131314] border border-[#2A2A2D] text-white rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:border-[#D4A04D]/40 transition-all group cursor-pointer"
+          >
+            <svg className="w-6 h-6 mb-1 text-[#D4A04D] group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <span className="text-xs font-extrabold text-white">Orders</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/wishlist')}
+            className="bg-[#131314] border border-[#2A2A2D] text-white rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:border-red-500/40 transition-all group cursor-pointer"
+          >
+            <svg className="w-6 h-6 mb-1 text-red-500 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            <span className="text-xs font-extrabold text-white">Wishlist</span>
+          </button>
+
+          <button
+            onClick={() => requireLogin('/membership')}
+            className="bg-[#131314] border border-[#2A2A2D] text-white rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:border-[#D4A04D]/40 transition-all group cursor-pointer"
+          >
+            <svg className="w-6 h-6 mb-1 text-[#D4A04D] group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            <span className="text-xs font-extrabold text-white">Gold Pass</span>
+          </button>
+        </div>
+
+        {/* Section 1: Get Help */}
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-4 pt-3 pb-1 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+            Get Help
+          </div>
+          <button
+            onClick={() => requireLogin('/support/contact')}
+            className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span>Start a support chat</span>
+            </div>
+            <span className="text-gray-500 text-sm font-extrabold">›</span>
+          </button>
+        </div>
+
+        {/* Section 2: My Account */}
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-4 pt-3 pb-1 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+            My Account
+          </div>
+          <div className="divide-y divide-[#2A2A2D]/60">
+            <button
+              onClick={() => requireLogin('/saved-powers')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-5.5 h-3.5 text-[#D4A04D]" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="6">
+                  <circle cx="27" cy="15" r="10" />
+                  <circle cx="73" cy="15" r="10" />
+                  <path d="M37,15 L63,15" />
+                </svg>
+                <span>Saved Powers</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => requireLogin('/saved-addresses')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>Saved Addresses</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => requireLogin('/orders')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span>My Orders</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/wishlist')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span>My Wishlist</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => requireLogin('/membership')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+                <span>Gold Membership</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 3: Payments */}
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-4 pt-3 pb-1 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+            Payments
+          </div>
+          <div className="divide-y divide-[#2A2A2D]/60">
+            <button
+              onClick={() => requireLogin('/payments')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span>Payment History</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => requireLogin('/wallet')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a1 1 0 11-2 0 1 1 0 012 0z" />
+                </svg>
+                <span>My Wallet</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 4: Others */}
+        <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-4 pt-3 pb-1 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+            Others
+          </div>
+          <div className="divide-y divide-[#2A2A2D]/60">
+            <button
+              onClick={() => requireLogin('/about-eyeglaze')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2M5 21H3m16 0H5m2-14h2m-2 4h2m4-4h2m-2 4h2m-6 4h4" />
+                </svg>
+                <span>About EyeGlaze</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+
+            <button
+              onClick={() => requireLogin('/support/questions')}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#1A1A1C] transition-colors text-white font-bold text-xs text-left bg-transparent border-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>FAQs</span>
+              </div>
+              <span className="text-gray-500 text-sm font-extrabold">›</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Footer Actions */}
+        {user && (
+          <div className="pt-4 space-y-3">
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate('/');
+              }}
+              className="w-full bg-[#131314] hover:bg-[#1A1A1C] border border-red-500/30 hover:border-red-500/60 text-red-400 font-extrabold uppercase py-3.5 px-6 rounded-2xl transition-all text-xs tracking-wider cursor-pointer shadow-lg flex items-center justify-center gap-2"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Log Out of Account</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount}
+              className="w-full bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 text-red-400/80 hover:text-red-400 font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider cursor-pointer disabled:opacity-50 text-center"
+            >
+              {isDeletingAccount ? 'Deleting Account...' : 'Delete Account'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Edit Profile Modal */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-2xl max-w-md w-full text-white space-y-5 animate-scale-up">
+            <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>Edit Personal Profile</span>
+              </h3>
+              <button
+                onClick={() => setIsEditProfileOpen(false)}
+                className="text-gray-400 hover:text-white p-1 bg-transparent border-none cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              await handleSaveProfile(e);
+              setIsEditProfileOpen(false);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Phone Number *</label>
                 <input
                   type="tel"
                   required
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-xs transition-colors"
                 />
               </div>
-            </div>
 
-            <div className="flex items-center gap-4 pt-2">
-              <button
-                type="submit"
-                disabled={isSavingProfile}
-                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider disabled:opacity-50"
-              >
-                {isSavingProfile ? 'Saving...' : 'Save Changes'}
-              </button>
-              {profileSuccess && (
-                <span className="text-green-400 text-xs font-semibold animate-pulse">✓ Profile saved successfully!</span>
-              )}
-            </div>
-          </form>
-        </section>
-
-        {/* Address Form Container (Add/Edit Address) */}
-        {showForm && (
-          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-4 transition-all">
-            <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3">
-              <h3 className="text-white font-bold text-base">
-                {editingAddress ? '✏️ Edit Address' : '➕ Add New Address'}
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => { setShowForm(false); setEditingAddress(null); }}
-                className="text-gray-500 hover:text-white text-xs font-bold uppercase transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveAddress} className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-[#A7A7A7]">Quickly fill address details using your exact GPS location:</span>
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleGetCurrentLocation}
-                  disabled={isDetectingLocation}
-                  className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50"
-                >
-                  {isDetectingLocation ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-                      Detecting Location...
-                    </>
-                  ) : (
-                    <>
-                      <span>📍</span> Use Current Location
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formFullName}
-                    onChange={e => setFormFullName(e.target.value)}
-                    placeholder="Enter recipient name"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Mobile Number *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formMobile}
-                    onChange={e => setFormMobile(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Alternative Number *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formAlternativeNumber}
-                    onChange={e => setFormAlternativeNumber(e.target.value)}
-                    placeholder="Alternative 10-digit number"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Line 1 (Flat, House, Building) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formLine1}
-                    onChange={e => setFormLine1(e.target.value)}
-                    placeholder="Flat/House No., Building/Apartment Name, Street"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Line 2 (Area, Sector, Landmark)</label>
-                  <input
-                    type="text"
-                    value={formLine2}
-                    onChange={e => setFormLine2(e.target.value)}
-                    placeholder="Area, Sector, Landmark, Village"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">City/Town *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formCity}
-                    onChange={e => setFormCity(e.target.value)}
-                    placeholder="City"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">State *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formState}
-                    onChange={e => setFormState(e.target.value)}
-                    placeholder="State"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Pincode/Zip *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formPincode}
-                    onChange={e => setFormPincode(e.target.value)}
-                    placeholder="6-digit pincode"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Type</label>
-                  <div className="flex gap-3">
-                    {(['Home', 'Work', 'Other'] as const).map(t => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setFormType(t)}
-                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold uppercase transition-all ${
-                          formType === t 
-                            ? 'bg-[#D4A04D] text-black border-[#D4A04D]' 
-                            : 'bg-[#0B0B0C] text-[#A7A7A7] border-[#2A2A2D] hover:border-gray-700'
-                        }`}
-                      >
-                        {t === 'Home' ? '🏠 ' : t === 'Work' ? '🏢 ' : '📍 '}{t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 pt-2">
-                <input
-                  type="checkbox"
-                  id="defaultAddress"
-                  checked={formIsDefault}
-                  onChange={e => setFormIsDefault(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-0 focus:ring-offset-0"
-                />
-                <label htmlFor="defaultAddress" className="text-white text-xs select-none cursor-pointer">
-                  Set as Default Shipping Address
-                </label>
-              </div>
-
-              <div className="flex gap-4 pt-2 border-t border-[#2A2A2D]">
-                <button
-                  type="submit"
-                  disabled={isSavingAddress}
-                  className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider disabled:opacity-50"
-                >
-                  {isSavingAddress ? 'Saving...' : 'Save Address'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); setEditingAddress(null); }}
-                  className="bg-transparent hover:bg-white/5 text-white border border-[#2A2A2D] font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 font-bold uppercase py-2 px-4 rounded-xl text-xs tracking-wider transition-colors border-none cursor-pointer"
                 >
                   Cancel
                 </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2 px-5 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingProfile ? 'Saving...' : 'Save Profile'}
+                </button>
               </div>
             </form>
-          </section>
-        )}
-
-        {/* Saved Addresses */}
-        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📍</span> Saved Addresses
-            </h2>
-            {!showForm && (
-              <button 
-                type="button"
-                onClick={handleAddAddressClick}
-                className="text-[#D4A04D] text-xs font-bold uppercase hover:underline"
-              >
-                + Add Address
-              </button>
-            )}
           </div>
-          
-          {addresses.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">No saved addresses.</div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {addresses.map(addr => {
-                const addrId = addr.id || addr._id || '';
-                return (
-                  <div 
-                    key={addrId} 
-                    className={`border rounded-xl p-4 flex flex-col justify-between transition-all relative ${
-                      addr.isDefault 
-                        ? 'border-[#D4A04D] bg-[#D4A04D]/5' 
-                        : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-700'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                          addr.type === 'Home' 
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                            : addr.type === 'Work' 
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                            : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                        }`}>
-                          {addr.type}
-                        </span>
-                        {addr.isDefault && (
-                          <span className="text-[10px] font-extrabold text-[#D4A04D] uppercase">Default</span>
-                        )}
-                      </div>
-                      <div className="text-white font-bold text-sm">{addr.fullName}</div>
-                      <div className="text-[#A7A7A7] text-xs mt-1">
-                        {addr.mobile} {addr.alternativeNumber && `· Alt: ${addr.alternativeNumber}`}
-                      </div>
-                      <div className="text-gray-400 text-xs mt-2 leading-relaxed">
-                        {addr.line1}, {addr.line2 && `${addr.line2}, `}{addr.city}, {addr.state} - {addr.pincode}
-                      </div>
-                    </div>
+        </div>
+      )}
 
-                    <div className="flex gap-4 border-t border-[#2A2A2D] mt-4 pt-3 text-[11px] font-bold text-[#A7A7A7]">
-                      {!addr.isDefault && (
-                        <button 
-                          onClick={() => handleSetDefaultAddress(addrId)} 
-                          className="hover:text-white transition-colors"
-                        >
-                          Set Default
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleEditAddressClick(addr)}
-                        className="hover:text-white transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteAddress(addrId)} 
-                        className="hover:text-red-400 transition-colors text-red-500/80"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Guest "Login / Signup" Bottom Sheet */}
+      <AnimatePresence>
+        {showLoginSheet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => { setShowLoginSheet(false); setPendingRedirect(null); }}
+          >
+            <motion.div
+              initial={{ y: '100%', opacity: 0.6 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0.6 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="bg-[#131314] border border-[#2A2A2D] w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl text-white space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
+                Login or signup to get started
+              </h3>
+              <button
+                onClick={() => { setShowLoginSheet(false); setPendingRedirect(null); }}
+                className="text-gray-400 hover:text-white p-1 bg-transparent border-none cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
-          )}
-        </section>
 
-        {/* Security & Active Sessions */}
-        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>🛡️</span> Security & Device Sessions
-              </h2>
-              <p className="text-[#A7A7A7] text-xs mt-1">Manage your active sessions and devices currently logged in.</p>
-            </div>
-            {sessions.length > 1 && (
+            <div className="flex border-b border-[#2A2A2D]">
               <button
                 type="button"
-                onClick={handleLogoutAll}
-                disabled={isLoggingOutAll}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 w-full sm:w-auto text-center"
+                onClick={() => { setSheetTab('login'); setSheetError(''); }}
+                className={`flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-center border-b-2 transition-colors bg-transparent cursor-pointer ${
+                  sheetTab === 'login'
+                    ? 'border-[#D4A04D] text-[#D4A04D]'
+                    : 'border-transparent text-gray-500 hover:text-white'
+                }`}
               >
-                {isLoggingOutAll ? 'Logging out...' : 'Log Out All Devices'}
+                Sign In
               </button>
-            )}
-          </div>
-
-          {isLoadingSessions ? (
-            <div className="text-center py-8 text-gray-500 text-sm animate-pulse">Loading active sessions...</div>
-          ) : sessions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">No active sessions found.</div>
-          ) : (
-            <div className="space-y-4">
-              {sessions.map((sess) => {
-                const { browser, os, icon } = formatUserAgent(sess.userAgent);
-                return (
-                  <div
-                    key={sess.id}
-                    className={`border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                      sess.isCurrent
-                        ? 'border-[#D4A04D] bg-[#D4A04D]/5'
-                        : 'border-[#2A2A2D] bg-[#0B0B0C] hover:border-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 flex-1 min-w-0 w-full">
-                      <div className="text-3xl bg-[#1D1D20] p-3 rounded-xl border border-[#2D2D30] shadow-inner flex-shrink-0">
-                        {icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-white font-bold text-sm truncate">
-                            {browser} on {os}
-                          </span>
-                          {sess.isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-[#D4A04D]/20 text-[#D4A04D] text-[10px] font-extrabold uppercase border border-[#D4A04D]/30 flex-shrink-0">
-                              Current Device
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[#A7A7A7] text-xs mt-1 font-mono truncate">
-                          IP: {sess.ipAddress || 'Unknown IP'}
-                        </div>
-                        <div className="text-gray-500 text-[11px] mt-1.5 font-medium">
-                          Logged in:{' '}
-                          {new Date(sess.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-full sm:w-auto flex-shrink-0 sm:ml-4">
-                      <button
-                        onClick={() => handleRevokeSession(sess.id)}
-                        className={`w-full sm:w-auto font-bold uppercase py-2 px-4 rounded-xl text-xs tracking-wider transition-all border ${
-                          sess.isCurrent
-                            ? 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
-                            : 'bg-transparent border-[#2A2A2D] text-[#A7A7A7] hover:border-gray-700 hover:text-white'
-                        }`}
-                      >
-                        {sess.isCurrent ? 'Log Out' : 'Revoke'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              <button
+                type="button"
+                onClick={() => { setSheetTab('register'); setSheetError(''); }}
+                className={`flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-center border-b-2 transition-colors bg-transparent cursor-pointer ${
+                  sheetTab === 'register'
+                    ? 'border-[#D4A04D] text-[#D4A04D]'
+                    : 'border-transparent text-gray-500 hover:text-white'
+                }`}
+              >
+                Sign Up
+              </button>
             </div>
-          )}
-        </section>
 
-        {/* Delete Account */}
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={handleDeleteAccount}
-            disabled={isDeletingAccount}
-            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider cursor-pointer disabled:opacity-50"
-          >
-            {isDeletingAccount ? 'Deleting Account...' : 'Delete Account'}
-          </button>
-        </div>
-      </div>
+            {sheetError && (
+              <div className="text-red-400 bg-red-400/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs font-semibold">
+                {sheetError}
+              </div>
+            )}
+
+            <form onSubmit={handleSheetSubmit} className="space-y-4">
+              {sheetTab === 'register' && (
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={sheetName}
+                    onChange={(e) => setSheetName(e.target.value)}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={sheetEmail}
+                  onChange={(e) => setSheetEmail(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Password</label>
+                <div className="relative">
+                  <input
+                    type={sheetShowPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter password"
+                    value={sheetPassword}
+                    onChange={(e) => setSheetPassword(e.target.value)}
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl pl-4 pr-16 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSheetShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-gray-400 hover:text-[#D4A04D] bg-transparent border-none cursor-pointer"
+                  >
+                    {sheetShowPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={sheetLoading}
+                className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+              >
+                {sheetLoading ? 'Please wait...' : sheetTab === 'login' ? 'Sign In' : 'Create Account'}
+              </button>
+            </form>
+
+            <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+              By continuing, you agree to our{' '}
+              <a href="/terms" className="text-[#D4A04D] hover:underline">Terms of Use</a> and{' '}
+              <a href="/privacy" className="text-[#D4A04D] hover:underline">Privacy Policy</a>.
+            </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

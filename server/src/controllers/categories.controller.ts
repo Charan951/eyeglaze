@@ -5,6 +5,17 @@ import { SubCategory } from '../models/SubCategory';
 import { SubSubCategory } from '../models/SubSubCategory';
 import { SubSubSubCategory } from '../models/SubSubSubCategory';
 
+// Legacy docs saved before the enable-toggle feature existed have no
+// `*Enabled` field at all. Treat "field missing" as "enabled" when a
+// value is already present, so old data keeps displaying as before.
+// Once a doc is re-saved via the admin form, the explicit flag takes over.
+function isBannerEnabled(doc: any): boolean {
+  return doc.bannerImageEnabled !== undefined ? !!doc.bannerImageEnabled : !!doc.bannerImage;
+}
+function isPriceEnabled(doc: any): boolean {
+  return doc.startingPriceEnabled !== undefined ? !!doc.startingPriceEnabled : doc.startingPrice != null;
+}
+
 export async function getPublicCategories(req: Request, res: Response) {
   try {
     await connectDB();
@@ -43,7 +54,7 @@ export async function getPublicCategories(req: Request, res: Response) {
                 slug: subsub.slug,
                 type: 'SubSubCategory',
                 icon: subsub.icon,
-                bannerImage: subsub.bannerImage,
+                bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
                 linkTo: subsub.linkTo,
                 gender: subsub.gender,
                 displayOrder: subsub.displayOrder,
@@ -59,11 +70,12 @@ export async function getPublicCategories(req: Request, res: Response) {
             slug: sub.slug,
             type: 'SubCategory',
             icon: sub.icon,
-            bannerImage: sub.bannerImage,
+            bannerImage: isBannerEnabled(sub) ? sub.bannerImage : '',
             linkTo: sub.linkTo,
             gender: sub.gender,
             shapeModal: sub.shapeModal,
             modalShapes: sub.modalShapes,
+            showInNavbar: sub.showInNavbar !== false,
             displayOrder: sub.displayOrder,
             children: subsubchildren,
           };
@@ -72,6 +84,7 @@ export async function getPublicCategories(req: Request, res: Response) {
       return {
         ...cat,
         id: cat._id,
+        bannerImage: isBannerEnabled(cat) ? cat.bannerImage : '',
         children,
       };
     });
@@ -113,8 +126,10 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
                   slug: subsubsub.slug,
                   type: 'SubSubSubCategory',
                   icon: subsubsub.icon,
-                  bannerImage: subsubsub.bannerImage,
-                  startingPrice: subsubsub.startingPrice || 999,
+                  bannerImage: isBannerEnabled(subsubsub) ? subsubsub.bannerImage : '',
+                  bannerImageEnabled: isBannerEnabled(subsubsub),
+                  startingPrice: isPriceEnabled(subsubsub) ? subsubsub.startingPrice : undefined,
+                  startingPriceEnabled: isPriceEnabled(subsubsub),
                   displayOrder: subsubsub.displayOrder,
                 }));
 
@@ -126,8 +141,10 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
                 slug: subsub.slug,
                 type: 'SubSubCategory',
                 icon: subsub.icon,
-                bannerImage: subsub.bannerImage,
-                startingPrice: subsub.startingPrice || 999,
+                bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
+                bannerImageEnabled: isBannerEnabled(subsub),
+                startingPrice: isPriceEnabled(subsub) ? subsub.startingPrice : undefined,
+                startingPriceEnabled: isPriceEnabled(subsub),
                 linkTo: subsub.linkTo,
                 gender: subsub.gender,
                 displayOrder: subsub.displayOrder,
@@ -143,12 +160,15 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
             slug: sub.slug,
             type: 'SubCategory',
             icon: sub.icon,
-            bannerImage: sub.bannerImage,
-            startingPrice: sub.startingPrice || 999,
+            bannerImage: isBannerEnabled(sub) ? sub.bannerImage : '',
+            bannerImageEnabled: isBannerEnabled(sub),
+            startingPrice: isPriceEnabled(sub) ? sub.startingPrice : undefined,
+            startingPriceEnabled: isPriceEnabled(sub),
             linkTo: sub.linkTo,
             gender: sub.gender,
             shapeModal: sub.shapeModal,
             modalShapes: sub.modalShapes,
+            showInNavbar: sub.showInNavbar !== false,
             displayOrder: sub.displayOrder,
             children: subsubcats,
           };
@@ -161,7 +181,7 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
         code: cat.code,
         slug: cat.slug,
         icon: cat.icon,
-        bannerImage: cat.bannerImage,
+        bannerImage: isBannerEnabled(cat) ? cat.bannerImage : '',
         description: cat.description,
         type: 'Category',
         subCategoryShape: cat.subCategoryShape || 'square',

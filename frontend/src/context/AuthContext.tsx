@@ -49,6 +49,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setWishlist([]);
       setCartCount(0);
+
+      // The session/refresh token is dead (e.g. expired while a form was left
+      // open). Without this, the page silently keeps rendering stale
+      // logged-in content and every subsequent action just fails with 401,
+      // with no visible sign of why. Force a hard redirect to a fresh login
+      // page instead of leaving a dead form on screen.
+      const publicPaths = ['/login', '/login/otp', '/forgot-password', '/reset-password', '/'];
+      if (!publicPaths.includes(window.location.pathname)) {
+        window.location.href = '/login';
+      }
     };
     window.addEventListener('auth-logout', handleAuthLogout);
     return () => window.removeEventListener('auth-logout', handleAuthLogout);
@@ -135,10 +145,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleWishlist = async (productId: string) => {
+    if (!user) {
+      // Guests can wishlist too — keep it in localStorage until they log in.
+      try {
+        const guestWishlistStr = localStorage.getItem('guest_wishlist');
+        const ids: string[] = guestWishlistStr ? JSON.parse(guestWishlistStr) : [];
+        const next = ids.includes(productId) ? ids.filter(id => id !== productId) : [...ids, productId];
+        localStorage.setItem('guest_wishlist', JSON.stringify(next));
+        setWishlist(next);
+      } catch (error) {
+        console.error('Failed to toggle guest wishlist:', error);
+      }
+      return;
+    }
+
     try {
       const res = await api.post('/wishlist/toggle', { productId });
       if (res.data && res.data.wishlist) {
-        setWishlist(res.data.wishlist.map((w: any) => 
+        setWishlist(res.data.wishlist.map((w: any) =>
           typeof w === 'object' && w?._id ? w._id.toString() : w.toString()
         ));
       }
@@ -147,10 +171,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const getGuestWishlist = (): string[] => {
+    try {
+      const guestWishlistStr = localStorage.getItem('guest_wishlist');
+      return guestWishlistStr ? JSON.parse(guestWishlistStr) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Merges any wishlist items saved while logged out into the account's
+  // wishlist, then clears the local copy. Returns the merged id list.
+  const syncLocalWishlist = useCallback(async (currentWishlistIds: string[]): Promise<string[]> => {
+    const guestIds = getGuestWishlist();
+    if (guestIds.length === 0) return currentWishlistIds;
+    try {
+      const toAdd = guestIds.filter(id => !currentWishlistIds.includes(id));
+      for (const productId of toAdd) {
+        await api.post('/wishlist/toggle', { productId });
+      }
+      localStorage.removeItem('guest_wishlist');
+      return [...currentWishlistIds, ...toAdd];
+    } catch (err) {
+      console.error('Failed to sync guest wishlist:', err);
+      return currentWishlistIds;
+    }
+  }, []);
+
   const checkAuth = useCallback(async () => {
     if (localStorage.getItem('eyeglaze_logged_in') !== 'true') {
       setUser(null);
-      setWishlist([]);
+      setWishlist(getGuestWishlist());
       try {
         const guestCartStr = localStorage.getItem('guest_cart');
         const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
@@ -168,20 +219,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       if (userData) {
         localStorage.setItem('eyeglaze_logged_in', 'true');
-        const initialWishlist = (userData.wishlist || []).map((w: any) => 
+        const initialWishlist = (userData.wishlist || []).map((w: any) =>
           typeof w === 'object' && w?._id ? w._id.toString() : w.toString()
         );
-        setWishlist(initialWishlist);
-        
+        const mergedWishlist = await syncLocalWishlist(initialWishlist);
+        setWishlist(mergedWishlist);
+
         await syncLocalCart();
-        
+
         // Fetch cart count
         const cartRes = await api.get('/cart');
         const cartItems = cartRes.data?.items || cartRes.data?.cart?.items || [];
         setCartCount(cartItems.length);
       } else {
         localStorage.removeItem('eyeglaze_logged_in');
-        setWishlist([]);
+        setWishlist(getGuestWishlist());
         const guestCartStr = localStorage.getItem('guest_cart');
         const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
         setCartCount(cartItems.length);
@@ -189,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       localStorage.removeItem('eyeglaze_logged_in');
       setUser(null);
-      setWishlist([]);
+      setWishlist(getGuestWishlist());
       try {
         const guestCartStr = localStorage.getItem('guest_cart');
         const cartItems = guestCartStr ? JSON.parse(guestCartStr) : [];
@@ -200,27 +252,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [syncLocalCart]);
+  }, [syncLocalCart, syncLocalWishlist]);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Manage socket.io user-specific room connections
+  // Keep the socket connected at all times — guests need it too, for live
+  // storefront updates (categories, banners, product/price changes, etc.).
+  // This must NOT disconnect on logout: UserLayout's own effect relies on
+  // the same socket staying connected for the rest of the guest session.
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+  }, []);
+
+  // Join/leave the user-specific room as login state changes, without
+  // touching the connection itself.
   useEffect(() => {
     if (user && user._id) {
-      if (!socket.connected) {
-        socket.connect();
-      }
       socket.emit('join_user_room', user._id.toString());
       return () => {
         socket.emit('leave_user_room', user._id.toString());
-        socket.disconnect();
       };
-    } else {
-      if (socket.connected) {
-        socket.disconnect();
-      }
     }
   }, [user]);
 
@@ -241,10 +296,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (e.key === 'guest_cart') {
         fetchCartCount();
       }
+      if (e.key === 'guest_wishlist' && !user) {
+        setWishlist(getGuestWishlist());
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [fetchCartCount]);
+  }, [fetchCartCount, user]);
 
   const login = async (u: AuthUser) => {
     localStorage.setItem('eyeglaze_logged_in', 'true');

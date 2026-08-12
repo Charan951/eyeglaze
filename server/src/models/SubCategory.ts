@@ -12,12 +12,15 @@ export interface ISubCategory extends Document {
   deletedAt?: Date;
   icon?: string;
   bannerImage?: string;
+  bannerImageEnabled?: boolean;
   linkTo?: string;
   gender?: string;
   startingPrice?: number;
+  startingPriceEnabled?: boolean;
   shapeModal?: boolean;
   modalShapes?: string[];
   modalAgeGroups?: string[];
+  showInNavbar?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,12 +42,15 @@ const SubCategorySchema = new Schema<ISubCategory>(
     deletedAt: { type: Date },
     icon: { type: String },
     bannerImage: { type: String },
+    bannerImageEnabled: { type: Boolean, default: false },
     linkTo: { type: String },
     gender: { type: String },
-    startingPrice: { type: Number, default: 999 },
+    startingPrice: { type: Number, default: null },
+    startingPriceEnabled: { type: Boolean, default: false },
     shapeModal: { type: Boolean, default: false },
     modalShapes: { type: [String], default: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'] },
     modalAgeGroups: { type: [String], default: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'] },
+    showInNavbar: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

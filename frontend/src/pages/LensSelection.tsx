@@ -27,6 +27,165 @@ const CYL_OPTIONS = (() => {
   return options;
 })();
 
+const AXIS_OPTIONS = Array.from({ length: 181 }, (_, i) => i.toString());
+const ADD_OPTIONS = ['0.00', '1.00', '1.25', '1.50', '1.75', '2.00', '2.25', '2.50', '2.75', '3.00'];
+const PD_OPTIONS = Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1));
+
+interface CustomPowerPickerProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder?: string;
+  isAxis?: boolean;
+}
+
+function CustomPowerPicker({ label, value, onChange, options, placeholder = 'Select', isAxis = false }: CustomPowerPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const negColRef = useRef<HTMLDivElement>(null);
+  const posColRef = useRef<HTMLDivElement>(null);
+  const singleColRef = useRef<HTMLDivElement>(null);
+
+  const formattedDisplay = () => {
+    if (!value) return placeholder;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    if (num > 0 && !value.startsWith('+') && !isAxis) return `+${value}`;
+    return value;
+  };
+
+  const title = (() => {
+    const eye = label.includes('Left') ? 'Left Eye' : label.includes('Right') ? 'Right Eye' : '';
+    let type = 'Power';
+    if (isAxis) type = 'Axis';
+    else if (label.includes('CYL')) type = 'Cylindrical';
+    else if (label.includes('SPH')) type = 'Spherical';
+    else if (label.includes('ADD')) type = 'Addition';
+    else if (label.includes('PD')) type = 'Pupillary Distance';
+    return eye ? `${type} · ${eye}` : type;
+  })();
+
+  const negativeOptions = options.filter(v => parseFloat(v) < 0);
+  const positiveOptions = options.filter(v => parseFloat(v) >= 0);
+
+  const scrollCol = (ref: typeof negColRef, dir: 'up' | 'down') => {
+    ref.current?.scrollBy({ top: dir === 'up' ? -120 : 120, behavior: 'smooth' });
+  };
+
+  const Row = ({ opt }: { opt: string }) => {
+    const isSelected = value === opt;
+    const displayOpt = parseFloat(opt) > 0 && !isAxis ? `+${opt}` : opt;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          onChange(opt);
+          setIsOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors cursor-pointer text-left ${
+          isSelected ? 'bg-[#D4A04D]/10 text-[#D4A04D]' : 'text-gray-200 hover:bg-[#1C1C1E]'
+        }`}
+      >
+        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-[#D4A04D]' : 'border-gray-600'}`}>
+          {isSelected && <span className="w-2 h-2 rounded-full bg-[#D4A04D]" />}
+        </span>
+        {displayOpt}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold flex items-center justify-between transition-all cursor-pointer select-none ${
+          value
+            ? 'border-[#D4A04D] text-[#D4A04D] bg-[#D4A04D]/10 shadow-[0_0_12px_rgba(212,160,77,0.15)]'
+            : 'bg-[#131314] border-[#2A2A2D] text-gray-400 hover:border-gray-500 hover:text-white'
+        }`}
+      >
+        <span className="truncate">{formattedDisplay()}</span>
+        <span className="text-[10px] opacity-70 ml-1">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl w-full max-w-md shadow-2xl relative select-none overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A2D]">
+              <h3 className="text-white text-base sm:text-lg font-extrabold">{title}</h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 text-lg transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {!isAxis ? (
+              <>
+                {/* Column Headers */}
+                <div className="grid grid-cols-2 divide-x divide-[#2A2A2D] border-b border-[#2A2A2D] bg-[#0B0B0C]">
+                  <div className="text-center py-2.5 text-[#D4A04D] text-xs sm:text-sm font-extrabold">(−) Negative</div>
+                  <div className="text-center py-2.5 text-[#D4A04D] text-xs sm:text-sm font-extrabold">(+) Positive</div>
+                </div>
+
+                {/* Two scrollable columns */}
+                <div className="grid grid-cols-2 divide-x divide-[#2A2A2D]">
+                  <div className="relative">
+                    <div ref={negColRef} className="max-h-64 overflow-y-auto scrollbar-none divide-y divide-[#2A2A2D]/60">
+                      {negativeOptions.map((opt) => <Row key={opt} opt={opt} />)}
+                    </div>
+                    <div className="absolute right-0.5 top-1 bottom-1 flex flex-col justify-between">
+                      <button type="button" onClick={() => scrollCol(negColRef, 'up')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▲</button>
+                      <button type="button" onClick={() => scrollCol(negColRef, 'down')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▼</button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div ref={posColRef} className="max-h-64 overflow-y-auto scrollbar-none divide-y divide-[#2A2A2D]/60">
+                      {positiveOptions.map((opt) => <Row key={opt} opt={opt} />)}
+                    </div>
+                    <div className="absolute right-0.5 top-1 bottom-1 flex flex-col justify-between">
+                      <button type="button" onClick={() => scrollCol(posColRef, 'up')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▲</button>
+                      <button type="button" onClick={() => scrollCol(posColRef, 'down')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▼</button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="relative">
+                <div ref={singleColRef} className="max-h-72 overflow-y-auto scrollbar-none divide-y divide-[#2A2A2D]/60">
+                  {options.map((opt) => <Row key={opt} opt={opt} />)}
+                </div>
+                <div className="absolute right-0.5 top-1 bottom-1 flex flex-col justify-between">
+                  <button type="button" onClick={() => scrollCol(singleColRef, 'up')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▲</button>
+                  <button type="button" onClick={() => scrollCol(singleColRef, 'down')} className="w-5 h-5 flex items-center justify-center text-gray-600 hover:text-[#D4A04D] text-[10px] cursor-pointer">▼</button>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="flex justify-end px-5 py-3 border-t border-[#2A2A2D]">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+                className="text-xs text-gray-400 hover:text-white font-bold transition-colors cursor-pointer"
+              >
+                Clear selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 interface LensOption {
   _id: string;
   kind: 'type' | 'quality';
@@ -122,8 +281,10 @@ export default function LensSelection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Stepper State (1: LENS TYPE, 2: POWER, 3: QUALITY, 4: CHECKOUT)
-  const [currentStep, setCurrentStep] = useState(1);
+  // Stepper State (1: LENS TYPE, 2: QUALITY, 3: POWER)
+  const urlStep = searchParams.get('step');
+  const initialStep = urlStep ? parseInt(urlStep, 10) : 1;
+  const [currentStep, setCurrentStep] = useState(isNaN(initialStep) ? 1 : initialStep);
   
   // Selections State
   const [selectedType, setSelectedType] = useState<LensOption | null>(null);
@@ -368,15 +529,123 @@ export default function LensSelection() {
       : `👓 Manual Power - ${reStr} | ${leStr}${pdStr}`;
   };
 
-  useEffect(() => {
-    if (currentStep === 1 && user) {
+  const fetchSavedPrescriptions = useCallback(() => {
+    if (user) {
       api.get('/prescriptions')
         .then(res => {
           setSavedPrescriptions(res.data.prescriptions || []);
         })
         .catch(err => console.error('Failed to fetch saved prescriptions:', err));
     }
-  }, [currentStep, user]);
+  }, [user]);
+
+  useEffect(() => {
+    if (currentStep === 1 && user) {
+      fetchSavedPrescriptions();
+    }
+  }, [currentStep, user, fetchSavedPrescriptions]);
+
+  // Real-time socket updates for prescriptions and lens configuration
+  useEffect(() => {
+    const handlePrescriptionChanged = () => {
+      fetchSavedPrescriptions();
+    };
+
+    socket.on('prescription_changed', handlePrescriptionChanged);
+    return () => {
+      socket.off('prescription_changed', handlePrescriptionChanged);
+    };
+  }, [fetchSavedPrescriptions]);
+
+  const cartItemId = searchParams.get('cartItemId') || searchParams.get('editItem');
+
+  const prefillPowerFromItem = useCallback((item: any) => {
+    if (!item) return;
+    const power = item.power || item.lensPayload?.power;
+    if (!power) return;
+
+    const pName = power.prescriptionName || power.name || '';
+    const pPhone = power.prescriptionPhone || power.phone || '';
+    if (pName) setPrescriptionName(pName);
+    if (pPhone) setPrescriptionPhone(pPhone);
+
+    if (power.uploadLater || power.uploadedFileUrl) {
+      setPowerMode('upload');
+      if (power.uploadedFileUrl) {
+        setUploadedFileUrl(power.uploadedFileUrl);
+        setPrescriptionFileName('Uploaded Prescription');
+      }
+    } else if (power.RE || power.LE) {
+      setPowerMode('enter');
+      const formatOpt = (num?: any) => {
+        if (num === undefined || num === null || isNaN(Number(num))) return '0.00';
+        return Number(num).toFixed(2);
+      };
+
+      if (power.RE) {
+        setReSph(formatOpt(power.RE.sph));
+        if (power.RE.cyl !== undefined && power.RE.cyl !== 0) {
+          setHasCylindrical(true);
+          setReCyl(formatOpt(power.RE.cyl));
+          setReAxis(power.RE.axis?.toString() || '0');
+        }
+      }
+      if (power.LE) {
+        setLeSph(formatOpt(power.LE.sph));
+        if (power.LE.cyl !== undefined && power.LE.cyl !== 0) {
+          setHasCylindrical(true);
+          setLeCyl(formatOpt(power.LE.cyl));
+          setLeAxis(power.LE.axis?.toString() || '0');
+        }
+      }
+      if (power.RE && power.LE) {
+        if (
+          formatOpt(power.RE.sph) === formatOpt(power.LE.sph) &&
+          formatOpt(power.RE.cyl) === formatOpt(power.LE.cyl) &&
+          (power.RE.axis?.toString() || '0') === (power.LE.axis?.toString() || '0')
+        ) {
+          setHasSamePower(true);
+        }
+      }
+      if (power.RE?.addPower || power.LE?.addPower || power.addPower) {
+        setReAdd(formatOpt(power.RE?.addPower || power.addPower));
+        setLeAdd(formatOpt(power.LE?.addPower || power.addPower));
+      }
+      if (power.RE?.pd || power.LE?.pd || power.pd) {
+        setRePd((power.RE?.pd || power.pd || 31.5).toString());
+        setLePd((power.LE?.pd || power.pd || 31.5).toString());
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!cartItemId) return;
+
+    if (!user) {
+      const guestCartStr = localStorage.getItem('guest_cart');
+      if (guestCartStr) {
+        try {
+          const cart = JSON.parse(guestCartStr);
+          const found = cart.find((i: any) => i.id === cartItemId || i._id === cartItemId);
+          if (found) {
+            prefillPowerFromItem(found);
+          }
+        } catch (e) {
+          console.error('Error parsing guest cart:', e);
+        }
+      }
+    } else {
+      api.get('/cart')
+        .then(res => {
+          const items = res.data?.items || res.data?.cart?.items || [];
+          const found = items.find((i: any) => (i._id || i.id) === cartItemId);
+          if (found) {
+            prefillPowerFromItem(found);
+          }
+        })
+        .catch(err => console.error('Failed to fetch cart item for editing power:', err));
+    }
+  }, [cartItemId, user, prefillPowerFromItem]);
 
   const handleSelectSavedPrescription = (id: string) => {
     setSelectedPrescriptionId(id);
@@ -938,6 +1207,8 @@ export default function LensSelection() {
       if (powerMode === 'enter') {
         const isProgressive = selectedType?.type === 'progressive';
         powerObj = {
+          prescriptionName: prescriptionName.trim() || undefined,
+          prescriptionPhone: prescriptionPhone.trim() || undefined,
           name: prescriptionName.trim() || undefined,
           phone: prescriptionPhone.trim() || undefined,
           RE: { 
@@ -959,7 +1230,10 @@ export default function LensSelection() {
         };
       } else if (powerMode === 'upload') {
         powerObj = { 
+          prescriptionName: prescriptionName.trim() || undefined,
+          prescriptionPhone: prescriptionPhone.trim() || undefined,
           name: prescriptionName.trim() || undefined,
+          phone: prescriptionPhone.trim() || undefined,
           uploadLater: true, 
           uploadedFileUrl: finalUploadedUrl 
         };
@@ -982,7 +1256,7 @@ export default function LensSelection() {
         const cart = guestCartStr ? JSON.parse(guestCartStr) : [];
         
         const newItem = {
-          id: `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          id: cartItemId || `temp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           productId: product._id,
           qty: 1,
           color: color || 'Matte Black',
@@ -995,14 +1269,29 @@ export default function LensSelection() {
           lensPrice: basePrice,
           fittingCharge: 199,
           image: product.images?.[0] || '',
-          lensPayload
+          lensPayload,
+          power: powerObj
         };
 
-        cart.push(newItem);
+        if (cartItemId) {
+          const existingIdx = cart.findIndex((i: any) => i.id === cartItemId || i._id === cartItemId);
+          if (existingIdx >= 0) {
+            cart[existingIdx] = newItem;
+          } else {
+            cart.push(newItem);
+          }
+        } else {
+          cart.push(newItem);
+        }
+
         localStorage.setItem('guest_cart', JSON.stringify(cart));
         await fetchCartCount();
         navigate('/cart');
         return;
+      }
+
+      if (cartItemId) {
+        await api.delete(`/cart/${cartItemId}`).catch(() => {});
       }
 
       const payload = {
@@ -1274,21 +1563,24 @@ export default function LensSelection() {
             const isCompleted = currentStep > item.step;
             return (
               <div key={item.step} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] relative transition-all ${
+                <div 
+                  onClick={() => setCurrentStep(item.step)}
+                  className="flex flex-col items-center cursor-pointer group select-none"
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] relative transition-all group-hover:scale-110 ${
                     isCompleted 
                       ? 'bg-[#D4A04D] text-black' 
                       : isActive 
                       ? 'bg-[#D4A04D] text-black shadow-[0_0_15px_rgba(212,160,77,0.4)]' 
-                      : 'border-2 border-[#2A2A2D] text-gray-500 bg-transparent'
+                      : 'border-2 border-[#2A2A2D] text-gray-500 bg-transparent group-hover:border-[#D4A04D]/60 group-hover:text-white'
                   }`}>
                     {isCompleted ? '✓' : item.step}
                     {isActive && (
                       <span className="absolute inset-0 rounded-full border border-[#D4A04D] animate-ping opacity-30 pointer-events-none" />
                     )}
                   </div>
-                  <span className={`text-[8px] sm:text-[9px] font-bold tracking-wider mt-1.5 uppercase ${
-                    isActive ? 'text-[#D4A04D]' : isCompleted ? 'text-white' : 'text-gray-600'
+                  <span className={`text-[8px] sm:text-[9px] font-bold tracking-wider mt-1.5 uppercase transition-colors ${
+                    isActive ? 'text-[#D4A04D]' : isCompleted ? 'text-white' : 'text-gray-600 group-hover:text-gray-300'
                   }`}>
                     {item.label}
                   </span>
@@ -1591,28 +1883,20 @@ export default function LensSelection() {
                             <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
                               <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">SPH</div>
                               <div>
-                                <select
+                                <CustomPowerPicker
+                                  label="Right Eye SPH (OD)"
                                   value={reSph}
-                                  onChange={(e) => handleReSphChange(e.target.value)}
-                                  className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                >
-                                  <option value="">Select</option>
-                                  {SPH_OPTIONS.map(v => (
-                                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                  ))}
-                                </select>
+                                  onChange={(val) => handleReSphChange(val)}
+                                  options={SPH_OPTIONS}
+                                />
                               </div>
                               <div>
-                                <select
+                                <CustomPowerPicker
+                                  label="Left Eye SPH (OS)"
                                   value={leSph}
-                                  onChange={(e) => handleLeSphChange(e.target.value)}
-                                  className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                >
-                                  <option value="">Select</option>
-                                  {SPH_OPTIONS.map(v => (
-                                    <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                  ))}
-                                </select>
+                                  onChange={(val) => handleLeSphChange(val)}
+                                  options={SPH_OPTIONS}
+                                />
                               </div>
                             </div>
 
@@ -1622,28 +1906,20 @@ export default function LensSelection() {
                                 <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
                                   <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">CYL</div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Right Eye CYL (OD)"
                                       value={reCyl}
-                                      onChange={(e) => handleReCylChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {CYL_OPTIONS.map(v => (
-                                        <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleReCylChange(val)}
+                                      options={CYL_OPTIONS}
+                                    />
                                   </div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Left Eye CYL (OS)"
                                       value={leCyl}
-                                      onChange={(e) => handleLeCylChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {CYL_OPTIONS.map(v => (
-                                        <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleLeCylChange(val)}
+                                      options={CYL_OPTIONS}
+                                    />
                                   </div>
                                 </div>
 
@@ -1651,28 +1927,22 @@ export default function LensSelection() {
                                 <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
                                   <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">AXIS</div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Right Eye AXIS (OD)"
                                       value={reAxis}
-                                      onChange={(e) => handleReAxisChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleReAxisChange(val)}
+                                      options={AXIS_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Left Eye AXIS (OS)"
                                       value={leAxis}
-                                      onChange={(e) => handleLeAxisChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleLeAxisChange(val)}
+                                      options={AXIS_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                 </div>
                               </>
@@ -1684,58 +1954,44 @@ export default function LensSelection() {
                                 <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
                                   <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">ADD</div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Right Eye ADD (OD)"
                                       value={reAdd}
-                                      onChange={(e) => handleReAddChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      <option value="0.00">0.00</option>
-                                      {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                        <option key={power} value={power.replace('+', '')}>{power}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleReAddChange(val)}
+                                      options={ADD_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Left Eye ADD (OS)"
                                       value={leAdd}
-                                      onChange={(e) => handleLeAddChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      <option value="0.00">0.00</option>
-                                      {['+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'].map(power => (
-                                        <option key={power} value={power.replace('+', '')}>{power}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleLeAddChange(val)}
+                                      options={ADD_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                 </div>
 
                                 <div className="grid grid-cols-[70px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-3 items-center">
                                   <div className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">PD</div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Right Eye PD (OD)"
                                       value={rePd}
-                                      onChange={(e) => handleRePdChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleRePdChange(val)}
+                                      options={PD_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                   <div>
-                                    <select
+                                    <CustomPowerPicker
+                                      label="Left Eye PD (OS)"
                                       value={lePd}
-                                      onChange={(e) => handleLePdChange(e.target.value)}
-                                      className="w-full bg-[#131314] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all"
-                                    >
-                                      <option value="">Select</option>
-                                      {Array.from({ length: 41 }, (_, i) => (20.0 + i * 0.5).toFixed(1)).map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
+                                      onChange={(val) => handleLePdChange(val)}
+                                      options={PD_OPTIONS}
+                                      isAxis={true}
+                                    />
                                   </div>
                                 </div>
                               </>
@@ -1800,20 +2056,26 @@ export default function LensSelection() {
                           </div>
                         )}
                         
-                        {uploadedFileUrl && (
-                          <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
-                            <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
-                              Save this Prescription as (Mandatory) <span className="text-red-500">*</span>
-                            </label>
-                            <input 
-                              type="text" 
-                              placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
+                        {/* Whose prescription is this block (Same as Manual Mode) */}
+                        <div className="space-y-3 pt-4 border-t border-[#2A2A2D] text-left">
+                          <h4 className="text-white font-bold text-xs sm:text-sm tracking-wide">Whose prescription is this</h4>
+                          <div className="space-y-3">
+                            <input
+                              type="text"
+                              placeholder="Name *"
                               value={prescriptionName}
                               onChange={e => setPrescriptionName(e.target.value)}
-                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3.5 py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D]"
+                            />
+                            <input
+                              type="tel"
+                              placeholder="Phone Number *"
+                              value={prescriptionPhone}
+                              onChange={e => setPrescriptionPhone(e.target.value)}
+                              className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3.5 py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-[#D4A04D]"
                             />
                           </div>
-                        )}
+                        </div>
                       </div>
                     )}
                   </>

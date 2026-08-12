@@ -241,6 +241,11 @@ export interface IProduct extends Document {
   sellAsFrame?: boolean;
   sellWithLens?: boolean;
 
+  // Lens solution cross-sell (contact lens products only)
+  isLensSolution?: boolean;
+  linkedSolutions?: Array<{ solutionId: string; discountPercent?: number; overridePrice?: number }>;
+  solutionVariants?: Array<{ volume: string; price: number; originalPrice?: number }>;
+
   // Audit Logs Version Tracking
   currentVersion: number;
 
@@ -535,6 +540,22 @@ const ProductSchema = new Schema<IProduct>(
     lensUsage: { type: String },
     sellAsFrame: { type: Boolean, default: true },
     sellWithLens: { type: Boolean, default: true },
+
+    isLensSolution: { type: Boolean, default: false },
+    linkedSolutions: [
+      {
+        solutionId: { type: Schema.Types.ObjectId, ref: 'Product' },
+        discountPercent: { type: Number },
+        overridePrice: { type: Number }
+      }
+    ],
+    solutionVariants: [
+      {
+        volume: { type: String },
+        price: { type: Number },
+        originalPrice: { type: Number }
+      }
+    ],
 
     currentVersion: { type: Number, default: 1 },
   },

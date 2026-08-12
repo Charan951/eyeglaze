@@ -53,14 +53,18 @@ export async function getCart(req: Request, res: Response) {
     const remainingOneRupeeFrames = Math.max(0, 2 - (user?.oneRupeeOfferCount ?? 0));
 
     const processedItems = cart.items.map((item: any) => {
-      let framePrice = item.product?.price?.selling ?? item.framePrice ?? 0;
+      // Items with a lensType (contact lenses, or a frame's lens payload) store their own
+      // authoritative framePrice at add-time (0 for contact lenses, since the box price is
+      // carried entirely in lensPrice). Only plain frame items re-sync to the live product
+      // price here, so eyeglass pricing always reflects the current catalog price.
+      let framePrice = (item.priceLocked || item.lensType) ? (item.framePrice ?? 0) : (item.product?.price?.selling ?? item.framePrice ?? 0);
       let appliedOffers: string[] = [];
       let isOneRupeeFrame = false;
 
       const effectiveMemberPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.product?.memberPrices?.goldMemberPrice;
 
       // Check ₹1 Frame eligibility
-      if (cart.items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
+      if (!item.priceLocked && cart.items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMemberNow && !user?.oneRupeeOfferUsed && (user?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesApplied < remainingOneRupeeFrames) {
         const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
         const regularPrice = effectiveMemberPrice !== undefined ? effectiveMemberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
         const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
@@ -68,10 +72,10 @@ export async function getCart(req: Request, res: Response) {
         oneRupeeFramesApplied += allowed;
         isOneRupeeFrame = true;
         appliedOffers.push('₹1 Frame');
-      } else if (effectiveMemberPrice !== undefined && isMemberNow) {
+      } else if (!item.priceLocked && effectiveMemberPrice !== undefined && isMemberNow) {
         framePrice = effectiveMemberPrice;
         appliedOffers.push('Member Price');
-      } else if (item.product?.nonMemberPrice !== undefined && !isMemberNow) {
+      } else if (!item.priceLocked && item.product?.nonMemberPrice !== undefined && !isMemberNow) {
         framePrice = item.product.nonMemberPrice;
       }
 
@@ -132,7 +136,8 @@ export async function addToCart(req: Request, res: Response) {
   try {
     await connectDB();
     const body = req.body || {};
-    const { productId, color, qty = 1, lens, forceNew = false } = body;
+    const { productId, color, qty = 1, lens, forceNew = false, priceOverride } = body;
+    const originalPrice = typeof body.originalPrice === 'number' ? body.originalPrice : undefined;
 
     if (!productId) {
       return res.status(400).json({ error: 'productId is required' });
@@ -182,14 +187,25 @@ export async function addToCart(req: Request, res: Response) {
       }
     }
 
+    const hasPriceOverride = typeof priceOverride === 'number' && priceOverride >= 0;
+
     if (existingIdx >= 0) {
       cart.items[existingIdx].qty += qty;
+      if (hasPriceOverride) {
+        cart.items[existingIdx].framePrice = priceOverride;
+        cart.items[existingIdx].priceLocked = true;
+        if (originalPrice !== undefined) {
+          cart.items[existingIdx].originalPrice = originalPrice;
+        }
+      }
     } else {
       const newItem = {
         product: productId,
         qty,
         color,
-        framePrice: product.price?.selling || 1,
+        framePrice: hasPriceOverride ? priceOverride : (product.price?.selling || 1),
+        priceLocked: hasPriceOverride || !!lens,
+        originalPrice: hasPriceOverride ? (originalPrice ?? product.price?.selling) : undefined,
         memberFramePrice: product.memberPrice,
         fittingCharge,
         deliveryCharge: user?.membershipActive ? 0 : 99,

@@ -719,7 +719,10 @@ export async function seedDatabase() {
 
   for (const prod of products) {
     const query = (prod as any)._id ? { _id: (prod as any)._id } : { sku: prod.sku };
-    await Product.findOneAndUpdate(query, prod, { upsert: true, returnDocument: 'after' });
+    // $setOnInsert (not a plain overwrite) so this only creates the product the first time.
+    // On every later boot (nodemon restarts this constantly in dev) it must not clobber
+    // real data — rating/reviewCount from actual reviews, admin edits, inventory, etc.
+    await Product.findOneAndUpdate(query, { $setOnInsert: prod }, { upsert: true, returnDocument: 'after' });
   }
   // console.log('Products seeded.');
 

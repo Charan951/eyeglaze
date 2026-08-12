@@ -20,7 +20,14 @@ import {
   ChevronDown,
   Layers,
   ShoppingBag,
-  Sparkles
+  Sparkles,
+  Menu,
+  X,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Star,
+  FileText,
+  Settings
 } from 'lucide-react';
 
 interface NavLinkItem {
@@ -81,6 +88,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/admin/users', label: 'Users', icon: Users },
       { href: '/admin/tickets', label: 'Support Tickets', icon: Ticket },
+      { href: '/admin/reviews', label: 'Reviews', icon: Star },
     ],
   },
   {
@@ -92,6 +100,8 @@ const navItems: NavItem[] = [
       { href: '/admin/homepage-videos', label: 'Home Videos', icon: Video },
       { href: '/admin/reels', label: 'Home Reels', icon: Smartphone },
       { href: '/admin/banners', label: 'Home Banners', icon: Image },
+      { href: '/admin/blogs', label: 'Blogs', icon: FileText },
+      { href: '/admin/settings', label: 'Site Settings', icon: Settings },
     ],
   },
   {
@@ -109,6 +119,8 @@ export default function AdminLayout() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     catalog: false,
@@ -145,16 +157,45 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
+  // Close sidebar on menu item click so page expands to 100% width cleanly
+  const handleNavClick = () => {
+    setIsSidebarOpen(false);
+  };
+
   return (
-    <div className="h-screen flex bg-[#0B0B0C] overflow-hidden">
+    <div className="h-screen flex bg-[#0B0B0C] overflow-hidden relative">
+      {/* Sidebar Overlay on mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-xs transition-opacity duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-60 bg-[#0A0A0A] border-r border-[#2A2A2D] flex flex-col py-6 px-3 gap-1.5 flex-shrink-0 overflow-y-auto scrollbar-none select-none">
-        <div className="px-3 mb-5">
-          <div className="text-[#D4A04D] font-serif text-lg tracking-wider uppercase font-bold">EYEGLAZE</div>
-          <div className="text-[#A7A7A7] text-xs mt-0.5 font-sans">Admin Panel</div>
+      <aside
+        className={`bg-[#0A0A0A] border-r border-[#2A2A2D] flex flex-col z-40 flex-shrink-0 select-none transition-all duration-300 ease-in-out ${
+          isSidebarOpen
+            ? 'w-64 px-3 py-6 opacity-100 translate-x-0'
+            : 'w-0 px-0 py-6 opacity-0 -translate-x-full overflow-hidden border-r-0 pointer-events-none'
+        }`}
+      >
+        <div className="px-3 mb-5 flex items-center justify-between">
+          <div>
+            <div className="text-[#D4A04D] font-serif text-lg tracking-wider uppercase font-bold">EYEGLAZE</div>
+            <div className="text-[#A7A7A7] text-xs mt-0.5 font-sans">Admin Panel</div>
+          </div>
+          {/* Close button inside sidebar */}
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Close Sidebar"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <nav className="flex flex-col gap-1.5 flex-1">
+        <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto scrollbar-none pr-1">
           {navItems.map((item) => {
             if (item.type === 'link') {
               const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
@@ -163,6 +204,7 @@ export default function AdminLayout() {
                 <Link
                   key={item.href}
                   to={item.href}
+                  onClick={handleNavClick}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
                     isActive
                       ? 'bg-[#18181A] text-white font-semibold shadow-sm border border-[#2A2A2D]'
@@ -221,6 +263,7 @@ export default function AdminLayout() {
                           <Link
                             key={child.href}
                             to={child.href}
+                            onClick={handleNavClick}
                             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all duration-150 group ${
                               isChildActive
                                 ? 'bg-[#18181A] text-white font-medium border border-[#2A2A2D]'
@@ -253,9 +296,33 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto scrollbar-none">
-        <div className="p-8">
+      {/* Main Container */}
+      <main className="flex-1 overflow-y-auto scrollbar-none flex flex-col min-w-0 transition-all duration-300 ease-in-out">
+        {/* Floating Top Navbar with Hamburger Toggle */}
+        <header className="sticky top-0 z-20 bg-[#0B0B0C]/80 backdrop-blur-md border-b border-[#2A2A2D] px-6 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className="p-2 rounded-xl bg-[#131314] hover:bg-[#1C1C1E] border border-[#2A2A2D] text-[#D4A04D] hover:text-white transition-all cursor-pointer shadow-md flex items-center justify-center"
+              title={isSidebarOpen ? "Collapse Sidebar (Full Width Page)" : "Expand Sidebar Menu"}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5 text-[#D4A04D]" />}
+            </button>
+            <div className="text-white text-xs font-bold uppercase tracking-wider hidden sm:block">
+              Eyeglaze Admin Portal
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {!isSidebarOpen && (
+              <span className="bg-[#D4A04D]/15 border border-[#D4A04D]/30 text-[#D4A04D] text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                Full Width View (100%)
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="p-6 md:p-8 flex-1 w-full max-w-full transition-all duration-300">
           <Outlet />
         </div>
       </main>

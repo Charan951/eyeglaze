@@ -98,22 +98,22 @@ export default function Membership() {
           description="Your EyeGlaze Gold Membership details and benefits"
         />
 
-        {/* Back Button & Title Header */}
-        <div className="flex items-center gap-4 mb-8 select-none">
-          <button 
-            onClick={() => navigate(-1)}
-            className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer focus:outline-none"
-            aria-label="Go Back"
+        {/* Title Header */}
+        <div className="mb-8 select-none border-b border-[#2A2A2D] pb-4 flex items-center gap-2.5">
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#131314] flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer shrink-0"
+            title="Back to Profile"
           >
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-wide">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-wide">
               You are a Gold Member!
             </h1>
-            <p className="text-gray-400 text-xs mt-1.5 font-medium">
+            <p className="text-gray-400 text-xs mt-1 font-medium">
               Your membership expires on {expiryDate}
             </p>
           </div>

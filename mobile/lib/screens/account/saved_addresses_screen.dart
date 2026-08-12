@@ -291,6 +291,7 @@ class _AddressFormState extends State<_AddressForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _fullNameCtrl;
   late TextEditingController _mobileCtrl;
+  late TextEditingController _alternativeNumberCtrl;
   late TextEditingController _pincodeCtrl;
   late TextEditingController _line1Ctrl;
   late TextEditingController _line2Ctrl;
@@ -305,6 +306,7 @@ class _AddressFormState extends State<_AddressForm> {
     super.initState();
     _fullNameCtrl = TextEditingController(text: widget.address?.fullName);
     _mobileCtrl = TextEditingController(text: widget.address?.mobile);
+    _alternativeNumberCtrl = TextEditingController(text: widget.address?.alternativeNumber);
     _pincodeCtrl = TextEditingController(text: widget.address?.pincode);
     _line1Ctrl = TextEditingController(text: widget.address?.line1);
     _line2Ctrl = TextEditingController(text: widget.address?.line2);
@@ -318,6 +320,7 @@ class _AddressFormState extends State<_AddressForm> {
   void dispose() {
     _fullNameCtrl.dispose();
     _mobileCtrl.dispose();
+    _alternativeNumberCtrl.dispose();
     _pincodeCtrl.dispose();
     _line1Ctrl.dispose();
     _line2Ctrl.dispose();
@@ -333,6 +336,7 @@ class _AddressFormState extends State<_AddressForm> {
       await widget.onSubmit({
         'fullName': _fullNameCtrl.text.trim(),
         'mobile': _mobileCtrl.text.trim(),
+        'alternativeNumber': _alternativeNumberCtrl.text.trim(),
         'pincode': _pincodeCtrl.text.trim(),
         'line1': _line1Ctrl.text.trim(),
         'line2': _line2Ctrl.text.trim(),
@@ -408,6 +412,17 @@ class _AddressFormState extends State<_AddressForm> {
                 decoration: const InputDecoration(
                   labelText: 'Mobile Number',
                   prefixIcon: Icon(Icons.phone_iphone, color: AppColors.gold, size: 18),
+                ),
+                keyboardType: TextInputType.phone,
+                validator: (val) => val?.isEmpty ?? true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _alternativeNumberCtrl,
+                style: const TextStyle(color: AppColors.white, fontSize: 14),
+                decoration: const InputDecoration(
+                  labelText: 'Alternative Number',
+                  prefixIcon: Icon(Icons.phone_forwarded_outlined, color: AppColors.gold, size: 18),
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (val) => val?.isEmpty ?? true ? 'Required' : null,
