@@ -1060,14 +1060,14 @@ export default function CheckoutPage() {
                         <span className="text-[#A7A7A7] text-[6px] font-bold uppercase tracking-widest mt-0.5">MEMBERSHIP</span>
                       </div>
                     ) : (
-                      <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none flex items-center justify-center flex-shrink-0 relative">
+                      <div className="w-20 h-20 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {isFreeThisItem && (
                           <div className="absolute top-0 left-0 bg-[#00A86B] text-white font-extrabold text-[7px] uppercase tracking-wider px-1.5 py-0.5 z-10 rounded-br">
                             FREE
                           </div>
                         )}
                         {item.image ? (
-                          <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
+                          <img src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           <span className="text-xl">👓</span>
                         )}

@@ -247,9 +247,9 @@ export default function OrderDetailPage() {
                   <div key={idx} className="border-b border-[#2A2A2D]/50 pb-6 last:border-b-0 last:pb-0 space-y-4">
                     <div className="flex flex-col sm:flex-row gap-4">
                       {/* Frame image */}
-                      <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+                      <div className="w-36 h-36 bg-[#1A1A1C] border border-[#2A2A2D] rounded-none overflow-hidden flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0 relative">
                         {item.product?.images?.[0] ? (
-                          <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-contain p-2" />
+                          <img src={item.product.images[0]} alt={item.product.name} className="absolute inset-0 w-full h-full object-cover" />
                         ) : (
                           <span className="text-3xl">👓</span>
                         )}

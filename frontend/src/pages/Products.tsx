@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type React from 'react';
-import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLoaderData, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from '../components/ui/ProductCard';
 import ProductFilters from '../components/ProductFilters';
@@ -69,9 +69,27 @@ export default function ProductsPage() {
   const categoriesList = categoriesData || [];
   const selectedCategorySlug = searchParams.get('category');
   const selectedCategory = categoriesList.find((c: any) => c.slug === selectedCategorySlug);
-  const subCategories = selectedCategory 
-    ? (selectedCategory.children || []) 
+  const subCategories = selectedCategory
+    ? (selectedCategory.children || [])
     : categoriesList.flatMap((c: any) => c.children || []);
+
+  // Deepest-selected level's name, for the page title — falls back up a
+  // level whenever a deeper param isn't set or doesn't resolve.
+  const selectedSubCategorySlug = (searchParams.get('subCategory') || '').split(',')[0].toLowerCase();
+  const selectedSubSubCategorySlug = (searchParams.get('subSubCategory') || '').toLowerCase();
+  const selectedSubSubSubCategorySlug = (searchParams.get('subSubSubCategory') || '').toLowerCase();
+  const selectedSubCategoryObj = selectedCategory?.children?.find((s: any) => (s.slug || '').toLowerCase() === selectedSubCategorySlug);
+  const selectedSubSubCategoryObj = selectedSubCategoryObj?.children?.find((ss: any) => (ss.slug || '').toLowerCase() === selectedSubSubCategorySlug);
+  const selectedSubSubSubCategoryObj = selectedSubSubCategoryObj?.children?.find((sss: any) => (sss.slug || '').toLowerCase() === selectedSubSubSubCategorySlug);
+  const displayTitle = selectedSubSubSubCategoryObj?.name || selectedSubSubCategoryObj?.name || selectedSubCategoryObj?.name || selectedCategory?.name || 'All Products';
+
+  // Mobile app-bar title — set on UserLayout via Outlet context so it shows
+  // next to the header's back button instead of duplicating in the body.
+  const { setMobileTitle } = useOutletContext<{ setMobileTitle: (title: string) => void }>();
+  useEffect(() => {
+    setMobileTitle(displayTitle);
+    return () => setMobileTitle('');
+  }, [displayTitle, setMobileTitle]);
 
   const handleCategoryChange = (slug: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -117,15 +135,6 @@ export default function ProductsPage() {
   useEffect(() => {
     setSearchVal(searchParams.get('search') || '');
   }, [searchParams]);
-
-  const activeTier = searchParams.get('tier') || 'All';
-  const handleTierChange = (tier: string) => {
-    if (tier === 'All') {
-      navigate('/products');
-    } else {
-      updateSingleFilter('tier', tier);
-    }
-  };
 
   // Debounced search update
   useEffect(() => {
@@ -249,7 +258,8 @@ export default function ProductsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pt-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-baseline gap-2.5">
-            <span>{selectedCategory?.name || 'All Eyeglasses'}</span>
+            {/* Name moves to the mobile app bar (see UserLayout); still shown inline on desktop. */}
+            <span className="hidden md:inline">{displayTitle}</span>
             <span className="text-xs md:text-sm font-semibold text-gray-500 font-mono">
               ({total ? `${total} Items` : `${products.length} Items`})
             </span>
@@ -300,35 +310,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Sub-Category Icon Tabs Strip (Image 15: All, Essential, Premium, Sale) */}
-      <div className="flex md:hidden items-center gap-3 overflow-x-auto py-2 mb-4 scrollbar-none border-b border-[#2A2A2D]/50 select-none">
-        {[
-          { id: 'All', label: 'All', icon: '👓' },
-          { id: 'Essential', label: 'Essential', icon: '👓' },
-          { id: 'Premium', label: 'Premium', icon: '👓' },
-          { id: 'Sale', label: 'Sale', icon: '🏷️' }
-        ].map((tab) => {
-          const isActive = activeTier === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => handleTierChange(tab.id)}
-              className={`flex flex-col items-center gap-1 min-w-[70px] py-1.5 px-3 rounded-xl transition-all duration-200 border cursor-pointer ${
-                isActive
-                  ? 'border-[#D4A04D] bg-[#D4A04D]/10 text-white'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              <span className="text-xl">{tab.icon}</span>
-              <span className={`text-[11px] font-black uppercase tracking-wider ${isActive ? 'text-[#D4A04D]' : ''}`}>
-                {tab.label}
-              </span>
-              {isActive && <div className="w-6 h-0.5 bg-[#D4A04D] rounded-full mt-0.5" />}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="flex gap-6 md:gap-8">
         {/* Sidebar Filters - Desktop only */}
         <div className="w-56 flex-shrink-0 hidden md:block">
@@ -337,132 +318,14 @@ export default function ProductsPage() {
 
         {/* Product Grid / Details List */}
         <div className="flex-1">
-          {/* Clean Text Breadcrumb Path (as shown in image copy.png, replacing card box & pills) */}
-          {(() => {
-            const currentCategorySlug = (searchParams.get('category') || '').toLowerCase();
-            const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
-            const currentSubSubCat = (searchParams.get('subSubCategory') || searchParams.get('type') || searchParams.get('power') || '').toLowerCase();
-            const currentSubSubSubCat = (searchParams.get('subSubSubCategory') || searchParams.get('disposable') || searchParams.get('wearTime') || '').toLowerCase();
-            const currentGender = (searchParams.get('gender') || '').toLowerCase();
-            const currentShape = (searchParams.get('shape') || '').toLowerCase();
-
-            if (!currentCategorySlug && !currentSubCat && !currentSubSubCat) return null;
-
-            // Find active category from categoriesList tree
-            const activeCat = categoriesList.find((c: any) => {
-              const slug = (c.slug || '').toLowerCase();
-              return slug === currentCategorySlug || slug.replace(/_/g, '-') === currentCategorySlug.replace(/_/g, '-') ||
-                (currentCategorySlug === 'prescription' && slug === 'eyeglasses') ||
-                (currentCategorySlug === 'contact-lenses' && (slug === 'contact-lens' || slug === 'contact')) ||
-                (currentCategorySlug === 'contact' && (slug === 'contact-lens' || slug === 'contact-lenses'));
-            });
-
-            const activeSubCatObj = activeCat?.children?.find((s: any) => {
-              const sSlug = (s.slug || '').toLowerCase();
-              return sSlug === currentSubCat || sSlug.replace(/_/g, '-') === currentSubCat.replace(/_/g, '-');
-            });
-
-            const activeSubSubCatObj = activeSubCatObj?.children?.find((ss: any) => {
-              const ssSlug = (ss.slug || '').toLowerCase();
-              return ssSlug === currentSubSubCat || ssSlug.replace(/_/g, '-') === currentSubSubCat.replace(/_/g, '-');
-            });
-
-            const activeSubSubSubCatObj = activeSubSubCatObj?.children?.find((sss: any) => {
-              const sssSlug = (sss.slug || '').toLowerCase();
-              return sssSlug === currentSubSubSubCat || sssSlug.replace(/_/g, '-') === currentSubSubSubCat.replace(/_/g, '-');
-            });
-
-            // Format labels cleanly
-            const catLabel = activeCat?.name || (currentCategorySlug ? currentCategorySlug.charAt(0).toUpperCase() + currentCategorySlug.slice(1) : '');
-            const subLabel = activeSubCatObj?.name || (currentSubCat ? currentSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
-            const subSubLabel = activeSubSubCatObj?.name || (currentSubSubCat ? currentSubSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
-            const subSubSubLabel = activeSubSubSubCatObj?.name || (currentSubSubSubCat ? currentSubSubSubCat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
-
-            // Construct breadcrumb items list
-            const items: Array<{ label: string; onClick?: () => void }> = [];
-            items.push({ label: 'Eyewear', onClick: () => navigate('/products') });
-
-            if (catLabel) {
-              items.push({
-                label: catLabel,
-                onClick: () => {
-                  const params = new URLSearchParams();
-                  params.set('category', currentCategorySlug);
-                  navigate(`/products?${params.toString()}`);
-                }
-              });
-            }
-
-            if (subLabel) {
-              items.push({
-                label: subLabel,
-                onClick: () => {
-                  const params = new URLSearchParams();
-                  if (currentCategorySlug) params.set('category', currentCategorySlug);
-                  params.set('subCategory', currentSubCat);
-                  navigate(`/products?${params.toString()}`);
-                }
-              });
-            }
-
-            if (subSubLabel) {
-              items.push({
-                label: subSubLabel,
-                onClick: () => {
-                  const params = new URLSearchParams();
-                  if (currentCategorySlug) params.set('category', currentCategorySlug);
-                  if (currentSubCat) params.set('subCategory', currentSubCat);
-                  params.set('subSubCategory', currentSubSubCat);
-                  navigate(`/products?${params.toString()}`);
-                }
-              });
-            }
-
-            if (subSubSubLabel) {
-              items.push({
-                label: subSubSubLabel
-              });
-            } else if (currentGender || currentShape) {
-              const extraLabel = [currentGender, currentShape].filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-              if (extraLabel && !subSubLabel) {
-                items.push({ label: extraLabel });
-              }
-            }
-
-            if (items.length <= 1) return null;
-
-            return (
-              <div className="mb-6 hidden md:flex items-center gap-2 flex-wrap text-sm md:text-base font-medium select-none">
-                {items.map((item, index) => {
-                  const isLast = index === items.length - 1;
-                  return (
-                    <div key={index} className="flex items-center gap-2">
-                      {index > 0 && <span className="text-slate-500 font-bold">/</span>}
-                      {isLast ? (
-                        <span className="text-white font-bold">{item.label}</span>
-                      ) : (
-                        <span
-                          onClick={item.onClick}
-                          className="text-slate-400 hover:text-[#D4A04D] transition-colors cursor-pointer"
-                        >
-                          {item.label}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
-          {/* Sub-Sub-Category Tabs: always shows All / Bestsellers / New Arrivals,
-              plus one tab per Sub-Sub-Sub-Category when this Sub-Sub-Category has any. */}
+          {/* Sub-Sub-Category Tabs — only rendered when the current level
+              actually has real admin-created children; no generic
+              fallback tabs when it doesn't. */}
           {(() => {
             const currentCategorySlug = (searchParams.get('category') || '').toLowerCase();
             const currentSubCat = (searchParams.get('subCategory') || '').toLowerCase();
             const currentSubSubCat = (searchParams.get('subSubCategory') || '').toLowerCase();
             const currentSubSubSubCat = (searchParams.get('subSubSubCategory') || '').toLowerCase();
-            const currentSort = searchParams.get('sort') || '';
 
             if (!currentSubCat) return null;
 
@@ -525,24 +388,16 @@ export default function ProductsPage() {
               navigate(`/products?${params.toString()}`);
             };
 
+            // Only render this tab row when the current level actually has
+            // real admin-created children — no generic fallback tabs.
+            if (children.length === 0) return null;
+
             const GridIcon = () => (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="7" height="7" rx="1.5" />
                 <rect x="14" y="3" width="7" height="7" rx="1.5" />
                 <rect x="14" y="14" width="7" height="7" rx="1.5" />
                 <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-            );
-            const BestsellerIcon = () => (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="8" r="5" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5L7 21l5-3 5 3-1.5-8.5" />
-              </svg>
-            );
-            const NewIcon = () => (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
               </svg>
             );
             const TagIcon = () => (
@@ -565,37 +420,21 @@ export default function ProductsPage() {
               navigate(`/products?${params.toString()}`);
             };
 
-            const goToSort = (sort: string) => {
-              const params = new URLSearchParams(searchParams.toString());
-              params.set('sort', sort);
-              params.delete('page');
-              navigate(`/products?${params.toString()}`);
-            };
+            const allTab: Tab = { key: 'all', label: 'All', icon: GridIcon, isActive: !activeTabValue, onClick: goToAll };
 
-            const allTab: Tab = { key: 'all', label: 'All', icon: GridIcon, isActive: !currentSort && !activeTabValue, onClick: goToAll };
-
-            // Only real, admin-created sub-categories are ever shown here.
-            // The generic Bestsellers/New Arrivals tabs are a fallback for when
-            // none exist yet — they never appear alongside real category names.
-            const tabs: Tab[] = children.length > 0
-              ? [
-                  allTab,
-                  ...children.map((c: any) => {
-                    const slug = (c.slug || '').toLowerCase();
-                    return {
-                      key: slug,
-                      label: c.name,
-                      icon: TagIcon,
-                      isActive: activeTabValue === slug,
-                      onClick: () => goToSubSubSub(slug),
-                    };
-                  }),
-                ]
-              : [
-                  allTab,
-                  { key: 'bestseller', label: 'Bestsellers', icon: BestsellerIcon, isActive: currentSort === 'bestseller', onClick: () => goToSort('bestseller') },
-                  { key: 'newest', label: 'New Arrivals', icon: NewIcon, isActive: currentSort === 'newest', onClick: () => goToSort('newest') },
-                ];
+            const tabs: Tab[] = [
+              allTab,
+              ...children.map((c: any) => {
+                const slug = (c.slug || '').toLowerCase();
+                return {
+                  key: slug,
+                  label: c.name,
+                  icon: TagIcon,
+                  isActive: activeTabValue === slug,
+                  onClick: () => goToSubSubSub(slug),
+                };
+              }),
+            ];
 
             return (
               <div className="flex items-center gap-6 overflow-x-auto pb-3 mb-6 scrollbar-none border-b border-[#2A2A2D]">

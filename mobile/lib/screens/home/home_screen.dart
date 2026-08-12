@@ -83,8 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCustomBottomBar() {
-    final cartCount = context.watch<CartProvider>().itemCount;
-
     return AnimatedSlide(
       offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
       duration: const Duration(milliseconds: 250),
@@ -210,59 +208,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'ORDERS',
                   ),
                 ),
-                // Cart Tab
+                // Products Tab — matches the web app's mobile bottom nav
+                // tab set (Products / Wishlist / Home / Orders / Gold).
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const ProductsScreen(),
+                        ),
                       );
                     },
                     behavior: HitTestBehavior.opaque,
-                    child: Column(
+                    child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Icon(
-                              Icons.shopping_cart_outlined,
-                              color: AppColors.muted,
-                              size: 20,
-                            ),
-                            if (cartCount > 0)
-                              Positioned(
-                                right: -6,
-                                top: -6,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.gold,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 12,
-                                    minHeight: 12,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '$cartCount',
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 7,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                        Icon(
+                          Icons.grid_view_outlined,
+                          color: AppColors.muted,
+                          size: 20,
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'CART',
+                        SizedBox(height: 4),
+                        Text(
+                          'PRODUCTS',
                           style: TextStyle(
                             color: AppColors.muted,
                             fontSize: 8,
@@ -319,6 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartCount = context.watch<CartProvider>().itemCount;
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
@@ -371,6 +341,52 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(builder: (_) => const ProductsScreen()),
               );
             },
+          ),
+          // Cart icon lives in the app bar (not the bottom nav), matching
+          // the web app — the bottom nav tab set is Products/Wishlist/Home/
+          // Orders/Gold, with cart reachable from the header instead.
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: AppColors.white,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CartScreen()),
+                  );
+                },
+              ),
+              if (cartCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: AppColors.gold,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 14,
+                      minHeight: 14,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$cartCount',
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           Stack(
             children: [
@@ -2386,7 +2402,7 @@ class _FeaturedProductCard extends StatelessWidget {
                               imageUrl: AppConfig.resolveImageUrl(
                                 product.images.first,
                               ),
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
                               placeholder: (context, url) => const Center(
                                 child: SizedBox(
                                   width: 20,

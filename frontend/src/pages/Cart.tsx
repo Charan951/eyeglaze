@@ -684,14 +684,14 @@ export default function CartPage() {
                 <div className="block sm:hidden bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3.5 relative shadow-lg">
                   <div className="flex gap-3 items-stretch">
                     {/* Left Product Image Container */}
-                    <div className="w-28 h-28 shrink-0 bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl flex items-center justify-center p-2 relative">
+                    <div className="w-28 h-28 shrink-0 bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl flex items-center justify-center overflow-hidden relative">
                       {isFreeThisItem && (
                         <div className="absolute top-1 left-1 bg-[#00A86B] text-white font-black text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm z-10">
                           FREE
                         </div>
                       )}
                       {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                        <img src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
                         <span className="text-3xl">👓</span>
                       )}

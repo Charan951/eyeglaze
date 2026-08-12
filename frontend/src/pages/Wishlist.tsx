@@ -106,9 +106,9 @@ export default function WishlistPage() {
             <div key={item._id} className="bg-[#131314] border border-[#2A2A2D] rounded-none overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col group relative">
               
               {/* Image Container */}
-              <div className="relative aspect-square bg-[#1A1A1C] flex items-center justify-center p-4 border-b border-[#2A2A2D]/40">
+              <div className="relative aspect-square bg-[#1A1A1C] flex items-center justify-center overflow-hidden border-b border-[#2A2A2D]/40">
                 {item.images?.[0] ? (
-                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-contain p-6 group-hover:scale-105 transition-transform duration-500 rounded-none" />
+                  <img src={item.images[0]} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 ) : (
                   <div className="text-gray-500 text-center">
                     <div className="text-5xl mb-2">👓</div>

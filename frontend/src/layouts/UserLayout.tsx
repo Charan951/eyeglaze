@@ -18,6 +18,11 @@ export default function UserLayout() {
   const [activeHover, setActiveHover] = useState<string | null>(null);
   const [products, setProducts] = useState<any[]>(initialProducts || []);
 
+  // Mobile app-bar title — pages (e.g. Products) set this via the Outlet
+  // context to show their current selection (category/sub-category/etc.)
+  // in the header next to the back button, instead of in the page body.
+  const [mobileTitle, setMobileTitle] = useState('');
+
   useEffect(() => {
     if (initialProducts) setProducts(initialProducts);
   }, [initialProducts]);
@@ -908,6 +913,13 @@ export default function UserLayout() {
     setActiveHover(null);
   }, [location.pathname, location.search]);
 
+  // Clear the page-set mobile app-bar title when navigating to a different
+  // route (but not on in-page search-param changes, so pages like Products
+  // can keep it updated as filters change without a flash of emptiness).
+  useEffect(() => {
+    setMobileTitle('');
+  }, [location.pathname]);
+
   // Lock body scroll on mobile when menus are open
   useEffect(() => {
     const isMobile = window.innerWidth < 1280;
@@ -1228,23 +1240,29 @@ export default function UserLayout() {
                   </div>
                 </div>
               ) : (
-                /* Standard mobile header back navigation button */
+                /* Standard mobile header back navigation button, plus any
+                   page-set title (e.g. the selected category on Products) */
                 location.pathname !== '/' && !isProductDetailPage && (
-                  <button
-                    onClick={() => {
-                      if (isAuthPage || location.pathname === '/products') {
-                        navigate('/');
-                      } else {
-                        navigate(-1);
-                      }
-                    }}
-                    className="text-gray-400 hover:text-white p-1 focus:outline-none transition-colors cursor-pointer bg-transparent border-none"
-                    aria-label="Go Back"
-                  >
-                    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      onClick={() => {
+                        if (isAuthPage || location.pathname === '/products') {
+                          navigate('/');
+                        } else {
+                          navigate(-1);
+                        }
+                      }}
+                      className="text-gray-400 hover:text-white p-1 focus:outline-none transition-colors cursor-pointer bg-transparent border-none shrink-0"
+                      aria-label="Go Back"
+                    >
+                      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                    </button>
+                    {mobileTitle && (
+                      <span className="text-white font-extrabold text-base truncate">{mobileTitle}</span>
+                    )}
+                  </div>
                 )
               )}
             </div>
@@ -1599,7 +1617,7 @@ export default function UserLayout() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <Outlet />
+            <Outlet context={{ setMobileTitle }} />
           </motion.div>
         </AnimatePresence>
       </main>

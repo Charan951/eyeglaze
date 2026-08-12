@@ -1407,7 +1407,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full xl:overflow-hidden">
 
         {/* Left Column (Image Gallery & Media & Accordions) */}
         <div className="space-y-6 min-w-0">
@@ -1483,7 +1483,7 @@ export default function ProductDetailPage() {
                         isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
                       }`}
                     >
-                      <img src={img} alt={`${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-0.5" />
+                      <img src={img} alt={`${product.name} thumbnail ${i + 1}`} className="w-full h-full object-cover" />
                     </div>
                   );
                 })}
@@ -1498,12 +1498,12 @@ export default function ProductDetailPage() {
                   setIsLightboxOpen(true);
                   setIsZoomed(false);
                 }}
-                className="bg-white border-b border-[#2A2A2D]/10 md:bg-[#131314] md:border md:border-[#2A2A2D] rounded-none aspect-square flex items-center justify-center relative overflow-hidden group w-full mb-4 p-8 md:p-6 cursor-zoom-in"
+                className="bg-white border-b border-[#2A2A2D]/10 md:bg-[#131314] md:border md:border-[#2A2A2D] rounded-none aspect-square relative overflow-hidden group w-full mb-4 cursor-zoom-in"
               >
-                <img 
-                  src={productImages[activeImageIndex]} 
-                  alt={product.name} 
-                  className="max-w-full max-h-full object-contain rounded-none w-auto h-auto transition-transform duration-300 group-hover:scale-105" 
+                <img
+                  src={productImages[activeImageIndex]}
+                  alt={product.name}
+                  className="absolute inset-0 w-full h-full object-cover scale-110 transition-transform duration-300 group-hover:scale-125"
                 />
                 
                 <div className="absolute top-16 xl:top-3 left-3 z-20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1599,7 +1599,7 @@ export default function ProductDetailPage() {
                         isSelected ? 'border-[#D4A04D]' : 'border-[#2A2A2D]'
                       }`}
                     >
-                      <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-contain rounded-none p-1" />
+                      <img src={img} alt={`${product.name} angle view ${i + 1}`} className="w-full h-full object-cover rounded-none" />
                     </div>
                   );
                 })}
@@ -3440,30 +3440,6 @@ export default function ProductDetailPage() {
           )}
         </div>
         
-        {/* Bottom Trust Strip */}
-        <div className="bg-[#131314] border-t border-[#2A2A2D]/50 py-2.5 px-3 md:hidden">
-          <div className="max-w-6xl mx-auto flex items-center justify-between gap-1 text-[8px] font-bold text-gray-500 tracking-wider text-center uppercase">
-            <div className="flex items-center gap-1">
-              <span className="text-[#D4A04D] text-xs leading-none">✔</span>
-              <span>100% Authentic</span>
-            </div>
-            <span className="text-gray-800">•</span>
-            <div className="flex items-center gap-1">
-              <span className="text-[#D4A04D] text-xs leading-none">✔</span>
-              <span>Just ₹99 Delivery</span>
-            </div>
-            <span className="text-gray-800">•</span>
-            <div className="flex items-center gap-1">
-              <span className="text-[#D4A04D] text-xs leading-none">✔</span>
-              <span>Fast Delivery</span>
-            </div>
-            <span className="text-gray-800">•</span>
-            <div className="flex items-center gap-1">
-              <span className="text-[#D4A04D] text-xs leading-none">✔</span>
-              <span>24/7 Support</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* AI Assistant Chat Drawer */}
@@ -4257,44 +4233,6 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {/* Mobile-Only Sticky Bottom Action Bar (Image 16) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0E0E0F]/95 border-t border-zinc-800 p-3 backdrop-blur-lg flex items-center justify-between md:hidden shadow-2xl">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.open('https://wa.me/?text=Hi%20EyeGlaze', '_blank')}
-            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
-          >
-            <span className="text-sm">💬</span>
-            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy on Chat</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/contact')}
-            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
-          >
-            <span className="text-sm">🏠</span>
-            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy at Home</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/contact')}
-            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer"
-          >
-            <span className="text-sm">🏪</span>
-            <span className="text-[7.5px] font-bold uppercase tracking-wider">Buy at Store</span>
-          </button>
-        </div>
-
-        <Link
-          to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
-          className="bg-[#0B0C1E] border border-[#D4A04D]/40 text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold text-xs uppercase px-5 py-3 rounded-xl tracking-wider transition-all duration-300 shadow-lg text-center"
-        >
-          Select Lenses
-        </Link>
-      </div>
-
-      {/* Padding for sticky bar */}
-      <div className="h-24 md:hidden" />
     </div>
   );
 }

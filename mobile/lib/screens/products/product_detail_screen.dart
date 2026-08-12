@@ -44,7 +44,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Map<String, double?> get activeDimensions {
     if (p.sizeMeasurements.isNotEmpty) {
       try {
-        final match = p.sizeMeasurements.firstWhere((item) => item.size == _selectedSize);
+        final match = p.sizeMeasurements.firstWhere(
+          (item) => item.size == _selectedSize,
+        );
         return {
           'frameWidth': match.frameWidth ?? p.frame?.width,
           'lensWidth': match.lensWidth ?? p.frame?.lensWidth,
@@ -86,14 +88,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   bool get isContactLenses {
     final catLower = p.categories.map((c) => c.toLowerCase()).toList();
-    return catLower.contains('contact-lenses') || 
-           catLower.contains('contact_lenses') || 
-           catLower.contains('contact');
+    return catLower.contains('contact-lenses') ||
+        catLower.contains('contact_lenses') ||
+        catLower.contains('contact');
   }
 
   bool get isReadingGlasses {
     final catLower = p.categories.map((c) => c.toLowerCase()).toList();
-    return catLower.contains('power-sunglasses') && (p.subCategory?.toLowerCase() == 'reading');
+    return catLower.contains('power-sunglasses') &&
+        (p.subCategory?.toLowerCase() == 'reading');
   }
 
   bool get isKidsProduct {
@@ -105,12 +108,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final frameType = p.frameType ?? p.frame?.type;
     final material = p.material ?? p.frame?.material;
     return (frameType != null && frameType.isNotEmpty) ||
-           (p.frameShape != null && p.frameShape!.isNotEmpty) ||
-           (material != null && material.isNotEmpty) ||
-           (p.frameWeight != null && p.frameWeight!.isNotEmpty) ||
-           (p.countryOfOrigin != null && p.countryOfOrigin!.isNotEmpty) ||
-           (p.manufacturer != null && p.manufacturer!.isNotEmpty) ||
-           (p.warranty != null && p.warranty!.isNotEmpty);
+        (p.frameShape != null && p.frameShape!.isNotEmpty) ||
+        (material != null && material.isNotEmpty) ||
+        (p.frameWeight != null && p.frameWeight!.isNotEmpty) ||
+        (p.countryOfOrigin != null && p.countryOfOrigin!.isNotEmpty) ||
+        (p.manufacturer != null && p.manufacturer!.isNotEmpty) ||
+        (p.warranty != null && p.warranty!.isNotEmpty);
   }
 
   double get displayPrice => _customPriceOverride ?? p.sellingPrice;
@@ -122,7 +125,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<String> get imagesList {
     final colors = p.colors;
     if (colors.isNotEmpty && _selectedColorIdx < colors.length) {
-      final colorImgs = colors[_selectedColorIdx].images.where((img) => img.isNotEmpty).toList();
+      final colorImgs = colors[_selectedColorIdx].images
+          .where((img) => img.isNotEmpty)
+          .toList();
       if (colorImgs.isNotEmpty) {
         return colorImgs;
       }
@@ -166,7 +171,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _reviews = _getMockReviews();
     _checkWishlistStatus();
     _loadProductDetails();
-    final available = p.availableSizes.isNotEmpty ? p.availableSizes : const ['Small', 'Medium', 'Large'];
+    final available = p.availableSizes.isNotEmpty
+        ? p.availableSizes
+        : const ['Small', 'Medium', 'Large'];
     final recSize = recommendedSize;
     if (available.contains(recSize)) {
       _selectedSize = recSize;
@@ -198,19 +205,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _onProductChanged(dynamic data) {
     if (kDebugMode) {
-      print('Socket: product_changed event received in ProductDetailScreen: $data');
+      print(
+        'Socket: product_changed event received in ProductDetailScreen: $data',
+      );
     }
     if (!mounted) return;
 
     final action = data['action']?.toString();
-    final id = data['id']?.toString() ?? (data['product'] != null ? data['product']['_id']?.toString() : null);
+    final id =
+        data['id']?.toString() ??
+        (data['product'] != null ? data['product']['_id']?.toString() : null);
 
     if (id == p.id) {
       if (action == 'delete') {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('This product is no longer available.'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This product is no longer available.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
         Navigator.pop(context);
       } else if (action == 'update') {
         _loadProductDetails();
@@ -237,7 +250,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final auth = context.read<AuthService>();
     if (!auth.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please login to manage your wishlist'), backgroundColor: AppColors.error),
+        const SnackBar(
+          content: Text('Please login to manage your wishlist'),
+          backgroundColor: AppColors.error,
+        ),
       );
       Navigator.pushNamed(context, '/login');
       return;
@@ -252,7 +268,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isInWishlist ? 'Added to wishlist!' : 'Removed from wishlist!'),
+            content: Text(
+              _isInWishlist ? 'Added to wishlist!' : 'Removed from wishlist!',
+            ),
             backgroundColor: AppColors.gold,
             duration: const Duration(seconds: 1),
           ),
@@ -262,7 +280,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         setState(() => _isInWishlist = originalStatus);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update wishlist'), backgroundColor: AppColors.error),
+          const SnackBar(
+            content: Text('Failed to update wishlist'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -281,11 +302,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         setState(() {
           if (prodData is Map) {
-            _detailedProduct = Product.fromJson(prodData as Map<String, dynamic>);
+            _detailedProduct = Product.fromJson(
+              prodData as Map<String, dynamic>,
+            );
             _rating = _detailedProduct!.rating;
             _reviewCount = _detailedProduct!.reviewCount;
-            final available = _detailedProduct!.availableSizes.isNotEmpty 
-                ? _detailedProduct!.availableSizes 
+            final available = _detailedProduct!.availableSizes.isNotEmpty
+                ? _detailedProduct!.availableSizes
                 : const ['Small', 'Medium', 'Large'];
             final recSize = recommendedSize;
             if (available.contains(recSize)) {
@@ -307,7 +330,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final cat = p.categories.isNotEmpty ? p.categories.first : '';
       if (cat.isNotEmpty) {
         final similarRes = await api.getProducts(category: cat);
-        final similarList = (similarRes['products'] ?? similarRes['data'] ?? []) as List;
+        final similarList =
+            (similarRes['products'] ?? similarRes['data'] ?? []) as List;
         if (mounted) {
           setState(() {
             _similarProducts = similarList
@@ -345,34 +369,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         'user': {'name': 'Rahul Sharma'},
         'rating': 5,
         'title': 'Superb quality and fit!',
-        'comment': 'The ${p.name} fits perfectly. It is extremely lightweight, feels very durable, and the style is very modern. Absolutely love it!',
+        'comment':
+            'The ${p.name} fits perfectly. It is extremely lightweight, feels very durable, and the style is very modern. Absolutely love it!',
         'isVerifiedPurchase': true,
-        'createdAt': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        'createdAt': DateTime.now()
+            .subtract(const Duration(days: 3))
+            .toIso8601String(),
       },
       {
         '_id': 'rev-2',
         'user': {'name': 'Priya Patel'},
         'rating': 4,
         'title': 'Very comfortable for daily use',
-        'comment': 'Nice product. The frames are very comfortable to wear for long working hours in front of screens. Recommended!',
+        'comment':
+            'Nice product. The frames are very comfortable to wear for long working hours in front of screens. Recommended!',
         'isVerifiedPurchase': true,
-        'createdAt': DateTime.now().subtract(const Duration(days: 10)).toIso8601String(),
+        'createdAt': DateTime.now()
+            .subtract(const Duration(days: 10))
+            .toIso8601String(),
       },
       {
         '_id': 'rev-3',
         'user': {'name': 'Amit Kumar'},
         'rating': 5,
         'title': 'Value for Money',
-        'comment': 'Excellent eyeglasses, premium packaging, and fast delivery. Exceptional quality for the price.',
+        'comment':
+            'Excellent eyeglasses, premium packaging, and fast delivery. Exceptional quality for the price.',
         'isVerifiedPurchase': true,
-        'createdAt': DateTime.now().subtract(const Duration(days: 15)).toIso8601String(),
-      }
+        'createdAt': DateTime.now()
+            .subtract(const Duration(days: 15))
+            .toIso8601String(),
+      },
     ];
   }
 
   // Share
   void _shareProduct() {
-    Clipboard.setData(ClipboardData(text: 'https://web.eyeglaze.in/products/${p.id}'));
+    Clipboard.setData(
+      ClipboardData(text: 'https://web.eyeglaze.in/products/${p.id}'),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Product link copied to clipboard!'),
@@ -389,7 +424,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (name.isEmpty || title.isEmpty || comment.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all review fields'), backgroundColor: AppColors.error),
+        const SnackBar(
+          content: Text('Please fill all review fields'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
@@ -408,7 +446,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _reviews.insert(0, newRev);
       final totalRatingSum = (_rating * _reviewCount) + _newReviewRating;
       _reviewCount += 1;
-      _rating = double.parse((totalRatingSum / _reviewCount).toStringAsFixed(1));
+      _rating = double.parse(
+        (totalRatingSum / _reviewCount).toStringAsFixed(1),
+      );
       _reviewSuccess = true;
       _reviewNameCtrl.clear();
       _reviewTitleCtrl.clear();
@@ -424,37 +464,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         });
       }
     });
-  }
-
-
-  Widget _buildTrustStrip() {
-    final items = [
-      {'icon': Icons.verified, 'label': '100% Authentic\nOriginal Products'},
-      {'icon': Icons.local_shipping, 'label': 'Just ₹99\nDelivery Charge'},
-      {'icon': Icons.flash_on, 'label': 'Fast Delivery\nGuaranteed'},
-      {'icon': Icons.support_agent, 'label': '24/7 Support\nWe\'re here to help'},
-    ];
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: items.map((item) {
-          return Expanded(
-            child: Column(
-              children: [
-                Icon(item['icon'] as IconData, color: AppColors.gold, size: 20),
-                const SizedBox(height: 6),
-                Text(
-                  item['label'] as String,
-                  style: const TextStyle(color: Colors.white70, fontSize: 9),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
   }
 
   @override
@@ -476,730 +485,868 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-                // Top side-by-side layout (Row)
-                // Top Image Carousel Card (Entire Width)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 260,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Stack(
-                            children: [
-                              PageView.builder(
-                                controller: _pageController,
-                                itemCount: imagesList.length,
-                                onPageChanged: (index) {
-                                  setState(() {
-                                    _currentImage = index;
-                                  });
-                                },
-                                itemBuilder: (context, index) {
-                                  return Center(
-                                    child: CachedNetworkImage(
-                                      imageUrl: AppConfig.resolveImageUrl(imagesList[index]),
-                                      fit: BoxFit.contain,
-                                      placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.gold),
-                                      errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 50),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Positioned(
-                                top: 8,
-                                left: 8,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (p.isBestseller)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 4),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                        decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                      ),
-                                    if (p.isPremium)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 4),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.75),
-                                          border: Border.all(color: AppColors.gold, width: 1),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text('PREMIUM', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
-                                      ),
-                                    if (p.buy1Get1)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 4),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.pink.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('BUY 1 GET 1', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                      ),
-                                    if (p.oneRupeeFrameOffer)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 4),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('₹1 FRAME OFFER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ...p.offerBadges.map((badge) => Container(
-                                          margin: const EdgeInsets.only(bottom: 4),
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                          decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                          child: Text(badge.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+              // Top side-by-side layout (Row)
+              // Top Image Carousel Card (Entire Width)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 260,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      const SizedBox(height: 8),
-                      // Carousel Indicators (Dots)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(imagesList.length, (idx) {
-                          final isActive = idx == _currentImage;
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() => _currentImage = idx);
-                              _pageController.animateToPage(
-                                idx,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isActive ? AppColors.gold : Colors.white24,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-                // Product Info details below
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              p.name.toUpperCase(),
-                              style: const TextStyle(
-                                color: AppColors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                letterSpacing: 0.5,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            constraints: const BoxConstraints(),
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.share_outlined, color: AppColors.gold, size: 22),
-                            onPressed: _shareProduct,
-                            tooltip: 'Share Product',
-                          ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            constraints: const BoxConstraints(),
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            icon: Icon(
-                              _isInWishlist ? Icons.favorite : Icons.favorite_border,
-                              color: _isInWishlist ? AppColors.gold : AppColors.white,
-                              size: 22,
-                            ),
-                            onPressed: _toggleWishlist,
-                            tooltip: 'Add to Wishlist',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Rating and purchase count
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: AppColors.gold, size: 13),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_rating.toStringAsFixed(1)} ',
-                            style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '($_reviewCount reviews) | ${p.soldCount > 0 ? p.soldCount : 500}+ bought this week',
-                            style: const TextStyle(color: Colors.white54, fontSize: 9.5),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Frame starting box
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
                           children: [
-                            Text(
-                              isContactLenses ? 'CONTACT LENS PRICE' : 'FRAME STARTING',
-                              style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            PageView.builder(
+                              controller: _pageController,
+                              itemCount: imagesList.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentImage = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return SizedBox.expand(
+                                  // A modest permanent zoom (not just on
+                                  // hover, which never fires on touch) crops
+                                  // into any white padding baked into the
+                                  // product photo itself, so it visually
+                                  // fills the frame edge-to-edge — mirrors
+                                  // the web app's `scale-110` on this image.
+                                  child: Transform.scale(
+                                    scale: 1.1,
+                                    child: CachedNetworkImage(
+                                      imageUrl: AppConfig.resolveImageUrl(
+                                        imagesList[index],
+                                      ),
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          const Center(
+                                            child: CircularProgressIndicator(
+                                              color: AppColors.gold,
+                                            ),
+                                          ),
+                                      errorWidget: (context, url, error) =>
+                                          const Center(
+                                            child: Icon(
+                                              Icons.broken_image_outlined,
+                                              color: AppColors.muted,
+                                              size: 50,
+                                            ),
+                                          ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            const SizedBox(height: 6),
-                            if (!isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
-                              Column(
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '₹${p.memberPrice!.toInt()}',
-                                        style: const TextStyle(color: AppColors.gold, fontSize: 22, fontWeight: FontWeight.w900),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '₹${p.nonMemberPrice!.toInt()}',
-                                        style: const TextStyle(color: AppColors.white, fontSize: 16, fontWeight: FontWeight.w900),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ] else
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '₹${displayPrice.toInt()}',
-                                    style: const TextStyle(color: AppColors.white, fontSize: 22, fontWeight: FontWeight.w900),
-                                  ),
-                                  if (_customPriceOverride == null) ...[
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '₹${p.originalPrice.toInt()}',
-                                      style: const TextStyle(color: Colors.white38, fontSize: 13, decoration: TextDecoration.lineThrough),
-                                    ),
-                                    const SizedBox(width: 8),
+                                  if (p.isBestseller)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.gold.withValues(alpha: 0.15),
-                                        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 1),
+                                        color: AppColors.gold,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'BESTSELLER',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (p.isPremium)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.75,
+                                        ),
+                                        border: Border.all(
+                                          color: AppColors.gold,
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'PREMIUM',
+                                        style: TextStyle(
+                                          color: AppColors.gold,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (p.buy1Get1)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.pink.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'BUY 1 GET 1',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (p.oneRupeeFrameOffer)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        '₹1 FRAME OFFER',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ...p.offerBadges.map(
+                                    (badge) => Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.withValues(
+                                          alpha: 0.8,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
-                                        style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w800),
+                                        badge.toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!isContactLenses) ...[
-                        const SizedBox(height: 8),
-                        // Color selector
-                        Text(
-                          'SELECT COLOR: ${selectedColorName.toUpperCase()}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (p.colors.isNotEmpty)
-                          Row(
-                            children: [
-                              ...p.colors.take(4).toList().asMap().entries.map((e) {
-                                final isSelected = e.key == _selectedColorIdx;
-                                final color = e.value;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedColorIdx = e.key;
-                                        _currentImage = 0;
-                                      });
-                                      _pageController.jumpToPage(0);
-                                    },
-                                    child: SizedBox(
-                                      width: 34,
-                                      height: 34,
-                                      child: Stack(
-                                        children: [
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: _parseHexColor(color.hex),
-                                              border: Border.all(
-                                                color: isSelected ? AppColors.gold : AppColors.border,
-                                                width: isSelected ? 2.5 : 1,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            Positioned(
-                                              bottom: 0,
-                                              right: 0,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(2),
-                                                decoration: const BoxDecoration(
-                                                  color: AppColors.gold,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(Icons.check, color: Colors.black, size: 8),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                              if (p.colors.length > 4)
-                                Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.card,
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '+${p.colors.length - 4}',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        
-                        // Choose Size section
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'CHOOSE SIZE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(Icons.help_outline, color: Colors.white.withValues(alpha: 0.5), size: 14),
-                              ],
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => SizeGuideDialog(
-                                    currentSize: _selectedSize,
-                                    onSizeApplied: (size) {
-                                      setState(() {
-                                        _selectedSize = size;
-                                      });
-                                    },
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                "What's my size?",
-                                style: TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Builder(
-                          builder: (context) {
-                            final List<Widget> sizeCards = [];
-                            final activeSizes = ['Small', 'Medium', 'Large']
-                                .where((size) => p.availableSizes.contains(size))
-                                .toList();
-                            final displaySizes = activeSizes.isNotEmpty ? activeSizes : const ['Small', 'Medium', 'Large'];
-                            
-                            for (int i = 0; i < displaySizes.length; i++) {
-                              final size = displaySizes[i];
-                              String range = 'Up to 135 mm';
-                              String desc = 'Best for narrow face';
-                              if (size == 'Medium') {
-                                range = '136 – 142 mm';
-                                desc = 'Best for standard face';
-                              } else if (size == 'Large') {
-                                range = '143 – 150 mm';
-                                desc = 'Best for wide face';
-                              }
-                              
-                              sizeCards.add(Expanded(child: _buildSizeCard(size, range, desc)));
-                              if (i < displaySizes.length - 1) {
-                                sizeCards.add(const SizedBox(width: 8));
-                              }
-                            }
-                            return Row(children: sizeCards);
-                          }
-                        ),
-                        const SizedBox(height: 20),
-                        // Frame Dimensions Title Header
-                        const Text(
-                          'FRAME DIMENSIONS (in mm)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _FrameSpecs(
-                          frameWidth: activeDimensions['frameWidth'] ?? 0.0,
-                          lensWidth: activeDimensions['lensWidth'] ?? 0.0,
-                          bridgeWidth: activeDimensions['bridgeWidth'] ?? 0.0,
-                          templeLength: activeDimensions['templeLength'] ?? 0.0,
-                        ),
-                        if (!isContactLenses && hasAnySpecs) ...[
-                          const SizedBox(height: 10),
-                          _FrameDetails(product: p),
-                          const SizedBox(height: 20),
-                        ],
-                      ],
-                      if (isReadingGlasses) ...[
-                        const SizedBox(height: 16),
-                        const Text(
-                          'SELECT READING POWER',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: p.readingPowers.map((power) {
-                            final isSelected = _selectedReadingPower == power;
-                            return ChoiceChip(
-                              label: Text(
-                                power,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.black : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              selected: isSelected,
-                              selectedColor: AppColors.gold,
-                              backgroundColor: AppColors.card,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color: isSelected ? AppColors.gold : AppColors.border,
-                                  width: 1,
-                                ),
-                              ),
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedReadingPower = selected ? power : null;
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (isContactLenses) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'SELECT CONTACT LENS POWER (${p.contactDisposableType ?? "Monthly"})'.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: p.contactPowers.map((cp) {
-                            final isSelected = _selectedContactPower == cp.power;
-                            return ChoiceChip(
-                              label: Text(
-                                cp.power,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.black : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              selected: isSelected,
-                              selectedColor: AppColors.gold,
-                              backgroundColor: AppColors.card,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color: isSelected ? AppColors.gold : AppColors.border,
-                                  width: 1,
-                                ),
-                              ),
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedContactPower = selected ? cp.power : null;
-                                  _customPriceOverride = selected ? cp.price : null;
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ],
-                  ),
-                ),
-                _buildTrustStrip(),
-
-                // Related Products Section
-                if (!_similarLoading && _similarProducts.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Related Products',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'YOU MIGHT ALSO LIKE THESE RELATED FRAMES',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.62,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                          itemCount: _similarProducts.length,
-                          itemBuilder: (context, i) {
-                            final sp = _similarProducts[i];
-                            return _SimilarProductCard(
-                              product: sp,
-                              onTap: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ProductDetailScreen(product: sp),
-                                  ),
-                                );
-                              },
+                    ),
+                    const SizedBox(height: 8),
+                    // Carousel Indicators (Dots)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(imagesList.length, (idx) {
+                        final isActive = idx == _currentImage;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() => _currentImage = idx);
+                            _pageController.animateToPage(
+                              idx,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
                             );
                           },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isActive ? AppColors.gold : Colors.white24,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              // Product Info details below
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            p.name.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(
+                            Icons.share_outlined,
+                            color: AppColors.gold,
+                            size: 22,
+                          ),
+                          onPressed: _shareProduct,
+                          tooltip: 'Share Product',
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            _isInWishlist
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: _isInWishlist
+                                ? AppColors.gold
+                                : AppColors.white,
+                            size: 22,
+                          ),
+                          onPressed: _toggleWishlist,
+                          tooltip: 'Add to Wishlist',
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    // Rating and purchase count
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: AppColors.gold, size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_rating.toStringAsFixed(1)} ',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '($_reviewCount reviews) | ${p.soldCount > 0 ? p.soldCount : 500}+ bought this week',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Frame starting box
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isContactLenses
+                                ? 'CONTACT LENS PRICE'
+                                : 'FRAME STARTING',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (!isContactLenses &&
+                              p.memberPrice != null &&
+                              p.nonMemberPrice != null) ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      '₹${p.memberPrice!.toInt()}',
+                                      style: const TextStyle(
+                                        color: AppColors.gold,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      '(Member)',
+                                      style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '₹${p.nonMemberPrice!.toInt()}',
+                                      style: const TextStyle(
+                                        color: AppColors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      '(Non-Member)',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ] else
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '₹${displayPrice.toInt()}',
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                if (_customPriceOverride == null) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '₹${p.originalPrice.toInt()}',
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 13,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.gold.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      border: Border.all(
+                                        color: AppColors.gold.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
+                                      style: const TextStyle(
+                                        color: AppColors.gold,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isContactLenses) ...[
+                      const SizedBox(height: 8),
+                      // Color selector
+                      Text(
+                        'SELECT COLOR: ${selectedColorName.toUpperCase()}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (p.colors.isNotEmpty)
+                        Row(
+                          children: [
+                            ...p.colors.take(4).toList().asMap().entries.map((
+                              e,
+                            ) {
+                              final isSelected = e.key == _selectedColorIdx;
+                              final color = e.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedColorIdx = e.key;
+                                      _currentImage = 0;
+                                    });
+                                    _pageController.jumpToPage(0);
+                                  },
+                                  child: SizedBox(
+                                    width: 34,
+                                    height: 34,
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: _parseHexColor(color.hex),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? AppColors.gold
+                                                  : AppColors.border,
+                                              width: isSelected ? 2.5 : 1,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          Positioned(
+                                            bottom: 0,
+                                            right: 0,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: const BoxDecoration(
+                                                color: AppColors.gold,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.check,
+                                                color: Colors.black,
+                                                size: 8,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                            if (p.colors.length > 4)
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.card,
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '+${p.colors.length - 4}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
 
-                // Reviews Section
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                      // Choose Size section
+                      const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text('Customer Reviews', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                              SizedBox(height: 4),
-                              Text('What our customers say about this frame', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                              const Text(
+                                'CHOOSE SIZE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.help_outline,
+                                color: Colors.white.withValues(alpha: 0.5),
+                                size: 14,
+                              ),
                             ],
                           ),
-                          TextButton(
-                            onPressed: () => setState(() {
-                              _showReviewForm = !_showReviewForm;
-                              _reviewSuccess = false;
-                            }),
-                            style: TextButton.styleFrom(
-                              side: const BorderSide(color: AppColors.gold),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => SizeGuideDialog(
+                                  currentSize: _selectedSize,
+                                  onSizeApplied: (size) {
+                                    setState(() {
+                                      _selectedSize = size;
+                                    });
+                                  },
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              "What's my size?",
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
-                            child: Text(_showReviewForm ? 'Cancel' : 'Write a Review', style: const TextStyle(color: AppColors.gold, fontSize: 12)),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
+                      Builder(
+                        builder: (context) {
+                          final List<Widget> sizeCards = [];
+                          final activeSizes = ['Small', 'Medium', 'Large']
+                              .where((size) => p.availableSizes.contains(size))
+                              .toList();
+                          final displaySizes = activeSizes.isNotEmpty
+                              ? activeSizes
+                              : const ['Small', 'Medium', 'Large'];
 
-                      // Collapsible Review Form
-                      if (_showReviewForm)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: _reviewSuccess
-                              ? const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 24),
-                                    child: Column(
-                                      children: [
-                                        Icon(Icons.check_circle, color: AppColors.success, size: 40),
-                                        SizedBox(height: 8),
-                                        Text('Thank you! Your review has been added successfully.', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Share Your Feedback', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                                    const SizedBox(height: 12),
-                                    const Text('YOUR NAME', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    TextField(
-                                      controller: _reviewNameCtrl,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                      decoration: const InputDecoration(hintText: 'Enter your name'),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text('RATING', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: List.generate(5, (index) {
-                                        final starVal = index + 1;
-                                        return GestureDetector(
-                                          onTap: () => setState(() => _newReviewRating = starVal),
-                                          child: Icon(
-                                            starVal <= _newReviewRating ? Icons.star : Icons.star_border,
-                                            color: AppColors.gold,
-                                            size: 28,
-                                          ),
-                                        );
-                                      }),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text('REVIEW TITLE', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    TextField(
-                                      controller: _reviewTitleCtrl,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                      decoration: const InputDecoration(hintText: 'Summarize your experience'),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text('COMMENTS', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    TextField(
-                                      controller: _reviewCommentCtrl,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                      maxLines: 3,
-                                      decoration: const InputDecoration(hintText: 'Tell us what you liked or disliked about this frame'),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: _submitReview,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.gold,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        ),
-                                        child: const Text('SUBMIT REVIEW', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                          for (int i = 0; i < displaySizes.length; i++) {
+                            final size = displaySizes[i];
+                            String range = 'Up to 135 mm';
+                            String desc = 'Best for narrow face';
+                            if (size == 'Medium') {
+                              range = '136 – 142 mm';
+                              desc = 'Best for standard face';
+                            } else if (size == 'Large') {
+                              range = '143 – 150 mm';
+                              desc = 'Best for wide face';
+                            }
+
+                            sizeCards.add(
+                              Expanded(
+                                child: _buildSizeCard(size, range, desc),
+                              ),
+                            );
+                            if (i < displaySizes.length - 1) {
+                              sizeCards.add(const SizedBox(width: 8));
+                            }
+                          }
+                          return Row(children: sizeCards);
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      // Frame Dimensions Title Header
+                      const Text(
+                        'FRAME DIMENSIONS (in mm)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      _FrameSpecs(
+                        frameWidth: activeDimensions['frameWidth'] ?? 0.0,
+                        lensWidth: activeDimensions['lensWidth'] ?? 0.0,
+                        bridgeWidth: activeDimensions['bridgeWidth'] ?? 0.0,
+                        templeLength: activeDimensions['templeLength'] ?? 0.0,
+                      ),
+                      if (!isContactLenses && hasAnySpecs) ...[
+                        const SizedBox(height: 10),
+                        _FrameDetails(product: p),
+                        const SizedBox(height: 20),
+                      ],
+                    ],
+                    if (isReadingGlasses) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'SELECT READING POWER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: p.readingPowers.map((power) {
+                          final isSelected = _selectedReadingPower == power;
+                          return ChoiceChip(
+                            label: Text(
+                              power,
+                              style: TextStyle(
+                                color: isSelected ? Colors.black : Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: AppColors.gold,
+                            backgroundColor: AppColors.card,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.gold
+                                    : AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedReadingPower = selected ? power : null;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    if (isContactLenses) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'SELECT CONTACT LENS POWER (${p.contactDisposableType ?? "Monthly"})'
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: p.contactPowers.map((cp) {
+                          final isSelected = _selectedContactPower == cp.power;
+                          return ChoiceChip(
+                            label: Text(
+                              cp.power,
+                              style: TextStyle(
+                                color: isSelected ? Colors.black : Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: AppColors.gold,
+                            backgroundColor: AppColors.card,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.gold
+                                    : AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedContactPower = selected
+                                    ? cp.power
+                                    : null;
+                                _customPriceOverride = selected
+                                    ? cp.price
+                                    : null;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ],
+                ),
+              ),
+              // Related Products Section
+              if (!_similarLoading && _similarProducts.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Related Products',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'YOU MIGHT ALSO LIKE THESE RELATED FRAMES',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 0.62,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                            ),
+                        itemCount: _similarProducts.length,
+                        itemBuilder: (context, i) {
+                          final sp = _similarProducts[i];
+                          return _SimilarProductCard(
+                            product: sp,
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ProductDetailScreen(product: sp),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
 
-                      // Aggregate Rating summary bars
+              // Reviews Section
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Customer Reviews',
+                              style: TextStyle(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'What our customers say about this frame',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _showReviewForm = !_showReviewForm;
+                            _reviewSuccess = false;
+                          }),
+                          style: TextButton.styleFrom(
+                            side: const BorderSide(color: AppColors.gold),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            _showReviewForm ? 'Cancel' : 'Write a Review',
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Collapsible Review Form
+                    if (_showReviewForm)
                       Container(
                         padding: const EdgeInsets.all(16),
                         margin: const EdgeInsets.only(bottom: 16),
@@ -1208,176 +1355,423 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(_rating.toStringAsFixed(1), style: const TextStyle(color: AppColors.white, fontSize: 44, fontWeight: FontWeight.w900)),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: List.generate(
-                                      5,
-                                      (i) => Icon(
-                                        i < _rating.floor() ? Icons.star : (i < _rating ? Icons.star_half : Icons.star_outline),
-                                        color: AppColors.gold,
-                                        size: 14,
+                        child: _reviewSuccess
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: AppColors.success,
+                                        size: 40,
                                       ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'Thank you! Your review has been added successfully.',
+                                        style: TextStyle(
+                                          color: AppColors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Share Your Feedback',
+                                    style: TextStyle(
+                                      color: AppColors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'YOUR NAME',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextField(
+                                    controller: _reviewNameCtrl,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter your name',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'RATING',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  Text('$_reviewCount reviews', style: const TextStyle(color: AppColors.muted, fontSize: 10)),
-                                ],
-                              ),
-                            ),
-                            Container(width: 1, height: 80, color: AppColors.border, margin: const EdgeInsets.symmetric(horizontal: 16)),
-                            Expanded(
-                              flex: 5,
-                              child: Column(
-                                children: [
-                                  _RatingPercentageRow(stars: 5, pct: 75),
-                                  _RatingPercentageRow(stars: 4, pct: 15),
-                                  _RatingPercentageRow(stars: 3, pct: 6),
-                                  _RatingPercentageRow(stars: 2, pct: 3),
-                                  _RatingPercentageRow(stars: 1, pct: 1),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Reviews List
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _reviews.length,
-                        itemBuilder: (context, i) {
-                          final rev = _reviews[i];
-                          
-                          final dynamic userVal = rev['user'];
-                          String name = 'User';
-                          if (userVal is Map) {
-                            name = userVal['name']?.toString() ?? 'User';
-                          } else if (userVal is String) {
-                            name = userVal;
-                          }
-
-                          final dynamic ratingVal = rev['rating'];
-                          double rating = 5.0;
-                          if (ratingVal is num) {
-                            rating = ratingVal.toDouble();
-                          } else if (ratingVal is String) {
-                            rating = double.tryParse(ratingVal) ?? 5.0;
-                          }
-
-                          final String title = rev['title']?.toString() ?? '';
-                          final String comment = rev['comment']?.toString() ?? '';
-                          
-                          final dynamic verifiedVal = rev['isVerifiedPurchase'];
-                          final bool isVerified = verifiedVal is bool ? verifiedVal : false;
-
-                          final dynamic rawCreatedAt = rev['createdAt'];
-                          final DateTime createdAt;
-                          if (rawCreatedAt is String) {
-                            createdAt = DateTime.tryParse(rawCreatedAt) ?? DateTime.now();
-                          } else if (rawCreatedAt is DateTime) {
-                            createdAt = rawCreatedAt;
-                          } else {
-                            createdAt = DateTime.now();
-                          }
-                          final dateStr = DateFormat('d MMM yyyy').format(createdAt);
-
-                          // Initials for avatar
-                          final parts = name.split(' ').where((s) => s.isNotEmpty).toList();
-                          final initials = parts.isNotEmpty
-                              ? (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase()
-                              : 'U';
-
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
-                              color: AppColors.card.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: AppColors.gold.withValues(alpha: 0.15),
-                                      child: Text(initials, style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Row(
+                                    children: List.generate(5, (index) {
+                                      final starVal = index + 1;
+                                      return GestureDetector(
+                                        onTap: () => setState(
+                                          () => _newReviewRating = starVal,
+                                        ),
+                                        child: Icon(
+                                          starVal <= _newReviewRating
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          color: AppColors.gold,
+                                          size: 28,
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'REVIEW TITLE',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(name, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                          if (isVerified)
-                                            const Row(
-                                              children: [
-                                                Icon(Icons.verified, color: AppColors.success, size: 10),
-                                                SizedBox(width: 2),
-                                                Text('Verified Purchase', style: TextStyle(color: AppColors.success, fontSize: 9, fontWeight: FontWeight.bold)),
-                                              ],
-                                            ),
-                                        ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextField(
+                                    controller: _reviewTitleCtrl,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Summarize your experience',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'COMMENTS',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextField(
+                                    controller: _reviewCommentCtrl,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    maxLines: 3,
+                                    decoration: const InputDecoration(
+                                      hintText:
+                                          'Tell us what you liked or disliked about this frame',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: _submitReview,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.gold,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'SUBMIT REVIEW',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                    Text(dateStr, style: const TextStyle(color: AppColors.muted, fontSize: 10)),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: List.generate(
-                                    5,
-                                    (i) => Icon(
-                                      i < rating.floor() ? Icons.star : Icons.star_border,
-                                      color: AppColors.gold,
-                                      size: 13,
-                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+
+                    // Aggregate Rating summary bars
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _rating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 44,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                if (title.isNotEmpty)
-                                  Text(title, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                const SizedBox(height: 4),
-                                Text(comment, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(
+                                    5,
+                                    (i) => Icon(
+                                      i < _rating.floor()
+                                          ? Icons.star
+                                          : (i < _rating
+                                                ? Icons.star_half
+                                                : Icons.star_outline),
+                                      color: AppColors.gold,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '$_reviewCount reviews',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 10,
+                                  ),
+                                ),
                               ],
                             ),
-                          );
-                        },
-                      ),
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Text(
-                            'ⓘ Note: Lenses will be added after selecting power and type',
-                            style: TextStyle(color: Colors.white30, fontSize: 10),
                           ),
+                          Container(
+                            width: 1,
+                            height: 80,
+                            color: AppColors.border,
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          Expanded(
+                            flex: 5,
+                            child: Column(
+                              children: [
+                                _RatingPercentageRow(stars: 5, pct: 75),
+                                _RatingPercentageRow(stars: 4, pct: 15),
+                                _RatingPercentageRow(stars: 3, pct: 6),
+                                _RatingPercentageRow(stars: 2, pct: 3),
+                                _RatingPercentageRow(stars: 1, pct: 1),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Reviews List
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _reviews.length,
+                      itemBuilder: (context, i) {
+                        final rev = _reviews[i];
+
+                        final dynamic userVal = rev['user'];
+                        String name = 'User';
+                        if (userVal is Map) {
+                          name = userVal['name']?.toString() ?? 'User';
+                        } else if (userVal is String) {
+                          name = userVal;
+                        }
+
+                        final dynamic ratingVal = rev['rating'];
+                        double rating = 5.0;
+                        if (ratingVal is num) {
+                          rating = ratingVal.toDouble();
+                        } else if (ratingVal is String) {
+                          rating = double.tryParse(ratingVal) ?? 5.0;
+                        }
+
+                        final String title = rev['title']?.toString() ?? '';
+                        final String comment = rev['comment']?.toString() ?? '';
+
+                        final dynamic verifiedVal = rev['isVerifiedPurchase'];
+                        final bool isVerified = verifiedVal is bool
+                            ? verifiedVal
+                            : false;
+
+                        final dynamic rawCreatedAt = rev['createdAt'];
+                        final DateTime createdAt;
+                        if (rawCreatedAt is String) {
+                          createdAt =
+                              DateTime.tryParse(rawCreatedAt) ?? DateTime.now();
+                        } else if (rawCreatedAt is DateTime) {
+                          createdAt = rawCreatedAt;
+                        } else {
+                          createdAt = DateTime.now();
+                        }
+                        final dateStr = DateFormat(
+                          'd MMM yyyy',
+                        ).format(createdAt);
+
+                        // Initials for avatar
+                        final parts = name
+                            .split(' ')
+                            .where((s) => s.isNotEmpty)
+                            .toList();
+                        final initials = parts.isNotEmpty
+                            ? (parts.first[0] +
+                                      (parts.length > 1 ? parts.last[0] : ''))
+                                  .toUpperCase()
+                            : 'U';
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.card.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: AppColors.gold.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(
+                                        color: AppColors.gold,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: const TextStyle(
+                                            color: AppColors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        if (isVerified)
+                                          const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.verified,
+                                                color: AppColors.success,
+                                                size: 10,
+                                              ),
+                                              SizedBox(width: 2),
+                                              Text(
+                                                'Verified Purchase',
+                                                style: TextStyle(
+                                                  color: AppColors.success,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    dateStr,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: List.generate(
+                                  5,
+                                  (i) => Icon(
+                                    i < rating.floor()
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: AppColors.gold,
+                                    size: 13,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (title.isNotEmpty)
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                comment,
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'ⓘ Note: Lenses will be added after selecting power and type',
+                          style: TextStyle(color: Colors.white30, fontSize: 10),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 100), // space for sticky bottom
-              ],
-            ),
+              const SizedBox(height: 100), // space for sticky bottom
+            ],
           ),
+        ),
         // Sticky bottom CTA bar
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             color: AppColors.card,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+            border: Border(
+              top: BorderSide(color: AppColors.border, width: 1.5),
+            ),
           ),
           child: SafeArea(
             top: false,
@@ -1387,7 +1781,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       // Price & Offer Column
@@ -1395,15 +1792,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_customPriceOverride == null && !isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
+                          if (_customPriceOverride == null &&
+                              !isContactLenses &&
+                              p.memberPrice != null &&
+                              p.nonMemberPrice != null) ...[
                             Row(
                               children: [
                                 Text(
                                   '₹${p.memberPrice!.toInt()}',
-                                  style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w900),
+                                  style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+                                const Text(
+                                  '(Member)',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -1411,10 +1822,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               children: [
                                 Text(
                                   '₹${p.nonMemberPrice!.toInt()}',
-                                  style: const TextStyle(color: AppColors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                                const Text(
+                                  '(Non-Member)',
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 9,
+                                  ),
+                                ),
                               ],
                             ),
                           ] else ...[
@@ -1445,10 +1866,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             if (_customPriceOverride == null) ...[
                               const SizedBox(height: 2),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.gold.withValues(alpha: 0.15),
-                                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 0.8),
+                                  border: Border.all(
+                                    color: AppColors.gold.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    width: 0.8,
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -1477,17 +1906,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   style: OutlinedButton.styleFrom(
                                     backgroundColor: Colors.black,
                                     foregroundColor: AppColors.gold,
-                                    side: const BorderSide(color: AppColors.gold, width: 1.2),
+                                    side: const BorderSide(
+                                      color: AppColors.gold,
+                                      width: 1.2,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                     minimumSize: Size.zero,
                                   ),
                                   child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 16),
+                                      Icon(
+                                        Icons.shopping_bag_outlined,
+                                        color: AppColors.gold,
+                                        size: 16,
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'ADD TO CART',
@@ -1512,13 +1950,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                     minimumSize: Size.zero,
                                   ),
                                   child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.flash_on, color: Colors.black, size: 16),
+                                      Icon(
+                                        Icons.flash_on,
+                                        color: Colors.black,
+                                        size: 16,
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'BUY NOW',
@@ -1541,17 +1985,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     style: OutlinedButton.styleFrom(
                                       backgroundColor: Colors.black,
                                       foregroundColor: AppColors.gold,
-                                      side: const BorderSide(color: AppColors.gold, width: 1.2),
+                                      side: const BorderSide(
+                                        color: AppColors.gold,
+                                        width: 1.2,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                       minimumSize: Size.zero,
                                     ),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 16),
+                                        Icon(
+                                          Icons.shopping_bag_outlined,
+                                          color: AppColors.gold,
+                                          size: 16,
+                                        ),
                                         SizedBox(width: 6),
                                         Text(
                                           'ADD TO CART',
@@ -1565,7 +2019,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                   ),
                                 ),
-                              if (p.sellAsFrame && p.sellWithLens) const SizedBox(width: 8),
+                              if (p.sellAsFrame && p.sellWithLens)
+                                const SizedBox(width: 8),
                               if (p.sellWithLens)
                                 Expanded(
                                   child: ElevatedButton(
@@ -1576,17 +2031,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                       minimumSize: Size.zero,
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         SizedBox(
                                           width: 18,
                                           height: 12,
                                           child: CustomPaint(
-                                            painter: _SizeGlassesPainter(color: Colors.black),
+                                            painter: _SizeGlassesPainter(
+                                              color: Colors.black,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 6),
@@ -1684,26 +2144,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _addToCart() async {
     if (isContactLenses && _selectedContactPower == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a contact lens power first.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a contact lens power first.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (isReadingGlasses && _selectedReadingPower == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a reading power first.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a reading power first.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
 
     try {
-      final payload = {
-        'productId': p.id,
-        'qty': 1,
-        'color': selectedColorName,
-      };
+      final payload = {'productId': p.id, 'qty': 1, 'color': selectedColorName};
 
       if (isContactLenses) {
         payload['lens'] = {
@@ -1726,38 +2186,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       await context.read<CartProvider>().addToCart(payload);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Added to cart!'),
-          backgroundColor: AppColors.gold,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Added to cart!'),
+            backgroundColor: AppColors.gold,
+          ),
+        );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
   void _buyNow() async {
     if (isContactLenses && _selectedContactPower == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a contact lens power first.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a contact lens power first.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (isReadingGlasses && _selectedReadingPower == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a reading power first.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a reading power first.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
 
     try {
-      final payload = {
-        'productId': p.id,
-        'qty': 1,
-        'color': selectedColorName,
-      };
+      final payload = {'productId': p.id, 'qty': 1, 'color': selectedColorName};
 
       if (isContactLenses) {
         payload['lens'] = {
@@ -1786,10 +2251,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed: $e'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -1868,7 +2335,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isRecommended) const SizedBox(height: 4), // offset for top banner spacing
+                if (isRecommended)
+                  const SizedBox(height: 4), // offset for top banner spacing
                 Text(
                   displayTitle,
                   style: const TextStyle(
@@ -1885,7 +2353,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   height: 18,
                   child: CustomPaint(
                     painter: _SizeGlassesPainter(
-                      color: isSelected ? AppColors.gold : Colors.white.withValues(alpha: 0.3),
+                      color: isSelected
+                          ? AppColors.gold
+                          : Colors.white.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
@@ -1920,7 +2390,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.gold,
                     borderRadius: BorderRadius.circular(4),
@@ -1947,11 +2420,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   color: AppColors.gold,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.black,
-                  size: 8,
-                ),
+                child: const Icon(Icons.check, color: Colors.black, size: 8),
               ),
             ),
         ],
@@ -2027,19 +2496,28 @@ class _RatingPercentageRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 1.5),
       child: Row(
         children: [
-          Text('$stars', style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+          Text(
+            '$stars',
+            style: const TextStyle(color: AppColors.muted, fontSize: 11),
+          ),
           const SizedBox(width: 2),
           const Icon(Icons.star, color: AppColors.muted, size: 10),
           const SizedBox(width: 6),
           Expanded(
             child: Container(
               height: 6,
-              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(3)),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(3),
+              ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: pct / 100,
                 child: Container(
-                  decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(3)),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
               ),
             ),
@@ -2047,7 +2525,11 @@ class _RatingPercentageRow extends StatelessWidget {
           const SizedBox(width: 8),
           SizedBox(
             width: 24,
-            child: Text('$pct%', style: const TextStyle(color: AppColors.muted, fontSize: 10), textAlign: TextAlign.right),
+            child: Text(
+              '$pct%',
+              style: const TextStyle(color: AppColors.muted, fontSize: 10),
+              textAlign: TextAlign.right,
+            ),
           ),
         ],
       ),
@@ -2074,15 +2556,17 @@ class _AiChatBottomSheetContent extends StatefulWidget {
   });
 
   @override
-  State<_AiChatBottomSheetContent> createState() => _AiChatBottomSheetContentState();
+  State<_AiChatBottomSheetContent> createState() =>
+      _AiChatBottomSheetContentState();
 }
 
 class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
   final List<Map<String, String>> _messages = [
     {
       'sender': 'bot',
-      'text': 'Hello! Welcome to EyeGlaze. I am your AI assistant. How can I help you choose the perfect frames today?'
-    }
+      'text':
+          'Hello! Welcome to EyeGlaze. I am your AI assistant. How can I help you choose the perfect frames today?',
+    },
   ];
   final _chatInputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
@@ -2093,10 +2577,10 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
     if (text.isEmpty) return;
 
     // Convert history messages to List<Map<String, dynamic>>
-    final historyJson = _messages.skip(1).map((msg) => {
-      'sender': msg['sender'],
-      'text': msg['text'],
-    }).toList();
+    final historyJson = _messages
+        .skip(1)
+        .map((msg) => {'sender': msg['sender'], 'text': msg['text']})
+        .toList();
 
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
@@ -2115,16 +2599,14 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
         'pathname': '/products/details',
         'details': {
           'sku': widget.sku,
-          'price': {
-            'selling': widget.price,
-          },
+          'price': {'selling': widget.price},
           'frame': {
             'width': widget.frameWidth,
             'lensWidth': widget.lensWidth,
             'bridgeWidth': widget.bridgeWidth,
             'templeLength': widget.templeLength,
-          }
-        }
+          },
+        },
       };
 
       final response = await api.getAiResponse(
@@ -2137,7 +2619,7 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
       setState(() {
         _messages.add({
           'sender': 'bot',
-          'text': response['reply'] ?? 'Failed to get a response.'
+          'text': response['reply'] ?? 'Failed to get a response.',
         });
         _isTyping = false;
       });
@@ -2146,7 +2628,7 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
       setState(() {
         _messages.add({
           'sender': 'bot',
-          'text': 'Sorry, I am facing connectivity issues. Please try again.'
+          'text': 'Sorry, I am facing connectivity issues. Please try again.',
         });
         _isTyping = false;
       });
@@ -2191,7 +2673,10 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
             width: 40,
             height: 4,
             margin: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
           // Title
           Padding(
@@ -2200,10 +2685,21 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
               children: [
                 const Icon(Icons.auto_awesome, color: AppColors.gold, size: 20),
                 const SizedBox(width: 8),
-                const Text('AI assistant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text(
+                  'AI assistant',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.muted, size: 20),
+                  icon: const Icon(
+                    Icons.close,
+                    color: AppColors.muted,
+                    size: 20,
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2220,7 +2716,9 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
                 final msg = _messages[idx];
                 final isBot = msg['sender'] == 'bot';
                 return Align(
-                  alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: isBot
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
                   child: Container(
                     constraints: BoxConstraints(maxWidth: mq.size.width * 0.75),
                     padding: const EdgeInsets.all(12),
@@ -2230,13 +2728,20 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(12),
                         topRight: const Radius.circular(12),
-                        bottomLeft: isBot ? const Radius.circular(0) : const Radius.circular(12),
-                        bottomRight: isBot ? const Radius.circular(12) : const Radius.circular(0),
+                        bottomLeft: isBot
+                            ? const Radius.circular(0)
+                            : const Radius.circular(12),
+                        bottomRight: isBot
+                            ? const Radius.circular(12)
+                            : const Radius.circular(0),
                       ),
                     ),
                     child: Text(
                       msg['text'] ?? '',
-                      style: TextStyle(color: isBot ? AppColors.white : Colors.black, fontSize: 13),
+                      style: TextStyle(
+                        color: isBot ? AppColors.white : Colors.black,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 );
@@ -2251,7 +2756,10 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
                 child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: AppColors.gold,
+                    strokeWidth: 2,
+                  ),
                 ),
               ),
             ),
@@ -2268,7 +2776,10 @@ class _AiChatBottomSheetContentState extends State<_AiChatBottomSheetContent> {
                     onSubmitted: (_) => _sendMessage(),
                     decoration: const InputDecoration(
                       hintText: 'Ask about price, size, fit, delivery...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                 ),
@@ -2313,29 +2824,37 @@ class _FrameSpecs extends StatelessWidget {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: _buildSpecItem(
-              painter: _FrameWidthPainter(),
-              label: 'FRAME WIDTH',
-              value: '${frameWidth.toInt()} mm',
-            )),
+            Expanded(
+              child: _buildSpecItem(
+                painter: _FrameWidthPainter(),
+                label: 'FRAME WIDTH',
+                value: '${frameWidth.toInt()} mm',
+              ),
+            ),
             _buildDivider(),
-            Expanded(child: _buildSpecItem(
-              painter: _LensWidthPainter(),
-              label: 'LENS WIDTH',
-              value: '${lensWidth.toInt()} mm',
-            )),
+            Expanded(
+              child: _buildSpecItem(
+                painter: _LensWidthPainter(),
+                label: 'LENS WIDTH',
+                value: '${lensWidth.toInt()} mm',
+              ),
+            ),
             _buildDivider(),
-            Expanded(child: _buildSpecItem(
-              painter: _BridgeWidthPainter(),
-              label: 'BRIDGE',
-              value: '${bridgeWidth.toInt()} mm',
-            )),
+            Expanded(
+              child: _buildSpecItem(
+                painter: _BridgeWidthPainter(),
+                label: 'BRIDGE',
+                value: '${bridgeWidth.toInt()} mm',
+              ),
+            ),
             _buildDivider(),
-            Expanded(child: _buildSpecItem(
-              painter: _TempleLengthPainter(),
-              label: 'TEMPLE',
-              value: '${templeLength.toInt()} mm',
-            )),
+            Expanded(
+              child: _buildSpecItem(
+                painter: _TempleLengthPainter(),
+                label: 'TEMPLE',
+                value: '${templeLength.toInt()} mm',
+              ),
+            ),
           ],
         ),
       ),
@@ -2343,21 +2862,18 @@ class _FrameSpecs extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return Container(
-      width: 1,
-      color: AppColors.border,
-    );
+    return Container(width: 1, color: AppColors.border);
   }
 
-  Widget _buildSpecItem({required CustomPainter painter, required String label, required String value}) {
+  Widget _buildSpecItem({
+    required CustomPainter painter,
+    required String label,
+    required String value,
+  }) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(
-          width: 36,
-          height: 18,
-          child: CustomPaint(painter: painter),
-        ),
+        SizedBox(width: 36, height: 18, child: CustomPaint(painter: painter)),
         const SizedBox(height: 6),
         Text(
           label,
@@ -2401,7 +2917,11 @@ class _FrameWidthPainter extends CustomPainter {
     canvas.drawCircle(Offset(w * 0.68, h * 0.5), h * 0.35, paint);
 
     // Bridge
-    canvas.drawLine(Offset(w * 0.42, h * 0.5), Offset(w * 0.58, h * 0.5), paint);
+    canvas.drawLine(
+      Offset(w * 0.42, h * 0.5),
+      Offset(w * 0.58, h * 0.5),
+      paint,
+    );
 
     // Left end piece
     canvas.drawLine(Offset(w * 0.20, h * 0.5), Offset(0, h * 0.5), paint);
@@ -2525,13 +3045,20 @@ class _FrameDetails extends StatelessWidget {
     final material = p.material ?? frame?.material;
 
     final List<MapEntry<String, String>> specs = [];
-    if (frameType != null && frameType.isNotEmpty) specs.add(MapEntry('Frame Type', frameType));
-    if (frameShape != null && frameShape.isNotEmpty) specs.add(MapEntry('Frame Shape', frameShape));
-    if (material != null && material.isNotEmpty) specs.add(MapEntry('Material', material));
-    if (frameWeight != null && frameWeight.isNotEmpty) specs.add(MapEntry('Weight', frameWeight));
-    if (countryOfOrigin != null && countryOfOrigin.isNotEmpty) specs.add(MapEntry('Origin', countryOfOrigin));
-    if (manufacturer != null && manufacturer.isNotEmpty) specs.add(MapEntry('Manufacturer', manufacturer));
-    if (warranty != null && warranty.isNotEmpty) specs.add(MapEntry('Warranty', warranty));
+    if (frameType != null && frameType.isNotEmpty)
+      specs.add(MapEntry('Frame Type', frameType));
+    if (frameShape != null && frameShape.isNotEmpty)
+      specs.add(MapEntry('Frame Shape', frameShape));
+    if (material != null && material.isNotEmpty)
+      specs.add(MapEntry('Material', material));
+    if (frameWeight != null && frameWeight.isNotEmpty)
+      specs.add(MapEntry('Weight', frameWeight));
+    if (countryOfOrigin != null && countryOfOrigin.isNotEmpty)
+      specs.add(MapEntry('Origin', countryOfOrigin));
+    if (manufacturer != null && manufacturer.isNotEmpty)
+      specs.add(MapEntry('Manufacturer', manufacturer));
+    if (warranty != null && warranty.isNotEmpty)
+      specs.add(MapEntry('Warranty', warranty));
 
     // build a 2-column layout using pairs of specs
     final List<Widget> specRows = [];
@@ -2548,11 +3075,18 @@ class _FrameDetails extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${left.key}: ', style: AppTextStyles.muted.copyWith(fontSize: 11)),
+                    Text(
+                      '${left.key}: ',
+                      style: AppTextStyles.muted.copyWith(fontSize: 11),
+                    ),
                     Expanded(
                       child: Text(
                         left.value,
-                        style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.right,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2566,11 +3100,18 @@ class _FrameDetails extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${right.key}: ', style: AppTextStyles.muted.copyWith(fontSize: 11)),
+                      Text(
+                        '${right.key}: ',
+                        style: AppTextStyles.muted.copyWith(fontSize: 11),
+                      ),
                       Expanded(
                         child: Text(
                           right.value,
-                          style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.right,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2588,7 +3129,11 @@ class _FrameDetails extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2599,7 +3144,11 @@ class _FrameDetails extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Frame Details & Specifications',
-                  style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2614,27 +3163,40 @@ class _FrameDetails extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: frame.featureTags
-                  .map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1C),
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              '✔ ',
-                              style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold),
+                  .map(
+                    (tag) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A1C),
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            '✔ ',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
                             ),
-                            Text(
-                              tag,
-                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            tag,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
-                        ),
-                      ))
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -2644,17 +3206,19 @@ class _FrameDetails extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.check_circle_outline, color: AppColors.success, size: 16),
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: AppColors.success,
+                  size: 16,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Compatible with ${[
-                      if (compatible.prescription) 'Prescription Lenses',
-                      if (compatible.bluecut) 'Blue Cut',
-                      if (compatible.zeropower) 'Zero Power',
-                      if (compatible.progressive) 'Progressive',
-                    ].join(' • ')}',
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                    'Compatible with ${[if (compatible.prescription) 'Prescription Lenses', if (compatible.bluecut) 'Blue Cut', if (compatible.zeropower) 'Zero Power', if (compatible.progressive) 'Progressive'].join(' • ')}',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -2675,7 +3239,10 @@ class _SimilarProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final discount = product.originalPrice > product.sellingPrice
-        ? ((product.originalPrice - product.sellingPrice) / product.originalPrice * 100).round()
+        ? ((product.originalPrice - product.sellingPrice) /
+                  product.originalPrice *
+                  100)
+              .round()
         : 0;
     return GestureDetector(
       onTap: onTap,
@@ -2696,16 +3263,23 @@ class _SimilarProductCard extends StatelessWidget {
                 ),
                 width: double.infinity,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(14),
+                  ),
                   child: product.images.isNotEmpty
                       ? CachedNetworkImage(
-                          imageUrl: AppConfig.resolveImageUrl(product.images.first),
-                          fit: BoxFit.contain,
+                          imageUrl: AppConfig.resolveImageUrl(
+                            product.images.first,
+                          ),
+                          fit: BoxFit.cover,
                           placeholder: (context, url) => const Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.5),
+                              child: CircularProgressIndicator(
+                                color: AppColors.gold,
+                                strokeWidth: 1.5,
+                              ),
                             ),
                           ),
                           errorWidget: (context, url, error) => const Icon(
@@ -2727,10 +3301,17 @@ class _SimilarProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product.sku, style: const TextStyle(color: AppColors.muted, fontSize: 9)),
+                  Text(
+                    product.sku,
+                    style: const TextStyle(color: AppColors.muted, fontSize: 9),
+                  ),
                   Text(
                     product.name,
-                    style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2739,26 +3320,63 @@ class _SimilarProductCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.star, color: AppColors.gold, size: 10),
                       const SizedBox(width: 2),
-                      Text('${product.rating}', style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        '${product.rating}',
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      Text('(${product.reviewCount})', style: const TextStyle(color: AppColors.muted, fontSize: 9)),
+                      Text(
+                        '(${product.reviewCount})',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 9,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Text('₹${product.sellingPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                      Text(
+                        '₹${product.sellingPrice.toInt()}',
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      Text('₹${product.originalPrice.toInt()}', style: const TextStyle(color: AppColors.muted, decoration: TextDecoration.lineThrough, fontSize: 10)),
+                      Text(
+                        '₹${product.originalPrice.toInt()}',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          decoration: TextDecoration.lineThrough,
+                          fontSize: 10,
+                        ),
+                      ),
                       const Spacer(),
                       if (discount > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.gold.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text('$discount%', style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            '$discount%',
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                     ],
                   ),
