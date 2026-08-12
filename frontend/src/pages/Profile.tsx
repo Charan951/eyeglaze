@@ -5,6 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
+import OtpInput from '../components/ui/OtpInput';
+
+// Mirrors the identifier-detection heuristics used by the mobile app's
+// login_screen.dart, and by the web /login page: a single field accepts
+// either an email or a 10-digit Indian mobile number.
+const looksLikeEmail = (value: string) => /\S+@\S+\.\S+/.test(value.trim());
+const looksLikePhone = (value: string) => /^[6-9]\d{9}$/.test(value.trim());
 
 interface Address {
   id?: string;
@@ -36,11 +43,14 @@ export default function ProfilePage() {
 
   // Guest "Login / Signup" bottom sheet state
   const [showLoginSheet, setShowLoginSheet] = useState(false);
-  const [sheetTab, setSheetTab] = useState<'login' | 'register'>('login');
+  const [sheetMode, setSheetMode] = useState<'login' | 'register'>('login');
+  const [sheetStep, setSheetStep] = useState<'identifier' | 'details' | 'otp'>('identifier');
+  const [sheetIdentifier, setSheetIdentifier] = useState('');
   const [sheetName, setSheetName] = useState('');
-  const [sheetEmail, setSheetEmail] = useState('');
   const [sheetPassword, setSheetPassword] = useState('');
   const [sheetShowPassword, setSheetShowPassword] = useState(false);
+  const [sheetOtp, setSheetOtp] = useState('');
+  const [sheetOtpTimer, setSheetOtpTimer] = useState(0);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState('');
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
@@ -54,44 +64,128 @@ export default function ProfilePage() {
     }
     setPendingRedirect(destination);
     setSheetError('');
-    setSheetTab('login');
+    setSheetMode('login');
+    setSheetStep('identifier');
     setShowLoginSheet(true);
   };
 
+  const resetSheet = () => {
+    setShowLoginSheet(false);
+    setPendingRedirect(null);
+    setSheetStep('identifier');
+    setSheetIdentifier('');
+    setSheetName('');
+    setSheetPassword('');
+    setSheetOtp('');
+  };
+
+  const finishSheetLogin = (nextUser?: any) => {
+    if (!nextUser) return;
+    setShowLoginSheet(false);
+    setSheetStep('identifier');
+    setSheetIdentifier('');
+    setSheetName('');
+    setSheetPassword('');
+    setSheetOtp('');
+    if (pendingRedirect) {
+      navigate(pendingRedirect);
+      setPendingRedirect(null);
+    }
+  };
+
+  useEffect(() => {
+    if (sheetStep !== 'otp' || sheetOtpTimer <= 0) return;
+    const t = setTimeout(() => setSheetOtpTimer(sheetOtpTimer - 1), 1000);
+    return () => clearTimeout(t);
+  }, [sheetStep, sheetOtpTimer]);
+
+  // Step 1: identifier entry. A phone number sends an OTP immediately
+  // (matching mobile), an email reveals the password (+ name) fields
+  // in place instead of navigating away.
+  const handleSheetIdentifierSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSheetError('');
+    const value = sheetIdentifier.trim();
+
+    if (looksLikePhone(value)) {
+      setSheetLoading(true);
+      try {
+        await api.post('/auth/send-otp', { phone: value, countryCode: '+91' });
+        setSheetOtp('');
+        setSheetOtpTimer(30);
+        setSheetStep('otp');
+      } catch (err: any) {
+        setSheetError(err.response?.data?.error || 'Could not send OTP. Please try again.');
+      } finally {
+        setSheetLoading(false);
+      }
+      return;
+    }
+
+    if (looksLikeEmail(value)) {
+      setSheetStep('details');
+      return;
+    }
+
+    setSheetError('Enter a valid email address or 10-digit mobile number');
+  };
+
+  // Step 2: email + password (+ name for registration).
   const handleSheetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSheetError('');
     setSheetLoading(true);
     try {
-      if (sheetTab === 'register') {
-        if (!sheetName || !sheetEmail || !sheetPassword) {
+      if (sheetMode === 'register') {
+        if (!sheetName || !sheetPassword) {
           setSheetError('All fields are required');
           setSheetLoading(false);
           return;
         }
-        const res = await api.post('/auth/register', { name: sheetName, email: sheetEmail, password: sheetPassword });
+        const res = await api.post('/auth/register', { name: sheetName, email: sheetIdentifier.trim(), password: sheetPassword });
         if (res.data?.user) await login(res.data.user);
+        finishSheetLogin(res.data?.user);
       } else {
-        if (!sheetEmail || !sheetPassword) {
-          setSheetError('Email and password are required');
+        if (!sheetPassword) {
+          setSheetError('Password is required');
           setSheetLoading(false);
           return;
         }
-        const res = await api.post('/auth/login', { email: sheetEmail, password: sheetPassword });
+        const res = await api.post('/auth/login', { email: sheetIdentifier.trim(), password: sheetPassword });
         if (res.data?.user) await login(res.data.user);
-      }
-      setShowLoginSheet(false);
-      setSheetName('');
-      setSheetEmail('');
-      setSheetPassword('');
-      if (pendingRedirect) {
-        navigate(pendingRedirect);
-        setPendingRedirect(null);
+        finishSheetLogin(res.data?.user);
       }
     } catch (err: any) {
       setSheetError(err.response?.data?.error || 'Something went wrong. Please try again.');
     } finally {
       setSheetLoading(false);
+    }
+  };
+
+  // Step 2 (phone flow): OTP verification.
+  const handleSheetOtpVerify = async () => {
+    if (sheetOtp.length < 6) return;
+    setSheetError('');
+    setSheetLoading(true);
+    try {
+      const res = await api.post('/auth/verify-otp', { phone: sheetIdentifier.trim(), otp: sheetOtp });
+      if (res.data?.user) await login(res.data.user);
+      finishSheetLogin(res.data?.user);
+    } catch (err: any) {
+      setSheetError(err.response?.data?.error || 'Invalid OTP. Please try again.');
+    } finally {
+      setSheetLoading(false);
+    }
+  };
+
+  const handleSheetOtpResend = async () => {
+    if (!sheetIdentifier) return;
+    setSheetOtpTimer(30);
+    setSheetError('');
+    try {
+      await api.post('/auth/send-otp', { phone: sheetIdentifier.trim(), countryCode: '+91' });
+    } catch {
+      // ignore
     }
   };
 
@@ -639,7 +733,8 @@ export default function ProfilePage() {
               onClick={() => {
                 setPendingRedirect(null);
                 setSheetError('');
-                setSheetTab('login');
+                setSheetMode('login');
+                setSheetStep('identifier');
                 setShowLoginSheet(true);
               }}
               className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-xl block text-center tracking-wider transition-colors shadow-md border-none cursor-pointer"
@@ -977,40 +1072,25 @@ export default function ProfilePage() {
               className="bg-[#131314] border border-[#2A2A2D] w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl text-white space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
+            {/* Drag handle — bottom-sheet affordance on mobile only */}
+            <div className="sm:hidden w-10 h-1 rounded-full bg-[#2A2A2D] mx-auto -mt-1" />
+
+            {/* Logo */}
+            <div className="text-center">
+              <div className="text-[#D4A04D] text-xl sm:text-2xl font-serif tracking-[0.3em] uppercase font-bold">EYEGLAZE</div>
+            </div>
+
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
-                Login or signup to get started
+                {sheetStep === 'otp'
+                  ? 'Enter OTP'
+                  : sheetMode === 'login' ? 'Welcome back' : 'Create your account'}
               </h3>
               <button
-                onClick={() => { setShowLoginSheet(false); setPendingRedirect(null); }}
+                onClick={resetSheet}
                 className="text-gray-400 hover:text-white p-1 bg-transparent border-none cursor-pointer"
               >
                 ✕
-              </button>
-            </div>
-
-            <div className="flex border-b border-[#2A2A2D]">
-              <button
-                type="button"
-                onClick={() => { setSheetTab('login'); setSheetError(''); }}
-                className={`flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-center border-b-2 transition-colors bg-transparent cursor-pointer ${
-                  sheetTab === 'login'
-                    ? 'border-[#D4A04D] text-[#D4A04D]'
-                    : 'border-transparent text-gray-500 hover:text-white'
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSheetTab('register'); setSheetError(''); }}
-                className={`flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-center border-b-2 transition-colors bg-transparent cursor-pointer ${
-                  sheetTab === 'register'
-                    ? 'border-[#D4A04D] text-[#D4A04D]'
-                    : 'border-transparent text-gray-500 hover:text-white'
-                }`}
-              >
-                Sign Up
               </button>
             </div>
 
@@ -1020,60 +1100,132 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <form onSubmit={handleSheetSubmit} className="space-y-4">
-              {sheetTab === 'register' && (
+            {sheetStep === 'identifier' && (
+              <form onSubmit={handleSheetIdentifierSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Full Name</label>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Email or Mobile Number</label>
                   <input
                     type="text"
                     required
-                    value={sheetName}
-                    onChange={(e) => setSheetName(e.target.value)}
+                    autoFocus
+                    value={sheetIdentifier}
+                    onChange={(e) => { setSheetIdentifier(e.target.value); setSheetError(''); }}
+                    placeholder="you@example.com or 9876543210"
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={sheetEmail}
-                  onChange={(e) => setSheetEmail(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                />
-              </div>
+                <button
+                  type="submit"
+                  disabled={sheetLoading}
+                  className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+                >
+                  {sheetLoading ? 'Please wait...' : 'Continue'}
+                </button>
+              </form>
+            )}
 
-              <div>
-                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Password</label>
-                <div className="relative">
-                  <input
-                    type={sheetShowPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Enter password"
-                    value={sheetPassword}
-                    onChange={(e) => setSheetPassword(e.target.value)}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl pl-4 pr-16 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSheetShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-gray-400 hover:text-[#D4A04D] bg-transparent border-none cursor-pointer"
-                  >
-                    {sheetShowPassword ? 'Hide' : 'Show'}
-                  </button>
+            {sheetStep === 'details' && (
+              <form onSubmit={handleSheetSubmit} className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => { setSheetStep('identifier'); setSheetError(''); }}
+                  className="text-[#A7A7A7] text-xs hover:text-white transition-colors flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 -mt-1"
+                >
+                  ← Back
+                </button>
+
+                {sheetMode === 'register' && (
+                  <div>
+                    <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={sheetName}
+                      onChange={(e) => setSheetName(e.target.value)}
+                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1 font-semibold">Password</label>
+                  <div className="relative">
+                    <input
+                      type={sheetShowPassword ? 'text' : 'password'}
+                      required
+                      autoFocus={sheetMode === 'login'}
+                      placeholder="Enter password"
+                      value={sheetPassword}
+                      onChange={(e) => setSheetPassword(e.target.value)}
+                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl pl-4 pr-16 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSheetShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-gray-400 hover:text-[#D4A04D] bg-transparent border-none cursor-pointer"
+                    >
+                      {sheetShowPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={sheetLoading}
-                className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
-              >
-                {sheetLoading ? 'Please wait...' : sheetTab === 'login' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={sheetLoading}
+                  className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+                >
+                  {sheetLoading ? 'Please wait...' : sheetMode === 'login' ? 'Sign In' : 'Create Account'}
+                </button>
+              </form>
+            )}
+
+            {sheetStep === 'otp' && (
+              <div className="space-y-4">
+                <p className="text-[#A7A7A7] text-xs -mt-2">
+                  Sent to <span className="text-white">+91 {sheetIdentifier}</span>
+                </p>
+
+                <OtpInput length={6} onComplete={setSheetOtp} onChange={setSheetOtp} />
+
+                <div className="text-center text-xs text-[#A7A7A7]">
+                  {sheetOtpTimer > 0 ? (
+                    <span>Resend OTP in 0:{String(sheetOtpTimer).padStart(2, '0')}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSheetOtpResend}
+                      className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSheetOtpVerify}
+                  disabled={sheetLoading || sheetOtp.length < 6}
+                  className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+                >
+                  {sheetLoading ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
+            )}
+
+            {sheetStep !== 'otp' && (
+              <p className="text-center text-[#A7A7A7] text-xs">
+                {sheetMode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => { setSheetMode(m => (m === 'login' ? 'register' : 'login')); setSheetError(''); setSheetPassword(''); }}
+                  className="text-[#D4A04D] hover:underline font-semibold bg-transparent border-none cursor-pointer"
+                >
+                  {sheetMode === 'login' ? 'Sign Up' : 'Sign In'}
+                </button>
+              </p>
+            )}
 
             <p className="text-[10px] text-gray-500 text-center leading-relaxed">
               By continuing, you agree to our{' '}

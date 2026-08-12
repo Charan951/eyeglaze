@@ -349,7 +349,11 @@ export default function LandingPage() {
         gender: sub.gender || undefined,
         shapeModal: sub.shapeModal || false,
         modalShapes: sub.modalShapes || undefined,
-        subCategorySlug: sub.slug
+        subCategorySlug: sub.slug,
+        subSubCategoryModal: sub.subSubCategoryModal || false,
+        subSubCategories: (sub.children || [])
+          .filter((child: any) => !sub.modalSubSubCategories?.length || sub.modalSubSubCategories.includes(child.slug))
+          .map((child: any) => ({ name: child.name, slug: child.slug, img: child.bannerImage || child.icon || '/images/hero_model.png' }))
       }));
     }
 
@@ -409,6 +413,16 @@ export default function LandingPage() {
   };
 
   const handleSubOptionClick = (e: React.MouseEvent, option: any, cat: any) => {
+    if (option.subSubCategoryModal && option.subSubCategories && option.subSubCategories.length > 0) {
+      e.preventDefault();
+      const categorySlug = option.categoryOverride || cat.slug;
+      setSubSubCategoryModalCategory(categorySlug);
+      setSubSubCategoryModalSubCategory(option.subCategorySlug || '');
+      setSubSubCategoryModalTitle(`${option.label}'s ${cat.name}`);
+      setSubSubCategoryModalItems(option.subSubCategories);
+      setIsSubSubCategoryModalOpen(true);
+      return;
+    }
     if (option.shapeModal) {
       e.preventDefault();
       const categorySlug = option.categoryOverride || cat.slug;
@@ -492,6 +506,15 @@ export default function LandingPage() {
   const [shapeModalSubCategory, setShapeModalSubCategory] = useState('');
   const [shapeModalShapes, setShapeModalShapes] = useState<string[]>([]);
 
+  // Sub-sub-category selection bottom sheet — shown instead of the shape
+  // modal / direct navigation when a sub-category has `subSubCategoryModal`
+  // enabled in admin.
+  const [isSubSubCategoryModalOpen, setIsSubSubCategoryModalOpen] = useState(false);
+  const [subSubCategoryModalTitle, setSubSubCategoryModalTitle] = useState('');
+  const [subSubCategoryModalCategory, setSubSubCategoryModalCategory] = useState('');
+  const [subSubCategoryModalSubCategory, setSubSubCategoryModalSubCategory] = useState('');
+  const [subSubCategoryModalItems, setSubSubCategoryModalItems] = useState<{ name: string; slug: string; img?: string }[]>([]);
+
   // Reels modal states
   const [selectedReel, setSelectedReel] = useState<any | null>(null);
   const [isReelModalOpen, setIsReelModalOpen] = useState(false);
@@ -506,7 +529,7 @@ export default function LandingPage() {
   // Lock body scroll on mobile when menus are open
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
-    if (isMobile && isShapeModalOpen) {
+    if (isMobile && (isShapeModalOpen || isSubSubCategoryModalOpen)) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
@@ -517,7 +540,7 @@ export default function LandingPage() {
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [isShapeModalOpen]);
+  }, [isShapeModalOpen, isSubSubCategoryModalOpen]);
 
 
 
@@ -911,6 +934,13 @@ export default function LandingPage() {
               const catSlug = cat.slug.toLowerCase();
               const categoryReels = getReelsForCategory(cat.slug);
               const categoryBanners = banners.filter((b: any) => b.position === `after_category:${cat.slug}` && b.isActive);
+              // "Trending EyeGlaze" shows the eyeglasses reels, but is
+              // positioned after the Sunglasses section rather than under
+              // Eyeglasses itself.
+              const isSunglasses = catSlug === 'sunglasses';
+              const isContactLenses = catSlug === 'contact-lenses';
+              const trendingEyeglazeReels = isSunglasses ? getReelsForCategory('eyeglasses') : [];
+              const reelsForSection = isSunglasses ? trendingEyeglazeReels : categoryReels;
               return (
                 <Fragment key={cat._id || cat.slug}>
                   <motion.div 
@@ -942,10 +972,10 @@ export default function LandingPage() {
                           ${cat.subCategoryShape === 'circle' ? 'rounded-full aspect-square' : cat.subCategoryShape === 'rectangle' ? 'rounded-2xl aspect-[4/3]' : 'rounded-2xl aspect-square'}
                         `}
                       >
-                        <img 
-                          src={item.img} 
-                          alt={item.label} 
-                          className="absolute inset-0 w-full h-full object-contain p-3 pb-14 sm:p-5 sm:pb-20 object-center transition-transform duration-500 group-hover:scale-105"
+                        <img
+                          src={item.img}
+                          alt={item.label}
+                          className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                         />
                         
                         <div className={`relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent flex flex-col items-center text-center justify-center transition-all duration-300
@@ -967,15 +997,15 @@ export default function LandingPage() {
                     ))}
                   </div>
 
-                  {/* Reels Section under Eyeglasses & Contact Lens */}
-                  {(catSlug === 'eyeglasses' || catSlug === 'contact-lenses') && categoryReels.length > 0 && (
+                  {/* Reels Section: "Trending EyeGlaze" under Sunglasses, Reels under Contact Lens */}
+                  {(isSunglasses || isContactLenses) && reelsForSection.length > 0 && (
                     <div className="mt-4 flex flex-col gap-4 border-t border-zinc-800/80 pt-6">
                       <div className="flex flex-col gap-0.5">
-                        <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{cat.slug === 'eyeglasses' ? 'Trending EyeGlaze' : `${cat.name} Reels`}</h4>
+                        <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{isSunglasses ? 'Trending EyeGlaze' : `${cat.name} Reels`}</h4>
                         <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Trending styles, lookbooks and details</span>
                       </div>
                       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none w-full flex-nowrap scroll-smooth">
-                        {categoryReels.map((reel) => (
+                        {reelsForSection.map((reel) => (
                           <div 
                             key={reel._id || reel.id}
                             onClick={(e) => {
@@ -1118,7 +1148,7 @@ export default function LandingPage() {
         <div className="px-4 py-5 space-y-4">
           
           {/* Hero Slider Card */}
-          <div className="relative bg-[#111] border border-zinc-800 rounded-2xl p-5 aspect-[16/9] w-full flex items-center overflow-hidden shadow-xl">
+          <div className="relative bg-[#111] border border-zinc-800 rounded-2xl p-5 aspect-4/1 min-h-47.5 w-full flex items-center overflow-hidden shadow-xl">
             {/* Model Image (Full width background) */}
             <div 
               className={`absolute inset-0 w-full h-full overflow-hidden z-0 ${slides[activeSlide]?.linkUrl ? 'cursor-pointer' : ''}`}
@@ -1239,12 +1269,12 @@ export default function LandingPage() {
                         className="flex flex-col items-center gap-1.5 group"
                       >
                         <div className={`relative w-full bg-[#111112] border border-zinc-800/80 overflow-hidden shadow-md
-                          ${cat.subCategoryShape === 'rectangle' ? 'rounded-xl aspect-[4/3]' : 'rounded-full aspect-square'}
+                          ${cat.subCategoryShape === 'circle' ? 'rounded-full aspect-square' : cat.subCategoryShape === 'rectangle' ? 'rounded-xl aspect-[4/3]' : 'rounded-xl aspect-square'}
                         `}>
                           <img
                             src={item.img}
                             alt={item.label}
-                            className="absolute inset-0 w-full h-full object-contain p-2.5 object-center transition-transform duration-300 group-hover:scale-105"
+                            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                           />
                         </div>
                         <span className={`font-bold text-white text-center leading-tight
@@ -1473,15 +1503,15 @@ export default function LandingPage() {
                   >
                     
                     {/* Image & Badge Container */}
-                    <div className="aspect-[4/3] bg-[#131314] p-4 relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
+                    <div className="aspect-[4/3] bg-[#131314] relative flex items-center justify-center border-b border-[#2A2A2D]/40 overflow-hidden">
                       <span className="absolute top-3 left-3 bg-[#D4A04D] text-black text-[9px] font-bold py-1 px-2.5 rounded-full tracking-wider uppercase z-10 shadow-md">
                         {badge}
                       </span>
-                      
-                      <img 
-                        src={imageUrl} 
-                        alt={name} 
-                        className="max-h-[70%] max-w-[75%] mt-4 object-contain group-hover:scale-105 transition-transform duration-500"
+
+                      <img
+                        src={imageUrl}
+                        alt={name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
 
                       {/* Hover Quick View Overlay */}
@@ -2759,6 +2789,68 @@ export default function LandingPage() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* 8b. Sub-Sub-Category Selection Bottom Sheet — shown when a sub-category
+          has "Show sub-categories in bottom sheet on click" enabled in admin. */}
+      {isSubSubCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0">
+          <div
+            onClick={() => setIsSubSubCategoryModalOpen(false)}
+            className="absolute inset-0 bg-black/85 backdrop-blur-sm"
+          />
+          <div className="relative bg-[#121213] border-t border-zinc-800 w-full md:max-w-md rounded-t-2xl overflow-hidden shadow-2xl z-10 animate-slide-up p-6 flex flex-col gap-5 pb-8 max-h-[85vh] overflow-y-auto">
+
+            {/* Mobile/Desktop Drag Indicator */}
+            <div className="w-10 h-1 bg-zinc-800 rounded-full mx-auto mb-2" />
+
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
+              <h3 className="text-white text-base font-black uppercase tracking-wider">
+                {subSubCategoryModalTitle}
+              </h3>
+              <button
+                onClick={() => setIsSubSubCategoryModalOpen(false)}
+                className="text-gray-400 hover:text-white p-1 bg-transparent border-none cursor-pointer"
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1">
+              {subSubCategoryModalItems.map((item) => (
+                <button
+                  key={item.slug}
+                  onClick={() => {
+                    setIsSubSubCategoryModalOpen(false);
+                    const subCatParam = subSubCategoryModalSubCategory ? `&subCategory=${subSubCategoryModalSubCategory}` : '';
+                    navigate(`/products?category=${subSubCategoryModalCategory}${subCatParam}&subSubCategory=${item.slug}`);
+                  }}
+                  className="w-full text-left bg-[#0B0B0C] hover:bg-zinc-900 border border-zinc-800 hover:border-[#D4A04D]/60 text-white font-bold text-xs uppercase tracking-wide py-2.5 pl-2.5 pr-4 rounded-xl transition-all cursor-pointer flex items-center gap-3 group"
+                >
+                  <div className="w-11 h-11 rounded-lg overflow-hidden bg-white shrink-0 flex items-center justify-center">
+                    <img src={item.img || '/images/hero_model.png'} alt={item.name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="flex-1">{item.name}</span>
+                  <span className="text-gray-500 group-hover:text-[#D4A04D] transition-colors">→</span>
+                </button>
+              ))}
+            </div>
+
+            {/* View All Button */}
+            <button
+              onClick={() => {
+                setIsSubSubCategoryModalOpen(false);
+                const subCatParam = subSubCategoryModalSubCategory ? `&subCategory=${subSubCategoryModalSubCategory}` : '';
+                navigate(`/products?category=${subSubCategoryModalCategory}${subCatParam}`);
+              }}
+              className="w-full mt-2 bg-transparent border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-all cursor-pointer"
+            >
+              View All
+            </button>
           </div>
         </div>
       )}

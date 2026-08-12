@@ -50,11 +50,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final auth = context.read<AuthService>();
       if (auth.isLoggedIn) {
         final api = ApiService(auth);
-        api.getProfile().then((res) {
-          if (res['success'] == true && res['user'] != null) {
-            auth.setUser(User.fromJson(res['user']));
-          }
-        }).catchError((_) {});
+        api
+            .getProfile()
+            .then((res) {
+              if (res['success'] == true && res['user'] != null) {
+                auth.setUser(User.fromJson(res['user']));
+              }
+            })
+            .catchError((_) {});
       }
     });
   }
@@ -79,8 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
   Widget _buildCustomBottomBar() {
     final cartCount = context.watch<CartProvider>().itemCount;
 
@@ -91,9 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         decoration: const BoxDecoration(
           color: Color(0xFF0A0A0A),
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 1),
-          ),
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         child: SafeArea(
           top: false,
@@ -127,7 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 110,
                     height: 48,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.6),
+                      ),
                       gradient: const LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -145,7 +146,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           right: 0,
                           child: Center(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.gold,
                                 borderRadius: BorderRadius.circular(4),
@@ -167,7 +171,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const SizedBox(height: 4),
-                              const Icon(Icons.star, color: AppColors.gold, size: 14),
+                              const Icon(
+                                Icons.star,
+                                color: AppColors.gold,
+                                size: 14,
+                              ),
                               const SizedBox(height: 2),
                               const Text(
                                 'GET GOLD',
@@ -333,7 +341,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white24),
                     ),
-                    child: const Icon(Icons.person_outline, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               );
@@ -362,13 +374,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Stack(
             children: [
-              IconButton(icon: const Icon(Icons.notifications_outlined, color: AppColors.white), onPressed: () {}),
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.white,
+                ),
+                onPressed: () {},
+              ),
               Positioned(
-                right: 8, top: 8,
+                right: 8,
+                top: 8,
                 child: Container(
-                  width: 14, height: 14,
-                  decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
-                  child: const Center(child: Text('3', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
+                  width: 14,
+                  height: 14,
+                  decoration: const BoxDecoration(
+                    color: AppColors.gold,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '3',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -377,7 +409,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification notification) {
-          if (notification is ScrollUpdateNotification && notification.depth == 0) {
+          if (notification is ScrollUpdateNotification &&
+              notification.depth == 0) {
             final scrollDelta = notification.scrollDelta ?? 0.0;
             if (scrollDelta > 2.0) {
               if (_showBottomBar) {
@@ -397,10 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return false;
         },
-        child: ResponsiveContainer(
-          maxWidth: 600,
-          child: _tabs[_currentTab],
-        ),
+        child: ResponsiveContainer(maxWidth: 600, child: _tabs[_currentTab]),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.card,
@@ -417,7 +447,11 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => const AiChatSheet(),
           );
         },
-        child: const Icon(Icons.smart_toy_outlined, color: AppColors.gold, size: 24),
+        child: const Icon(
+          Icons.smart_toy_outlined,
+          color: AppColors.gold,
+          size: 24,
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _buildCustomBottomBar(),
@@ -508,20 +542,57 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
     _startTimer();
   }
 
+  // Mirrors the web app's top/hero banner filter (frontend Landing.tsx):
+  // positions 'hero', 'top', 'eyeglasses_landing', 'both', or no position at
+  // all are shown here; banners explicitly marked showOnMobile: false are
+  // skipped.
+  static const _acceptedPositions = {
+    'hero',
+    'top',
+    'eyeglasses_landing',
+    'both',
+  };
+
+  /// Extracts a bare category slug (or 'gold'/'all') from a web-style
+  /// `linkUrl` such as `/products?category=sunglasses` or `/membership`, so
+  /// it can be handed to `_handleBannerTap`.
+  String _targetFromLinkUrl(String linkUrl) {
+    if (linkUrl.isEmpty) return 'all';
+    final lower = linkUrl.toLowerCase();
+    if (lower.contains('membership') || lower.contains('gold')) return 'gold';
+    final category = Uri.tryParse(linkUrl)?.queryParameters['category'];
+    if (category != null && category.isNotEmpty) return category;
+    return 'all';
+  }
+
   Future<void> _loadBanners() async {
     try {
       final auth = context.read<AuthService>();
       final api = ApiService(auth);
       final list = await api.getBanners();
-      if (list.isNotEmpty && mounted) {
-        final fetched = list.map<Map<String, String>>((b) => {
-          'title': (b['title'] ?? b['name'] ?? 'EYEGLAZE').toString(),
-          'subtitle': (b['subtitle'] ?? b['description'] ?? 'Special Offer').toString(),
-          'tag': (b['tag'] ?? 'PROMOTION').toString().toUpperCase(),
-          'btn': (b['buttonText'] ?? 'EXPLORE NOW').toString().toUpperCase(),
-          'image': (b['image'] ?? b['bannerImage'] ?? '/images/hero_model.png').toString(),
-          'target': (b['linkTo'] ?? b['category'] ?? 'all').toString(),
-        }).toList();
+      final visible = list.where((b) {
+        final position = (b['position'] ?? '').toString();
+        final showOnMobile = b['showOnMobile'];
+        if (showOnMobile == false) return false;
+        return position.isEmpty || _acceptedPositions.contains(position);
+      }).toList();
+      if (visible.isNotEmpty && mounted) {
+        final fetched = visible
+            .map<Map<String, String>>(
+              (b) => {
+                'title': (b['title'] ?? 'EYEGLAZE').toString(),
+                'subtitle':
+                    (b['subtitle'] ?? b['description'] ?? 'Special Offer')
+                        .toString(),
+                'tag': (b['tag'] ?? 'PROMOTION').toString().toUpperCase(),
+                'btn': (b['buttonText'] ?? 'EXPLORE NOW')
+                    .toString()
+                    .toUpperCase(),
+                'image': (b['imageUrl'] ?? '/images/hero_model.png').toString(),
+                'target': _targetFromLinkUrl((b['linkUrl'] ?? '').toString()),
+              },
+            )
+            .toList();
         setState(() {
           _banners = fetched;
         });
@@ -582,7 +653,9 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -593,7 +666,8 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                           imageUrl: AppConfig.resolveImageUrl(item['image']!),
                           fit: BoxFit.cover,
                           alignment: Alignment.centerRight,
-                          errorWidget: (_, __, ___) => Container(color: AppColors.card),
+                          errorWidget: (_, __, ___) =>
+                              Container(color: AppColors.card),
                         ),
                       ),
                       Positioned.fill(
@@ -619,11 +693,16 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.gold.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+                                border: Border.all(
+                                  color: AppColors.gold.withValues(alpha: 0.5),
+                                ),
                               ),
                               child: Text(
                                 item['tag']!,
@@ -662,7 +741,10 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                             GestureDetector(
                               onTap: () => _handleBannerTap(item['target']!),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.gold,
                                   borderRadius: BorderRadius.circular(8),
@@ -680,7 +762,11 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                                       ),
                                     ),
                                     SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward_rounded, color: Colors.black, size: 12),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: Colors.black,
+                                      size: 12,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -706,7 +792,9 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
               width: _activeSlide == idx ? 14 : 5,
               height: 5,
               decoration: BoxDecoration(
-                color: _activeSlide == idx ? AppColors.gold : AppColors.muted.withValues(alpha: 0.4),
+                color: _activeSlide == idx
+                    ? AppColors.gold
+                    : AppColors.muted.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -752,11 +840,7 @@ class _GreetingsHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.waving_hand,
-                color: AppColors.gold,
-                size: 20,
-              ),
+              const Icon(Icons.waving_hand, color: AppColors.gold, size: 20),
             ],
           ),
           const SizedBox(height: 4),
@@ -792,14 +876,17 @@ class _OfferCouponsState extends State<_OfferCoupons> {
   String _getCouponBgImage(String code, String name) {
     final c = code.toLowerCase();
     final n = name.toLowerCase();
-    
+
     if (c.contains('gold') || c.contains('50') || n.contains('50%')) {
       return '/images/sale_eyeglasses.png';
     }
     if (c.contains('coat') || n.contains('coat') || n.contains('glare')) {
       return '/images/cat_blue_light.png';
     }
-    if (c.contains('welcome') || c.contains('new') || n.contains('welcome') || n.contains('new')) {
+    if (c.contains('welcome') ||
+        c.contains('new') ||
+        n.contains('welcome') ||
+        n.contains('new')) {
       return '/images/hero_model.png';
     }
     // Fallbacks
@@ -882,8 +969,12 @@ class _OfferCouponsState extends State<_OfferCoupons> {
   Widget _buildCouponCard(dynamic coupon) {
     final code = (coupon['code'] ?? '').toString().toUpperCase();
     final badge = (coupon['badge'] ?? 'OFFER').toString().toUpperCase();
-    final name = (coupon['name'] ?? 'DISCOUNT VOUCHER').toString().toUpperCase();
-    final description = coupon['description'] ?? 'Apply this promo code at checkout to claim your deal.';
+    final name = (coupon['name'] ?? 'DISCOUNT VOUCHER')
+        .toString()
+        .toUpperCase();
+    final description =
+        coupon['description'] ??
+        'Apply this promo code at checkout to claim your deal.';
     final discountType = coupon['discountType'] ?? 'percent';
     final discountValue = coupon['discountValue'] ?? 0;
     final minOrderValue = coupon['minOrderValue'];
@@ -910,9 +1001,8 @@ class _OfferCouponsState extends State<_OfferCoupons> {
               child: CachedNetworkImage(
                 imageUrl: AppConfig.resolveImageUrl(bgPath),
                 fit: BoxFit.cover,
-                errorWidget: (context, url, error) => Container(
-                  color: const Color(0xFF151515),
-                ),
+                errorWidget: (context, url, error) =>
+                    Container(color: const Color(0xFF151515)),
               ),
             ),
             // Gradient Overlay for high readability
@@ -953,10 +1043,15 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.gold.withValues(alpha: 0.15),
-                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: AppColors.gold.withValues(alpha: 0.4),
+                          ),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -988,7 +1083,11 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       shadows: [
-                        Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 2),
+                        Shadow(
+                          color: Colors.black54,
+                          offset: Offset(0, 1),
+                          blurRadius: 2,
+                        ),
                       ],
                     ),
                     maxLines: 1,
@@ -1012,7 +1111,11 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                       fontSize: 9.5,
                       height: 1.25,
                       shadows: const [
-                        Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 1),
+                        Shadow(
+                          color: Colors.black54,
+                          offset: Offset(0, 1),
+                          blurRadius: 1,
+                        ),
                       ],
                     ),
                     maxLines: 2,
@@ -1023,9 +1126,14 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                     children: [
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0B0B0C).withValues(alpha: 0.8),
+                            color: const Color(
+                              0xFF0B0B0C,
+                            ).withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: AppColors.gold.withValues(alpha: 0.3),
@@ -1062,7 +1170,9 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                           });
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Coupon code "$code" copied to clipboard!'),
+                              content: Text(
+                                'Coupon code "$code" copied to clipboard!',
+                              ),
                               backgroundColor: AppColors.success,
                               duration: const Duration(seconds: 1),
                             ),
@@ -1070,13 +1180,22 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: isCopied ? AppColors.success : AppColors.gold,
+                            color: isCopied
+                                ? AppColors.success
+                                : AppColors.gold,
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: (isCopied ? AppColors.success : AppColors.gold).withValues(alpha: 0.3),
+                                color:
+                                    (isCopied
+                                            ? AppColors.success
+                                            : AppColors.gold)
+                                        .withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -1156,7 +1275,9 @@ class _OfferCouponsState extends State<_OfferCoupons> {
                 width: _activeSlide == idx ? 12 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: _activeSlide == idx ? AppColors.gold : AppColors.muted.withValues(alpha: 0.4),
+                  color: _activeSlide == idx
+                      ? AppColors.gold
+                      : AppColors.muted.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -1169,30 +1290,34 @@ class _OfferCouponsState extends State<_OfferCoupons> {
   }
 }
 
-
 class _CategoryCard extends StatelessWidget {
   final String label;
   final String imagePath;
   final VoidCallback onTap;
+  final bool isCircle;
 
   const _CategoryCard({
     required this.label,
     required this.imagePath,
     required this.onTap,
+    this.isCircle = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final borderRadius = isCircle
+        ? BorderRadius.circular(9999)
+        : BorderRadius.circular(12);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: borderRadius,
           border: Border.all(color: AppColors.border),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: borderRadius,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -1202,7 +1327,11 @@ class _CategoryCard extends StatelessWidget {
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
                 errorWidget: (context, url, error) => const Center(
-                  child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 24),
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.muted,
+                    size: 24,
+                  ),
                 ),
               ),
               // Gradient Overlay
@@ -1281,11 +1410,25 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   List<dynamic> _categoriesList = [];
   bool _loading = false;
 
+  // Banners positioned 'after_category:<slug>' in admin, keyed by slug —
+  // rendered right after that category's grid, matching the web app's
+  // placement (Landing.tsx `categoryBanners`).
+  static const _afterCategoryPrefix = 'after_category:';
+  Map<String, List<Map<String, dynamic>>> _categoryBannersMap = {};
+
   final List<dynamic> _fallbackCategories = [
     {'name': 'Prescription', 'code': 'prescription', 'slug': 'prescription'},
     {'name': 'Sunglasses', 'code': 'sunglasses', 'slug': 'sunglasses'},
-    {'name': 'Reading Glasses', 'code': 'reading-glasses', 'slug': 'reading-glasses'},
-    {'name': 'Contact Lenses', 'code': 'contact-lenses', 'slug': 'contact-lenses'},
+    {
+      'name': 'Reading Glasses',
+      'code': 'reading-glasses',
+      'slug': 'reading-glasses',
+    },
+    {
+      'name': 'Contact Lenses',
+      'code': 'contact-lenses',
+      'slug': 'contact-lenses',
+    },
     {'name': 'Accessories', 'code': 'accessories', 'slug': 'accessories'},
     {'name': 'Kids', 'code': 'kids', 'slug': 'kids'},
   ];
@@ -1294,12 +1437,14 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   void initState() {
     super.initState();
     _loadCategories();
-    
-    // Connect socket listener
+    _loadCategoryBanners();
+
+    // Connect socket listeners
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final socketService = context.read<SocketService>();
         socketService.socket?.on('category_changed', _onCategoryChanged);
+        socketService.socket?.on('banner_changed', _onBannerChanged);
       }
     });
   }
@@ -1309,16 +1454,25 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     try {
       final socketService = context.read<SocketService>();
       socketService.socket?.off('category_changed', _onCategoryChanged);
+      socketService.socket?.off('banner_changed', _onBannerChanged);
     } catch (_) {}
     super.dispose();
   }
 
   void _onCategoryChanged(dynamic data) {
     if (kDebugMode) {
-      print('Socket: category_changed event received on home category grids: $data');
+      print(
+        'Socket: category_changed event received on home category grids: $data',
+      );
     }
     if (mounted) {
       _loadCategories();
+    }
+  }
+
+  void _onBannerChanged(dynamic data) {
+    if (mounted) {
+      _loadCategoryBanners();
     }
   }
 
@@ -1344,13 +1498,41 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     }
   }
 
-  void _showShapeSelectionSheet(BuildContext context, {required String title, required String category, String? gender}) {
+  Future<void> _loadCategoryBanners() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getBanners();
+      final map = <String, List<Map<String, dynamic>>>{};
+      for (final b in list) {
+        final position = (b['position'] ?? '').toString();
+        final showOnMobile = b['showOnMobile'];
+        if (showOnMobile == false) continue;
+        if (!position.startsWith(_afterCategoryPrefix)) continue;
+        final slug = position.substring(_afterCategoryPrefix.length);
+        if (slug.isEmpty) continue;
+        map.putIfAbsent(slug, () => []).add((b as Map).cast<String, dynamic>());
+      }
+      if (mounted) setState(() => _categoryBannersMap = map);
+    } catch (_) {}
+  }
+
+  void _showShapeSelectionSheet(
+    BuildContext context, {
+    required String title,
+    required String category,
+    String? gender,
+  }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return _ShapeSelectionSheet(title: title, category: category, gender: gender);
+        return _ShapeSelectionSheet(
+          title: title,
+          category: category,
+          gender: gender,
+        );
       },
     );
   }
@@ -1358,60 +1540,176 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   List<Map<String, dynamic>> _getCategorySubOptions(dynamic cat) {
     if (cat['children'] != null && (cat['children'] as List).isNotEmpty) {
       final childrenList = List<dynamic>.from(cat['children']);
-      childrenList.sort((a, b) => ((a['displayOrder'] ?? 0) as num).compareTo((b['displayOrder'] ?? 0) as num));
-      return childrenList.map<Map<String, dynamic>>((sub) => {
-        'label': (sub['name'] ?? '').toString(),
-        'imagePath': (sub['bannerImage'] ?? sub['icon'] ?? '/images/hero_model.png').toString(),
-        'category': cat['slug']?.toString() ?? '',
-        'gender': sub['gender']?.toString(),
-        'shapeModal': sub['shapeModal'] == true,
-        'subCategorySlug': sub['slug']?.toString(),
-      }).toList();
+      childrenList.sort(
+        (a, b) => ((a['displayOrder'] ?? 0) as num).compareTo(
+          (b['displayOrder'] ?? 0) as num,
+        ),
+      );
+      return childrenList
+          .map<Map<String, dynamic>>(
+            (sub) => {
+              'label': (sub['name'] ?? '').toString(),
+              'imagePath':
+                  (sub['bannerImage'] ??
+                          sub['icon'] ??
+                          '/images/hero_model.png')
+                      .toString(),
+              'category': cat['slug']?.toString() ?? '',
+              'gender': sub['gender']?.toString(),
+              'shapeModal': sub['shapeModal'] == true,
+              'subCategorySlug': sub['slug']?.toString(),
+            },
+          )
+          .toList();
     }
 
     final slug = (cat['slug'] ?? '').toString().toLowerCase();
 
     if (slug == 'eyeglasses' || slug == 'prescription') {
       return [
-        { 'label': 'Men', 'imagePath': '/images/men_eyeglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
-        { 'label': 'Women', 'imagePath': '/images/women_eyeglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
-        { 'label': 'Kids', 'imagePath': '/images/kids_eyeglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
-        { 'label': 'Contact Lens', 'imagePath': '/images/cat_contacts.png', 'category': 'contact-lenses', 'shapeModal': false }
+        {
+          'label': 'Men',
+          'imagePath': '/images/men_eyeglasses.png',
+          'category': cat['slug'],
+          'gender': 'men',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Women',
+          'imagePath': '/images/women_eyeglasses.png',
+          'category': cat['slug'],
+          'gender': 'women',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Kids',
+          'imagePath': '/images/kids_eyeglasses.png',
+          'category': cat['slug'],
+          'gender': 'kids',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Contact Lens',
+          'imagePath': '/images/cat_contacts.png',
+          'category': 'contact-lenses',
+          'shapeModal': false,
+        },
       ];
     }
 
     if (slug == 'sunglasses') {
       return [
-        { 'label': 'Men', 'imagePath': '/images/men_sunglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
-        { 'label': 'Women', 'imagePath': '/images/women_sunglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
-        { 'label': 'Kids', 'imagePath': '/images/kids_sunglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
-        { 'label': 'Accessories', 'imagePath': '/images/accessories.png', 'category': 'accessories', 'shapeModal': false }
+        {
+          'label': 'Men',
+          'imagePath': '/images/men_sunglasses.png',
+          'category': cat['slug'],
+          'gender': 'men',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Women',
+          'imagePath': '/images/women_sunglasses.png',
+          'category': cat['slug'],
+          'gender': 'women',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Kids',
+          'imagePath': '/images/kids_sunglasses.png',
+          'category': cat['slug'],
+          'gender': 'kids',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Accessories',
+          'imagePath': '/images/accessories.png',
+          'category': 'accessories',
+          'shapeModal': false,
+        },
       ];
     }
 
     if (slug == 'reading-glasses' || slug == 'special-power') {
       return [
-        { 'label': 'Zero Power', 'imagePath': '/images/zero_power_glasses.png', 'category': 'zero-power', 'shapeModal': true },
-        { 'label': 'Reading', 'imagePath': '/images/reading_book.png', 'category': cat['slug'], 'shapeModal': true },
-        { 'label': 'Power Sun', 'imagePath': '/images/transition_lens.png', 'category': 'sunglasses', 'shapeModal': true }
+        {
+          'label': 'Zero Power',
+          'imagePath': '/images/zero_power_glasses.png',
+          'category': 'zero-power',
+          'shapeModal': true,
+        },
+        {
+          'label': 'Reading',
+          'imagePath': '/images/reading_book.png',
+          'category': cat['slug'],
+          'shapeModal': true,
+        },
+        {
+          'label': 'Power Sun',
+          'imagePath': '/images/transition_lens.png',
+          'category': 'sunglasses',
+          'shapeModal': true,
+        },
       ];
     }
 
     if (slug == 'contact-lenses') {
       return [
-        { 'label': 'Clear Lenses', 'imagePath': '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false },
-        { 'label': 'Color Lenses', 'imagePath': '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false },
-        { 'label': 'Solutions', 'imagePath': '/images/accessories.png', 'category': cat['slug'], 'shapeModal': false },
-        { 'label': 'View More', 'imagePath': cat['bannerImage'] ?? '/images/cat_contacts.png', 'category': cat['slug'], 'shapeModal': false }
+        {
+          'label': 'Clear Lenses',
+          'imagePath': '/images/cat_contacts.png',
+          'category': cat['slug'],
+          'shapeModal': false,
+        },
+        {
+          'label': 'Color Lenses',
+          'imagePath': '/images/cat_contacts.png',
+          'category': cat['slug'],
+          'shapeModal': false,
+        },
+        {
+          'label': 'Solutions',
+          'imagePath': '/images/accessories.png',
+          'category': cat['slug'],
+          'shapeModal': false,
+        },
+        {
+          'label': 'View More',
+          'imagePath': cat['bannerImage'] ?? '/images/cat_contacts.png',
+          'category': cat['slug'],
+          'shapeModal': false,
+        },
       ];
     }
 
     // Default generic sub-options for any dynamic category
     return [
-      { 'label': 'Men', 'imagePath': '/images/men_eyeglasses.png', 'category': cat['slug'], 'gender': 'men', 'shapeModal': true },
-      { 'label': 'Women', 'imagePath': '/images/women_eyeglasses.png', 'category': cat['slug'], 'gender': 'women', 'shapeModal': true },
-      { 'label': 'Kids', 'imagePath': '/images/kids_eyeglasses.png', 'category': cat['slug'], 'gender': 'kids', 'shapeModal': true },
-      { 'label': 'View More', 'imagePath': cat['bannerImage'] ?? '/images/hero_model.png', 'category': cat['slug'], 'shapeModal': false }
+      {
+        'label': 'Men',
+        'imagePath': '/images/men_eyeglasses.png',
+        'category': cat['slug'],
+        'gender': 'men',
+        'shapeModal': true,
+      },
+      {
+        'label': 'Women',
+        'imagePath': '/images/women_eyeglasses.png',
+        'category': cat['slug'],
+        'gender': 'women',
+        'shapeModal': true,
+      },
+      {
+        'label': 'Kids',
+        'imagePath': '/images/kids_eyeglasses.png',
+        'category': cat['slug'],
+        'gender': 'kids',
+        'shapeModal': true,
+      },
+      {
+        'label': 'View More',
+        'imagePath': cat['bannerImage'] ?? '/images/hero_model.png',
+        'category': cat['slug'],
+        'shapeModal': false,
+      },
     ];
   }
 
@@ -1440,25 +1738,45 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       orElse: () => null,
     );
 
-    final knownSlugs = ['prescription', 'eyeglasses', 'sunglasses', 'reading-glasses', 'special-power', 'contact-lenses', 'accessories', 'kids'];
-    final dynamicCats = _categoriesList.where((c) => !knownSlugs.contains(c['slug']?.toString().toLowerCase())).toList();
+    final knownSlugs = [
+      'prescription',
+      'eyeglasses',
+      'sunglasses',
+      'reading-glasses',
+      'special-power',
+      'contact-lenses',
+      'accessories',
+      'kids',
+    ];
+    final dynamicCats = _categoriesList
+        .where((c) => !knownSlugs.contains(c['slug']?.toString().toLowerCase()))
+        .toList();
 
-    if (eyeglassesCat != null) {
-      sections.add(_buildSection(eyeglassesCat));
-      sections.add(const SizedBox(height: 16));
+    // Adds a category's grid, then — if admin has set one up — the
+    // 'after_category:<slug>' banner(s) right below it, matching the web
+    // app's placement and spacing exactly (Landing.tsx `categoryBanners`
+    // uses `mt-2 mb-1` around the banner, i.e. 8px above / 4px below).
+    void addCategorySection(dynamic cat) {
+      sections.add(_buildSection(cat));
+      final slug = (cat['slug'] ?? '').toString();
+      final banners = _categoryBannersMap[slug];
+      if (banners != null && banners.isNotEmpty) {
+        for (final banner in banners) {
+          sections.add(const SizedBox(height: 8));
+          sections.add(_CmsBannerCard(banner: banner, width: double.infinity));
+        }
+        sections.add(const SizedBox(height: 4));
+      } else {
+        sections.add(const SizedBox(height: 16));
+      }
     }
-    if (sunglassesCat != null) {
-      sections.add(_buildSection(sunglassesCat));
-      sections.add(const SizedBox(height: 16));
-    }
-    if (readingCat != null) {
-      sections.add(_buildSection(readingCat));
-      sections.add(const SizedBox(height: 16));
-    }
+
+    if (eyeglassesCat != null) addCategorySection(eyeglassesCat);
+    if (sunglassesCat != null) addCategorySection(sunglassesCat);
+    if (readingCat != null) addCategorySection(readingCat);
 
     for (final dynamicCat in dynamicCats) {
-      sections.add(_buildSection(dynamicCat));
-      sections.add(const SizedBox(height: 16));
+      addCategorySection(dynamicCat);
     }
 
     if (sections.isEmpty) {
@@ -1484,13 +1802,29 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       title = 'SPECIAL POWER';
     }
 
-    final crossCount = subOptions.length == 3 ? 3 : 4;
-    final aspect = subOptions.length == 3 ? 1.35 / 1 : 3 / 4.2;
+    // Layout is admin-configurable (Category edit form → "Sub-Category
+    // Layout Design"): shape ('circle' | 'square' | 'rectangle', default
+    // 'square'), and grid column count. Mirrors the web app's handling
+    // (Landing.tsx) so mobile matches whatever admin picks.
+    final shape = (cat['subCategoryShape'] ?? '').toString();
+    final configuredColumns = cat['subCategoryColumns'] is num
+        ? (cat['subCategoryColumns'] as num).toInt()
+        : null;
+    final crossCount = configuredColumns ?? (subOptions.length == 3 ? 3 : 4);
+    final aspect = shape == 'rectangle' ? 4 / 3 : 1.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+          ),
+        ),
         const SizedBox(height: 8),
         GridView.count(
           shrinkWrap: true,
@@ -1503,12 +1837,17 @@ class _CategoryGridsState extends State<_CategoryGrids> {
             return _CategoryCard(
               label: opt['label'],
               imagePath: opt['imagePath'],
+              isCircle: shape == 'circle',
               onTap: () {
                 if (opt['shapeModal'] == true) {
-                  final isKids = opt['gender'] == 'kids' || opt['label'].toString().toLowerCase() == 'kids';
+                  final isKids =
+                      opt['gender'] == 'kids' ||
+                      opt['label'].toString().toLowerCase() == 'kids';
                   _showShapeSelectionSheet(
                     context,
-                    title: isKids ? 'Select Age Group' : "${opt['label']}'s ${cat['name'] ?? ''}",
+                    title: isKids
+                        ? 'Select Age Group'
+                        : "${opt['label']}'s ${cat['name'] ?? ''}",
                     category: opt['category'],
                     gender: opt['gender'],
                   );
@@ -1532,11 +1871,180 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   }
 }
 
-class _PromoBanners extends StatelessWidget {
-  const _PromoBanners();
+// A single CMS-driven banner card — its own image, title/subtitle, and a
+// button that navigates by extracting a category slug (or Gold membership)
+// out of the banner's `linkUrl`. Shared by the per-category banner slot
+// (`_CategoryGrids`) and the footer promo slot (`_PromoBanners`), matching
+// how the web app places each banner by its `position`.
+class _CmsBannerCard extends StatelessWidget {
+  final Map<String, dynamic> banner;
+  final double width;
+  const _CmsBannerCard({required this.banner, this.width = 260});
+
+  void _handleTap(BuildContext context) {
+    final linkUrl = (banner['linkUrl'] ?? '').toString();
+    final lower = linkUrl.toLowerCase();
+    if (lower.contains('membership') || lower.contains('gold')) {
+      HomeScreen.state?._showGoldMembershipSheet(context);
+      return;
+    }
+    final category = Uri.tryParse(linkUrl)?.queryParameters['category'];
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProductsScreen(category: category)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = (banner['imageUrl'] ?? '').toString();
+    final title = (banner['title'] ?? '').toString();
+    final subtitle = (banner['subtitle'] ?? banner['description'] ?? '')
+        .toString();
+    final btn = (banner['buttonText'] ?? 'SHOP NOW').toString().toUpperCase();
+
+    return GestureDetector(
+      onTap: () => _handleTap(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: width,
+          height: 140,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: AppConfig.resolveImageUrl(imageUrl),
+                  fit: BoxFit.cover,
+                )
+              else
+                Container(color: AppColors.card),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x00000000), Color(0xCC000000)],
+                    stops: [0.3, 1.0],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (title.isNotEmpty)
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (subtitle.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, bottom: 6),
+                        child: Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        btn,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromoBanners extends StatefulWidget {
+  const _PromoBanners();
+
+  @override
+  State<_PromoBanners> createState() => _PromoBannersState();
+}
+
+class _PromoBannersState extends State<_PromoBanners> {
+  // Only the 'footer' position lands here — 'hero'/'top'/'eyeglasses_landing'
+  // /'both' go to the top hero slider, and 'after_category:<slug>' banners
+  // are rendered inline by `_CategoryGrids`, right after their category.
+  // Mirrors the web app's footerBanners placement (Landing.tsx).
+  List<Map<String, dynamic>> _cmsBanners = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getBanners();
+      final promos = list.where((b) {
+        final position = (b['position'] ?? '').toString();
+        final showOnMobile = b['showOnMobile'];
+        if (showOnMobile == false) return false;
+        return position == 'footer';
+      }).toList();
+      if (mounted && promos.isNotEmpty) {
+        setState(() {
+          _cmsBanners = promos.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cmsBanners.isNotEmpty) {
+      return SizedBox(
+        height: 140,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: _cmsBanners.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, i) => _CmsBannerCard(banner: _cmsBanners[i]),
+        ),
+      );
+    }
+
+    // Fallback: static promo cards, shown until admin configures banners
+    // for this slot (or if the request fails).
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -1553,17 +2061,50 @@ class _PromoBanners extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('UP TO', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                  const Text('50% OFF', style: TextStyle(color: AppColors.gold, fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text(
+                    'UP TO',
+                    style: TextStyle(color: AppColors.muted, fontSize: 11),
+                  ),
+                  const Text(
+                    '50% OFF',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text('On Selected\nSunglasses', style: TextStyle(color: AppColors.white, fontSize: 11), maxLines: 2),
+                  const Text(
+                    'On Selected\nSunglasses',
+                    style: TextStyle(color: AppColors.white, fontSize: 11),
+                    maxLines: 2,
+                  ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen(category: 'Sunglasses'))),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const ProductsScreen(category: 'Sunglasses'),
+                      ),
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(6)),
-                      child: const Text('SHOP NOW', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'SHOP NOW',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1583,17 +2124,51 @@ class _PromoBanners extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('NEW', style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold)),
-                  const Text('ARRIVALS', style: TextStyle(color: AppColors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Text(
+                    'ARRIVALS',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text('Just In! Latest\ntrends in eyewear', style: TextStyle(color: AppColors.muted, fontSize: 11), maxLines: 2),
+                  const Text(
+                    'Just In! Latest\ntrends in eyewear',
+                    style: TextStyle(color: AppColors.muted, fontSize: 11),
+                    maxLines: 2,
+                  ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen())),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProductsScreen()),
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(border: Border.all(color: AppColors.gold), borderRadius: BorderRadius.circular(6)),
-                      child: const Text('EXPLORE', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.gold),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'EXPLORE',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1642,7 +2217,9 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
 
   void _onProductChanged(dynamic data) {
     if (kDebugMode) {
-      print('Socket: product_changed event received on home featured products: $data');
+      print(
+        'Socket: product_changed event received on home featured products: $data',
+      );
     }
     if (mounted) {
       _loadBestsellers();
@@ -1672,31 +2249,31 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
   }
 
   List<Product> _demoFeaturedProducts() => [
-        Product(
-          id: '1',
-          sku: 'EG-2041',
-          name: 'Matte Square Frame',
-          originalPrice: 999,
-          sellingPrice: 1,
-          rating: 4.7,
-          reviewCount: 198,
-          soldCount: 400,
-          isBestseller: true,
-          images: ['/images/cat_prescription.png'],
-        ),
-        Product(
-          id: '2',
-          sku: 'EG-1067',
-          name: 'Premium Clubmaster Frame',
-          originalPrice: 999,
-          sellingPrice: 1,
-          rating: 4.5,
-          reviewCount: 124,
-          soldCount: 250,
-          isBestseller: true,
-          images: ['/images/cat_sunglasses.png'],
-        ),
-      ];
+    Product(
+      id: '1',
+      sku: 'EG-2041',
+      name: 'Matte Square Frame',
+      originalPrice: 999,
+      sellingPrice: 1,
+      rating: 4.7,
+      reviewCount: 198,
+      soldCount: 400,
+      isBestseller: true,
+      images: ['/images/cat_prescription.png'],
+    ),
+    Product(
+      id: '2',
+      sku: 'EG-1067',
+      name: 'Premium Clubmaster Frame',
+      originalPrice: 999,
+      sellingPrice: 1,
+      rating: 4.5,
+      reviewCount: 124,
+      soldCount: 250,
+      isBestseller: true,
+      images: ['/images/cat_sunglasses.png'],
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1717,11 +2294,17 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
                 children: [
                   Text('Featured Products', style: AppTextStyles.heading3),
                   SizedBox(height: 2),
-                  Text('EyeGlaze Bestsellers of the week', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+                  Text(
+                    'EyeGlaze Bestsellers of the week',
+                    style: TextStyle(color: AppColors.muted, fontSize: 10),
+                  ),
                 ],
               ),
               GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen())),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProductsScreen()),
+                ),
                 child: const Text('Explore All ›', style: AppTextStyles.gold),
               ),
             ],
@@ -1730,16 +2313,22 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
         SizedBox(
           height: 240,
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.gold),
+                )
               : ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: _products.length,
                   itemBuilder: (_, i) => _FeaturedProductCard(
                     product: _products[i],
-                    onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: _products[i]),
-                    )),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ProductDetailScreen(product: _products[i]),
+                      ),
+                    ),
                   ),
                 ),
         ),
@@ -1757,7 +2346,10 @@ class _FeaturedProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final discount = product.originalPrice > product.sellingPrice
-        ? ((product.originalPrice - product.sellingPrice) / product.originalPrice * 100).round()
+        ? ((product.originalPrice - product.sellingPrice) /
+                  product.originalPrice *
+                  100)
+              .round()
         : 0;
 
     return GestureDetector(
@@ -1779,21 +2371,30 @@ class _FeaturedProductCard extends StatelessWidget {
                   Container(
                     decoration: const BoxDecoration(
                       color: AppColors.background,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
                     ),
                     width: double.infinity,
                     height: double.infinity,
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
                       child: product.images.isNotEmpty
                           ? CachedNetworkImage(
-                              imageUrl: AppConfig.resolveImageUrl(product.images.first),
+                              imageUrl: AppConfig.resolveImageUrl(
+                                product.images.first,
+                              ),
                               fit: BoxFit.contain,
                               placeholder: (context, url) => const Center(
                                 child: SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.gold,
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               ),
                               errorWidget: (context, url, error) => const Icon(
@@ -1814,12 +2415,22 @@ class _FeaturedProductCard extends StatelessWidget {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.gold,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'BESTSELLER',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -1837,7 +2448,11 @@ class _FeaturedProductCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     product.name,
-                    style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1846,9 +2461,22 @@ class _FeaturedProductCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.star, color: AppColors.gold, size: 10),
                       const SizedBox(width: 2),
-                      Text('${product.rating}', style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        '${product.rating}',
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      Text('(${product.reviewCount})', style: const TextStyle(color: AppColors.muted, fontSize: 9)),
+                      Text(
+                        '(${product.reviewCount})',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 9,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -1859,16 +2487,43 @@ class _FeaturedProductCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text('₹${product.sellingPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                          Text(
+                            '₹${product.sellingPrice.toInt()}',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                          ),
                           const SizedBox(width: 4),
-                          Text('₹${product.originalPrice.toInt()}', style: const TextStyle(color: AppColors.muted, decoration: TextDecoration.lineThrough, fontSize: 10)),
+                          Text(
+                            '₹${product.originalPrice.toInt()}',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 10,
+                            ),
+                          ),
                         ],
                       ),
                       if (discount > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                          child: Text('$discount%', style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '$discount%',
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -1969,7 +2624,14 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
           children: [
             const Text('👑', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 16),
-            const Text('Congratulations!', style: TextStyle(color: AppColors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              'Congratulations!',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 12),
             const Text(
               'You are now an EYEGLAZE GOLD MEMBER. Enjoy ₹1 frame exclusives, 1+1 free styling, priority support, and premium benefits!',
@@ -2005,21 +2667,41 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                   children: [
                     Text(
                       'EYEGLAZE',
-                      style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2),
+                      style: TextStyle(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        letterSpacing: 2,
+                      ),
                     ),
                     Text(
                       'GOLD MEMBERSHIP',
-                      style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1),
+                      style: TextStyle(
+                        color: AppColors.gold,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.gold),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('BEST VALUE', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'BEST VALUE',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -2037,7 +2719,9 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.35),
+                      ),
                       borderRadius: BorderRadius.circular(16),
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
@@ -2052,12 +2736,32 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('₹1 = 1 FRAME', style: TextStyle(color: AppColors.gold, fontSize: 22, fontWeight: FontWeight.w900)),
+                              const Text(
+                                '₹1 = 1 FRAME',
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
-                                child: const Text('GOLD MEMBERS EXCLUSIVE', style: TextStyle(color: Colors.black, fontSize: 7, fontWeight: FontWeight.w900)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'GOLD MEMBERS EXCLUSIVE',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               _buildBulletPoint('Selected Frames Only'),
@@ -2077,14 +2781,38 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                                 decoration: BoxDecoration(
                                   color: Colors.black,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.gold, width: 2),
+                                  border: Border.all(
+                                    color: AppColors.gold,
+                                    width: 2,
+                                  ),
                                 ),
                                 child: const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text('FEE ONLY', style: TextStyle(color: AppColors.muted, fontSize: 6, fontWeight: FontWeight.bold)),
-                                    Text('₹129', style: TextStyle(color: AppColors.gold, fontSize: 16, fontWeight: FontWeight.w900)),
-                                    Text('/ YEAR', style: TextStyle(color: AppColors.muted, fontSize: 6, fontWeight: FontWeight.bold)),
+                                    Text(
+                                      'FEE ONLY',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 6,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹129',
+                                      style: TextStyle(
+                                        color: AppColors.gold,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    Text(
+                                      '/ YEAR',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 6,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -2112,10 +2840,20 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('NEED 2 FRAMES?', style: TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'NEED 2 FRAMES?',
+                                style: TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               Text(
                                 'Get another frame for just ₹1 anytime before expiry.',
-                                style: TextStyle(color: AppColors.white.withValues(alpha: 0.5), fontSize: 8),
+                                style: TextStyle(
+                                  color: AppColors.white.withValues(alpha: 0.5),
+                                  fontSize: 8,
+                                ),
                               ),
                             ],
                           ),
@@ -2123,8 +2861,22 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('👓 ₹1 + 👓 ₹1 = ₹2', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
-                            Text('TOTAL 2 FRAMES', style: TextStyle(color: AppColors.muted, fontSize: 7, fontWeight: FontWeight.bold)),
+                            Text(
+                              '👓 ₹1 + 👓 ₹1 = ₹2',
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'TOTAL 2 FRAMES',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 7,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -2138,7 +2890,9 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.error.withValues(alpha: 0.1),
-                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -2149,22 +2903,40 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                               const Text('⚠️', style: TextStyle(fontSize: 12)),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.w500)),
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          if (_error!.contains('balance') || _error!.contains('Balance')) ...[
+                          if (_error!.contains('balance') ||
+                              _error!.contains('Balance')) ...[
                             const SizedBox(height: 8),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: _loading ? null : _quickAddAndActivate,
+                                onPressed: _loading
+                                    ? null
+                                    : _quickAddAndActivate,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.gold,
                                   minimumSize: const Size(double.infinity, 36),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
-                                child: const Text('Add Wallet Money & Activate Now', style: TextStyle(fontSize: 10, color: Colors.black)),
+                                child: const Text(
+                                  'Add Wallet Money & Activate Now',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -2175,7 +2947,14 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                   ],
 
                   // Benefits checklist
-                  const Text('MEMBERSHIP BENEFITS', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'MEMBERSHIP BENEFITS',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   GridView.count(
                     shrinkWrap: true,
@@ -2185,18 +2964,49 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                     mainAxisSpacing: 10,
                     childAspectRatio: 2.2,
                     children: [
-                      _buildBenefitTile('👓', '₹1 PER FRAME', 'Get 1 frame for ₹1. Take another for ₹1.'),
-                      _buildBenefitTile('➕', '1+1 FREE FRAMES', 'Buy 1 Get 1 Free on selected frames.'),
-                      _buildBenefitTile('💰', '90% REFUND', 'Wallet refund if second pair not taken.'),
-                      _buildBenefitTile('📉', '15% CASHBACK', 'Get cashback on select eyeglasses.'),
-                      _buildBenefitTile('🩺', 'FREE EYE TEST', 'Optometrist checkup camps.'),
-                      _buildBenefitTile('📞', 'PRIORITY HELP', 'Skip queue customer support.'),
+                      _buildBenefitTile(
+                        '👓',
+                        '₹1 PER FRAME',
+                        'Get 1 frame for ₹1. Take another for ₹1.',
+                      ),
+                      _buildBenefitTile(
+                        '➕',
+                        '1+1 FREE FRAMES',
+                        'Buy 1 Get 1 Free on selected frames.',
+                      ),
+                      _buildBenefitTile(
+                        '💰',
+                        '90% REFUND',
+                        'Wallet refund if second pair not taken.',
+                      ),
+                      _buildBenefitTile(
+                        '📉',
+                        '15% CASHBACK',
+                        'Get cashback on select eyeglasses.',
+                      ),
+                      _buildBenefitTile(
+                        '🩺',
+                        'FREE EYE TEST',
+                        'Optometrist checkup camps.',
+                      ),
+                      _buildBenefitTile(
+                        '📞',
+                        'PRIORITY HELP',
+                        'Skip queue customer support.',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
 
                   // Savings Table
-                  const Text('HOW MUCH YOU SAVE', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'HOW MUCH YOU SAVE',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
@@ -2215,24 +3025,125 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                           const TableRow(
                             decoration: BoxDecoration(color: Color(0xFF151516)),
                             children: [
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Text('BENEFIT', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Text('SAVE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Text('ANNUAL VALUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  'BENEFIT',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  'SAVE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  'ANNUAL VALUE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
                             ],
                           ),
-                          _buildTableRow('2 Frames for ₹2', '₹1,998', 'Up to ₹4,998'),
-                          _buildTableRow('1+1 Free Frames', '₹1,998', 'Up to ₹1,998'),
-                          _buildTableRow('15% Cashback', '₹1,000+', 'On selected frames'),
-                          _buildTableRow('Free Eye Test', '₹500', 'At partner store'),
-                          _buildTableRow('Contact Lens Solution', '₹500+', 'Solution box free'),
+                          _buildTableRow(
+                            '2 Frames for ₹2',
+                            '₹1,998',
+                            'Up to ₹4,998',
+                          ),
+                          _buildTableRow(
+                            '1+1 Free Frames',
+                            '₹1,998',
+                            'Up to ₹1,998',
+                          ),
+                          _buildTableRow(
+                            '15% Cashback',
+                            '₹1,000+',
+                            'On selected frames',
+                          ),
+                          _buildTableRow(
+                            'Free Eye Test',
+                            '₹500',
+                            'At partner store',
+                          ),
+                          _buildTableRow(
+                            'Contact Lens Solution',
+                            '₹500+',
+                            'Solution box free',
+                          ),
                           TableRow(
-                            decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.08)),
+                            decoration: BoxDecoration(
+                              color: AppColors.gold.withValues(alpha: 0.08),
+                            ),
                             children: [
-                              Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), child: Text('TOTAL SAVINGS', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold))),
-                              Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), child: Text('₹7,000+', style: const TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                child: Text('Fee: ₹129 only!', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7, fontWeight: FontWeight.bold), textAlign: TextAlign.right),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  'TOTAL SAVINGS',
+                                  style: TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  '₹7,000+',
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  'Fee: ₹129 only!',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
                               ),
                             ],
                           ),
@@ -2262,32 +3173,69 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('JOIN GOLD MEMBERSHIP', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'JOIN GOLD MEMBERSHIP',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text('₹129', style: TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text(
+                            '₹129',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const SizedBox(width: 4),
-                          Text('/ Year', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9, fontWeight: FontWeight.bold)),
+                          Text(
+                            '/ Year',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ],
                   ),
                   if (user?.membershipActive == true)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.1),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.check_circle_outline, color: Colors.green, size: 14),
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: Colors.green,
+                            size: 14,
+                          ),
                           SizedBox(width: 6),
-                          Text('ACTIVE MEMBER', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                          Text(
+                            'ACTIVE MEMBER',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -2303,8 +3251,18 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
                           padding: EdgeInsets.zero,
                         ),
                         child: _loading
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                            : const Icon(Icons.arrow_forward, color: Colors.black),
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.black,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.arrow_forward,
+                                color: Colors.black,
+                              ),
                       ),
                     ),
                 ],
@@ -2323,7 +3281,14 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
         children: [
           const Icon(Icons.check, color: AppColors.gold, size: 12),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 8.5, fontWeight: FontWeight.bold)),
+          Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 8.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -2347,7 +3312,11 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2357,7 +3326,11 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
           const SizedBox(height: 4),
           Text(
             desc,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7, height: 1.1),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 7,
+              height: 1.1,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -2369,9 +3342,36 @@ class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
   TableRow _buildTableRow(String name, String save, String val) {
     return TableRow(
       children: [
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 8))),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(save, style: const TextStyle(color: Colors.green, fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), child: Text(val, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8), textAlign: TextAlign.right)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Text(
+            name,
+            style: const TextStyle(color: Colors.white, fontSize: 8),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Text(
+            save,
+            style: const TextStyle(
+              color: Colors.green,
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Text(
+            val,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 8,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
       ],
     );
   }
@@ -2407,8 +3407,21 @@ class _WalletSheetState extends State<_WalletSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('EYEGLAZE WALLET', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                      Text('Manage Balance & Cashback', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8)),
+                      const Text(
+                        'EYEGLAZE WALLET',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Manage Balance & Cashback',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 8,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -2437,28 +3450,58 @@ class _WalletSheetState extends State<_WalletSheet> {
             ),
             child: Column(
               children: [
-                const Text('AVAILABLE BALANCE', style: TextStyle(color: AppColors.muted, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const Text(
+                  'AVAILABLE BALANCE',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '₹${user != null ? user.walletBalance.toStringAsFixed(2) : "0.00"}',
-                  style: TextStyle(color: AppColors.gold, fontSize: 32, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                const Text('✓ 100% usable on next order', style: TextStyle(color: Colors.green, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                const Text(
+                  '✓ 100% usable on next order',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
           // Recent Activity
-          const Text('RECENT ACTIVITY', style: TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          const Text(
+            'RECENT ACTIVITY',
+            style: TextStyle(
+              color: AppColors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 10),
           Expanded(
-            child: user != null && user.transactions != null && user.transactions!.isNotEmpty
+            child:
+                user != null &&
+                    user.transactions != null &&
+                    user.transactions!.isNotEmpty
                 ? ListView.builder(
                     itemCount: user.transactions!.length,
                     itemBuilder: (context, i) {
-                      final tx = user.transactions![user.transactions!.length - 1 - i];
+                      final tx =
+                          user.transactions![user.transactions!.length - 1 - i];
                       final isPaid = tx['type'] == 'Paid';
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -2476,14 +3519,23 @@ class _WalletSheetState extends State<_WalletSheet> {
                               children: [
                                 Text(
                                   tx['description'] ?? 'Transaction',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   tx['date'] != null
-                                      ? DateTime.parse(tx['date']).toLocal().toString().split(' ')[0]
+                                      ? DateTime.parse(
+                                          tx['date'],
+                                        ).toLocal().toString().split(' ')[0]
                                       : 'Recent',
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    fontSize: 8,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2502,8 +3554,18 @@ class _WalletSheetState extends State<_WalletSheet> {
                   )
                 : ListView(
                     children: [
-                      _buildMockTxTile('Sign-up Bonus Credit', 'Jun 18, 2026', '+₹100', Colors.green),
-                      _buildMockTxTile('Referral Cashback Reward', 'Jun 15, 2026', '+₹400', Colors.green),
+                      _buildMockTxTile(
+                        'Sign-up Bonus Credit',
+                        'Jun 18, 2026',
+                        '+₹100',
+                        Colors.green,
+                      ),
+                      _buildMockTxTile(
+                        'Referral Cashback Reward',
+                        'Jun 15, 2026',
+                        '+₹400',
+                        Colors.green,
+                      ),
                     ],
                   ),
           ),
@@ -2519,15 +3581,24 @@ class _WalletSheetState extends State<_WalletSheet> {
                       context: context,
                       builder: (context) => AlertDialog(
                         backgroundColor: AppColors.card,
-                        title: const Text('Invite Friends', style: TextStyle(color: Colors.white)),
+                        title: const Text(
+                          'Invite Friends',
+                          style: TextStyle(color: Colors.white),
+                        ),
                         content: const Text(
                           'Referrals are credited instantly! Share link with friends:\nhttps://web.eyeglaze.in/invite',
-                          style: TextStyle(color: AppColors.muted, fontSize: 13),
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 13,
+                          ),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('OK', style: TextStyle(color: AppColors.gold)),
+                            child: const Text(
+                              'OK',
+                              style: TextStyle(color: AppColors.gold),
+                            ),
                           ),
                         ],
                       ),
@@ -2535,9 +3606,14 @@ class _WalletSheetState extends State<_WalletSheet> {
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('REFER & EARN', style: TextStyle(fontSize: 10)),
+                  child: const Text(
+                    'REFER & EARN',
+                    style: TextStyle(fontSize: 10),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -2547,7 +3623,10 @@ class _WalletSheetState extends State<_WalletSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.gold,
                   ),
-                  child: const Text('CLOSE', style: TextStyle(fontSize: 10, color: Colors.black)),
+                  child: const Text(
+                    'CLOSE',
+                    style: TextStyle(fontSize: 10, color: Colors.black),
+                  ),
                 ),
               ),
             ],
@@ -2557,7 +3636,12 @@ class _WalletSheetState extends State<_WalletSheet> {
     );
   }
 
-  Widget _buildMockTxTile(String title, String date, String amount, Color color) {
+  Widget _buildMockTxTile(
+    String title,
+    String date,
+    String amount,
+    Color color,
+  ) {
     return Opacity(
       opacity: 0.55,
       child: Container(
@@ -2574,12 +3658,32 @@ class _WalletSheetState extends State<_WalletSheet> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(date, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
+                Text(
+                  date,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 8,
+                  ),
+                ),
               ],
             ),
-            Text(amount, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(
+              amount,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -2600,7 +3704,10 @@ class _ShapeSelectionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isKids = gender == 'kids' || title.toLowerCase().contains('kids') || title.toLowerCase().contains('age');
+    final isKids =
+        gender == 'kids' ||
+        title.toLowerCase().contains('kids') ||
+        title.toLowerCase().contains('age');
 
     if (isKids) {
       return _buildKidsModal(context);
@@ -2621,10 +3728,14 @@ class _ShapeSelectionSheet extends StatelessWidget {
           Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ProductsScreen(category: category, gender: 'kids', tier: 'Sale'),
+              builder: (_) => ProductsScreen(
+                category: category,
+                gender: 'kids',
+                tier: 'Sale',
+              ),
             ),
           );
-        }
+        },
       },
       {
         'title': '5 to 8 years',
@@ -2636,10 +3747,14 @@ class _ShapeSelectionSheet extends StatelessWidget {
           Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Small'),
+              builder: (_) => ProductsScreen(
+                category: category,
+                gender: 'kids',
+                size: 'Small',
+              ),
             ),
           );
-        }
+        },
       },
       {
         'title': '8 to 12 years',
@@ -2651,10 +3766,14 @@ class _ShapeSelectionSheet extends StatelessWidget {
           Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Medium'),
+              builder: (_) => ProductsScreen(
+                category: category,
+                gender: 'kids',
+                size: 'Medium',
+              ),
             ),
           );
-        }
+        },
       },
       {
         'title': '12 to 17 years',
@@ -2666,10 +3785,14 @@ class _ShapeSelectionSheet extends StatelessWidget {
           Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ProductsScreen(category: category, gender: 'kids', size: 'Large'),
+              builder: (_) => ProductsScreen(
+                category: category,
+                gender: 'kids',
+                size: 'Large',
+              ),
             ),
           );
-        }
+        },
       },
     ];
 
@@ -2711,7 +3834,11 @@ class _ShapeSelectionSheet extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                      icon: const Icon(
+                        Icons.close,
+                        color: AppColors.white,
+                        size: 20,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -2746,7 +3873,11 @@ class _ShapeSelectionSheet extends StatelessWidget {
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => Container(
                                         color: AppColors.card,
-                                        child: const Icon(Icons.child_care, color: AppColors.gold, size: 36),
+                                        child: const Icon(
+                                          Icons.child_care,
+                                          color: AppColors.gold,
+                                          size: 36,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -2755,10 +3886,15 @@ class _ShapeSelectionSheet extends StatelessWidget {
                                       top: 8,
                                       left: 8,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: opt['badgeColor'] as Color,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: Text(
                                           opt['badge'] as String,
@@ -2801,7 +3937,10 @@ class _ShapeSelectionSheet extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ProductsScreen(category: category, gender: 'kids'),
+                          builder: (_) => ProductsScreen(
+                            category: category,
+                            gender: 'kids',
+                          ),
                         ),
                       );
                     },
@@ -2879,7 +4018,11 @@ class _ShapeSelectionSheet extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                      icon: const Icon(
+                        Icons.close,
+                        color: AppColors.white,
+                        size: 20,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -2922,7 +4065,10 @@ class _ShapeSelectionSheet extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: AppColors.card,
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.border, width: 1.2),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1.2,
+                              ),
                             ),
                             child: Center(
                               child: SizedBox(
@@ -2964,14 +4110,20 @@ class _ShapeSelectionSheet extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ProductsScreen(category: category, gender: gender),
+                          builder: (_) => ProductsScreen(
+                            category: category,
+                            gender: gender,
+                          ),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.card,
                       foregroundColor: AppColors.white,
-                      side: const BorderSide(color: AppColors.border, width: 1.2),
+                      side: const BorderSide(
+                        color: AppColors.border,
+                        width: 1.2,
+                      ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -3026,64 +4178,160 @@ class FrameShapePainter extends CustomPainter {
 
     final w = size.width;
     final h = size.height;
-    
+
     final centerX = w / 2;
     final centerY = h / 2;
 
     double lensW = 24;
     double lensH = 18;
-    double gap = 10; 
+    double gap = 10;
 
     if (shape.toLowerCase() == 'square') {
       lensW = 22;
       lensH = 20;
       gap = 10;
-      
-      final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
-      final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
-      
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(5)), framePaint);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(5)), framePaint);
-      
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect.deflate(1.5), const Radius.circular(4)), lensPaint);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect.deflate(1.5), const Radius.circular(4)), lensPaint);
-      
+
+      final leftRect = Rect.fromLTWH(
+        centerX - gap / 2 - lensW,
+        centerY - lensH / 2,
+        lensW,
+        lensH,
+      );
+      final rightRect = Rect.fromLTWH(
+        centerX + gap / 2,
+        centerY - lensH / 2,
+        lensW,
+        lensH,
+      );
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(leftRect, const Radius.circular(5)),
+        framePaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rightRect, const Radius.circular(5)),
+        framePaint,
+      );
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          leftRect.deflate(1.5),
+          const Radius.circular(4),
+        ),
+        lensPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rightRect.deflate(1.5),
+          const Radius.circular(4),
+        ),
+        lensPaint,
+      );
+
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 2)
-        ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
+        ..quadraticBezierTo(
+          centerX,
+          centerY - 5,
+          centerX + gap / 2,
+          centerY - 2,
+        );
       canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 4), Offset(centerX - gap / 2 - lensW - 6, centerY - 3), detailPaint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 3), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW, centerY - 4),
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 3),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 3),
+        Offset(centerX - gap / 2 - lensW - 9, centerY + 3),
+        detailPaint,
+      );
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 4), Offset(centerX + gap / 2 + lensW + 6, centerY - 3), detailPaint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 3), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
-
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW, centerY - 4),
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 3),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 3),
+        Offset(centerX + gap / 2 + lensW + 9, centerY + 3),
+        detailPaint,
+      );
     } else if (shape.toLowerCase() == 'rectangle') {
       lensW = 26;
       lensH = 15;
       gap = 8;
 
-      final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
-      final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
+      final leftRect = Rect.fromLTWH(
+        centerX - gap / 2 - lensW,
+        centerY - lensH / 2,
+        lensW,
+        lensH,
+      );
+      final rightRect = Rect.fromLTWH(
+        centerX + gap / 2,
+        centerY - lensH / 2,
+        lensW,
+        lensH,
+      );
 
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(4)), framePaint);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(4)), framePaint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(leftRect, const Radius.circular(4)),
+        framePaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rightRect, const Radius.circular(4)),
+        framePaint,
+      );
 
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect.deflate(1.5), const Radius.circular(3)), lensPaint);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect.deflate(1.5), const Radius.circular(3)), lensPaint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          leftRect.deflate(1.5),
+          const Radius.circular(3),
+        ),
+        lensPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rightRect.deflate(1.5),
+          const Radius.circular(3),
+        ),
+        lensPaint,
+      );
 
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 1)
-        ..quadraticBezierTo(centerX, centerY - 4, centerX + gap / 2, centerY - 1);
+        ..quadraticBezierTo(
+          centerX,
+          centerY - 4,
+          centerX + gap / 2,
+          centerY - 1,
+        );
       canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 2), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW, centerY - 3),
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 2),
+        Offset(centerX - gap / 2 - lensW - 9, centerY + 3),
+        detailPaint,
+      );
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 2), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
-
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW, centerY - 3),
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 2),
+        Offset(centerX + gap / 2 + lensW + 9, centerY + 3),
+        detailPaint,
+      );
     } else if (shape.toLowerCase() == 'aviator') {
       lensW = 24;
       lensH = 20;
@@ -3149,7 +4397,10 @@ class FrameShapePainter extends CustomPainter {
         return path;
       }
 
-      final leftPathInner = getTeardropPathInner(centerX - gap / 2 - lensW, true);
+      final leftPathInner = getTeardropPathInner(
+        centerX - gap / 2 - lensW,
+        true,
+      );
       final rightPathInner = getTeardropPathInner(centerX + gap / 2, false);
       canvas.drawPath(leftPathInner, lensPaint);
       canvas.drawPath(rightPathInner, lensPaint);
@@ -3157,20 +4408,39 @@ class FrameShapePainter extends CustomPainter {
       final double lTop = centerY - lensH / 2;
       final double lRight = centerX - gap / 2;
       final double rLeft = centerX + gap / 2;
-      
-      canvas.drawLine(Offset(lRight - 1, lTop + 1), Offset(rLeft + 1, lTop + 1), detailPaint);
-      
+
+      canvas.drawLine(
+        Offset(lRight - 1, lTop + 1),
+        Offset(rLeft + 1, lTop + 1),
+        detailPaint,
+      );
+
       final bridgePath = Path()
         ..moveTo(lRight, centerY)
         ..quadraticBezierTo(centerX, centerY - 2.5, rLeft, centerY);
       canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(lRight - lensW, centerY - 3), Offset(lRight - lensW - 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(lRight - lensW - 6, centerY - 2), Offset(lRight - lensW - 9, centerY + 3), detailPaint);
+      canvas.drawLine(
+        Offset(lRight - lensW, centerY - 3),
+        Offset(lRight - lensW - 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(lRight - lensW - 6, centerY - 2),
+        Offset(lRight - lensW - 9, centerY + 3),
+        detailPaint,
+      );
 
-      canvas.drawLine(Offset(rLeft + lensW, centerY - 3), Offset(rLeft + lensW + 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(rLeft + lensW + 6, centerY - 2), Offset(rLeft + lensW + 9, centerY + 3), detailPaint);
-
+      canvas.drawLine(
+        Offset(rLeft + lensW, centerY - 3),
+        Offset(rLeft + lensW + 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(rLeft + lensW + 6, centerY - 2),
+        Offset(rLeft + lensW + 9, centerY + 3),
+        detailPaint,
+      );
     } else if (shape.toLowerCase() == 'geometric') {
       lensW = 24;
       lensH = 20;
@@ -3206,14 +4476,35 @@ class FrameShapePainter extends CustomPainter {
 
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 2)
-        ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
+        ..quadraticBezierTo(
+          centerX,
+          centerY - 5,
+          centerX + gap / 2,
+          centerY - 2,
+        );
       canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 2), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW, centerY - 3),
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX - gap / 2 - lensW - 6, centerY - 2),
+        Offset(centerX - gap / 2 - lensW - 9, centerY + 3),
+        detailPaint,
+      );
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 6, centerY - 2), detailPaint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 2), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW, centerY - 3),
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 2),
+        detailPaint,
+      );
+      canvas.drawLine(
+        Offset(centerX + gap / 2 + lensW + 6, centerY - 2),
+        Offset(centerX + gap / 2 + lensW + 9, centerY + 3),
+        detailPaint,
+      );
     }
   }
 

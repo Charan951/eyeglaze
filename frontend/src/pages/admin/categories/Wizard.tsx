@@ -61,6 +61,8 @@ const categoryFormSchema = z.object({
   shapeModal: z.boolean().default(false),
   modalShapes: z.array(z.string()).default(['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric']),
   modalAgeGroups: z.array(z.string()).default(['Kids On Sale', 'Juniors', 'Tweens', 'Teens']),
+  subSubCategoryModal: z.boolean().default(false),
+  modalSubSubCategories: z.array(z.string()).default([]),
 
   // Main Category custom layout settings
   subCategoryShape: z.enum(['square', 'circle', 'rectangle']).default('square'),
@@ -133,6 +135,8 @@ export default function CategoryWizard() {
       shapeModal: false,
       modalShapes: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'],
       modalAgeGroups: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'],
+      subSubCategoryModal: false,
+      modalSubSubCategories: [],
       subCategoryShape: 'square',
       subCategorySize: 'medium',
       subCategoryColumns: 4,
@@ -140,6 +144,19 @@ export default function CategoryWizard() {
   });
 
   const [subSubCategoriesForParent, setSubSubCategoriesForParent] = useState<any[]>([]);
+
+  // This sub-category's own children (its SubSubCategories), used to build
+  // the "SUB-CATEGORIES TO DISPLAY IN BOTTOM SHEET" checklist. Only
+  // available once the sub-category itself has been saved (has an id).
+  const [ownSubSubCategories, setOwnSubSubCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (paramType === 'SubCategory' && id) {
+      api.get(`/admin/categories?type=SubSubCategory&subCategoryId=${id}&limit=1000`)
+        .then((res) => setOwnSubSubCategories(res.data.items || []))
+        .catch((err) => console.error('Failed to load this sub-category\'s sub-sub-categories:', err));
+    }
+  }, [paramType, id]);
 
   const formValues = watch();
   const selectedCategoryId = watch('categoryId');
@@ -310,6 +327,8 @@ export default function CategoryWizard() {
             gender: category.gender || '',
             shapeModal: category.shapeModal || false,
             modalShapes: category.modalShapes || ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'],
+            subSubCategoryModal: category.subSubCategoryModal || false,
+            modalSubSubCategories: category.modalSubSubCategories || [],
             subCategoryShape: category.subCategoryShape || 'square',
             subCategorySize: category.subCategorySize || 'medium',
             subCategoryColumns: category.subCategoryColumns || 4,
@@ -425,6 +444,8 @@ export default function CategoryWizard() {
           gender: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory') ? data.gender : undefined,
           shapeModal: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.shapeModal : undefined,
           modalShapes: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.modalShapes : undefined,
+          subSubCategoryModal: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.subSubCategoryModal : undefined,
+          modalSubSubCategories: (data.type === 'SubCategory' || paramType === 'SubCategory') ? data.modalSubSubCategories : undefined,
           subCategoryShape: (data.type === 'Category' || paramType === 'Category') ? data.subCategoryShape : undefined,
           subCategorySize: (data.type === 'Category' || paramType === 'Category') ? data.subCategorySize : undefined,
           subCategoryColumns: (data.type === 'Category' || paramType === 'Category') ? data.subCategoryColumns : undefined,
@@ -808,10 +829,30 @@ export default function CategoryWizard() {
                         <input
                           type="checkbox"
                           {...register('shapeModal')}
+                          onChange={(e) => {
+                            setValue('shapeModal', e.target.checked);
+                            if (e.target.checked) setValue('subSubCategoryModal', false);
+                          }}
                           className="rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-[#D4A04D]"
                         />
                         <span>Show selection modal on click</span>
                       </label>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-[#F2F2F2]">
+                        <input
+                          type="checkbox"
+                          {...register('subSubCategoryModal')}
+                          onChange={(e) => {
+                            setValue('subSubCategoryModal', e.target.checked);
+                            if (e.target.checked) setValue('shapeModal', false);
+                          }}
+                          className="rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-[#D4A04D]"
+                        />
+                        <span>Show sub-categories in bottom sheet on click</span>
+                      </label>
+                      <p className="text-[9px] text-gray-500 mt-1 ml-6">On the home screen, tapping this opens a bottom sheet listing its sub-categories (children) instead of the shape selector or a direct link.</p>
                     </div>
 
                     {/* Shapes & Kids Age Groups Selection in Modal */}
@@ -881,6 +922,51 @@ export default function CategoryWizard() {
                           </div>
                         </div>
 
+                      </div>
+                    )}
+
+                    {/* Sub-Sub-Categories Selection for Bottom Sheet */}
+                    {formValues.subSubCategoryModal && (
+                      <div className="space-y-2 pt-3 col-span-1 md:col-span-2 border-t border-[#2A2A2D]">
+                        <label className="text-[#D4A04D] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                          <span>📂</span> SUB-CATEGORIES TO DISPLAY IN BOTTOM SHEET
+                        </label>
+                        {!id ? (
+                          <p className="text-[10px] text-gray-500 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                            Save this sub-category first, then come back here to choose which of its own sub-categories appear in the bottom sheet.
+                          </p>
+                        ) : ownSubSubCategories.length === 0 ? (
+                          <p className="text-[10px] text-gray-500 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                            This sub-category has no sub-categories of its own yet. Add some, then return here to pick which ones to show.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
+                              {ownSubSubCategories.map((item) => {
+                                const currentSelected = formValues.modalSubSubCategories || [];
+                                const isChecked = currentSelected.includes(item.slug);
+                                return (
+                                  <label key={item._id || item.slug} className="flex items-center gap-2 cursor-pointer text-xs text-white hover:text-[#D4A04D] transition-colors">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setValue('modalSubSubCategories', [...currentSelected, item.slug]);
+                                        } else {
+                                          setValue('modalSubSubCategories', currentSelected.filter((s) => s !== item.slug));
+                                        }
+                                      }}
+                                      className="rounded border-[#2A2A2D] bg-[#121213] text-[#D4A04D] focus:ring-[#D4A04D]"
+                                    />
+                                    <span>{item.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[9px] text-gray-500">Leave all unchecked to show every sub-category by default.</p>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

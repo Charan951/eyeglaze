@@ -20,6 +20,8 @@ export interface ISubCategory extends Document {
   shapeModal?: boolean;
   modalShapes?: string[];
   modalAgeGroups?: string[];
+  subSubCategoryModal?: boolean;
+  modalSubSubCategories?: string[];
   showInNavbar?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +52,13 @@ const SubCategorySchema = new Schema<ISubCategory>(
     shapeModal: { type: Boolean, default: false },
     modalShapes: { type: [String], default: ['Round', 'Rectangle', 'Aviator', 'Square', 'Cat Eye', 'Geometric'] },
     modalAgeGroups: { type: [String], default: ['Kids On Sale', 'Juniors', 'Tweens', 'Teens'] },
+    // When true, tapping this sub-category on the home screen opens a bottom
+    // sheet listing its sub-sub-categories instead of the shape modal / a
+    // direct navigation. Mutually exclusive with `shapeModal` in practice.
+    subSubCategoryModal: { type: Boolean, default: false },
+    // Slugs of the sub-sub-categories to show in that bottom sheet. Empty
+    // means "show all" (no restriction).
+    modalSubSubCategories: { type: [String], default: [] },
     showInNavbar: { type: Boolean, default: true },
   },
   { timestamps: true }

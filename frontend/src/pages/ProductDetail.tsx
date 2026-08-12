@@ -1506,14 +1506,6 @@ export default function ProductDetailPage() {
                   className="max-w-full max-h-full object-contain rounded-none w-auto h-auto transition-transform duration-300 group-hover:scale-105" 
                 />
                 
-                {/* Visual badge indicator for image click / zoom */}
-                <div className="absolute bottom-3 left-3 bg-black/80 border border-[#D4A04D]/60 text-[#D4A04D] text-[10px] font-bold py-1 px-2.5 rounded-full flex items-center gap-1.5 z-20 shadow-md group-hover:bg-[#D4A04D] group-hover:text-black transition-all pointer-events-none">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-                  </svg>
-                  <span>Click to show big</span>
-                </div>
-
                 <div className="absolute top-16 xl:top-3 left-3 z-20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {product.isBestseller && (
                     <span className="bg-[#D4A04D] text-black text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-md">

@@ -80,7 +80,7 @@ export default function ProductFilters() {
     navigate(`/products?${params.toString()}`);
   };
 
-  const toggleFilter = (key: string, value: string) => {
+  const toggleFilter = (key: string, value: string, resetKeys: string[] = []) => {
     const params = new URLSearchParams(searchParams.toString());
     const existing = params.get(key);
     let values = existing ? existing.split(',').map(v => v.trim()).filter(Boolean) : [];
@@ -96,6 +96,7 @@ export default function ProductFilters() {
     } else {
       params.delete(key);
     }
+    resetKeys.forEach(k => params.delete(k));
     params.delete('page');
     navigate(`/products?${params.toString()}`);
   };
@@ -103,15 +104,17 @@ export default function ProductFilters() {
   const handleCategoryChange = (slug: string) => {
     const params = new URLSearchParams(searchParams.toString());
     const currentCategory = params.get('category');
-    
+
     if (currentCategory === slug) {
       params.delete('category');
     } else {
       params.set('category', slug);
     }
-    
-    // Clear subcategory when main category changes
+
+    // Clear the deeper hierarchy levels when the main category changes
     params.delete('subCategory');
+    params.delete('subSubCategory');
+    params.delete('subSubSubCategory');
     params.delete('page');
     navigate(`/products?${params.toString()}`);
   };

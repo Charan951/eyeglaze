@@ -53,7 +53,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
   const isRow = layout === 'horizontal';
 
   return (
-    <Link to={`/products/${product._id}`} className="block group">
+    <Link to={`/products/${product._id}`} className="block group h-full">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -61,14 +61,14 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         whileHover={{ y: -5 }}
         whileTap={{ scale: 0.98 }}
-        className={`bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)] transition-[border-color,box-shadow] duration-300 flex ${isRow ? 'flex-row' : 'flex-col w-full'} shadow-lg`}>
+        className={`bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)] transition-[border-color,box-shadow] duration-300 flex ${isRow ? 'flex-row' : 'flex-col w-full h-full'} shadow-lg`}>
         {/* Image wrapper */}
         <div className={`relative ${isRow ? 'w-[42%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-[4/3] w-full border-b border-[#2A2A2D]/40'} bg-[#161618] flex items-center justify-center overflow-hidden`}>
           {product.images?.[0] ? (
-            <img 
-              src={product.images[0]} 
-              alt={product.name} 
-              className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500" 
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
             <div className="text-[#444] text-center py-6">
@@ -150,7 +150,7 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
         </div>
 
         {/* Info Content Section (Image 15) */}
-        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-3.5' : 'p-3.5'}`}>
+        <div className={`flex-1 flex flex-col ${isRow ? 'p-3.5' : 'p-3.5'}`}>
           <div className="space-y-2">
             {/* Title */}
             <div className="text-white font-extrabold text-xs md:text-sm line-clamp-2 group-hover:text-[#D4A04D] transition-colors">
@@ -165,23 +165,25 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
                 </span>
               </div>
             )}
+          </div>
 
-            {/* Price section with Free BLU lenses tag */}
-            <div className="flex items-center justify-between gap-2 pt-0.5">
-              <div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-white font-black text-sm md:text-base">₹{product.price.selling}</span>
-                  {isFrameProduct && (
-                    <span className="text-[#00BBA6] text-[9px] font-bold">with Free BLU lenses</span>
-                  )}
-                </div>
-                {product.price.original > product.price.selling && (
-                  <div className="flex items-center gap-1 text-[9px]">
-                    <span className="text-gray-500 line-through">₹{product.price.original}</span>
-                    <span className="text-blue-400 font-extrabold">({discount}% OFF)</span>
-                  </div>
+          {/* Price section with Free BLU lenses tag — pinned to the bottom
+              of the card so it lines up across cards regardless of whether
+              the frame-specs pill above it is present. */}
+          <div className="flex items-center justify-between gap-2 pt-0.5 mt-auto">
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-white font-black text-sm md:text-base">₹{product.price.selling}</span>
+                {isFrameProduct && (
+                  <span className="text-[#00BBA6] text-[9px] font-bold">with Free BLU lenses</span>
                 )}
               </div>
+              {product.price.original > product.price.selling && (
+                <div className="flex items-center gap-1 text-[9px]">
+                  <span className="text-gray-500 line-through">₹{product.price.original}</span>
+                  <span className="text-blue-400 font-extrabold">({discount}% OFF)</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

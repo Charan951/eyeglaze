@@ -329,20 +329,6 @@ export default function ProductsPage() {
         })}
       </div>
 
-      {/* Size Banner Card (Image 15: "Not sure about your size? Size changes with face") */}
-      <div className="flex md:hidden items-center justify-between p-4 mb-5 rounded-2xl bg-gradient-to-r from-blue-950/40 via-zinc-900 to-indigo-950/40 border border-blue-500/20 shadow-md">
-        <div className="space-y-1.5 max-w-[65%]">
-          <h4 className="text-white font-extrabold text-xs sm:text-sm">Not sure about your size?</h4>
-          <p className="text-gray-400 text-[10px]">Size changes with face profile</p>
-          <button className="mt-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors cursor-pointer border-none">
-            Find my fit
-          </button>
-        </div>
-        <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center shrink-0">
-          <img src="/images/women_eyeglasses.png" alt="Find Fit" className="w-full h-full object-cover" />
-        </div>
-      </div>
-
       <div className="flex gap-6 md:gap-8">
         {/* Sidebar Filters - Desktop only */}
         <div className="w-56 flex-shrink-0 hidden md:block">
@@ -446,7 +432,7 @@ export default function ProductsPage() {
             if (items.length <= 1) return null;
 
             return (
-              <div className="mb-6 flex items-center gap-2 flex-wrap text-sm md:text-base font-medium select-none">
+              <div className="mb-6 hidden md:flex items-center gap-2 flex-wrap text-sm md:text-base font-medium select-none">
                 {items.map((item, index) => {
                   const isLast = index === items.length - 1;
                   return (
@@ -481,15 +467,49 @@ export default function ProductsPage() {
             if (!currentSubCat) return null;
 
             const activeCat = categoriesList.find((c: any) => (c.slug || '').toLowerCase() === currentCategorySlug);
+            const isContactLensCat = (activeCat?.slug || currentCategorySlug || '').toLowerCase().includes('contact');
+
+            // Once a Sub-Sub-Category is chosen, no further tabs are needed for
+            // regular categories — only Contact Lens keeps drilling one level
+            // deeper (into power/disposable Sub-Sub-Sub-Categories).
+            if (currentSubSubCat && !isContactLensCat) return null;
+
             const activeSubCatObj = activeCat?.children?.find((s: any) => (s.slug || '').toLowerCase() === currentSubCat);
             const activeSubSubCatObj = activeSubCatObj?.children?.find((ss: any) => (ss.slug || '').toLowerCase() === currentSubSubCat);
 
-            // At the SubCategory level (no SubSubCategory chosen yet), the tabs
-            // drill into SubSubCategories. Once a SubSubCategory is chosen, the
-            // tabs drill one level deeper into its SubSubSubCategories.
-            const tabParam = currentSubSubCat ? 'subSubSubCategory' : 'subSubCategory';
-            const children = currentSubSubCat ? (activeSubSubCatObj?.children || []) : (activeSubCatObj?.children || []);
-            const activeTabValue = currentSubSubCat ? currentSubSubSubCat : currentSubSubCat;
+            // Contact Lens keeps the original two-step drill: SubCategory tabs
+            // into SubSubCategories, then (once one is chosen) one level deeper
+            // into SubSubSubCategories.
+            //
+            // Every other category skips the SubSubCategory (brand) tier entirely:
+            // at the SubCategory level the tabs go straight to SubSubSubCategories,
+            // merged and deduped by slug across all of the SubCategory's
+            // SubSubCategory children (SubSubSubCategory slugs are globally unique,
+            // and product filtering matches subSubSubCategory independently, so no
+            // SubSubCategory needs to be selected alongside it).
+            let tabParam: string;
+            let children: any[];
+            let activeTabValue: string;
+
+            if (isContactLensCat) {
+              tabParam = currentSubSubCat ? 'subSubSubCategory' : 'subSubCategory';
+              children = currentSubSubCat ? (activeSubSubCatObj?.children || []) : (activeSubCatObj?.children || []);
+              activeTabValue = currentSubSubCat ? currentSubSubSubCat : currentSubSubCat;
+            } else {
+              tabParam = 'subSubSubCategory';
+              const seenSlugs = new Set<string>();
+              children = [];
+              (activeSubCatObj?.children || []).forEach((brand: any) => {
+                (brand.children || []).forEach((tag: any) => {
+                  const slug = (tag.slug || '').toLowerCase();
+                  if (slug && !seenSlugs.has(slug)) {
+                    seenSlugs.add(slug);
+                    children.push(tag);
+                  }
+                });
+              });
+              activeTabValue = currentSubSubSubCat;
+            }
 
             const goToSubSubSub = (slug: string | null) => {
               const params = new URLSearchParams(searchParams.toString());

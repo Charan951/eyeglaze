@@ -5,7 +5,6 @@ import '../../widgets/eyeglaze_logo.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../models/user.dart';
-import '../splash/splash_screen.dart';
 import '../home/home_screen.dart';
 import 'forgot_password_screen.dart';
 import 'otp_screen.dart';
@@ -15,7 +14,8 @@ bool _looksLikeEmail(String value) => value.contains('@');
 
 bool _looksLikePhone(String value) {
   final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
-  return digitsOnly.length == 10 && digitsOnly == value.replaceAll(RegExp(r'\s'), '');
+  return digitsOnly.length == 10 &&
+      digitsOnly == value.replaceAll(RegExp(r'\s'), '');
 }
 
 class LoginScreen extends StatefulWidget {
@@ -25,7 +25,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   // 'login' or 'register' — switched only via the link at the bottom, no tabs.
   String _activeTab = 'login';
 
@@ -42,11 +43,33 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   String? _successMsg;
 
+  // Slide-up entrance, matching the bottom-sheet presentation used on the
+  // web app's mobile-responsive /login page.
+  late final AnimationController _sheetController;
+  late final Animation<Offset> _sheetOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    _sheetController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _sheetOffset = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _sheetController, curve: Curves.easeOutCubic),
+        );
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _sheetController.forward(),
+    );
+  }
+
   @override
   void dispose() {
     _identifierCtrl.dispose();
     _nameCtrl.dispose();
     _passwordCtrl.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -96,13 +119,19 @@ class _LoginScreenState extends State<LoginScreen> {
         final digitsOnly = identifier.replaceAll(RegExp(r'[^0-9]'), '');
         await apiService.sendOtp(phone: digitsOnly);
         if (mounted) {
-          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
           final redirectTo = args?['redirectTo'] as String?;
           await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => OtpScreen(phone: digitsOnly, email: null),
-              settings: RouteSettings(arguments: redirectTo != null ? {'redirectTo': redirectTo} : null),
+              settings: RouteSettings(
+                arguments: redirectTo != null
+                    ? {'redirectTo': redirectTo}
+                    : null,
+              ),
             ),
           );
         }
@@ -114,7 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() => _error = 'Enter a valid email address or 10-digit mobile number');
+    setState(
+      () => _error = 'Enter a valid email address or 10-digit mobile number',
+    );
   }
 
   Future<void> _handleSubmit() async {
@@ -136,7 +167,11 @@ class _LoginScreenState extends State<LoginScreen> {
         if (name.isEmpty || email.isEmpty || password.isEmpty) {
           throw Exception('All fields are required');
         }
-        final res = await apiService.register(name: name, email: email, password: password);
+        final res = await apiService.register(
+          name: name,
+          email: email,
+          password: password,
+        );
         if (res['success'] == true) {
           final token = res['token'] as String;
           final userJson = res['user'] as Map<String, dynamic>;
@@ -179,7 +214,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _goToHome() {
     if (mounted) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final redirectTo = args?['redirectTo'] as String?;
       if (redirectTo == '/checkout') {
         Navigator.pushReplacement(
@@ -195,7 +231,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration({required String hint, required IconData icon, Widget? suffixIcon}) {
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: AppColors.muted, fontSize: 14),
@@ -222,324 +262,478 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isRegister = _activeTab == 'register';
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Top Bar — pinned to the top
-            Positioned(
-              top: 0,
-              left: 20,
-              right: 20,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.white),
-                    onPressed: () {
-                      if (_identifierConfirmed) {
-                        _resetIdentifierStep();
-                        return;
-                      }
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SplashScreen()),
-                      );
-                    },
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      } else {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        );
-                      }
-                    },
-                    child: const Text(
-                      'SKIP',
-                      style: TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ],
+      // Presented as a bottom sheet — flush to the bottom edge with rounded
+      // top corners and a slide-up entrance, matching the web app's
+      // mobile-responsive /login page. A hero image fills the space above
+      // the sheet, with a "Skip" action pinned over it.
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Hero image
+          Image.asset(
+            'assets/images/login_hero.jpg',
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+          // Scrim for legibility of the Skip button / logo over the photo
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x66000000), Color(0x00000000)],
+                stops: [0.0, 0.5],
               ),
             ),
+          ),
 
-            // Form group — pinned toward the bottom of the screen
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: SingleChildScrollView(
-                reverse: true,
-                padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-              // Logo
-              const Center(
-                child: EyeGlazeLogo(size: 2.0),
-              ),
-              const SizedBox(height: 28),
-
-              // Headline
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Column(
-                  key: ValueKey('$isRegister-$_identifierConfirmed'),
-                  children: [
-                    Text(
-                      isRegister ? 'Create Your Account' : 'Welcome Back',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isRegister
-                          ? 'Sign up with your email to get started'
-                          : 'Sign in to continue shopping',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Card containing the form
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.card.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!_identifierConfirmed) ...[
-                      // Step 1: single identifier field — email or mobile number
-                      TextField(
-                        controller: _identifierCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(color: AppColors.white, fontSize: 15),
-                        decoration: _fieldDecoration(
-                          hint: 'Email or 10-digit mobile number',
-                          icon: Icons.alternate_email,
-                        ),
-                        onSubmitted: (_) => _handleContinue(),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Use a mobile number for OTP sign-in, or an email address to continue with a password.',
-                        style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
-                      ),
-                    ] else ...[
-                      // Step 2 (email path only): name (sign up) + password
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.email_outlined, color: AppColors.gold, size: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _identifierCtrl.text.trim(),
-                                style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w600, fontSize: 14),
-                                overflow: TextOverflow.ellipsis,
+          // Skip action + brand logo, over the hero image
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const HomeScreen(),
                               ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.card.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: const Text(
+                            'Skip',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                             ),
-                            GestureDetector(
-                              onTap: _resetIdentifierStep,
-                              child: const Text(
-                                'CHANGE',
-                                style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Expanded(child: Center(child: EyeGlazeLogo(size: 2.2))),
+              ],
+            ),
+          ),
+
+          // Bottom sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SlideTransition(
+              position: _sheetOffset,
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 150),
+                padding: EdgeInsets.only(bottom: bottomInset),
+                child: Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(maxHeight: screenHeight * 0.92),
+                  decoration: const BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    border: Border.fromBorderSide(
+                      BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(20, 10, 20, 20 + safeBottom),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Drag handle — bottom-sheet affordance
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.border,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+
+                        // Back button — only shown mid-flow (step back from the
+                        // password step to the identifier step). Skip now lives
+                        // over the hero image above.
+                        if (_identifierConfirmed)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: AppColors.white,
+                              ),
+                              onPressed: _resetIdentifierStep,
+                            ),
+                          ),
+
+                        // Headline
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Column(
+                            key: ValueKey('$isRegister-$_identifierConfirmed'),
+                            children: [
+                              Text(
+                                isRegister
+                                    ? 'Create Your Account'
+                                    : 'Welcome Back',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isRegister
+                                    ? 'Sign up with your email to get started'
+                                    : 'Sign in to continue shopping',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Form fields — flat within the sheet, matching the web page
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (!_identifierConfirmed) ...[
+                              // Step 1: single identifier field — email or mobile number
+                              TextField(
+                                controller: _identifierCtrl,
+                                keyboardType: TextInputType.emailAddress,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 15,
+                                ),
+                                decoration: _fieldDecoration(
+                                  hint: 'Email or 10-digit mobile number',
+                                  icon: Icons.alternate_email,
+                                ),
+                                onSubmitted: (_) => _handleContinue(),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Use a mobile number for OTP sign-in, or an email address to continue with a password.',
+                                style: TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ] else ...[
+                              // Step 2 (email path only): name (sign up) + password
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.email_outlined,
+                                      color: AppColors.gold,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _identifierCtrl.text.trim(),
+                                        style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: _resetIdentifierStep,
+                                      child: const Text(
+                                        'CHANGE',
+                                        style: TextStyle(
+                                          color: AppColors.gold,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              if (isRegister) ...[
+                                TextField(
+                                  controller: _nameCtrl,
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: _fieldDecoration(
+                                    hint: 'Full name',
+                                    icon: Icons.person_outline,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              TextField(
+                                controller: _passwordCtrl,
+                                obscureText: !_showPassword,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 15,
+                                ),
+                                decoration: _fieldDecoration(
+                                  hint: 'Password',
+                                  icon: Icons.lock_outline,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _showPassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: AppColors.muted,
+                                      size: 19,
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _showPassword = !_showPassword,
+                                    ),
+                                  ),
+                                ),
+                                onSubmitted: (_) => _handleSubmit(),
+                              ),
+                              if (!isRegister) ...[
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const ForgotPasswordScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Forgot Password?',
+                                      style: TextStyle(
+                                        color: AppColors.gold,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+
+                            // Error / success banners
+                            if (_error != null) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withValues(alpha: 0.1),
+                                  border: Border.all(
+                                    color: AppColors.error.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (_successMsg != null) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  border: Border.all(
+                                    color: AppColors.success.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _successMsg!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: AppColors.success,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+
+                            const SizedBox(height: 20),
+
+                            // Submit Button
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _loading
+                                    ? null
+                                    : (_identifierConfirmed
+                                          ? _handleSubmit
+                                          : _handleContinue),
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: _loading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        _identifierConfirmed
+                                            ? (isRegister
+                                                  ? 'CREATE ACCOUNT'
+                                                  : 'SIGN IN')
+                                            : 'CONTINUE',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      if (isRegister) ...[
-                        TextField(
-                          controller: _nameCtrl,
-                          style: const TextStyle(color: AppColors.white, fontSize: 15),
-                          decoration: _fieldDecoration(hint: 'Full name', icon: Icons.person_outline),
+                        const SizedBox(height: 20),
+
+                        // Switch between Sign In / Sign Up — the single entry point for registration.
+                        Center(
+                          child: GestureDetector(
+                            onTap: _toggleMode,
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 13,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: isRegister
+                                        ? 'Already have an account? '
+                                        : "New to EyeGlaze? ",
+                                  ),
+                                  TextSpan(
+                                    text: isRegister ? 'Sign In' : 'Create one',
+                                    style: const TextStyle(
+                                      color: AppColors.gold,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Footer
+                        RichText(
+                          textAlign: TextAlign.center,
+                          text: const TextSpan(
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'By continuing, you agree to our ',
+                              ),
+                              TextSpan(
+                                text: 'Terms of Use',
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              TextSpan(text: ' and '),
+                              TextSpan(
+                                text: 'Privacy Policy',
+                                style: TextStyle(
+                                  color: AppColors.gold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 12),
-                      ],
-                      TextField(
-                        controller: _passwordCtrl,
-                        obscureText: !_showPassword,
-                        style: const TextStyle(color: AppColors.white, fontSize: 15),
-                        decoration: _fieldDecoration(
-                          hint: 'Password',
-                          icon: Icons.lock_outline,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: AppColors.muted,
-                              size: 19,
-                            ),
-                            onPressed: () => setState(() => _showPassword = !_showPassword),
-                          ),
-                        ),
-                        onSubmitted: (_) => _handleSubmit(),
-                      ),
-                      if (!isRegister) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                              );
-                            },
-                            child: const Text(
-                              'Forgot Password?',
-                              style: TextStyle(
-                                color: AppColors.gold,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-
-                    // Error / success banners
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.1),
-                          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    ],
-                    if (_successMsg != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
-                          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _successMsg!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Submit Button
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : (_identifierConfirmed ? _handleSubmit : _handleContinue),
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2),
-                              )
-                            : Text(
-                                _identifierConfirmed
-                                    ? (isRegister ? 'CREATE ACCOUNT' : 'SIGN IN')
-                                    : 'CONTINUE',
-                                style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Switch between Sign In / Sign Up — the single entry point for registration.
-              Center(
-                child: GestureDetector(
-                  onTap: _toggleMode,
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                      children: [
-                        TextSpan(
-                          text: isRegister ? 'Already have an account? ' : "New to EyeGlaze? ",
-                        ),
-                        TextSpan(
-                          text: isRegister ? 'Sign In' : 'Create one',
-                          style: const TextStyle(
-                            color: AppColors.gold,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Footer
-              RichText(
-                textAlign: TextAlign.center,
-                text: const TextSpan(
-                  style: TextStyle(color: AppColors.muted, fontSize: 12),
-                  children: [
-                    TextSpan(text: 'By continuing, you agree to our '),
-                    TextSpan(
-                      text: 'Terms of Use',
-                      style: TextStyle(color: AppColors.gold, decoration: TextDecoration.underline),
-                    ),
-                    TextSpan(text: ' and '),
-                    TextSpan(
-                      text: 'Privacy Policy',
-                      style: TextStyle(color: AppColors.gold, decoration: TextDecoration.underline),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-                  ],
-                ),
-              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

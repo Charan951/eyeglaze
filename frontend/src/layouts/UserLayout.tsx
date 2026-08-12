@@ -956,7 +956,7 @@ export default function UserLayout() {
   const isHomePage = location.pathname === '/';
   const isFullWidthPage = ['/products', '/cart'].includes(location.pathname) || location.pathname.startsWith('/products/');
   const isProductDetailPage = location.pathname.startsWith('/products/');
-  const hideHeader = isCustomerPage;
+  const hideHeader = isCustomerPage || isAuthPage;
   const showBottomNav = isHomePage;
 
   const renderProfileDropdown = () => {
@@ -1108,7 +1108,7 @@ export default function UserLayout() {
         <header className={`bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${isProductDetailPage ? 'hidden xl:block' : ''}`}>
           {/* Brand Name bar above nav bar in Mobile View on Home Page only */}
           {isHomePage && (
-            <div className="xl:hidden w-full bg-[#0B0B0C] border-b border-[#2A2A2D]/40 py-2.5 flex justify-center items-center">
+            <div className="xl:hidden w-full h-14 bg-[#0B0B0C] border-b border-[#2A2A2D]/40 flex justify-center items-center">
               <Link to="/" className="flex flex-col items-center select-none text-center">
                 <span className="text-[#D4A04D] font-serif text-xl sm:text-2xl tracking-[0.3em] uppercase font-black leading-none drop-shadow-md">EYEGLAZE</span>
                 <span className="text-[#D4A04D]/80 font-sans text-[8px] sm:text-[10px] tracking-[0.35em] uppercase mt-1 font-semibold">EYEWEAR</span>
@@ -1159,7 +1159,7 @@ export default function UserLayout() {
                       className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none cursor-pointer shrink-0 ${
                         user
                           ? 'bg-[#D4A04D] text-black shadow-[0_0_0_2px_rgba(212,160,77,0.25)]'
-                          : 'border border-zinc-700 bg-zinc-900/80 text-gray-400 hover:border-zinc-500 hover:text-gray-300'
+                          : 'border border-zinc-700 bg-zinc-900/80 text-gray-300 hover:border-zinc-500 hover:text-[#D4A04D]'
                       }`}
                       title={user ? 'My Profile' : 'Login / Signup'}
                     >
@@ -1346,7 +1346,7 @@ export default function UserLayout() {
           </div>
 
           {/* Row 2: Desktop Categories Navigation Bar */}
-          {!isCartPage && (
+          {!isCartPage && !isAuthPage && (
             <div className="hidden xl:flex w-full px-4 sm:px-6 md:px-12 lg:px-16 h-12 border-t border-[#2A2A2D]/40 items-center justify-between select-none">
               <nav className="flex items-center gap-7 h-full text-[10px] xl:text-[11px] font-black uppercase tracking-[0.15em] text-white">
                 {categories.filter((cat: any) => cat.showInNavbar !== false).map((cat: any) => (
@@ -1583,12 +1583,12 @@ export default function UserLayout() {
       </AnimatePresence>
 
       <main className={
-        isCustomerPage
+        isCustomerPage || isAuthPage
           ? "w-full min-h-screen"
           : isFullWidthPage
             ? `w-full min-h-screen ${isProductDetailPage ? 'xl:pt-28' : 'pt-16 xl:pt-28'} pb-8`
             : isHomePage
-              ? "w-full mt-[44px] xl:mt-[92px]"
+              ? "w-full mt-25 xl:mt-23"
               : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28"
       }>
         <AnimatePresence mode="wait" initial={false}>
@@ -1755,171 +1755,9 @@ export default function UserLayout() {
         )}
       </AnimatePresence>
 
-      {/* 5. Mobile Bottom Sticky Navigation Bar */}
-      {showBottomNav && (
-        <AnimatePresence>
-          {isBottomBarVisible && (
-            <motion.nav
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="fixed bottom-4 left-4 right-4 md:hidden z-40 bg-[#0E0E0F]/90 border border-[#D4A04D]/25 h-16 rounded-2xl flex items-center justify-between px-2.5 backdrop-blur-lg shadow-[0_8px_32px_rgba(0,0,0,0.8)]"
-            >
-              {[
-                {
-                  to: '/products',
-                  label: 'PRODUCTS',
-                  badge: null,
-                  icon: (isActive: boolean) => (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
-                      <circle cx="6" cy="12" r="3" />
-                      <circle cx="18" cy="12" r="3" />
-                      <path d="M9 12h6" />
-                      <path d="M3 12h1" />
-                      <path d="M20 12h1" />
-                      <path d="M6 9a4 4 0 0 1 4 4" />
-                      <path d="M14 13a4 4 0 0 1 4-4" />
-                    </svg>
-                  )
-                },
-                {
-                  to: '/wishlist',
-                  label: 'WISHLIST',
-                  badge: wishlist?.length,
-                  icon: (isActive: boolean) => (
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  )
-                },
-                {
-                  to: '/',
-                  label: 'HOME',
-                  badge: null,
-                  isCenter: true,
-                  icon: (isActive: boolean) => (
-                    <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24" className="text-black">
-                      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                    </svg>
-                  )
-                },
-                {
-                  to: '/orders',
-                  label: 'ORDERS',
-                  badge: null,
-                  icon: (isActive: boolean) => (
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                  )
-                },
-                user?.membershipActive ? {
-                  to: '/profile',
-                  label: 'PROFILE',
-                  badge: null,
-                  icon: (isActive: boolean) => (
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  )
-                } : {
-                  onClick: () => setIsGoldDrawerOpen(true),
-                  label: 'GET GOLD',
-                  badge: null,
-                  icon: (isActive: boolean) => (
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className={`transition-transform ${isActive ? 'scale-110 text-[#D4A04D]' : 'text-zinc-400'}`}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138z" />
-                    </svg>
-                  )
-                }
-              ].map((tab) => {
-                if ('onClick' in tab) {
-                  return (
-                    <button
-                      key={tab.label}
-                      onClick={tab.onClick}
-                      className="flex flex-col items-center justify-center flex-1 h-full relative focus:outline-none bg-transparent border-none cursor-pointer"
-                    >
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-b from-[#1a2140] to-[#0d1024] border border-[#D4A04D]/70 shadow-[0_0_10px_rgba(212,160,77,0.25)] active:scale-95 transition-transform">
-                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#D4A04D" strokeWidth="2.5" className="shrink-0">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138z" />
-                        </svg>
-                        <span className="flex flex-col items-start leading-none">
-                          <span className="text-[6px] font-bold text-[#D4A04D]/70 tracking-widest">GET</span>
-                          <span className="text-[9px] font-black text-[#D4A04D] tracking-wider -mt-0.5">GOLD</span>
-                        </span>
-                      </div>
-                    </button>
-                  );
-                }
-
-                const isActive = location.pathname === tab.to;
-
-                if (tab.isCenter) {
-                  return (
-                    <Link
-                      key={tab.to}
-                      to={tab.to}
-                      className="relative flex flex-col items-center justify-center -translate-y-3 cursor-pointer z-50 focus:outline-none"
-                    >
-                      <div className={`w-12 h-12 bg-gradient-to-b from-[#D4A04D] to-[#A3742C] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#D4A04D]/20 border-4 border-[#0E0E0F] active:scale-90 transition-transform ${isActive ? 'ring-2 ring-[#D4A04D]' : ''}`}>
-                        {tab.icon(isActive)}
-                      </div>
-                      <span className="text-[7.5px] font-black uppercase tracking-wider text-[#D4A04D] mt-1">
-                        HOME
-                      </span>
-                    </Link>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={tab.to}
-                    to={tab.to}
-                    className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-gray-500 relative focus:outline-none"
-                  >
-                    {/* Active Background Glow */}
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTabGlow"
-                        className="absolute inset-y-1 inset-x-2 bg-[#D4A04D]/10 rounded-xl -z-10 filter blur-xs"
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                      />
-                    )}
-
-                    <div className="relative flex items-center justify-center">
-                      {tab.icon(isActive)}
-                      {tab.badge && tab.badge > 0 ? (
-                        <span className="absolute -top-1 -right-2 bg-[#D4A04D] text-black font-extrabold text-[7px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-[#0E0E0F]">
-                          {tab.badge}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <span className={`text-[7.5px] font-black uppercase tracking-wider transition-colors ${isActive ? 'text-[#D4A04D]' : 'text-zinc-500'}`}>
-                      {tab.label}
-                    </span>
-
-                    {/* Active indicator dot under icon */}
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTabDot"
-                        className="absolute bottom-0 w-1.5 h-1.5 bg-[#D4A04D] rounded-full"
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </motion.nav>
-          )}
-        </AnimatePresence>
-      )}
-
       {/* Global AI Chatbot Floating Button */}
       <AnimatePresence>
-        {!isAiDrawerOpen && !isCartPage && (
+        {!isAiDrawerOpen && !isCartPage && !isAuthPage && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{
@@ -1944,7 +1782,7 @@ export default function UserLayout() {
 
       {/* Global AI Assistant Chat Drawer */}
       <AnimatePresence>
-        {isAiDrawerOpen && !isCartPage && (
+        {isAiDrawerOpen && !isCartPage && !isAuthPage && (
           <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${isBottomBarVisible && showBottomNav ? 'pb-28' :
               isProductDetailPage && isBottomBarVisible ? 'pb-[104px]' : 'pb-4 md:pb-6'
             }`}>

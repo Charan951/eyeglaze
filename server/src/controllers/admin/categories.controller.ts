@@ -298,6 +298,8 @@ export async function createCategory(req: Request, res: Response) {
         docData.gender = basic.gender;
         docData.shapeModal = basic.shapeModal ?? false;
         docData.modalShapes = basic.modalShapes;
+        docData.subSubCategoryModal = basic.subSubCategoryModal ?? false;
+        docData.modalSubSubCategories = basic.modalSubSubCategories ?? [];
         docData.showInNavbar = basic.showInNavbar ?? true;
       } else if (type === 'SubSubCategory') {
         if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
@@ -436,6 +438,8 @@ export async function createCategory(req: Request, res: Response) {
       docData.gender = basic.gender;
       docData.shapeModal = basic.shapeModal ?? false;
       docData.modalShapes = basic.modalShapes;
+      docData.subSubCategoryModal = basic.subSubCategoryModal ?? false;
+      docData.modalSubSubCategories = basic.modalSubSubCategories ?? [];
       docData.showInNavbar = basic.showInNavbar ?? true;
     } else if (type === 'SubSubCategory') {
       if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
@@ -600,6 +604,8 @@ export async function updateCategory(req: Request, res: Response) {
       if (basic?.gender !== undefined) updateObj.gender = basic.gender;
       if (basic?.shapeModal !== undefined) updateObj.shapeModal = basic.shapeModal;
       if (basic?.modalShapes !== undefined) updateObj.modalShapes = basic.modalShapes;
+      if (basic?.subSubCategoryModal !== undefined) updateObj.subSubCategoryModal = basic.subSubCategoryModal;
+      if (basic?.modalSubSubCategories !== undefined) updateObj.modalSubSubCategories = basic.modalSubSubCategories;
       if (type === 'SubCategory' && basic?.showInNavbar !== undefined) updateObj.showInNavbar = basic.showInNavbar;
     }
 
