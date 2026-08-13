@@ -162,6 +162,8 @@ export async function getCategoryTree(req: Request, res: Response) {
             code: sub.code,
             slug: sub.slug,
             type: 'SubCategory',
+            shapeModal: sub.shapeModal,
+            modalShapes: sub.modalShapes,
             children: subsubcats,
           };
         });

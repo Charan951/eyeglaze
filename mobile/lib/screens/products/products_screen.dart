@@ -15,6 +15,7 @@ import '../../widgets/responsive_container.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String? category;
+  final String? subCategory;
   final String? shape;
   final String? gender;
   final String? size;
@@ -22,6 +23,7 @@ class ProductsScreen extends StatefulWidget {
   const ProductsScreen({
     super.key,
     this.category,
+    this.subCategory,
     this.shape,
     this.gender,
     this.size,
@@ -36,6 +38,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Product> _products = [];
   bool _loading = true;
   String? _selectedCategory;
+  String? _selectedSubCategory;
   String? _selectedShape;
   String _selectedSort = 'newest';
   String? _selectedMaterial;
@@ -58,7 +61,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void initState() {
     super.initState();
     _selectedShape = widget.shape;
-    _selectedGender = widget.gender;
+    _selectedSubCategory = (widget.subCategory != null && widget.subCategory!.isNotEmpty)
+        ? widget.subCategory
+        : null;
+    // Some admin-created subcategories (e.g. Contact Lens > Solution & Accessories)
+    // store gender as an empty string rather than omitting it — treat that the same
+    // as "no gender filter" rather than a selected-but-blank value.
+    _selectedGender = (widget.gender != null && widget.gender!.isNotEmpty) ? widget.gender : null;
     _selectedSize = widget.size;
     if (widget.tier != null) {
       _selectedTier = widget.tier!;
@@ -173,6 +182,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final api = ApiService(authService);
       final data = await api.getProducts(
         category: _normalizeCategory(_selectedCategory),
+        subCategory: _selectedSubCategory,
         search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
         sort: _selectedSort,
         shape: _selectedShape,
@@ -315,7 +325,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         }),
       );
     }
-    if (_selectedGender != null) {
+    if (_selectedGender != null && _selectedGender!.isNotEmpty) {
       final formattedGender =
           _selectedGender![0].toUpperCase() + _selectedGender!.substring(1);
       chips.add(

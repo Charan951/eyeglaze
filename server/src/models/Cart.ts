@@ -36,6 +36,15 @@ export interface ICartItem {
   /** The undiscounted catalog price at add-time, kept alongside a locked/overridden
    *  framePrice so the cart can still show "was ₹X" savings for cross-sell discounts. */
   originalPrice?: number;
+  /** Structured offer tracking (replaces relying on `appliedOffers` label strings for
+   *  financial logic — those remain purely for display). Set server-side only. */
+  offerType?: 'oneRupeeFrame' | 'buy1Get1' | 'freeGift' | 'none';
+  isFreeItem?: boolean;
+  /** Amount discounted off this line's original price by the applied offer, in rupees. */
+  discountApplied?: number;
+  /** If this line is a free gift bundled with another line (e.g. a free contact-lens
+   *  solution bundled with a monthly-lens purchase), the _id of the cart item it's tied to. */
+  linkedToCartItemId?: mongoose.Types.ObjectId;
 }
 
 export interface ICart extends Document {
@@ -80,6 +89,10 @@ const CartItemSchema = new Schema<ICartItem>({
   appliedOffers: [{ type: String }],
   priceLocked: { type: Boolean, default: false },
   originalPrice: { type: Number },
+  offerType: { type: String, enum: ['oneRupeeFrame', 'buy1Get1', 'freeGift', 'none'], default: 'none' },
+  isFreeItem: { type: Boolean, default: false },
+  discountApplied: { type: Number, default: 0 },
+  linkedToCartItemId: { type: Schema.Types.ObjectId },
 });
 
 const CartSchema = new Schema<ICart>({

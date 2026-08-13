@@ -27,6 +27,11 @@ interface CartItem {
   product?: any;
   priceLocked?: boolean;
   originalPrice?: number;
+  // Server-computed offer state (authoritative — see cart.controller.ts getCart()).
+  offerType?: 'oneRupeeFrame' | 'buy1Get1' | 'freeGift' | 'none';
+  isFreeItem?: boolean;
+  discountApplied?: number;
+  appliedOffers?: string[];
 }
 
 interface Coupon {
@@ -225,6 +230,10 @@ export default function CartPage() {
           lensQuality: item.lensQuality,
           priceLocked: !!item.priceLocked || !!item.lensType,
           originalPrice: item.originalPrice,
+          offerType: item.offerType,
+          isFreeItem: !!item.isFreeItem,
+          discountApplied: item.discountApplied ?? 0,
+          appliedOffers: item.appliedOffers || [],
         }));
         setItems(mapped);
       })
@@ -290,6 +299,15 @@ export default function CartPage() {
     };
   });
 
+  // Server is authoritative for 1+1 (buy1Get1) — it's applied automatically, once per
+  // calendar month, and computed in cart.controller.ts getCart(). Trust its per-item
+  // discountApplied/isFreeItem/offerType instead of re-deriving pairing client-side.
+  const serverOnePlusOneDiscount = itemsWithPricing.reduce(
+    (sum, item) => sum + (item.offerType === 'buy1Get1' ? (item.discountApplied || 0) : 0),
+    0
+  );
+  const serverOnePlusOneApplied = serverOnePlusOneDiscount > 0;
+
   // Auto-apply BOGO when user is a member and total item quantity is at least 2
   useEffect(() => {
     const totalQty = items.reduce((sum, i) => sum + (i.qty || 1), 0);
@@ -301,7 +319,8 @@ export default function CartPage() {
   const appliedCouponObj = activeCoupons.find(c => c.code === appliedCoupon);
   const isBogoCouponApplied = appliedCouponObj?.discountType === 'bogo' || appliedCoupon === 'BOGO' || applyBogo;
 
-  // Populate BOGO items with unique key per quantity index
+  // Populate BOGO items with unique key per quantity index (coupon-driven BOGO path,
+  // separate from the automatic server-side 1+1 handled below via serverOnePlusOneDiscount).
   itemsWithPricing.forEach(item => {
     if (isBogoCouponApplied && item.product?.buy1Get1 !== false) {
       for (let index = 0; index < item.qty; index++) {
@@ -314,7 +333,7 @@ export default function CartPage() {
     }
   });
 
-  // Calculate BOGO discount
+  // Calculate BOGO discount (coupon-driven path)
   let bogoDiscount = 0;
   let freeItemUniqueKey = '';
 
@@ -327,6 +346,14 @@ export default function CartPage() {
     });
     freeItemUniqueKey = lowestPriceItem.id;
     bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
+  } else if (serverOnePlusOneApplied) {
+    // Automatic server-side 1+1 (no coupon needed): trust the server's per-item
+    // discountApplied/isFreeItem instead of re-deriving pairing client-side.
+    bogoDiscount = serverOnePlusOneDiscount;
+    const freeLine = itemsWithPricing.find(item => item.offerType === 'buy1Get1' && (item.discountApplied || 0) > 0);
+    if (freeLine) {
+      freeItemUniqueKey = `${freeLine._id || freeLine.id}_${freeLine.qty - 1}`;
+    }
   }
 
 

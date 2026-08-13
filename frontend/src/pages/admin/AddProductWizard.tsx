@@ -598,6 +598,19 @@ export default function AddProductWizard() {
   const isPowerSunglasses = currentCategory === 'power-sunglasses';
   const isReading = String(currentSubCategory || '').toLowerCase().includes('reading');
   const subCatNameOrSlug = currentSubCategory || formValues.subCategoryId || '';
+
+  // The subcategory's own "Shapes to display in modal" list (set on Categories → edit
+  // SubCategory) — scopes Step 3's shape checkboxes to just what's relevant for this
+  // subcategory instead of every shape in the system.
+  const matchedParentForShapes = categoryTree.find(
+    (c: any) => c.slug === currentCategory || c.id === currentCategory || c._id === currentCategory ||
+      c.id === formValues.categoryId || c._id === formValues.categoryId
+  );
+  const matchedSubForShapes = (matchedParentForShapes?.children || []).find(
+    (s: any) => s.slug === currentSubCategory || s.name === currentSubCategory ||
+      s.id === formValues.subCategoryId || s._id === formValues.subCategoryId
+  );
+  const subCategoryModalShapes: string[] = matchedSubForShapes?.modalShapes || [];
   const isKids =
     (currentGender && Array.isArray(currentGender) && currentGender.some((g: string) => String(g).toLowerCase() === 'kids')) ||
     String(subCatNameOrSlug).toLowerCase().includes('kids') ||
@@ -2995,6 +3008,53 @@ export default function AddProductWizard() {
                   />
                 </div>
               </div>
+
+              {/* Shapes (multi-select) — this is the array used by the storefront's
+                  "Shape & Style" filter and the home-page shape picker; distinct from
+                  the single Frame Shape dropdown above. */}
+              <div>
+                <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Shapes (for Shape & Style filter)</label>
+                {subCategoryModalShapes.length > 0 ? (
+                  <p className="text-gray-500 text-[10px] mb-2">Scoped to the shapes configured on "{matchedSubForShapes?.name}" (Categories → edit subcategory).</p>
+                ) : currentSubCategory ? (
+                  <p className="text-gray-500 text-[10px] mb-2">This subcategory has no shape list configured — showing all shapes.</p>
+                ) : (
+                  <p className="text-gray-500 text-[10px] mb-2">Select a subcategory above to scope this list.</p>
+                )}
+                <div className="flex flex-wrap gap-4 select-none">
+                  {(subCategoryModalShapes.length > 0
+                    ? availableShapes.filter((s) => subCategoryModalShapes.some((m) => m.toLowerCase() === s.name.toLowerCase()))
+                    : availableShapes
+                  ).map((s) => {
+                    const currentShapes = formValues.shape || [];
+                    const isChecked = currentShapes.includes(s.name);
+                    return (
+                      <label
+                        key={s.slug || s.name}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${isChecked ? 'bg-[#D4A04D]/10 text-[#D4A04D] border-[#D4A04D]/30' : 'bg-[#0B0B0C] text-gray-400 border-zinc-800 hover:text-white'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setValue('shape', [...currentShapes, s.name]);
+                            } else {
+                              setValue('shape', currentShapes.filter((v: string) => v !== s.name));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <span>{s.name}</span>
+                      </label>
+                    );
+                  })}
+                  {availableShapes.length === 0 && (
+                    <p className="text-gray-500 text-xs">No shapes configured yet. Add shapes under Admin → Shapes.</p>
+                  )}
+                </div>
+              </div>
+
               {renderColorStockEditor()}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

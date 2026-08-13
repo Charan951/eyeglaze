@@ -17,7 +17,13 @@ class MessageItem {
 }
 
 class AiChatSheet extends StatefulWidget {
-  const AiChatSheet({super.key});
+  // Lets callers scope the assistant to the screen it was opened from (e.g.
+  // the lens power step) and optionally auto-send a first question, so the
+  // bot immediately helps with that context instead of a blank chat.
+  final Map<String, String>? pageContext;
+  final String? initialMessage;
+
+  const AiChatSheet({super.key, this.pageContext, this.initialMessage});
 
   @override
   State<AiChatSheet> createState() => _AiChatSheetState();
@@ -27,7 +33,8 @@ class _AiChatSheetState extends State<AiChatSheet> {
   final List<MessageItem> _messages = [
     MessageItem(
       sender: 'bot',
-      text: 'Hello! Welcome to EyeGlaze. I am your AI assistant. How can I help you choose the perfect frames today?',
+      text:
+          'Hello! Welcome to EyeGlaze. I am your AI assistant. How can I help you choose the perfect frames today?',
       timestamp: DateTime.now(),
     ),
   ];
@@ -35,6 +42,17 @@ class _AiChatSheetState extends State<AiChatSheet> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isTyping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialMessage != null &&
+        widget.initialMessage!.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleSend(presetText: widget.initialMessage);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -55,24 +73,22 @@ class _AiChatSheetState extends State<AiChatSheet> {
     });
   }
 
-  void _handleSend() async {
-    final text = _inputController.text.trim();
+  void _handleSend({String? presetText}) async {
+    final text = (presetText ?? _inputController.text).trim();
     if (text.isEmpty) return;
 
-    _inputController.clear();
-    
+    if (presetText == null) _inputController.clear();
+
     // Map current history to API expected JSON format
-    final historyJson = _messages.skip(1).map((msg) => {
-      'sender': msg.sender,
-      'text': msg.text,
-    }).toList();
+    final historyJson = _messages
+        .skip(1)
+        .map((msg) => {'sender': msg.sender, 'text': msg.text})
+        .toList();
 
     setState(() {
-      _messages.add(MessageItem(
-        sender: 'user',
-        text: text,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        MessageItem(sender: 'user', text: text, timestamp: DateTime.now()),
+      );
       _isTyping = true;
     });
     _scrollToBottom();
@@ -84,30 +100,33 @@ class _AiChatSheetState extends State<AiChatSheet> {
       final response = await api.getAiResponse(
         message: text,
         history: historyJson,
-        pageContext: const {
-          'pageName': 'Home Page',
-          'pathname': '/',
-        },
+        pageContext:
+            widget.pageContext ??
+            const {'pageName': 'Home Page', 'pathname': '/'},
       );
 
       if (!mounted) return;
       setState(() {
         _isTyping = false;
-        _messages.add(MessageItem(
-          sender: 'bot',
-          text: response['reply'] ?? 'Failed to get a response.',
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          MessageItem(
+            sender: 'bot',
+            text: response['reply'] ?? 'Failed to get a response.',
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isTyping = false;
-        _messages.add(MessageItem(
-          sender: 'bot',
-          text: 'Sorry, I am facing connectivity issues. Please try again.',
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          MessageItem(
+            sender: 'bot',
+            text: 'Sorry, I am facing connectivity issues. Please try again.',
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     }
     _scrollToBottom();
@@ -159,11 +178,19 @@ class _AiChatSheetState extends State<AiChatSheet> {
                         children: const [
                           Text(
                             'EyeGlaze AI Assistant',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                           Text(
                             'Online',
-                            style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -188,23 +215,36 @@ class _AiChatSheetState extends State<AiChatSheet> {
                 final msg = _messages[index];
                 final isBot = msg.sender == 'bot';
                 return Align(
-                  alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: isBot
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
                   child: Container(
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.75,
                     ),
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: isBot ? AppColors.card : AppColors.gold.withValues(alpha: 0.15),
+                      color: isBot
+                          ? AppColors.card
+                          : AppColors.gold.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
-                        bottomLeft: isBot ? Radius.zero : const Radius.circular(16),
-                        bottomRight: isBot ? const Radius.circular(16) : Radius.zero,
+                        bottomLeft: isBot
+                            ? Radius.zero
+                            : const Radius.circular(16),
+                        bottomRight: isBot
+                            ? const Radius.circular(16)
+                            : Radius.zero,
                       ),
                       border: Border.all(
-                        color: isBot ? AppColors.border : AppColors.gold.withValues(alpha: 0.35),
+                        color: isBot
+                            ? AppColors.border
+                            : AppColors.gold.withValues(alpha: 0.35),
                       ),
                     ),
                     child: Text(
@@ -228,7 +268,10 @@ class _AiChatSheetState extends State<AiChatSheet> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(16),

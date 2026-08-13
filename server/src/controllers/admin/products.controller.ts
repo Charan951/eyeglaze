@@ -143,16 +143,20 @@ export async function createAdminProduct(req: Request, res: Response) {
     // Set defaults
     body.currentVersion = 1;
 
-    // Auto-populate shape array from subcategory's modalShapes
-    if (body.subCategoryId) {
-      const subcat = await SubCategory.findById(body.subCategoryId);
-      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
-        body.shape = subcat.modalShapes;
-      }
-    } else if (body.subCategory) {
-      const subcat = await SubCategory.findOne({ slug: body.subCategory });
-      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
-        body.shape = subcat.modalShapes;
+    // Default the shape array from the subcategory's modalShapes only when the admin
+    // didn't explicitly pick any shapes on the product form — never clobber a real
+    // selection made in the Shapes checkboxes (Step 3: Frame Specifications).
+    if (!body.shape || (Array.isArray(body.shape) && body.shape.length === 0)) {
+      if (body.subCategoryId) {
+        const subcat = await SubCategory.findById(body.subCategoryId);
+        if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+          body.shape = subcat.modalShapes;
+        }
+      } else if (body.subCategory) {
+        const subcat = await SubCategory.findOne({ slug: body.subCategory });
+        if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+          body.shape = subcat.modalShapes;
+        }
       }
     }
 
@@ -271,16 +275,20 @@ export async function updateAdminProduct(req: Request, res: Response) {
     const nextVersion = (existingProduct.currentVersion || 1) + 1;
     body.currentVersion = nextVersion;
 
-    // Auto-populate shape array from subcategory's modalShapes
-    if (body.subCategoryId) {
-      const subcat = await SubCategory.findById(body.subCategoryId);
-      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
-        body.shape = subcat.modalShapes;
-      }
-    } else if (body.subCategory) {
-      const subcat = await SubCategory.findOne({ slug: body.subCategory });
-      if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
-        body.shape = subcat.modalShapes;
+    // Default the shape array from the subcategory's modalShapes only when the admin
+    // didn't explicitly pick any shapes on the product form — never clobber a real
+    // selection made in the Shapes checkboxes (Step 3: Frame Specifications).
+    if (!body.shape || (Array.isArray(body.shape) && body.shape.length === 0)) {
+      if (body.subCategoryId) {
+        const subcat = await SubCategory.findById(body.subCategoryId);
+        if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+          body.shape = subcat.modalShapes;
+        }
+      } else if (body.subCategory) {
+        const subcat = await SubCategory.findOne({ slug: body.subCategory });
+        if (subcat && subcat.modalShapes && subcat.modalShapes.length > 0) {
+          body.shape = subcat.modalShapes;
+        }
       }
     }
 

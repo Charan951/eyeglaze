@@ -57,6 +57,11 @@ class CartItem {
   final double framePrice;
   final double? lensPrice;
   final double? fittingCharge;
+  // Server-computed offer state (authoritative — see cart.controller.ts getCart()).
+  final String? offerType;
+  final bool isFreeItem;
+  final double discountApplied;
+  final List<String> appliedOffers;
 
   CartItem({
     required this.id,
@@ -70,6 +75,10 @@ class CartItem {
     this.framePrice = 1,
     this.lensPrice,
     this.fittingCharge,
+    this.offerType,
+    this.isFreeItem = false,
+    this.discountApplied = 0,
+    this.appliedOffers = const [],
   });
 
   double get totalPrice {
@@ -90,6 +99,10 @@ class CartItem {
         framePrice: (json['framePrice'] as num?)?.toDouble() ?? 1,
         lensPrice: (json['lensPrice'] as num?)?.toDouble(),
         fittingCharge: (json['fittingCharge'] as num?)?.toDouble(),
+        offerType: json['offerType'],
+        isFreeItem: json['isFreeItem'] == true,
+        discountApplied: (json['discountApplied'] as num?)?.toDouble() ?? 0,
+        appliedOffers: (json['appliedOffers'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       );
 
   Map<String, dynamic> toJson() => {

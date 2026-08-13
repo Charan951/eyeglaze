@@ -78,6 +78,7 @@ class ApiService {
   // Products
   Future<Map<String, dynamic>> getProducts({
     String? category,
+    String? subCategory,
     String? search,
     String? sort,
     String? shape,
@@ -90,6 +91,9 @@ class ApiService {
   }) async {
     final params = <String, String>{};
     if (category != null) params['category'] = category;
+    if (subCategory != null && subCategory.isNotEmpty) {
+      params['subCategory'] = subCategory;
+    }
     if (search != null) params['search'] = search;
     if (sort != null) params['sort'] = sort;
     if (shape != null) params['shape'] = shape;

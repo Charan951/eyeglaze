@@ -1842,45 +1842,65 @@ class _CategoryGridsState extends State<_CategoryGrids> {
           ),
         ),
         const SizedBox(height: 8),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: crossCount,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: aspect,
-          children: subOptions.map((opt) {
-            return _CategoryCard(
-              label: opt['label'],
-              imagePath: opt['imagePath'],
-              isCircle: shape == 'circle',
-              onTap: () {
-                if (opt['shapeModal'] == true) {
-                  final isKids =
-                      opt['gender'] == 'kids' ||
-                      opt['label'].toString().toLowerCase() == 'kids';
-                  _showShapeSelectionSheet(
-                    context,
-                    title: isKids
-                        ? 'Select Age Group'
-                        : "${opt['label']}'s ${cat['name'] ?? ''}",
-                    category: opt['category'],
-                    gender: opt['gender'],
+        // GridView.count's own shrinkWrap self-measurement over-reports its height
+        // in this Flutter build (verified: it renders correctly and needs far less
+        // space than it claims), leaving a large blank gap below every category row.
+        // Compute the true grid height ourselves from the same formula Flutter's
+        // SliverGridDelegateWithFixedCrossAxisCount uses, and force it via SizedBox
+        // so the Column doesn't inherit the inflated size.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const crossAxisSpacing = 8.0;
+            const mainAxisSpacing = 8.0;
+            final cellWidth = (constraints.maxWidth - crossAxisSpacing * (crossCount - 1)) / crossCount;
+            final cellHeight = cellWidth / aspect;
+            final rows = (subOptions.length / crossCount).ceil();
+            final gridHeight = rows <= 0 ? 0.0 : rows * cellHeight + (rows - 1) * mainAxisSpacing;
+
+            return SizedBox(
+              height: gridHeight,
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossCount,
+                crossAxisSpacing: crossAxisSpacing,
+                mainAxisSpacing: mainAxisSpacing,
+                childAspectRatio: aspect,
+                children: subOptions.map((opt) {
+                  return _CategoryCard(
+                    label: opt['label'],
+                    imagePath: opt['imagePath'],
+                    isCircle: shape == 'circle',
+                    onTap: () {
+                      if (opt['shapeModal'] == true) {
+                        final isKids =
+                            opt['gender'] == 'kids' ||
+                            opt['label'].toString().toLowerCase() == 'kids';
+                        _showShapeSelectionSheet(
+                          context,
+                          title: isKids
+                              ? 'Select Age Group'
+                              : "${opt['label']}'s ${cat['name'] ?? ''}",
+                          category: opt['category'],
+                          gender: opt['gender'],
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductsScreen(
+                              category: opt['category'],
+                              gender: opt['gender'],
+                            ),
+                          ),
+                        );
+                      }
+                    },
                   );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductsScreen(
-                        category: opt['category'],
-                        gender: opt['gender'],
-                      ),
-                    ),
-                  );
-                }
-              },
+                }).toList(),
+              ),
             );
-          }).toList(),
+          },
         ),
       ],
     );
@@ -4024,13 +4044,17 @@ class _ShapeSelectionSheet extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      title.toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
+                    Expanded(
+                      child: Text(
+                        title.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     IconButton(

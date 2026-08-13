@@ -85,8 +85,13 @@ export default function ProductFilters() {
     const existing = params.get(key);
     let values = existing ? existing.split(',').map(v => v.trim()).filter(Boolean) : [];
 
-    if (values.includes(value)) {
-      values = values.filter(v => v !== value);
+    // Shape values can arrive case-inconsistently (e.g. a lowercase slug from the home
+    // page's shape picker vs. the admin-cased name here), so match case-insensitively
+    // to avoid duplicate/stuck entries when toggling.
+    const matches = (v: string) => key === 'shape' ? v.toLowerCase() === value.toLowerCase() : v === value;
+
+    if (values.some(matches)) {
+      values = values.filter(v => !matches(v));
     } else {
       values.push(value);
     }
@@ -264,7 +269,7 @@ export default function ProductFilters() {
           <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
             {shapesList.map(shape => {
               const activeShapes = searchParams.get('shape')?.split(',') || [];
-              const isChecked = activeShapes.includes(shape);
+              const isChecked = activeShapes.some(v => v.toLowerCase() === shape.toLowerCase());
               return (
                 <label key={shape} className="flex items-center gap-2.5 cursor-pointer group text-xs">
                   <input

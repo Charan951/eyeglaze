@@ -145,6 +145,19 @@ class CartProvider extends ChangeNotifier {
   }
 
   Map<String, dynamic> get bogoDetails {
+    // Server is authoritative for the automatic 1+1 offer (once per calendar month,
+    // computed in cart.controller.ts getCart()) — trust its per-item discountApplied
+    // instead of re-deriving pairing client-side, which had no server validation.
+    final serverBogoItem = _items.where((i) => i.offerType == 'buy1Get1' && i.discountApplied > 0).toList();
+    if (serverBogoItem.isNotEmpty) {
+      final total = serverBogoItem.fold<double>(0.0, (s, i) => s + i.discountApplied);
+      final last = serverBogoItem.last;
+      return {
+        'bogoDiscount': total,
+        'freeItemUniqueKey': '${last.id}_${last.qty - 1}',
+      };
+    }
+
     double bogoDiscount = 0.0;
     String freeItemUniqueKey = '';
     final bogoItems = buy1Get1Items;

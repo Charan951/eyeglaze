@@ -9,7 +9,7 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/cart_provider.dart';
 import '../cart/cart_screen.dart';
-
+import '../../widgets/ai_chat_sheet.dart';
 
 class LensPowerScreen extends StatefulWidget {
   const LensPowerScreen({super.key});
@@ -49,7 +49,16 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
   final List<String> _axisValues = List.generate(181, (i) => i.toString());
 
   final List<String> _addValues = [
-    '0.00', '+1.00', '+1.25', '+1.50', '+1.75', '+2.00', '+2.25', '+2.50', '+2.75', '+3.00'
+    '0.00',
+    '+1.00',
+    '+1.25',
+    '+1.50',
+    '+1.75',
+    '+2.00',
+    '+2.25',
+    '+2.50',
+    '+2.75',
+    '+3.00',
   ];
 
   @override
@@ -75,9 +84,11 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
   String _formatOptionLabel(Map<String, dynamic> pr) {
     final name = pr['name']?.toString() ?? '';
     final dateStr = pr['createdAt'] != null
-        ? DateTime.parse(pr['createdAt'].toString()).toLocal().toString().split(' ')[0]
+        ? DateTime.parse(
+            pr['createdAt'].toString(),
+          ).toLocal().toString().split(' ')[0]
         : '';
-    
+
     if (pr['uploadedFile'] != null || pr['imageUrl'] != null) {
       return name.isNotEmpty
           ? '📄 $name ($dateStr)'
@@ -88,7 +99,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
     final le = pr['LE'] is Map ? pr['LE'] : null;
     final reSph = re != null ? (re['sph'] as num?)?.toDouble() ?? 0.0 : 0.0;
     final leSph = le != null ? (le['sph'] as num?)?.toDouble() ?? 0.0 : 0.0;
-    
+
     final reStr = 'R: ${reSph > 0 ? '+$reSph' : reSph}';
     final leStr = 'L: ${leSph > 0 ? '+$leSph' : leSph}';
 
@@ -97,18 +108,27 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
         : '👓 Power - $reStr | $leStr';
   }
 
-  Future<void> _selectSavedPrescription(String id, LensWizardState wizard) async {
+  Future<void> _selectSavedPrescription(
+    String id,
+    LensWizardState wizard,
+  ) async {
     wizard.setSelectedPrescriptionId(id);
     if (id.isEmpty) {
       return;
     }
 
-    final pr = wizard.savedPrescriptions.firstWhere((p) => p['_id'] == id, orElse: () => null);
+    final pr = wizard.savedPrescriptions.firstWhere(
+      (p) => p['_id'] == id,
+      orElse: () => null,
+    );
     if (pr != null) {
       wizard.setPrescriptionName(pr['name']?.toString());
       if (pr['uploadedFile'] != null || pr['imageUrl'] != null) {
         wizard.setPrescriptionMode('upload');
-        wizard.setUploadedFile(pr['uploadedFile'] ?? pr['imageUrl'], 'Saved Document');
+        wizard.setUploadedFile(
+          pr['uploadedFile'] ?? pr['imageUrl'],
+          'Saved Document',
+        );
       } else {
         wizard.setPrescriptionMode('enter');
         final re = pr['RE'] is Map ? pr['RE'] : null;
@@ -136,7 +156,10 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final auth = context.read<AuthService>();
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
       if (image == null) return;
 
       setState(() => _uploadingFile = true);
@@ -151,17 +174,24 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
       );
 
       final prescriptionData = res['prescription'] as Map?;
-      final String? fileUrl = prescriptionData?['uploadedFile'] ?? prescriptionData?['imageUrl'];
+      final String? fileUrl =
+          prescriptionData?['uploadedFile'] ?? prescriptionData?['imageUrl'];
 
       if (fileUrl != null) {
         wizard.setUploadedFile(fileUrl, image.name);
         messenger.showSnackBar(
-          const SnackBar(content: Text('Prescription uploaded successfully!'), backgroundColor: AppColors.success),
+          const SnackBar(
+            content: Text('Prescription uploaded successfully!'),
+            backgroundColor: AppColors.success,
+          ),
         );
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
       );
     } finally {
       if (mounted) setState(() => _uploadingFile = false);
@@ -174,7 +204,10 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
 
     if (wizard.prescriptionMode == 'upload' && wizard.uploadedFileUrl == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Please upload a prescription image first.'), backgroundColor: AppColors.error),
+        const SnackBar(
+          content: Text('Please upload a prescription image first.'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
@@ -182,9 +215,15 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
     if (wizard.prescriptionMode == 'enter') {
       final hasAstigmatismRE = _rCyl != 0.0;
       final hasAstigmatismLE = _lCyl != 0.0;
-      if ((hasAstigmatismRE && _rAxis == 0) || (hasAstigmatismLE && _lAxis == 0)) {
+      if ((hasAstigmatismRE && _rAxis == 0) ||
+          (hasAstigmatismLE && _lAxis == 0)) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Please select AXIS for astigmatism (when CYL is not 0)'), backgroundColor: AppColors.error),
+          const SnackBar(
+            content: Text(
+              'Please select AXIS for astigmatism (when CYL is not 0)',
+            ),
+            backgroundColor: AppColors.error,
+          ),
         );
         return;
       }
@@ -199,10 +238,14 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
       if (p == null) return;
 
       // Save manually entered prescription to server if custom name entered
-      if (wizard.prescriptionMode == 'enter' && wizard.selectedPrescriptionId == null && authService.isLoggedIn) {
+      if (wizard.prescriptionMode == 'enter' &&
+          wizard.selectedPrescriptionId == null &&
+          authService.isLoggedIn) {
         try {
           await api.addPrescription(
-            name: wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
+            name: wizard.prescriptionName?.trim().isNotEmpty == true
+                ? wizard.prescriptionName!.trim()
+                : null,
             re: {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis, 'addPower': _rAdd},
             le: {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis, 'addPower': _lAdd},
             pd: _pd,
@@ -220,14 +263,28 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
         'lensPrice': wizard.lensPrice,
         'power': wizard.prescriptionMode == 'enter'
             ? {
-                'name': wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
-                'RE': {'sph': _rSph, 'cyl': _rCyl, 'axis': _rAxis, 'addPower': _rAdd},
-                'LE': {'sph': _lSph, 'cyl': _lCyl, 'axis': _lAxis, 'addPower': _lAdd},
+                'name': wizard.prescriptionName?.trim().isNotEmpty == true
+                    ? wizard.prescriptionName!.trim()
+                    : null,
+                'RE': {
+                  'sph': _rSph,
+                  'cyl': _rCyl,
+                  'axis': _rAxis,
+                  'addPower': _rAdd,
+                },
+                'LE': {
+                  'sph': _lSph,
+                  'cyl': _lCyl,
+                  'axis': _lAxis,
+                  'addPower': _lAdd,
+                },
                 'pd': _pd,
                 'addPower': _rAdd,
               }
             : {
-                'name': wizard.prescriptionName?.trim().isNotEmpty == true ? wizard.prescriptionName!.trim() : null,
+                'name': wizard.prescriptionName?.trim().isNotEmpty == true
+                    ? wizard.prescriptionName!.trim()
+                    : null,
                 'uploadLater': true,
                 'uploadedFileUrl': wizard.uploadedFileUrl,
               },
@@ -241,23 +298,27 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
       });
 
       messenger.showSnackBar(
-        const SnackBar(content: Text('Configuration added to cart!'), backgroundColor: AppColors.success),
+        const SnackBar(
+          content: Text('Configuration added to cart!'),
+          backgroundColor: AppColors.success,
+        ),
       );
-      
+
       navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const CartScreen()),
         (route) => route.isFirst,
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Checkout failed: $e'), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text('Checkout failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -267,24 +328,94 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('Enter Your Power', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.white), onPressed: () => Navigator.pop(context)),
+        title: const Text(
+          'Enter Your Power',
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const LensStepBar(currentStep: 3),
-            
+
             // Header text
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ENTER YOUR POWER', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
-                  SizedBox(height: 4),
-                  Text('All fields are required', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ENTER YOUR POWER',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'All fields are required',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // "Need more help?" — opens the AI chat sheet, mirroring
+                  // the web app's lens power step.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'NEED MORE HELP?',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const AiChatSheet(
+                              pageContext: {
+                                'pageName': 'Lens Power Selection',
+                                'pathname': '/lens',
+                              },
+                              initialMessage:
+                                  "I'm not sure how to find or enter my eyeglasses power/prescription. Can you help me figure it out?",
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'LEARN MORE',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -306,7 +437,12 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                     if (wizard.savedPrescriptions.isNotEmpty) ...[
                       const Text(
                         '📂 ADD SAVED POWER',
-                        style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
@@ -321,8 +457,17 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                             value: wizard.selectedPrescriptionId,
                             dropdownColor: AppColors.card,
                             isExpanded: true,
-                            hint: const Text('Select from Saved Powers', style: TextStyle(color: AppColors.muted, fontSize: 13)),
-                            style: const TextStyle(color: AppColors.white, fontSize: 13),
+                            hint: const Text(
+                              'Select from Saved Powers',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 13,
+                            ),
                             items: [
                               const DropdownMenuItem(
                                 value: null,
@@ -354,15 +499,21 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: wizard.prescriptionMode == 'enter' ? AppColors.gold : AppColors.background,
-                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
+                                color: wizard.prescriptionMode == 'enter'
+                                    ? AppColors.gold
+                                    : AppColors.background,
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(10),
+                                ),
                                 border: Border.all(color: AppColors.border),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 'ENTER MANUALLY',
                                 style: TextStyle(
-                                  color: wizard.prescriptionMode == 'enter' ? Colors.black : AppColors.muted,
+                                  color: wizard.prescriptionMode == 'enter'
+                                      ? Colors.black
+                                      : AppColors.muted,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
@@ -376,15 +527,21 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: wizard.prescriptionMode == 'upload' ? AppColors.gold : AppColors.background,
-                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
+                                color: wizard.prescriptionMode == 'upload'
+                                    ? AppColors.gold
+                                    : AppColors.background,
+                                borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(10),
+                                ),
                                 border: Border.all(color: AppColors.border),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 'UPLOAD PRESCRIPTION',
                                 style: TextStyle(
-                                  color: wizard.prescriptionMode == 'upload' ? Colors.black : AppColors.muted,
+                                  color: wizard.prescriptionMode == 'upload'
+                                      ? Colors.black
+                                      : AppColors.muted,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
@@ -403,10 +560,50 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                       Row(
                         children: const [
                           SizedBox(width: 24),
-                          Expanded(child: Text('SPH', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
-                          Expanded(child: Text('CYL', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
-                          Expanded(child: Text('AXIS', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
-                          Expanded(child: Text('ADD', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 10), textAlign: TextAlign.center)),
+                          Expanded(
+                            child: Text(
+                              'SPH',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'CYL',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'AXIS',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'ADD',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -416,34 +613,53 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                         children: [
                           const SizedBox(
                             width: 24,
-                            child: Text('R', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
-                          ),
-                          Expanded(
-                            child: _DropdownCell(
-                              value: _rSph > 0 ? '+${_rSph.toStringAsFixed(2)}' : _rSph.toStringAsFixed(2),
-                              items: _sphValues,
-                              onChanged: (v) => setState(() => _rSph = double.parse(v)),
+                            child: Text(
+                              'R',
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
-                              value: _rCyl > 0 ? '+${_rCyl.toStringAsFixed(2)}' : _rCyl.toStringAsFixed(2),
+                              value: _rSph > 0
+                                  ? '+${_rSph.toStringAsFixed(2)}'
+                                  : _rSph.toStringAsFixed(2),
+                              items: _sphValues,
+                              onChanged: (v) =>
+                                  setState(() => _rSph = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _rCyl > 0
+                                  ? '+${_rCyl.toStringAsFixed(2)}'
+                                  : _rCyl.toStringAsFixed(2),
                               items: _cylValues,
-                              onChanged: (v) => setState(() => _rCyl = double.parse(v)),
+                              onChanged: (v) =>
+                                  setState(() => _rCyl = double.parse(v)),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
                               value: _rAxis.toString(),
                               items: _axisValues,
-                              onChanged: (v) => setState(() => _rAxis = int.parse(v)),
+                              onChanged: (v) =>
+                                  setState(() => _rAxis = int.parse(v)),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
-                              value: _rAdd > 0 ? '+${_rAdd.toStringAsFixed(2)}' : _rAdd.toStringAsFixed(2),
+                              value: _rAdd > 0
+                                  ? '+${_rAdd.toStringAsFixed(2)}'
+                                  : _rAdd.toStringAsFixed(2),
                               items: _addValues,
-                              onChanged: (v) => setState(() => _rAdd = double.parse(v.replaceAll('+', ''))),
+                              onChanged: (v) => setState(
+                                () =>
+                                    _rAdd = double.parse(v.replaceAll('+', '')),
+                              ),
                             ),
                           ),
                         ],
@@ -455,34 +671,53 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                         children: [
                           const SizedBox(
                             width: 24,
-                            child: Text('L', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14)),
-                          ),
-                          Expanded(
-                            child: _DropdownCell(
-                              value: _lSph > 0 ? '+${_lSph.toStringAsFixed(2)}' : _lSph.toStringAsFixed(2),
-                              items: _sphValues,
-                              onChanged: (v) => setState(() => _lSph = double.parse(v)),
+                            child: Text(
+                              'L',
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
-                              value: _lCyl > 0 ? '+${_lCyl.toStringAsFixed(2)}' : _lCyl.toStringAsFixed(2),
+                              value: _lSph > 0
+                                  ? '+${_lSph.toStringAsFixed(2)}'
+                                  : _lSph.toStringAsFixed(2),
+                              items: _sphValues,
+                              onChanged: (v) =>
+                                  setState(() => _lSph = double.parse(v)),
+                            ),
+                          ),
+                          Expanded(
+                            child: _DropdownCell(
+                              value: _lCyl > 0
+                                  ? '+${_lCyl.toStringAsFixed(2)}'
+                                  : _lCyl.toStringAsFixed(2),
                               items: _cylValues,
-                              onChanged: (v) => setState(() => _lCyl = double.parse(v)),
+                              onChanged: (v) =>
+                                  setState(() => _lCyl = double.parse(v)),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
                               value: _lAxis.toString(),
                               items: _axisValues,
-                              onChanged: (v) => setState(() => _lAxis = int.parse(v)),
+                              onChanged: (v) =>
+                                  setState(() => _lAxis = int.parse(v)),
                             ),
                           ),
                           Expanded(
                             child: _DropdownCell(
-                              value: _lAdd > 0 ? '+${_lAdd.toStringAsFixed(2)}' : _lAdd.toStringAsFixed(2),
+                              value: _lAdd > 0
+                                  ? '+${_lAdd.toStringAsFixed(2)}'
+                                  : _lAdd.toStringAsFixed(2),
                               items: _addValues,
-                              onChanged: (v) => setState(() => _lAdd = double.parse(v.replaceAll('+', ''))),
+                              onChanged: (v) => setState(
+                                () =>
+                                    _lAdd = double.parse(v.replaceAll('+', '')),
+                              ),
                             ),
                           ),
                         ],
@@ -494,36 +729,60 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                       const SizedBox(height: 12),
                       const Text(
                         'SAVE THIS POWER AS (OPTIONAL)',
-                        style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 11),
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       TextField(
-                        style: const TextStyle(color: AppColors.white, fontSize: 13),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
-                          hintText: "e.g. My Daily Power, Dad's Reading Glasses",
-                          hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
+                          hintText:
+                              "e.g. My Daily Power, Dad's Reading Glasses",
+                          hintStyle: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: AppColors.background,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: const BorderSide(color: AppColors.gold),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
-                        controller: TextEditingController(text: wizard.prescriptionName)..selection = TextSelection.fromPosition(TextPosition(offset: (wizard.prescriptionName ?? '').length)),
+                        controller:
+                            TextEditingController(text: wizard.prescriptionName)
+                              ..selection = TextSelection.fromPosition(
+                                TextPosition(
+                                  offset:
+                                      (wizard.prescriptionName ?? '').length,
+                                ),
+                              ),
                         onChanged: (v) => wizard.setPrescriptionName(v),
                       ),
-
-
                     ] else ...[
                       // Upload Prescription Form
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 24,
+                          horizontal: 16,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.background,
                           borderRadius: BorderRadius.circular(12),
@@ -531,28 +790,62 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.cloud_upload_outlined, color: AppColors.gold, size: 36),
+                            const Icon(
+                              Icons.cloud_upload_outlined,
+                              color: AppColors.gold,
+                              size: 36,
+                            ),
                             const SizedBox(height: 12),
-                            const Text('Upload Prescription Photo', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            const Text(
+                              'Upload Prescription Photo',
+                              style: TextStyle(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            const Text('Drag & drop or click below to upload prescription.', style: TextStyle(color: AppColors.muted, fontSize: 10), textAlign: TextAlign.center),
+                            const Text(
+                              'Drag & drop or click below to upload prescription.',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                             const SizedBox(height: 16),
                             _uploadingFile
-                                ? const CircularProgressIndicator(color: AppColors.gold)
+                                ? const CircularProgressIndicator(
+                                    color: AppColors.gold,
+                                  )
                                 : ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.gold,
                                       minimumSize: const Size(120, 36),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
-                                    onPressed: () => _pickPrescriptionImage(wizard),
-                                    child: const Text('Browse File', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () =>
+                                        _pickPrescriptionImage(wizard),
+                                    child: const Text(
+                                      'Browse File',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                             if (wizard.uploadedFileName != null) ...[
                               const SizedBox(height: 12),
                               Text(
                                 '✓ Selected: ${wizard.uploadedFileName}',
-                                style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: AppColors.success,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 20),
                               const Divider(color: AppColors.border),
@@ -561,28 +854,56 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   'SAVE THIS PRESCRIPTION AS (OPTIONAL)',
-                                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.bold, fontSize: 11),
+                                  style: TextStyle(
+                                    color: AppColors.muted,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 6),
                               TextField(
-                                style: const TextStyle(color: AppColors.white, fontSize: 13),
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 13,
+                                ),
                                 decoration: InputDecoration(
-                                  hintText: "e.g. Eye Clinic Report, Dad's Prescription",
-                                  hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
+                                  hintText:
+                                      "e.g. Eye Clinic Report, Dad's Prescription",
+                                  hintStyle: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 13,
+                                  ),
                                   filled: true,
                                   fillColor: AppColors.background,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: AppColors.border),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: AppColors.gold),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.gold,
+                                    ),
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
                                 ),
-                                controller: TextEditingController(text: wizard.prescriptionName)..selection = TextSelection.fromPosition(TextPosition(offset: (wizard.prescriptionName ?? '').length)),
+                                controller:
+                                    TextEditingController(
+                                        text: wizard.prescriptionName,
+                                      )
+                                      ..selection = TextSelection.fromPosition(
+                                        TextPosition(
+                                          offset:
+                                              (wizard.prescriptionName ?? '')
+                                                  .length,
+                                        ),
+                                      ),
                                 onChanged: (v) => wizard.setPrescriptionName(v),
                               ),
                             ],
@@ -595,12 +916,14 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
               ),
             ),
             const SizedBox(height: 40),
-            
+
             // Continue CTA Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _submitting
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.gold),
+                    )
                   : GoldButton(
                       label: 'CONTINUE TO CART →',
                       onPressed: () => _handleCheckout(wizard),
@@ -619,7 +942,11 @@ class _DropdownCell extends StatelessWidget {
   final List<String> items;
   final ValueChanged<String> onChanged;
 
-  const _DropdownCell({required this.value, required this.items, required this.onChanged});
+  const _DropdownCell({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -637,8 +964,16 @@ class _DropdownCell extends StatelessWidget {
           dropdownColor: AppColors.card,
           isExpanded: true,
           isDense: true,
-          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold, size: 14),
-          style: const TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w600),
+          icon: const Icon(
+            Icons.arrow_drop_down,
+            color: AppColors.gold,
+            size: 14,
+          ),
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
           items: items.map((v) {
             return DropdownMenuItem<String>(
               value: v,

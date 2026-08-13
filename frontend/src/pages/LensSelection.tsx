@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
@@ -270,6 +270,7 @@ const getLensPairPrice = (
 export default function LensSelection() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { openAiChat } = useOutletContext<{ openAiChat: (prompt?: string) => void }>();
   const { user, fetchCartCount } = useAuth();
   const productId = searchParams.get('product');
   const color = searchParams.get('color') || '';
@@ -1601,9 +1602,21 @@ export default function LensSelection() {
         {currentStep === 3 && (
           <div className="space-y-6 animate-fade-in">
             {/* Header Block */}
-            <div className="text-left">
-              <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Power Option</h1>
-              <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose how you want to configure your lens power</p>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="text-left">
+                <h1 className="text-lg font-black text-white uppercase tracking-wider">Select Power Option</h1>
+                <p className="text-[#A7A7A7] text-[11px] font-medium mt-1">Choose how you want to configure your lens power</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[#A7A7A7] text-[11px] font-bold uppercase tracking-wider">Need more help?</p>
+                <button
+                  type="button"
+                  onClick={() => openAiChat("I'm not sure how to find or enter my eyeglasses power/prescription. Can you help me figure it out?")}
+                  className="text-[#D4A04D] hover:underline text-xs font-black uppercase tracking-wider bg-transparent border-none cursor-pointer p-0 mt-0.5"
+                >
+                  Learn More
+                </button>
+              </div>
             </div>
 
             {/* Prescription Form Block */}

@@ -20,6 +20,10 @@ export interface IOrderItem {
   memberFramePrice?: number;
   fittingCharge: number;
   appliedOffers?: string[];
+  offerType?: 'oneRupeeFrame' | 'buy1Get1' | 'freeGift' | 'none';
+  isFreeItem?: boolean;
+  discountApplied?: number;
+  linkedToCartItemId?: mongoose.Types.ObjectId;
 }
 
 export interface IOrder extends Document {
@@ -45,7 +49,7 @@ export interface IOrder extends Document {
   total: number;
   coupon?: {
     code: string;
-    discountType: 'percent' | 'flat';
+    discountType: 'percent' | 'flat' | 'bogo' | 'buy_x_get_y';
     discountValue: number;
     amountSaved: number;
   };
@@ -96,6 +100,10 @@ const OrderItemSchema = new Schema<IOrderItem>({
   memberFramePrice: Number,
   fittingCharge: { type: Number, default: 0 },
   appliedOffers: [{ type: String }],
+  offerType: { type: String, enum: ['oneRupeeFrame', 'buy1Get1', 'freeGift', 'none'], default: 'none' },
+  isFreeItem: { type: Boolean, default: false },
+  discountApplied: { type: Number, default: 0 },
+  linkedToCartItemId: { type: Schema.Types.ObjectId },
 });
 
 const OrderSchema = new Schema<IOrder>(
@@ -122,7 +130,7 @@ const OrderSchema = new Schema<IOrder>(
     total: Number,
     coupon: {
       code: String,
-      discountType: { type: String, enum: ['percent', 'flat'] },
+      discountType: { type: String, enum: ['percent', 'flat', 'bogo', 'buy_x_get_y'] },
       discountValue: Number,
       amountSaved: Number,
     },

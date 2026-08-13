@@ -219,6 +219,8 @@ export default function UserLayout() {
       pageName = 'Orders';
     } else if (pathname === '/profile') {
       pageName = 'Profile';
+    } else if (pathname === '/lens') {
+      pageName = 'Lens Power Selection';
     }
 
     return { pageName, pathname, details };
@@ -230,14 +232,14 @@ export default function UserLayout() {
     }
   }, [chatMessages, isAiTyping]);
 
-  const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
-    const userMsg = chatInput.trim();
+  const handleSendChat = async (presetMessage?: string) => {
+    const userMsg = (presetMessage ?? chatInput).trim();
+    if (!userMsg) return;
 
     // Add user message immediately
     const updatedHistory = [...chatMessages, { sender: 'user', text: userMsg }];
     setChatMessages(updatedHistory);
-    setChatInput('');
+    if (!presetMessage) setChatInput('');
     setIsAiTyping(true);
 
     try {
@@ -1617,7 +1619,13 @@ export default function UserLayout() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <Outlet context={{ setMobileTitle }} />
+            <Outlet context={{
+              setMobileTitle,
+              openAiChat: (prompt?: string) => {
+                setIsAiDrawerOpen(true);
+                if (prompt) handleSendChat(prompt);
+              }
+            }} />
           </motion.div>
         </AnimatePresence>
       </main>

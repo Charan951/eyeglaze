@@ -268,6 +268,10 @@ Keep your responses concise (1-3 sentences maximum), engaging, premium, and focu
       return `Our Gold Membership is just ₹129! Members get frames starting at ₹1, Buy 1 Get 1 free, and zero convenience fees. Would you like to join?`;
     }
 
+    if (pageName.includes('Lens Power')) {
+      return `No problem, finding your power is easy! You can: 1) Check the numbers on an old prescription or your current glasses' box/receipt, 2) Use "Upload" here to snap a photo of your prescription and we'll read it for you, or 3) Enter it manually — SPH is your main power, CYL/AXIS are only needed if you have astigmatism, and ADD is for reading/multifocal lenses. If you don't have a recent prescription, we recommend a quick eye test before ordering. What would you like help with?`;
+    }
+
     if (val.includes('round') || val.includes('face')) {
       return 'For a round face, rectangular or square frames like our EG-2041 Matte Square Frame are perfect because they add sharp angles and structure!';
     }
