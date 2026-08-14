@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import { socket } from '../lib/socket';
 
 interface CartItem {
@@ -43,6 +44,7 @@ interface Coupon {
 
 export default function CheckoutPage() {
   const { user, checkAuth, fetchCartCount } = useAuth();
+  const membershipPrice = useMembershipPrice();
   const navigate = useNavigate();
   const location = useLocation();
   const checkoutState = location.state?.checkoutState || location.state || {};
@@ -175,7 +177,7 @@ export default function CheckoutPage() {
   const fittingFeeTotal = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
   const delivery = isMember ? 0 : 99;
-  const membershipFee = addGoldMembership ? 129 : 0;
+  const membershipFee = addGoldMembership ? membershipPrice : 0;
   const totalDiscount = discount + bogoDiscount + productDiscounts;
   
   const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
@@ -207,7 +209,7 @@ export default function CheckoutPage() {
       sku: 'MEMBERSHIP-GOLD-1YR',
       color: 'Gold',
       qty: 1,
-      framePriceCalculated: 129,
+      framePriceCalculated: membershipPrice,
       lensPrice: 0,
       fittingCharge: 0,
       image: '',
@@ -1114,7 +1116,7 @@ export default function CheckoutPage() {
                     <div className="text-right">
                       <span className="text-white font-bold">
                         {item.isPseudo ? (
-                          '₹129'
+                          `₹${membershipPrice}`
                         ) : isFreeThisItem ? (
                           <>
                             <span className="line-through text-[10px] text-gray-500 mr-1">₹{item.framePriceCalculated + item.lensPrice}</span>

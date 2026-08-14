@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { getMembershipPrice } from '../lib/membership';
 
 dotenv.config();
 
@@ -50,7 +51,7 @@ export class AiService {
 
     // If all providers failed, fallback to a friendly localized/offline response
     console.error('[AI Chat] All AI providers failed. Using fallback response.');
-    return this.getLocalFallbackResponse(message, pageContext);
+    return await this.getLocalFallbackResponse(message, pageContext);
   }
 
   private static buildSystemPrompt(context: PageContext): string {
@@ -249,7 +250,7 @@ Keep your responses concise (1-3 sentences maximum), engaging, premium, and focu
    * Safe offline client-side fallback if all services fail.
    * Matches the original hardcoded mock rules so users always get a response.
    */
-  private static getLocalFallbackResponse(message: string, context: PageContext): string {
+  private static async getLocalFallbackResponse(message: string, context: PageContext): Promise<string> {
     const val = message.toLowerCase();
     const pageName = context.pageName || '';
 
@@ -265,7 +266,8 @@ Keep your responses concise (1-3 sentences maximum), engaging, premium, and focu
     }
 
     if (pageName.includes('Membership') || pageName.includes('Gold')) {
-      return `Our Gold Membership is just ₹129! Members get frames starting at ₹1, Buy 1 Get 1 free, and zero convenience fees. Would you like to join?`;
+      const membershipPrice = await getMembershipPrice();
+      return `Our Gold Membership is just ₹${membershipPrice}! Members get frames starting at ₹1, Buy 1 Get 1 free, and zero convenience fees. Would you like to join?`;
     }
 
     if (pageName.includes('Lens Power')) {

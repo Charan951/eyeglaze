@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../core/staff_access.dart';
 import '../../models/user.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
@@ -70,6 +71,11 @@ class _OtpScreenState extends State<OtpScreen> {
       );
       if (result['token'] != null) {
         final user = result['user'] != null ? User.fromJson(result['user']) : null;
+        if (user != null &&
+            await rejectStaffMobileLogin(context, user, auth: authService)) {
+          if (mounted) Navigator.pop(context);
+          return;
+        }
         await authService.saveToken(result['token'], user: user);
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(

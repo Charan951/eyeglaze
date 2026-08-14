@@ -211,18 +211,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text(
-          'My Wishlist',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
-        ),
-        automaticallyImplyLeading: false,
-      ),
-      body: body,
-    );
+    // Embedded as a Home bottom-nav tab: Home already has its own app bar,
+    // so no Scaffold/AppBar here — just the tab's body content, or it would
+    // show as a second app bar stacked below Home's.
+    return body;
   }
 }
 

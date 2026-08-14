@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import OtpInput from '../components/ui/OtpInput';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import SEO from '../components/SEO';
 
 export default function OtpPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(30);
@@ -44,7 +45,11 @@ export default function OtpPage() {
         await login(data.user);
       }
       
-      if (hasGuestCartItems) {
+      const from = location.state?.from;
+      const fromPath = from ? (from.pathname + (from.search || '')) : '';
+      if (fromPath && fromPath !== '/' && fromPath !== '/login') {
+        navigate(fromPath, { replace: true });
+      } else if (hasGuestCartItems) {
         navigate('/checkout');
       } else {
         navigate('/products');

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 import '../../models/user.dart';
+import '../../core/staff_access.dart';
+import '../../services/membership_price_provider.dart';
 import '../home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -24,16 +27,31 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initAuth() async {
     final authService = context.read<AuthService>();
     final apiService = ApiService(authService);
+    final membershipPrice = context.read<MembershipPriceProvider>();
 
     // Initial check of local token
     await authService.init();
+    await membershipPrice.load(apiService);
+
+    context.read<SocketService>().socket?.on('settings_changed', (_) {
+      membershipPrice.load(apiService);
+    });
 
     // Verify token validity with backend if a token was found locally
+    var staffBlocked = false;
+    String staffRole = 'admin';
     if (authService.isLoggedIn) {
       try {
         final profileRes = await apiService.getProfile();
         if (profileRes['success'] == true && profileRes['user'] != null) {
-          authService.setUser(User.fromJson(profileRes['user']));
+          final user = User.fromJson(profileRes['user']);
+          if (user.isStaff) {
+            await authService.clearToken();
+            staffBlocked = true;
+            staffRole = user.role;
+          } else {
+            authService.setUser(user);
+          }
         } else {
           // Expired or invalid token, clear it
           await authService.clearToken();
@@ -52,6 +70,10 @@ class _SplashScreenState extends State<SplashScreen> {
     // Always continue straight into the app after splash, whether or not the
     // user is logged in — login is only required later, at checkout/account actions.
     await Future.delayed(const Duration(milliseconds: 1100));
+    if (!mounted) return;
+    if (staffBlocked) {
+      await showStaffUseWebAppDialog(context, role: staffRole);
+    }
     if (!mounted) return;
     _navigateToHome();
   }

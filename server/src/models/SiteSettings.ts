@@ -11,6 +11,7 @@ export interface ISiteSettings extends Document {
   contactPhoneLabel?: string;
   address: string;
   socialLinks: ISocialLink[];
+  membershipPrice: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
         { platform: 'twitter', url: 'https://twitter.com' },
       ],
     },
+    membershipPrice: { type: Number, default: 129, min: 1 },
   },
   { timestamps: true }
 );

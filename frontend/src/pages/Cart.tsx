@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import SEO from '../components/SEO';
 import { socket } from '../lib/socket';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,6 +75,7 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const { user, fetchCartCount } = useAuth();
+  const membershipPrice = useMembershipPrice();
   const navigate = useNavigate();
 
   // Lenskart Interactive Checkout states inside Cart
@@ -380,7 +382,7 @@ export default function CartPage() {
   const fittingFeeTotal = lensItemsCount === 0 ? 0 : lensItemsCount === 1 ? 99 : 199;
 
   const delivery = isMember ? 0 : 99;
-  const membershipFee = addGoldMembership ? 129 : 0;
+  const membershipFee = addGoldMembership ? membershipPrice : 0;
   const totalDiscount = discount + bogoDiscount + productDiscounts;
 
   const totalBeforeDiscount = itemsSubtotal + fittingFeeTotal + delivery + membershipFee;
@@ -404,7 +406,7 @@ export default function CartPage() {
       sku: 'MEMBERSHIP-GOLD-1YR',
       color: 'Gold',
       qty: 1,
-      framePriceCalculated: 129,
+      framePriceCalculated: membershipPrice,
       lensPrice: 0,
       image: '',
       isPseudo: true,
@@ -689,7 +691,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
-                    <div className="text-white font-bold">₹129</div>
+                    <div className="text-white font-bold">₹{membershipPrice}</div>
                     <div className="text-[#A7A7A7] text-[10px] line-through mt-1">₹600</div>
                   </div>
                 </div>
@@ -1170,7 +1172,7 @@ export default function CartPage() {
                     {addGoldMembership ? 'EyeGlaze Membership added' : 'Add EyeGlaze Membership and Avail Buy 1 Get 1 Free + 10% Cashback'}
                   </span>
                   <span className="text-gray-500 text-[9px] mt-1 font-medium flex items-center gap-2">
-                    {addGoldMembership ? 'Add 2nd Pair for Free' : 'Get member benefits instantly on this order · ₹129 / year'}
+                    {addGoldMembership ? 'Add 2nd Pair for Free' : `Get member benefits instantly on this order · ₹${membershipPrice} / year`}
                     <button
                       type="button"
                       onClick={() => setIsMembershipDetailsOpen(true)}
@@ -1465,7 +1467,7 @@ export default function CartPage() {
               <div>
                 <span className="text-[#A7A7A7] text-[10px] uppercase font-bold tracking-wider">Annual Price</span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[#D4A04D] text-lg font-black">₹129</span>
+                  <span className="text-[#D4A04D] text-lg font-black">₹{membershipPrice}</span>
                   <span className="text-gray-500 text-xs line-through">₹600</span>
                 </div>
               </div>

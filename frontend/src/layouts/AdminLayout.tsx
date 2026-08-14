@@ -14,6 +14,7 @@ import {
   Smartphone,
   Image,
   Tag,
+  Crown,
   LogOut,
   Shapes,
   Eye,
@@ -111,6 +112,7 @@ const navItems: NavItem[] = [
     icon: Sparkles,
     children: [
       { href: '/admin/coupons', label: 'Coupons', icon: Tag },
+      { href: '/admin/membership-price', label: 'Membership Price', icon: Crown },
     ],
   },
 ];

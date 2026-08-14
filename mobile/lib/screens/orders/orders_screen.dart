@@ -8,7 +8,11 @@ import '../../services/socket_service.dart';
 import 'order_details_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  // Same pattern as WishlistScreen: true when pushed as its own route
+  // (shows its own app bar + back button), false when embedded as a Home
+  // bottom-nav tab (Home already has an app bar, so this renders bare).
+  final bool isStandalonePage;
+  const OrdersScreen({super.key, this.isStandalonePage = true});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -76,15 +80,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        scrolledUnderElevation: 0,
-        title: const Text('My Orders', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-        automaticallyImplyLeading: false,
-      ),
-      body: _loading
+    final body = _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
           : _orders.isEmpty
               ? Center(
@@ -162,7 +158,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       );
                     },
                   ),
-                ),
+                );
+
+    if (!widget.isStandalonePage) {
+      // Embedded as a Home bottom-nav tab: Home already has its own app bar,
+      // so no Scaffold/AppBar here — just the tab's body content, or it
+      // would show as a second app bar stacked below Home's.
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        scrolledUnderElevation: 0,
+        title: const Text('My Orders', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+        // Explicit back icon so it matches the rest of the app (Icons.arrow_back)
+        // instead of Flutter's platform-adaptive auto-back chevron on iOS.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: body,
     );
   }
 }

@@ -79,6 +79,8 @@ class ApiService {
   Future<Map<String, dynamic>> getProducts({
     String? category,
     String? subCategory,
+    String? subSubCategory,
+    String? subSubSubCategory,
     String? search,
     String? sort,
     String? shape,
@@ -93,6 +95,12 @@ class ApiService {
     if (category != null) params['category'] = category;
     if (subCategory != null && subCategory.isNotEmpty) {
       params['subCategory'] = subCategory;
+    }
+    if (subSubCategory != null && subSubCategory.isNotEmpty) {
+      params['subSubCategory'] = subSubCategory;
+    }
+    if (subSubSubCategory != null && subSubSubCategory.isNotEmpty) {
+      params['subSubSubCategory'] = subSubSubCategory;
     }
     if (search != null) params['search'] = search;
     if (sort != null) params['sort'] = sort;
@@ -136,6 +144,25 @@ class ApiService {
     );
     final data = jsonDecode(res.body);
     return data is List ? data : (data['categories'] ?? data['data'] ?? []);
+  }
+
+  Future<Map<String, dynamic>> getSettings() async {
+    final res = await _client.get(
+      Uri.parse(_url('/settings')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  // Shapes — admin-managed, each with its own uploaded `image` (see Shape.ts).
+  Future<List<dynamic>> getShapes() async {
+    final res = await _client.get(
+      Uri.parse(_url('/shapes')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['shapes'] ?? data['data'] ?? []);
   }
 
   // Cart

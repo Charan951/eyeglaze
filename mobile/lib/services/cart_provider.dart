@@ -26,6 +26,7 @@ class CartProvider extends ChangeNotifier {
 
   // Coupons & Membership state
   bool _addGoldMembership = false;
+  double _membershipPrice = 129.0;
   String? _appliedCouponCode;
   double _couponDiscount = 0.0;
   bool _userRemovedCoupon = false;
@@ -34,6 +35,13 @@ class CartProvider extends ChangeNotifier {
   String? _couponSuccessMessage;
 
   bool get addGoldMembership => _addGoldMembership;
+  double get membershipPrice => _membershipPrice;
+
+  void setMembershipPrice(double price) {
+    if (price <= 0 || price == _membershipPrice) return;
+    _membershipPrice = price;
+    notifyListeners();
+  }
   String? get appliedCouponCode => _appliedCouponCode;
   double get couponDiscount => _couponDiscount;
   bool get userRemovedCoupon => _userRemovedCoupon;
@@ -219,7 +227,7 @@ class CartProvider extends ChangeNotifier {
 
   double get delivery => _items.isNotEmpty ? (isMember ? 0.0 : 99.0) : 0.0;
 
-  double get membershipFee => (_addGoldMembership && _authService.currentUser?.membershipActive != true) ? 129.0 : 0.0;
+  double get membershipFee => (_addGoldMembership && _authService.currentUser?.membershipActive != true) ? _membershipPrice : 0.0;
 
   double get totalDiscount => _couponDiscount + bogoDiscount + productDiscounts;
 

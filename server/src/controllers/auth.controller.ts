@@ -20,6 +20,7 @@ import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { Session } from '../models/Session';
+import { getMembershipPrice } from '../lib/membership';
 
 async function createUserSession(req: Request, res: Response, user: any): Promise<string> {
   const sessionId = new mongoose.Types.ObjectId().toString();
@@ -697,7 +698,7 @@ export async function activateMembership(req: Request, res: Response) {
     }
 
     const { paymentMethod } = req.body || {};
-    const membershipFee = 129;
+    const membershipFee = await getMembershipPrice();
 
     if (paymentMethod !== 'razorpay') {
       if ((user.walletBalance || 0) < membershipFee) {

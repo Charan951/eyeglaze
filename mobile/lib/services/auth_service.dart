@@ -21,6 +21,11 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> saveToken(String token, {User? user}) async {
+    // Staff roles are web-dashboard only — never persist their session here.
+    if (user != null && user.isStaff) {
+      await clearToken();
+      return;
+    }
     await _storage.write(key: _tokenKey, value: token);
     _currentUser = user;
     _isLoggedIn = true;

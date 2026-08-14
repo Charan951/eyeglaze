@@ -75,7 +75,7 @@ export default function LoginPage() {
       try {
         await api.post('/auth/send-otp', { phone: value, countryCode: '+91' });
         sessionStorage.setItem('otp_target', JSON.stringify({ mode: 'mobile', value }));
-        navigate('/login/otp');
+        navigate('/login/otp', { state: location.state });
       } catch (err: unknown) {
         const message =
           (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||

@@ -65,10 +65,10 @@ export default function CustomerLayout() {
     };
   }, [isMobileMenuOpen]);
 
-  // Profile has its own complete, self-contained view for both guests and
-  // logged-in users (mobile and desktop) — it must not be forced through
-  // this sidebar shell's login redirect the way Orders/Membership/etc. are.
-  if (location.pathname === '/profile') {
+  // Profile and Gold Membership have self-contained views for guests and
+  // logged-in users. Guests can browse membership details/price; login is
+  // only required when they try to buy.
+  if (location.pathname === '/profile' || location.pathname === '/membership') {
     return <Outlet />;
   }
 

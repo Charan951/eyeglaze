@@ -13,6 +13,7 @@ import { CouponEngine } from '../services/couponEngine';
 import { CouponUsage } from '../models/CouponUsage';
 import { recordAnalytics, generateMemberCoupons } from './coupons.controller';
 import { isContactLensProduct, isFrameProduct, isMonthlyContactLens } from '../lib/productType';
+import { getMembershipPrice } from '../lib/membership';
 
 const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
 
@@ -229,7 +230,7 @@ export async function createOrder(req: Request, res: Response) {
     // Add membership fee if selected and not yet a member
     let membershipFee = 0;
     if (activateMembership && !user.membershipActive) {
-      membershipFee = 129;
+      membershipFee = await getMembershipPrice();
     }
 
     let discount = onePlusOneDiscount;

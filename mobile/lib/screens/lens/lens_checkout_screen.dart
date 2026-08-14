@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/cart_provider.dart';
+import '../../services/membership_price_provider.dart';
 import '../../widgets/lens_step_bar.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
@@ -227,15 +228,18 @@ class _LensCheckoutScreenState extends State<LensCheckoutScreen> {
                   children: [
                     const Icon(Icons.workspace_premium, color: AppColors.gold, size: 28),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('EYEGLAZE MEMBERSHIP', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
-                          SizedBox(height: 3),
-                          Text('Join & get exclusive benefits: Free delivery, extended warranty & more!', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                          SizedBox(height: 4),
-                          Text('₹99/year', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+                          const Text('EYEGLAZE MEMBERSHIP', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
+                          const SizedBox(height: 3),
+                          const Text('Join & get exclusive benefits: Free delivery, extended warranty & more!', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '₹${context.watch<MembershipPriceProvider>().priceInt}/year',
+                            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+                          ),
                         ],
                       ),
                     ),

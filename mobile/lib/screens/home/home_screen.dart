@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,12 +14,14 @@ import '../../services/socket_service.dart';
 import '../../services/cart_provider.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
+import '../../core/staff_access.dart';
 import '../products/products_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../products/wishlist_screen.dart';
 import '../cart/cart_screen.dart';
 import '../orders/orders_screen.dart';
 import '../account/account_screen.dart';
+import '../account/membership_screen.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/ai_chat_sheet.dart';
 
@@ -33,12 +36,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
-  bool _showBottomBar = true;
 
   final List<Widget> _tabs = const [
     _HomeBody(),
     WishlistScreen(isStandalonePage: false),
-    OrdersScreen(),
+    OrdersScreen(isStandalonePage: false),
   ];
 
   @override
@@ -52,9 +54,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final api = ApiService(auth);
         api
             .getProfile()
-            .then((res) {
+            .then((res) async {
               if (res['success'] == true && res['user'] != null) {
-                auth.setUser(User.fromJson(res['user']));
+                final user = User.fromJson(res['user']);
+                if (user.isStaff) {
+                  await auth.clearToken();
+                  if (mounted) {
+                    await showStaffUseWebAppDialog(context, role: user.role);
+                  }
+                  return;
+                }
+                auth.setUser(user);
               }
             })
             .catchError((_) {});
@@ -70,180 +80,84 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _showGoldMembershipSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => const _GoldMembershipSheet(),
+  void _openMembershipPage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MembershipScreen()),
     );
   }
 
+  // Floating pill nav bar: the active tab gets a filled gold capsule with its
+  // icon + label side-by-side; inactive tabs stay icon-above-label in muted
+  // gray, all inside one rounded capsule-shaped bar — same palette as the
+  // rest of the app (AppColors.gold / card / muted), no new colors introduced.
   Widget _buildCustomBottomBar() {
-    return AnimatedSlide(
-      offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0A0A0A),
-          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-        ),
-        child: SafeArea(
-          top: false,
+    final cartCount = context.watch<CartProvider>().itemCount;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: ColoredBox(
+          color: AppColors.background.withValues(alpha: 0.94),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Home Tab
-                Expanded(
-                  child: _buildBottomTabItem(
-                    index: 0,
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
-                    label: 'HOME',
+            padding: EdgeInsets.fromLTRB(16, 10, 16, bottomInset > 0 ? bottomInset : 10),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                ),
-                // Wishlist Tab
-                Expanded(
-                  child: _buildBottomTabItem(
-                    index: 1,
-                    icon: Icons.favorite_border,
-                    activeIcon: Icons.favorite,
-                    label: 'WISHLIST',
-                  ),
-                ),
-                // GET GOLD Center Button
-                GestureDetector(
-                  onTap: () => _showGoldMembershipSheet(context),
-                  child: Container(
-                    width: 110,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: AppColors.gold.withValues(alpha: 0.6),
-                      ),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF1C160E), Color(0xFF0A0704)],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Badge at the top
-                        Positioned(
-                          top: -8,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.gold,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'GET GOLD',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 6.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(height: 4),
-                              const Icon(
-                                Icons.star,
-                                color: AppColors.gold,
-                                size: 14,
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'GET GOLD',
-                                style: TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              Text(
-                                'Unlock Benefits',
-                                style: TextStyle(
-                                  color: AppColors.white.withValues(alpha: 0.5),
-                                  fontSize: 5.5,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildPillTabItem(
+                      index: 0,
+                      icon: Icons.home_outlined,
+                      activeIcon: Icons.home,
+                      label: 'Home',
                     ),
                   ),
-                ),
-                // Orders Tab
-                Expanded(
-                  child: _buildBottomTabItem(
-                    index: 2,
-                    icon: Icons.shopping_bag_outlined,
-                    activeIcon: Icons.shopping_bag,
-                    label: 'ORDERS',
-                  ),
-                ),
-                // Products Tab — matches the web app's mobile bottom nav
-                // tab set (Products / Wishlist / Home / Orders / Gold).
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ProductsScreen(),
-                        ),
-                      );
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.grid_view_outlined,
-                          color: AppColors.muted,
-                          size: 20,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'PRODUCTS',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+                  Expanded(
+                    child: _buildPillTabItem(
+                      index: 1,
+                      icon: Icons.favorite_border,
+                      activeIcon: Icons.favorite,
+                      label: 'Wishlist',
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: _buildPillTabItem(
+                      index: 2,
+                      icon: Icons.shopping_bag_outlined,
+                      activeIcon: Icons.shopping_bag,
+                      label: 'Orders',
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildPillTabItem(
+                      index: 3,
+                      icon: Icons.shopping_cart_outlined,
+                      activeIcon: Icons.shopping_cart,
+                      label: 'Cart',
+                      badgeCount: cartCount,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CartScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -251,34 +165,107 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBottomTabItem({
+  Widget _buildPillTabItem({
     required int index,
     required IconData icon,
     required IconData activeIcon,
     required String label,
+    int badgeCount = 0,
+    VoidCallback? onTap,
   }) {
     final isActive = _currentTab == index;
-    final color = isActive ? AppColors.gold : AppColors.muted;
+    final mutedColor = AppColors.muted;
+
+    final iconWidget = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(
+          isActive ? activeIcon : icon,
+          color: isActive ? Colors.black : mutedColor,
+          size: 18,
+        ),
+        if (badgeCount > 0)
+          Positioned(
+            right: -6,
+            top: -5,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: isActive ? Colors.black : AppColors.gold,
+                shape: BoxShape.circle,
+                border: isActive ? null : Border.all(color: AppColors.card, width: 1.5),
+              ),
+              constraints: const BoxConstraints(minWidth: 13, minHeight: 13),
+              child: Center(
+                child: Text(
+                  '$badgeCount',
+                  style: TextStyle(
+                    color: isActive ? AppColors.gold : Colors.black,
+                    fontSize: 7,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentTab = index;
-          _showBottomBar = true;
-        });
-      },
+      onTap: onTap ??
+          () {
+            setState(() {
+              _currentTab = index;
+            });
+          },
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isActive ? activeIcon : icon, color: color, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 8,
-              fontWeight: isActive ? FontWeight.w900 : FontWeight.w700,
-              letterSpacing: 0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.gold : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: isActive
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        iconWidget,
+                        const SizedBox(width: 5),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        iconWidget,
+                        const SizedBox(height: 3),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: mutedColor,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -288,7 +275,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = context.watch<CartProvider>().itemCount;
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
@@ -333,60 +319,40 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const EyeGlazeLogo(),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: AppColors.white),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProductsScreen()),
-              );
-            },
-          ),
-          // Cart icon lives in the app bar (not the bottom nav), matching
-          // the web app — the bottom nav tab set is Products/Wishlist/Home/
-          // Orders/Gold, with cart reachable from the header instead.
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: AppColors.white,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CartScreen()),
-                  );
-                },
-              ),
-              if (cartCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: AppColors.gold,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 14,
-                      minHeight: 14,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$cartCount',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
+          Consumer<AuthService>(
+            builder: (context, auth, _) {
+              if (auth.currentUser?.membershipActive == true) {
+                return const SizedBox.shrink();
+              }
+              return GestureDetector(
+                onTap: () => _openMembershipPage(context),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.25)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_outlined, color: AppColors.gold, size: 12),
+                      SizedBox(width: 4),
+                      Text(
+                        'GOLD',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                    ),
+                    ],
                   ),
                 ),
-            ],
+              );
+            },
           ),
           Stack(
             children: [
@@ -423,31 +389,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification notification) {
-          if (notification is ScrollUpdateNotification &&
-              notification.depth == 0) {
-            final scrollDelta = notification.scrollDelta ?? 0.0;
-            if (scrollDelta > 2.0) {
-              if (_showBottomBar) {
-                setState(() => _showBottomBar = false);
-              }
-            } else if (scrollDelta < -2.0) {
-              if (!_showBottomBar) {
-                setState(() => _showBottomBar = true);
-              }
-            }
-            final metrics = notification.metrics;
-            if (metrics.pixels >= metrics.maxScrollExtent - 20) {
-              if (!_showBottomBar) {
-                setState(() => _showBottomBar = true);
-              }
-            }
-          }
-          return false;
-        },
-        child: ResponsiveContainer(maxWidth: 600, child: _tabs[_currentTab]),
-      ),
+      // Bottom nav stays visible at all times — no more hide-on-scroll-down.
+      body: ResponsiveContainer(maxWidth: 600, child: _tabs[_currentTab]),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.card,
         elevation: 4,
@@ -495,7 +438,7 @@ class _HomeBodyState extends State<_HomeBody> {
           _CategoryGrids(),
           _FeaturedProducts(),
           _PromoBanners(),
-          SizedBox(height: 80),
+          SizedBox(height: 120),
         ],
       ),
     );
@@ -639,7 +582,7 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
 
   void _handleBannerTap(String target) {
     if (target == 'gold') {
-      HomeScreen.state?._showGoldMembershipSheet(context);
+      HomeScreen.state?._openMembershipPage(context);
     } else if (target == 'all') {
       Navigator.push(
         context,
@@ -1311,12 +1254,14 @@ class _CategoryCard extends StatelessWidget {
   final String imagePath;
   final VoidCallback onTap;
   final bool isCircle;
+  final double imageAspectRatio;
 
   const _CategoryCard({
     required this.label,
     required this.imagePath,
     required this.onTap,
     this.isCircle = false,
+    this.imageAspectRatio = 1.0,
   });
 
   @override
@@ -1324,92 +1269,54 @@ class _CategoryCard extends StatelessWidget {
     final borderRadius = isCircle
         ? BorderRadius.circular(9999)
         : BorderRadius.circular(12);
+    // Image on top, label + "Shop Now" below it — matches the web app's
+    // mobile category grid (Landing.tsx: image div, then a separate <span>
+    // underneath), instead of overlaying the text on the image with a
+    // gradient scrim.
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: borderRadius,
-          border: Border.all(color: AppColors.border),
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Background Image
-              CachedNetworkImage(
-                imageUrl: AppConfig.resolveImageUrl(imagePath),
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                errorWidget: (context, url, error) => const Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: AppColors.muted,
-                    size: 24,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AspectRatio(
+            aspectRatio: imageAspectRatio,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: borderRadius,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: ClipRRect(
+                borderRadius: borderRadius,
+                child: CachedNetworkImage(
+                  imageUrl: AppConfig.resolveImageUrl(imagePath),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  errorWidget: (context, url, error) => const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.muted,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
-              // Gradient Overlay
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.5),
-                      Colors.black.withValues(alpha: 0.85),
-                    ],
-                    stops: const [0.5, 0.8, 1.0],
-                  ),
-                ),
-              ),
-              // Bottom Text
-              Positioned(
-                bottom: 6,
-                left: 4,
-                right: 4,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 1),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Shop Now',
-                          style: TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 6,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: 1),
-                        Icon(
-                          Icons.arrow_forward,
-                          color: AppColors.gold,
-                          size: 6,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -1431,6 +1338,10 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   // placement (Landing.tsx `categoryBanners`).
   static const _afterCategoryPrefix = 'after_category:';
   Map<String, List<Map<String, dynamic>>> _categoryBannersMap = {};
+
+  // Admin-managed shapes (each with its own uploaded image) — powers the
+  // shape-selection bottom sheet, matching the web app (Landing.tsx dbShapes).
+  List<dynamic> _dbShapes = [];
 
   final List<dynamic> _fallbackCategories = [
     {'name': 'Prescription', 'code': 'prescription', 'slug': 'prescription'},
@@ -1454,6 +1365,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     super.initState();
     _loadCategories();
     _loadCategoryBanners();
+    _loadShapes();
 
     // Connect socket listeners
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1533,11 +1445,23 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     } catch (_) {}
   }
 
+  Future<void> _loadShapes() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getShapes();
+      if (mounted) setState(() => _dbShapes = list);
+    } catch (_) {}
+  }
+
   void _showShapeSelectionSheet(
     BuildContext context, {
     required String title,
     required String category,
+    String? subCategory,
+    String? subCategoryLabel,
     String? gender,
+    List<String>? modalShapes,
   }) {
     showModalBottomSheet(
       context: context,
@@ -1547,10 +1471,73 @@ class _CategoryGridsState extends State<_CategoryGrids> {
         return _ShapeSelectionSheet(
           title: title,
           category: category,
+          subCategory: subCategory,
+          subCategoryLabel: subCategoryLabel,
           gender: gender,
+          modalShapes: modalShapes,
+          dbShapes: _dbShapes,
         );
       },
     );
+  }
+
+  void _showSubSubCategorySelectionSheet(
+    BuildContext context, {
+    required String title,
+    required String category,
+    String? subCategory,
+    String? subCategoryLabel,
+    required List<Map<String, String>> items,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return _SubSubCategorySelectionSheet(
+          title: title,
+          category: category,
+          subCategory: subCategory,
+          subCategoryLabel: subCategoryLabel,
+          items: items,
+        );
+      },
+    );
+  }
+
+  // Mirrors web's Landing.tsx: (sub.children || []).filter(child =>
+  // !sub.modalSubSubCategories?.length || sub.modalSubSubCategories.includes(child.slug))
+  // The categories API returns image fields as '' (not omitted) whenever the
+  // admin hasn't enabled that image, so a plain `??` fallback chain (which
+  // only skips actual nulls) leaves an empty string in place instead of
+  // falling through — matching JS's `||` fallback used on the web app.
+  static String _firstNonEmpty(List<String> candidates) {
+    for (final c in candidates) {
+      if (c.isNotEmpty) return c;
+    }
+    return '';
+  }
+
+  List<Map<String, String>> _filterSubSubCategories(dynamic sub) {
+    final children = (sub['children'] as List?) ?? const [];
+    final allowedSlugs = (sub['modalSubSubCategories'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+    return children
+        .where((child) =>
+            allowedSlugs.isEmpty ||
+            allowedSlugs.contains((child['slug'] ?? '').toString()))
+        .map<Map<String, String>>((child) => {
+              'name': (child['name'] ?? '').toString(),
+              'slug': (child['slug'] ?? '').toString(),
+              'imagePath': _firstNonEmpty([
+                (child['bannerImage'] ?? '').toString(),
+                (child['icon'] ?? '').toString(),
+                '/images/hero_model.png',
+              ]),
+            })
+        .toList();
   }
 
   List<Map<String, dynamic>> _getCategorySubOptions(dynamic cat) {
@@ -1565,15 +1552,33 @@ class _CategoryGridsState extends State<_CategoryGrids> {
           .map<Map<String, dynamic>>(
             (sub) => {
               'label': (sub['name'] ?? '').toString(),
-              'imagePath':
-                  (sub['bannerImage'] ??
-                          sub['icon'] ??
-                          '/images/hero_model.png')
-                      .toString(),
+              // Same empty-string-vs-null fallback issue as _filterSubSubCategories
+              // above: the API returns bannerImage as '' (not omitted) whenever
+              // it isn't enabled in admin, so that must fall through too.
+              'imagePath': _firstNonEmpty([
+                (sub['bannerImage'] ?? '').toString(),
+                (sub['icon'] ?? '').toString(),
+                '/images/hero_model.png',
+              ]),
               'category': cat['slug']?.toString() ?? '',
               'gender': sub['gender']?.toString(),
               'shapeModal': sub['shapeModal'] == true,
               'subCategorySlug': sub['slug']?.toString(),
+              // The subcategory's own "Shapes to display in modal" list (set on
+              // Categories → edit SubCategory) — scopes the shape picker sheet to
+              // just what's relevant here, matching the web app (Landing.tsx
+              // handleSubOptionClick: setShapeModalShapes(option.modalShapes || ...)).
+              'modalShapes': (sub['modalShapes'] as List?)
+                      ?.map((e) => e.toString())
+                      .toList() ??
+                  const <String>[],
+              // "Show sub-categories in bottom sheet on click" (admin) — when
+              // enabled, tapping this subcategory opens a bottom sheet listing
+              // its own children instead of the shape selector or a direct
+              // link, scoped to "Sub-Categories to display in bottom sheet"
+              // when set. Matches the web app (Landing.tsx getCategorySubOptions).
+              'subSubCategoryModal': sub['subSubCategoryModal'] == true,
+              'subSubCategories': _filterSubSubCategories(sub),
             },
           )
           .toList();
@@ -1852,8 +1857,13 @@ class _CategoryGridsState extends State<_CategoryGrids> {
           builder: (context, constraints) {
             const crossAxisSpacing = 8.0;
             const mainAxisSpacing = 8.0;
+            // The label now renders below the image (matching the web app)
+            // instead of overlaid on it, so each grid cell needs extra height
+            // beyond the image's own aspect ratio to fit that text.
+            const textAreaHeight = 26.0;
             final cellWidth = (constraints.maxWidth - crossAxisSpacing * (crossCount - 1)) / crossCount;
-            final cellHeight = cellWidth / aspect;
+            final imageHeight = cellWidth / aspect;
+            final cellHeight = imageHeight + textAreaHeight;
             final rows = (subOptions.length / crossCount).ceil();
             final gridHeight = rows <= 0 ? 0.0 : rows * cellHeight + (rows - 1) * mainAxisSpacing;
 
@@ -1865,14 +1875,29 @@ class _CategoryGridsState extends State<_CategoryGrids> {
                 crossAxisCount: crossCount,
                 crossAxisSpacing: crossAxisSpacing,
                 mainAxisSpacing: mainAxisSpacing,
-                childAspectRatio: aspect,
+                childAspectRatio: cellWidth / cellHeight,
                 children: subOptions.map((opt) {
                   return _CategoryCard(
                     label: opt['label'],
                     imagePath: opt['imagePath'],
                     isCircle: shape == 'circle',
+                    imageAspectRatio: aspect,
                     onTap: () {
-                      if (opt['shapeModal'] == true) {
+                      final subSubCategories =
+                          (opt['subSubCategories'] as List?) ?? const [];
+                      // Priority order matches web (Landing.tsx handleSubOptionClick):
+                      // 1) subSubCategoryModal bottom sheet, 2) shape picker, 3) direct navigate.
+                      if (opt['subSubCategoryModal'] == true &&
+                          subSubCategories.isNotEmpty) {
+                        _showSubSubCategorySelectionSheet(
+                          context,
+                          title: "${opt['label']}'s ${cat['name'] ?? ''}",
+                          category: opt['category'],
+                          subCategory: opt['subCategorySlug'],
+                          subCategoryLabel: opt['label']?.toString(),
+                          items: subSubCategories.cast<Map<String, String>>(),
+                        );
+                      } else if (opt['shapeModal'] == true) {
                         final isKids =
                             opt['gender'] == 'kids' ||
                             opt['label'].toString().toLowerCase() == 'kids';
@@ -1882,7 +1907,11 @@ class _CategoryGridsState extends State<_CategoryGrids> {
                               ? 'Select Age Group'
                               : "${opt['label']}'s ${cat['name'] ?? ''}",
                           category: opt['category'],
+                          subCategory: opt['subCategorySlug'],
+                          subCategoryLabel: opt['label']?.toString(),
                           gender: opt['gender'],
+                          modalShapes: (opt['modalShapes'] as List?)
+                              ?.cast<String>(),
                         );
                       } else {
                         Navigator.push(
@@ -1890,7 +1919,9 @@ class _CategoryGridsState extends State<_CategoryGrids> {
                           MaterialPageRoute(
                             builder: (_) => ProductsScreen(
                               category: opt['category'],
+                              subCategory: opt['subCategorySlug'],
                               gender: opt['gender'],
+                              initialTitle: opt['label']?.toString(),
                             ),
                           ),
                         );
@@ -1921,7 +1952,7 @@ class _CmsBannerCard extends StatelessWidget {
     final linkUrl = (banner['linkUrl'] ?? '').toString();
     final lower = linkUrl.toLowerCase();
     if (lower.contains('membership') || lower.contains('gold')) {
-      HomeScreen.state?._showGoldMembershipSheet(context);
+      HomeScreen.state?._openMembershipPage(context);
       return;
     }
     final category = Uri.tryParse(linkUrl)?.queryParameters['category'];
@@ -2573,845 +2604,6 @@ class _FeaturedProductCard extends StatelessWidget {
   }
 }
 
-class _GoldMembershipSheet extends StatefulWidget {
-  const _GoldMembershipSheet();
-
-  @override
-  State<_GoldMembershipSheet> createState() => _GoldMembershipSheetState();
-}
-
-class _GoldMembershipSheetState extends State<_GoldMembershipSheet> {
-  bool _loading = false;
-  String? _error;
-  bool _success = false;
-
-  Future<void> _activateMembership() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final auth = context.read<AuthService>();
-      final api = ApiService(auth);
-
-      final res = await api.activateMembership();
-      if (res['success'] == true) {
-        final profileRes = await api.getProfile();
-        if (profileRes['success'] == true && profileRes['user'] != null) {
-          auth.setUser(User.fromJson(profileRes['user']));
-        }
-        setState(() => _success = true);
-      } else {
-        setState(() => _error = res['error'] ?? 'Activation failed');
-      }
-    } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _quickAddAndActivate() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final auth = context.read<AuthService>();
-      final api = ApiService(auth);
-      final user = auth.currentUser;
-
-      if (user != null) {
-        final needed = (129.0 - user.walletBalance).clamp(0.0, 99999.0);
-        if (needed > 0) {
-          await api.addWalletMoney(needed);
-        }
-        final res = await api.activateMembership();
-        if (res['success'] == true) {
-          final profileRes = await api.getProfile();
-          if (profileRes['success'] == true && profileRes['user'] != null) {
-            auth.setUser(User.fromJson(profileRes['user']));
-          }
-          setState(() => _success = true);
-        } else {
-          setState(() => _error = res['error'] ?? 'Activation failed');
-        }
-      }
-    } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    final user = auth.currentUser;
-
-    if (_success) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        height: MediaQuery.of(context).size.height * 0.7,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('👑', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 16),
-            const Text(
-              'Congratulations!',
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'You are now an EYEGLAZE GOLD MEMBER. Enjoy ₹1 frame exclusives, 1+1 free styling, priority support, and premium benefits!',
-              style: TextStyle(color: AppColors.muted, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('START SHOPPING'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.only(top: 16),
-      height: MediaQuery.of(context).size.height * 0.85,
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Column(
-                  children: [
-                    Text(
-                      'EYEGLAZE',
-                      style: TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    Text(
-                      'GOLD MEMBERSHIP',
-                      style: TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.gold),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'BEST VALUE',
-                    style: TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(color: AppColors.border, height: 20),
-
-          // Scrollable Body
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Gold Card Banner
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: AppColors.gold.withValues(alpha: 0.35),
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1E1911), Color(0xFF050506)],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '₹1 = 1 FRAME',
-                                style: TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.gold,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'GOLD MEMBERS EXCLUSIVE',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 7,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildBulletPoint('Selected Frames Only'),
-                              _buildBulletPoint('First Order Benefit'),
-                              _buildBulletPoint('Premium Eyewear at Just ₹1'),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  color: Colors.black,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.gold,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'FEE ONLY',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 6,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      '₹129',
-                                      style: TextStyle(
-                                        color: AppColors.gold,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                    Text(
-                                      '/ YEAR',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 6,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Need 2 Frames Block
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('🛒', style: TextStyle(fontSize: 20)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'NEED 2 FRAMES?',
-                                style: TextStyle(
-                                  color: AppColors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Get another frame for just ₹1 anytime before expiry.',
-                                style: TextStyle(
-                                  color: AppColors.white.withValues(alpha: 0.5),
-                                  fontSize: 8,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '👓 ₹1 + 👓 ₹1 = ₹2',
-                              style: TextStyle(
-                                color: AppColors.gold,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'TOTAL 2 FRAMES',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Error Display
-                  if (_error != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        border: Border.all(
-                          color: AppColors.error.withValues(alpha: 0.3),
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text('⚠️', style: TextStyle(fontSize: 12)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _error!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_error!.contains('balance') ||
-                              _error!.contains('Balance')) ...[
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _loading
-                                    ? null
-                                    : _quickAddAndActivate,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.gold,
-                                  minimumSize: const Size(double.infinity, 36),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Add Wallet Money & Activate Now',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Benefits checklist
-                  const Text(
-                    'MEMBERSHIP BENEFITS',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 2.2,
-                    children: [
-                      _buildBenefitTile(
-                        '👓',
-                        '₹1 PER FRAME',
-                        'Get 1 frame for ₹1. Take another for ₹1.',
-                      ),
-                      _buildBenefitTile(
-                        '➕',
-                        '1+1 FREE FRAMES',
-                        'Buy 1 Get 1 Free on selected frames.',
-                      ),
-                      _buildBenefitTile(
-                        '💰',
-                        '90% REFUND',
-                        'Wallet refund if second pair not taken.',
-                      ),
-                      _buildBenefitTile(
-                        '📉',
-                        '15% CASHBACK',
-                        'Get cashback on select eyeglasses.',
-                      ),
-                      _buildBenefitTile(
-                        '🩺',
-                        'FREE EYE TEST',
-                        'Optometrist checkup camps.',
-                      ),
-                      _buildBenefitTile(
-                        '📞',
-                        'PRIORITY HELP',
-                        'Skip queue customer support.',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Savings Table
-                  const Text(
-                    'HOW MUCH YOU SAVE',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Table(
-                        columnWidths: const {
-                          0: FlexColumnWidth(2),
-                          1: FlexColumnWidth(1.2),
-                          2: FlexColumnWidth(1.8),
-                        },
-                        children: [
-                          const TableRow(
-                            decoration: BoxDecoration(color: Color(0xFF151516)),
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  'BENEFIT',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  'SAVE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  'ANNUAL VALUE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ],
-                          ),
-                          _buildTableRow(
-                            '2 Frames for ₹2',
-                            '₹1,998',
-                            'Up to ₹4,998',
-                          ),
-                          _buildTableRow(
-                            '1+1 Free Frames',
-                            '₹1,998',
-                            'Up to ₹1,998',
-                          ),
-                          _buildTableRow(
-                            '15% Cashback',
-                            '₹1,000+',
-                            'On selected frames',
-                          ),
-                          _buildTableRow(
-                            'Free Eye Test',
-                            '₹500',
-                            'At partner store',
-                          ),
-                          _buildTableRow(
-                            'Contact Lens Solution',
-                            '₹500+',
-                            'Solution box free',
-                          ),
-                          TableRow(
-                            decoration: BoxDecoration(
-                              color: AppColors.gold.withValues(alpha: 0.08),
-                            ),
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  'TOTAL SAVINGS',
-                                  style: TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  '₹7,000+',
-                                  style: const TextStyle(
-                                    color: Colors.green,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  'Fee: ₹129 only!',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    fontSize: 7,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ),
-
-          // Sticky Bottom Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0A0A0B),
-              border: Border(top: BorderSide(color: AppColors.border)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'JOIN GOLD MEMBERSHIP',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            '₹129',
-                            style: TextStyle(
-                              color: AppColors.gold,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '/ Year',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (user?.membershipActive == true)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        border: Border.all(
-                          color: Colors.green.withValues(alpha: 0.3),
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            color: Colors.green,
-                            size: 14,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'ACTIVE MEMBER',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _activateMembership,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.gold,
-                          shape: const CircleBorder(),
-                          padding: EdgeInsets.zero,
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.black,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.arrow_forward,
-                                color: Colors.black,
-                              ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBulletPoint(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          const Icon(Icons.check, color: AppColors.gold, size: 12),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 8.5,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefitTile(String icon, String title, String desc) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 12)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            desc,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 7,
-              height: 1.1,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  TableRow _buildTableRow(String name, String save, String val) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          child: Text(
-            name,
-            style: const TextStyle(color: Colors.white, fontSize: 8),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          child: Text(
-            save,
-            style: const TextStyle(
-              color: Colors.green,
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          child: Text(
-            val,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 8,
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _WalletSheet extends StatefulWidget {
   const _WalletSheet();
@@ -3727,15 +2919,223 @@ class _WalletSheetState extends State<_WalletSheet> {
   }
 }
 
+// Sub-sub-category picker bottom sheet — shown when a subcategory has "Show
+// sub-categories in bottom sheet on click" enabled in admin. Mirrors the web
+// app's design (Landing.tsx isSubSubCategoryModalOpen): drag handle, title +
+// close, a list of tappable rows (thumbnail, name, arrow), and a "View All"
+// button that navigates without a subSubCategory filter.
+class _SubSubCategorySelectionSheet extends StatelessWidget {
+  final String title;
+  final String category;
+  final String? subCategory;
+  final String? subCategoryLabel;
+  final List<Map<String, String>> items;
+
+  const _SubSubCategorySelectionSheet({
+    required this.title,
+    required this.category,
+    this.subCategory,
+    this.subCategoryLabel,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.muted.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Header row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.muted, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 12),
+                  for (final item in items) ...[
+                    _SubSubCategoryRow(
+                      item: item,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductsScreen(
+                              category: category,
+                              subCategory: subCategory,
+                              subSubCategory: item['slug'],
+                              initialTitle: item['name'],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 4),
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductsScreen(
+                            category: category,
+                            subCategory: subCategory,
+                            initialTitle: subCategoryLabel,
+                          ),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'VIEW ALL',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubSubCategoryRow extends StatelessWidget {
+  final Map<String, String> item;
+  final VoidCallback onTap;
+
+  const _SubSubCategoryRow({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B0B0C),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: CachedNetworkImage(
+                imageUrl: AppConfig.resolveImageUrl(item['imagePath'] ?? ''),
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) => const Icon(
+                  Icons.broken_image_outlined,
+                  color: AppColors.muted,
+                  size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                (item['name'] ?? '').toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_forward, color: AppColors.gold, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ShapeSelectionSheet extends StatelessWidget {
   final String title;
   final String category;
+  final String? subCategory;
+  // The subcategory's own display name (e.g. "1+1 offers"), passed through
+  // to the resulting ProductsScreen as its title — matches the web app's
+  // mobile app-bar (Products.tsx `displayTitle`).
+  final String? subCategoryLabel;
   final String? gender;
+  final List<String>? modalShapes;
+  final List<dynamic> dbShapes;
 
   const _ShapeSelectionSheet({
     required this.title,
     required this.category,
+    this.subCategory,
+    this.subCategoryLabel,
     this.gender,
+    this.modalShapes,
+    this.dbShapes = const [],
   });
 
   @override
@@ -3756,7 +3156,7 @@ class _ShapeSelectionSheet extends StatelessWidget {
     final kidsOptions = [
       {
         'title': 'Special Edition',
-        'image': '/images/kids_eyeglasses.png',
+        'image': '/images/kids_special_edition.png',
         'badge': null,
         'badgeColor': null,
         'onTap': (BuildContext ctx) {
@@ -3775,7 +3175,7 @@ class _ShapeSelectionSheet extends StatelessWidget {
       },
       {
         'title': '5 to 8 years',
-        'image': '/images/cat_kids.png',
+        'image': '/images/kids_juniors_5_to_8.png',
         'badge': 'JUNIORS',
         'badgeColor': const Color(0xFFEC4899),
         'onTap': (BuildContext ctx) {
@@ -3794,7 +3194,7 @@ class _ShapeSelectionSheet extends StatelessWidget {
       },
       {
         'title': '8 to 12 years',
-        'image': '/images/kids_eyeglasses.png',
+        'image': '/images/kids_tweens_8_to_12.png',
         'badge': 'TWEENS',
         'badgeColor': const Color(0xFF10B981),
         'onTap': (BuildContext ctx) {
@@ -3813,7 +3213,7 @@ class _ShapeSelectionSheet extends StatelessWidget {
       },
       {
         'title': '12 to 17 years',
-        'image': '/images/kids_sunglasses.png',
+        'image': '/images/kids_teens_12_to_17.png',
         'badge': 'TEENS',
         'badgeColor': const Color(0xFF3B82F6),
         'onTap': (BuildContext ctx) {
@@ -3904,10 +3304,18 @@ class _ShapeSelectionSheet extends StatelessWidget {
                               child: Stack(
                                 children: [
                                   Positioned.fill(
-                                    child: Image.asset(
-                                      opt['image'] as String,
+                                    // These paths (e.g. "/images/kids_eyeglasses.png")
+                                    // are server-hosted, same as everywhere else in
+                                    // the app — not bundled Flutter assets (only
+                                    // logo.png/login_hero.jpg are registered in
+                                    // pubspec.yaml), so this must resolve/fetch them
+                                    // like every other admin image, not Image.asset.
+                                    child: CachedNetworkImage(
+                                      imageUrl: AppConfig.resolveImageUrl(
+                                        opt['image'] as String,
+                                      ),
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
+                                      errorWidget: (_, __, ___) => Container(
                                         color: AppColors.card,
                                         child: const Icon(
                                           Icons.child_care,
@@ -4007,14 +3415,33 @@ class _ShapeSelectionSheet extends StatelessWidget {
   }
 
   Widget _buildShapeModal(BuildContext context) {
-    final shapes = [
-      {'label': 'AVIATOR', 'value': 'Aviator'},
-      {'label': 'RECTANGLE', 'value': 'Rectangle'},
-      {'label': 'ROUND', 'value': 'Round'},
-      {'label': 'SQUARE', 'value': 'Square'},
-      {'label': 'CAT EYE', 'value': 'Cat Eye'},
-      {'label': 'GEOMETRIC', 'value': 'Geometric'},
-    ];
+    // Admin-managed shapes with their own uploaded images (Shape.ts `image`
+    // field) — matches the web app exactly (Landing.tsx: dbShapes fetched
+    // from /shapes, each rendered as <img src={shape.image}>). Falls back to
+    // a fixed name-only list (rendered via a painted icon instead of a real
+    // image) only if the admin hasn't configured any shapes at all yet.
+    final List<dynamic> shapesSource = dbShapes.isNotEmpty
+        ? dbShapes
+        : const [
+            {'name': 'Aviator'},
+            {'name': 'Rectangle'},
+            {'name': 'Round'},
+            {'name': 'Square'},
+            {'name': 'Cat Eye'},
+            {'name': 'Geometric'},
+          ];
+    // Scoped down to the subcategory's own configured "Shapes to display in
+    // modal" list when set, matching the web app (Landing.tsx: mappedShapes
+    // filters activeShapesList by option.modalShapes, falling back to the
+    // full list when none matched).
+    final configured = modalShapes;
+    final mappedShapes = (configured != null && configured.isNotEmpty)
+        ? shapesSource
+            .where((s) => configured.any((m) =>
+                m.toLowerCase() == (s['name'] ?? '').toString().toLowerCase()))
+            .toList()
+        : <dynamic>[];
+    final shapes = mappedShapes.isNotEmpty ? mappedShapes : shapesSource;
 
     return SafeArea(
       child: Align(
@@ -4081,6 +3508,8 @@ class _ShapeSelectionSheet extends StatelessWidget {
                   itemCount: shapes.length,
                   itemBuilder: (context, idx) {
                     final shape = shapes[idx];
+                    final shapeName = (shape['name'] ?? '').toString();
+                    final shapeImage = (shape['image'] ?? '').toString();
                     return GestureDetector(
                       onTap: () {
                         Navigator.pop(context);
@@ -4089,8 +3518,10 @@ class _ShapeSelectionSheet extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => ProductsScreen(
                               category: category,
-                              shape: shape['value'],
+                              subCategory: subCategory,
+                              shape: shapeName,
                               gender: gender,
+                              initialTitle: subCategoryLabel,
                             ),
                           ),
                         );
@@ -4110,22 +3541,41 @@ class _ShapeSelectionSheet extends StatelessWidget {
                                 width: 1.2,
                               ),
                             ),
-                            child: Center(
-                              child: SizedBox(
-                                width: 44,
-                                height: 26,
-                                child: CustomPaint(
-                                  painter: FrameShapePainter(
-                                    shape: shape['value']!,
-                                    strokeColor: AppColors.white,
+                            child: shapeImage.isNotEmpty
+                                ? ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: AppConfig.resolveImageUrl(shapeImage),
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) => Center(
+                                        child: SizedBox(
+                                          width: 44,
+                                          height: 26,
+                                          child: CustomPaint(
+                                            painter: FrameShapePainter(
+                                              shape: shapeName,
+                                              strokeColor: AppColors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: SizedBox(
+                                      width: 44,
+                                      height: 26,
+                                      child: CustomPaint(
+                                        painter: FrameShapePainter(
+                                          shape: shapeName,
+                                          strokeColor: AppColors.white,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            shape['label']!,
+                            shapeName.toUpperCase(),
                             style: const TextStyle(
                               color: AppColors.muted,
                               fontSize: 10,
@@ -4152,7 +3602,9 @@ class _ShapeSelectionSheet extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => ProductsScreen(
                             category: category,
+                            subCategory: subCategory,
                             gender: gender,
+                            initialTitle: subCategoryLabel,
                           ),
                         ),
                       );

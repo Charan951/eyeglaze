@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider, createRoutesFromElements, Route, Navigate, Outlet, useLocation, useNavigation } from 'react-router-dom';
 import { useEffect, lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
+import { MembershipPriceProvider } from './context/MembershipPriceContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import UserLayout from './layouts/UserLayout';
 import CustomerLayout from './layouts/CustomerLayout';
@@ -57,6 +58,7 @@ const AdminNavigationMenuBuilder = lazy(() => import('./pages/admin/categories/m
 const AdminHomepageVideos = lazy(() => import('./pages/admin/HomepageVideos'));
 const AdminReels = lazy(() => import('./pages/admin/Reels'));
 const AdminCoupons = lazy(() => import('./pages/admin/Coupons'));
+const AdminMembershipPrice = lazy(() => import('./pages/admin/MembershipPrice'));
 const AdminBanners = lazy(() => import('./pages/admin/Banners'));
 const AdminShapesList = lazy(() => import('./pages/admin/shapes/index'));
 const AdminShapeWizard = lazy(() => import('./pages/admin/shapes/Wizard'));
@@ -163,11 +165,7 @@ const router = createBrowserRouter(
           />
           <Route
             path="/membership"
-            element={
-              <ProtectedRoute>
-                <Membership />
-              </ProtectedRoute>
-            }
+            element={<Membership />}
           />
           <Route
             path="/profile"
@@ -402,6 +400,14 @@ const router = createBrowserRouter(
           }
         />
         <Route
+          path="/admin/membership-price"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminMembershipPrice />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/banners"
           element={
             <ProtectedRoute adminOnly>
@@ -441,7 +447,9 @@ const router = createBrowserRouter(
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <MembershipPriceProvider>
+        <RouterProvider router={router} />
+      </MembershipPriceProvider>
     </AuthProvider>
   );
 }

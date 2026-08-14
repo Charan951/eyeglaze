@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import SEO from '../components/SEO';
 
 interface OrderItemRow {
@@ -47,6 +48,7 @@ declare global {
 
 export default function AccountPage() {
   const { user, checkAuth } = useAuth();
+  const membershipPrice = useMembershipPrice();
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -92,7 +94,7 @@ export default function AccountPage() {
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_STX1H1R9XvVjSZ', // Razorpay TEST Key ID
-        amount: 12900, // ₹129 in paise (129 * 100)
+        amount: membershipPrice * 100,
         currency: 'INR',
         name: 'EyeGlaze',
         description: 'Gold Membership',
@@ -293,7 +295,7 @@ export default function AccountPage() {
                   disabled={isProcessing}
                   className="px-8 py-3 bg-gradient-to-r from-[#D4A04D] to-[#b3823b] hover:from-[#e6b45c] hover:to-[#c4934c] text-black font-bold rounded-xl transition-all disabled:opacity-50"
                 >
-                  {isProcessing ? 'Processing...' : 'Upgrade to Gold - ₹129/year'}
+                  {isProcessing ? 'Processing...' : `Upgrade to Gold - ₹${membershipPrice}/year`}
                 </button>
                 <button
                   onClick={async () => {

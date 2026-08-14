@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import { Link, useNavigate, Navigate, useLoaderData } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
@@ -96,6 +97,7 @@ function BannerSlider({ items, objectFit = 'object-cover' }: { items: any[], obj
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user, wishlist, checkAuth } = useAuth();
+  const membershipPrice = useMembershipPrice();
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -554,7 +556,7 @@ export default function LandingPage() {
     setIsActivatingGold(true);
     setGoldError('');
     try {
-      const needed = Math.max(0, 129 - (user.walletBalance || 0));
+      const needed = Math.max(0, membershipPrice - (user.walletBalance || 0));
       // 1. Add money
       await api.post('/auth/wallet/add', { amount: needed, method: 'upi' });
       // 2. Activate membership
@@ -572,11 +574,7 @@ export default function LandingPage() {
 
   const handleGoldArrowClick = () => {
     setIsGoldModalOpen(false);
-    if (!user) {
-      navigate('/login', { state: { from: { pathname: '/membership' } } });
-    } else {
-      navigate('/membership');
-    }
+    navigate('/membership');
   };
 
 
@@ -1421,21 +1419,26 @@ export default function LandingPage() {
                     to={`/products?shape=${shape.slug}`}
                     className="flex-shrink-0 snap-start flex flex-col items-center justify-center text-center gap-3.5 group cursor-pointer w-[90px] sm:w-[110px]"
                   >
-                    {/* Outer White Circle */}
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white border border-zinc-200/50 flex items-center justify-center p-1.5 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_18px_rgba(212,160,77,0.18)] transition-all duration-300">
-                      {/* Inner Gray Circle */}
-                      <div className="w-full h-full rounded-full bg-[#DCDCDC] flex items-center justify-center p-2.5 overflow-hidden">
-                        {isFallback ? (
-                          shape.svg
-                        ) : (
-                          <img
-                            src={shape.image}
-                            alt={shape.name}
-                            className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300"
-                          />
-                        )}
+                    {isFallback ? (
+                      /* Outer White Circle */
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white border border-zinc-200/50 flex items-center justify-center p-1.5 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_18px_rgba(212,160,77,0.18)] transition-all duration-300">
+                        {/* Inner Gray Circle */}
+                        <div className="w-full h-full rounded-full bg-[#DCDCDC] flex items-center justify-center p-2.5 overflow-hidden">
+                          {shape.svg}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Real admin-uploaded shape image — full-bleed cover-fit,
+                         matching the mobile app instead of a padded/contained
+                         icon on a white background. */
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-[#131314] border border-zinc-800 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_18px_rgba(212,160,77,0.18)] transition-all duration-300">
+                        <img
+                          src={shape.image}
+                          alt={shape.name}
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    )}
                     {/* Shape Name */}
                     <span className="text-white text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] group-hover:text-[#D4A04D] transition-colors leading-none">
                       {shape.name}
@@ -2286,7 +2289,7 @@ export default function LandingPage() {
                       <div className="w-16 h-16 bg-[#000000] border-2 border-[#D4A04D] rounded-full flex flex-col items-center justify-center text-center shadow-md">
                         <span className="text-[5px] text-gray-500 font-bold uppercase tracking-tighter leading-none">MEMBERSHIP</span>
                         <span className="text-[5px] text-gray-500 font-bold uppercase tracking-tighter leading-none">FEE ONLY</span>
-                        <span className="text-[#D4A04D] text-xs font-black leading-none mt-0.5">₹129</span>
+                        <span className="text-[#D4A04D] text-xs font-black leading-none mt-0.5">₹{membershipPrice}</span>
                         <span className="text-[5px] text-gray-400 font-medium leading-none">/ YEAR</span>
                       </div>
                     </div>
@@ -2428,7 +2431,7 @@ export default function LandingPage() {
                       <div className="grid grid-cols-3 bg-[#D4A04D]/10 px-3 py-2.5 text-white font-black border-t border-[#D4A04D]/20">
                         <div className="text-[#D4A04D]">TOTAL SAVINGS</div>
                         <div className="text-green-400 text-center text-[10px]">₹7,000+</div>
-                        <div className="text-gray-400 text-right font-medium">Itni bachat, sirf ₹129 pe!</div>
+                        <div className="text-gray-400 text-right font-medium">Itni bachat, sirf ₹{membershipPrice} pe!</div>
                       </div>
                     </div>
                   </div>
@@ -2437,7 +2440,7 @@ export default function LandingPage() {
                   <div className="grid grid-cols-4 gap-2 pt-2 text-center text-[7px] text-gray-500 font-bold uppercase tracking-wider">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-xs">🪙</span>
-                      <span>₹129/YEAR</span>
+                      <span>₹{membershipPrice}/YEAR</span>
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-xs">🛡️</span>
@@ -2468,7 +2471,7 @@ export default function LandingPage() {
                   <>
                     <div className="flex flex-col">
                       <span className="text-white text-xs font-black uppercase tracking-wider leading-none">JOIN GOLD MEMBERSHIP</span>
-                      <span className="text-[#D4A04D] text-lg font-black leading-none mt-1">₹129 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">/ Year Only</span></span>
+                      <span className="text-[#D4A04D] text-lg font-black leading-none mt-1">₹{membershipPrice} <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">/ Year Only</span></span>
                       <span className="text-gray-500 text-[7px] font-bold mt-0.5 leading-none uppercase">Unlock All Premium Benefits</span>
                     </div>
 
@@ -2759,12 +2762,14 @@ export default function LandingPage() {
                         }}
                         className="flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
                       >
-                        {/* Circle Image container */}
-                        <div className="w-20 h-20 rounded-full bg-white border border-zinc-200/50 flex items-center justify-center p-2.5 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300">
-                          <img 
-                            src={shape.image} 
+                        {/* Circle Image container — full-bleed cover-fit image
+                            (matching the mobile app), not a padded/contained
+                            icon floating on a white background. */}
+                        <div className="w-20 h-20 rounded-full overflow-hidden bg-[#131314] border border-zinc-800 shadow-sm transform group-hover:scale-105 group-hover:border-[#D4A04D]/60 group-hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300">
+                          <img
+                            src={shape.image}
                             alt={shape.name}
-                            className="w-16 h-16 object-contain"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <span className="text-[#A7A7A7] text-[10px] font-black uppercase tracking-wider group-hover:text-white transition-colors">

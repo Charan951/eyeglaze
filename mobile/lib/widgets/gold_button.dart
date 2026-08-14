@@ -28,7 +28,15 @@ class GoldButton extends StatelessWidget {
               strokeWidth: 2,
             ),
           )
-        : Text(label, style: AppTextStyles.button);
+        : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.button,
+            ),
+          );
 
     if (outlined) {
       return SizedBox(
@@ -39,7 +47,7 @@ class GoldButton extends StatelessWidget {
             foregroundColor: AppColors.white,
             side: const BorderSide(color: AppColors.gold, width: 1.5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           ),
           child: child,
         ),
@@ -53,7 +61,7 @@ class GoldButton extends StatelessWidget {
           backgroundColor: AppColors.gold,
           foregroundColor: AppColors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
         child: child,
       ),

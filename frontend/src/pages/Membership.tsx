@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import api from '../lib/api';
 import SEO from '../components/SEO';
 
@@ -12,6 +13,7 @@ declare global {
 
 export default function Membership() {
   const { user, checkAuth } = useAuth();
+  const membershipPrice = useMembershipPrice();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -46,7 +48,7 @@ export default function Membership() {
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_STX1H1R9XvVjSZ',
-        amount: 12900, // ₹129 in paise
+        amount: membershipPrice * 100,
         currency: 'INR',
         name: 'EyeGlaze',
         description: 'Gold Membership',
@@ -128,7 +130,7 @@ export default function Membership() {
               </div>
               <div>
                 <h2 className="text-white text-lg font-black uppercase tracking-wide">Gold Membership</h2>
-                <p className="text-[#D4A04D] text-xs font-black uppercase tracking-wider mt-0.5">₹129 / Year</p>
+                <p className="text-[#D4A04D] text-xs font-black uppercase tracking-wider mt-0.5">₹{membershipPrice} / Year</p>
               </div>
             </div>
             <p className="text-gray-400 text-xs max-w-lg leading-relaxed font-semibold">
@@ -269,7 +271,7 @@ export default function Membership() {
             />
             {/* Absolute Circular Gold Pricing badge */}
             <div className="absolute right-2 bottom-2 w-12 h-12 bg-black/85 border border-[#D4A04D] rounded-full flex flex-col items-center justify-center shadow-lg select-none">
-              <span className="text-[#D4A04D] text-[9.5px] font-black leading-none">₹129</span>
+              <span className="text-[#D4A04D] text-[9.5px] font-black leading-none">₹{membershipPrice}</span>
               <span className="text-gray-400 text-[6.5px] font-black uppercase tracking-widest mt-0.5">/YEAR</span>
             </div>
           </div>
@@ -403,7 +405,7 @@ export default function Membership() {
           </span>
           <div className="flex items-baseline gap-1.5 mt-0.5">
             <span className="text-[#D4A04D] text-2xl font-black tracking-wide leading-none">
-              ₹129
+              ₹{membershipPrice}
             </span>
             <span className="text-gray-400 text-[9px] font-black uppercase tracking-wider">
               / YEAR ONLY

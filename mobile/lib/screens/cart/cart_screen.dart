@@ -112,7 +112,7 @@ class _CartScreenState extends State<CartScreen> {
         'sku': 'MEMBERSHIP-GOLD-1YR',
         'color': 'Gold',
         'qty': 1,
-        'framePriceCalculated': 129.0,
+        'framePriceCalculated': cart.membershipPrice,
         'lensPrice': 0.0,
         'isPseudo': true,
         'uniqueKey': 'gold_membership_pseudo',
@@ -128,12 +128,17 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
         title: const Text(
           'My Cart',
           style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        // Explicit back icon so it matches the rest of the app (Icons.arrow_back)
+        // instead of Flutter's platform-adaptive auto-back chevron on iOS.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: loading
           ? const Center(
@@ -186,7 +191,7 @@ class _CartScreenState extends State<CartScreen> {
                           return _CartItemCard(
                             isPseudo: true,
                             isFree: false,
-                            framePriceCalculated: 129.0,
+                            framePriceCalculated: cart.membershipPrice,
                             onRemove: () => cart.setAddGoldMembership(false),
                           );
                         }
@@ -544,7 +549,7 @@ class _CartScreenState extends State<CartScreen> {
                         child: Text(
                           addGoldMembership
                               ? 'Add 2nd pair for FREE'
-                              : 'Get member benefits instantly on this order · ₹129 / year',
+                              : 'Get member benefits instantly on this order · ₹${cart.membershipPrice.round()} / year',
                           style: const TextStyle(
                             color: AppColors.muted,
                             fontSize: 9,
@@ -1371,10 +1376,10 @@ class _CartItemCard extends StatelessWidget {
             const SizedBox(width: 14),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: const [
+              children: [
                 Text(
-                  '₹129',
-                  style: TextStyle(
+                  '₹${framePriceCalculated.round()}',
+                  style: const TextStyle(
                     color: AppColors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 15,

@@ -11,7 +11,6 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
 import '../../services/cart_provider.dart';
-import '../../widgets/eyeglaze_logo.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../lens/lens_type_screen.dart';
 import '../cart/cart_screen.dart';
@@ -472,14 +471,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     try {
       return Scaffold(
         backgroundColor: AppColors.background,
+        // No more logo title here — that duplicated the home page's app bar.
+        // Just a bare back-navigable app bar over the product imagery.
         appBar: AppBar(
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
-          automaticallyImplyLeading: false,
-          title: const EyeGlazeLogo(),
-          centerTitle: true,
-          actions: const [],
+          // Explicit back icon so it matches the rest of the app
+          // (Icons.arrow_back) instead of Flutter's platform-adaptive
+          // auto-back chevron on iOS.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         body: SingleChildScrollView(
           child: Column(

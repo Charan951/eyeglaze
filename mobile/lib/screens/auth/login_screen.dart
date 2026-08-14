@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../core/staff_access.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
@@ -177,6 +178,9 @@ class _LoginScreenState extends State<LoginScreen>
           final userJson = res['user'] as Map<String, dynamic>;
           final user = User.fromJson(userJson);
 
+          if (await rejectStaffMobileLogin(context, user, auth: authService)) {
+            return;
+          }
           await authService.saveToken(token, user: user);
           setState(() {
             _successMsg = 'Registration successful!';
@@ -195,6 +199,9 @@ class _LoginScreenState extends State<LoginScreen>
           final userJson = res['user'] as Map<String, dynamic>;
           final user = User.fromJson(userJson);
 
+          if (await rejectStaffMobileLogin(context, user, auth: authService)) {
+            return;
+          }
           await authService.saveToken(token, user: user);
           _goToHome();
         } else {
@@ -206,9 +213,11 @@ class _LoginScreenState extends State<LoginScreen>
         _error = err.toString().replaceAll('Exception: ', '');
       });
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 

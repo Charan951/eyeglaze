@@ -834,7 +834,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'sku': 'MEMBERSHIP-GOLD-1YR',
         'color': 'Gold',
         'qty': 1,
-        'totalPrice': 129.0,
+        'totalPrice': cart.membershipPrice,
         'isFree': false,
         'image': null,
         'isPseudo': true,

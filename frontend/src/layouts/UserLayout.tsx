@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useNavigate, useLocation, Navigate, useLoaderData } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMembershipPrice } from '../context/MembershipPriceContext';
 import Footer from '../components/Footer';
 import BrandIcon from '../components/BrandIcon';
 import api from '../lib/api';
@@ -9,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function UserLayout() {
   const { user, cartCount, wishlist, logout, checkAuth } = useAuth();
+  const membershipPrice = useMembershipPrice();
   const navigate = useNavigate();
   const location = useLocation();
   const { products: initialProducts, categories: initialCategories } = useLoaderData() as { products: any[]; categories: any[] };
@@ -126,7 +128,7 @@ export default function UserLayout() {
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_STX1H1R9XvVjSZ',
-        amount: 12900, // ₹129 in paise
+        amount: membershipPrice * 100,
         currency: 'INR',
         name: 'EyeGlaze',
         description: 'Gold Membership Upgrade',
@@ -970,8 +972,10 @@ export default function UserLayout() {
   const isHomePage = location.pathname === '/';
   const isFullWidthPage = ['/products', '/cart'].includes(location.pathname) || location.pathname.startsWith('/products/');
   const isProductDetailPage = location.pathname.startsWith('/products/');
+  const isMembershipPage = location.pathname === '/membership';
   const hideHeader = isCustomerPage || isAuthPage;
   const showBottomNav = isHomePage;
+  const hideAiChat = isCartPage || isAuthPage || isMembershipPage;
 
   const renderProfileDropdown = () => {
     if (!user) return null;
@@ -1783,7 +1787,7 @@ export default function UserLayout() {
 
       {/* Global AI Chatbot Floating Button */}
       <AnimatePresence>
-        {!isAiDrawerOpen && !isCartPage && !isAuthPage && (
+        {!isAiDrawerOpen && !hideAiChat && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{
@@ -1808,7 +1812,7 @@ export default function UserLayout() {
 
       {/* Global AI Assistant Chat Drawer */}
       <AnimatePresence>
-        {isAiDrawerOpen && !isCartPage && !isAuthPage && (
+        {isAiDrawerOpen && !hideAiChat && (
           <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${isBottomBarVisible && showBottomNav ? 'pb-28' :
               isProductDetailPage && isBottomBarVisible ? 'pb-[104px]' : 'pb-4 md:pb-6'
             }`}>
@@ -2044,7 +2048,7 @@ export default function UserLayout() {
                         />
                         {/* Absolute Circular Gold Pricing badge */}
                         <div className="absolute right-1 bottom-1 w-11 h-11 bg-black/85 border border-[#D4A04D] rounded-full flex flex-col items-center justify-center shadow-lg select-none">
-                          <span className="text-[#D4A04D] text-[9px] font-black leading-none">₹129</span>
+                          <span className="text-[#D4A04D] text-[9px] font-black leading-none">₹{membershipPrice}</span>
                           <span className="text-gray-400 text-[6px] font-black uppercase tracking-widest mt-0.5">/YEAR</span>
                         </div>
                       </div>
@@ -2237,7 +2241,7 @@ export default function UserLayout() {
                         <div className="grid grid-cols-3 bg-[#D4A04D]/10 px-3 py-2.5 text-white font-black border-t border-[#D4A04D]/20">
                           <div className="text-[#D4A04D]">TOTAL SAVINGS</div>
                           <div className="text-green-400 text-center text-[10px]">₹7,000+</div>
-                          <div className="text-gray-400 text-right font-medium">Itni bachat, sirf ₹129 pe!</div>
+                          <div className="text-gray-400 text-right font-medium">Itni bachat, sirf ₹{membershipPrice} pe!</div>
                         </div>
                       </div>
                     </div>
@@ -2249,7 +2253,7 @@ export default function UserLayout() {
                           <circle cx="12" cy="12" r="10" />
                           <path d="M12 6v6l4 2" />
                         </svg>
-                        <span>₹129/YEAR</span>
+                        <span>₹{membershipPrice}/YEAR</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-600">
@@ -2292,7 +2296,7 @@ export default function UserLayout() {
                     <>
                       <div className="flex flex-col">
                         <span className="text-white text-[10px] font-black uppercase tracking-wider leading-none">JOIN GOLD MEMBERSHIP</span>
-                        <span className="text-[#D4A04D] text-lg font-black leading-none mt-1.5">₹129 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">/ Year Only</span></span>
+                        <span className="text-[#D4A04D] text-lg font-black leading-none mt-1.5">₹{membershipPrice} <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">/ Year Only</span></span>
                         <span className="text-gray-500 text-[7px] font-bold mt-1 leading-none uppercase">Unlock All Premium Benefits</span>
                       </div>
 

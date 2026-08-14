@@ -85,6 +85,12 @@ class User {
     this.oneRupeeOfferCount = 0,
   });
 
+  /// Matches web `ADMIN_ROLES`: these accounts use the admin dashboard, not
+  /// the customer storefront. The mobile app is shopping-only.
+  static const staffRoles = ['admin', 'store_manager', 'support_agent'];
+
+  bool get isStaff => staffRoles.contains(role.toLowerCase());
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['_id'] ?? json['id'] ?? '',

@@ -4,6 +4,7 @@ import 'core/theme.dart';
 import 'services/auth_service.dart';
 import 'services/socket_service.dart';
 import 'services/cart_provider.dart';
+import 'services/membership_price_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/splash/splash_screen.dart';
@@ -28,9 +29,14 @@ class EyeGlazeApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: authService),
         ChangeNotifierProvider.value(value: socketService),
-        ChangeNotifierProxyProvider<AuthService, CartProvider>(
+        ChangeNotifierProvider(create: (_) => MembershipPriceProvider()),
+        ChangeNotifierProxyProvider2<AuthService, MembershipPriceProvider, CartProvider>(
           create: (context) => CartProvider(authService),
-          update: (context, auth, previous) => previous ?? CartProvider(auth),
+          update: (context, auth, membership, previous) {
+            final cart = previous ?? CartProvider(auth);
+            cart.setMembershipPrice(membership.price);
+            return cart;
+          },
         ),
       ],
       child: MaterialApp(
