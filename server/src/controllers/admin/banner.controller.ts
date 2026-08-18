@@ -13,6 +13,19 @@ export async function getAdminBanners(req: Request, res: Response) {
   }
 }
 
+export async function getAdminBanner(req: Request, res: Response) {
+  try {
+    const banner = await Banner.findById(req.params.id);
+    if (!banner) {
+      return res.status(404).json({ error: 'Banner not found' });
+    }
+    return res.status(200).json(banner);
+  } catch (error) {
+    console.error('Error fetching admin banner:', error);
+    return res.status(500).json({ error: 'Failed to fetch banner' });
+  }
+}
+
 export async function createBanner(req: Request, res: Response) {
   try {
     const { title, subtitle, imageUrl, linkUrl, position, displayOrder, isActive, showOnMobile, description, buttonText } = req.body;

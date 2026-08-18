@@ -6,7 +6,7 @@ export interface ISubSubSubCategory extends Document {
   code: string;
   categoryId: mongoose.Types.ObjectId; // References Category
   subCategoryId: mongoose.Types.ObjectId; // References SubCategory
-  subSubCategoryId: mongoose.Types.ObjectId; // References SubSubCategory
+  subSubCategoryId?: mongoose.Types.ObjectId; // optional — variants now belong to a Collection
   description?: string;
   displayOrder: number;
   status: 'Draft' | 'Active' | 'Inactive' | 'Archived';
@@ -26,11 +26,11 @@ export interface ISubSubSubCategory extends Document {
 const SubSubSubCategorySchema = new Schema<ISubSubSubCategory>(
   {
     name: { type: String, required: true },
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, required: true },
     code: { type: String, required: true },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     subCategoryId: { type: Schema.Types.ObjectId, ref: 'SubCategory', required: true },
-    subSubCategoryId: { type: Schema.Types.ObjectId, ref: 'SubSubCategory', required: true },
+    subSubCategoryId: { type: Schema.Types.ObjectId, ref: 'SubSubCategory', required: false },
     description: { type: String },
     displayOrder: { type: Number, default: 0 },
     status: {
@@ -52,7 +52,7 @@ const SubSubSubCategorySchema = new Schema<ISubSubSubCategory>(
 );
 
 SubSubSubCategorySchema.index({ categoryId: 1 });
-SubSubSubCategorySchema.index({ subCategoryId: 1 });
+SubSubSubCategorySchema.index({ subCategoryId: 1, slug: 1 }, { unique: true });
 SubSubSubCategorySchema.index({ subSubCategoryId: 1 });
 SubSubSubCategorySchema.index({ status: 1 });
 

@@ -24,6 +24,8 @@ import '../account/account_screen.dart';
 import '../account/membership_screen.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/ai_chat_sheet.dart';
+import '../../widgets/homepage_sections.dart';
+import '../../widgets/home_landing_blocks.dart';
 
 class HomeScreen extends StatefulWidget {
   // ignore: library_private_types_in_public_api
@@ -407,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
         child: const Icon(
-          Icons.smart_toy_outlined,
+          Icons.chat_outlined,
           color: AppColors.gold,
           size: 24,
         ),
@@ -434,10 +436,18 @@ class _HomeBodyState extends State<_HomeBody> {
         children: [
           _GreetingsHeader(),
           _HeroBannerSlider(),
+          HomepageSectionSlot(position: 'hero'),
           _OfferCoupons(),
+          HomepageSectionSlot(position: 'eyeglasses_landing'),
           _CategoryGrids(),
+          SignatureShapesSection(),
           _FeaturedProducts(),
+          HomepageSectionSlot(position: 'after_featured'),
+          HomepageSectionSlot(position: 'after_offers'),
+          HowToBuySection(),
+          HomeReelsSection(),
           _PromoBanners(),
+          HomeFaqSection(),
           SizedBox(height: 120),
         ],
       ),
@@ -618,122 +628,18 @@ class _HeroBannerSliderState extends State<_HeroBannerSlider> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CachedNetworkImage(
-                          imageUrl: AppConfig.resolveImageUrl(item['image']!),
-                          fit: BoxFit.cover,
-                          alignment: Alignment.centerRight,
-                          errorWidget: (_, __, ___) =>
-                              Container(color: AppColors.card),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.92),
-                                Colors.black.withValues(alpha: 0.75),
-                                Colors.black.withValues(alpha: 0.2),
-                              ],
-                              stops: const [0.0, 0.55, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.gold.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppColors.gold.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              child: Text(
-                                item['tag']!,
-                                style: const TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              item['title']!,
-                              style: const TextStyle(
-                                color: AppColors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            SizedBox(
-                              width: 200,
-                              child: Text(
-                                item['subtitle']!,
-                                style: const TextStyle(
-                                  color: AppColors.muted,
-                                  fontSize: 10,
-                                  height: 1.2,
-                                ),
-                                maxLines: 2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            GestureDetector(
-                              onTap: () => _handleBannerTap(item['target']!),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.gold,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'EXPLORE NOW',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    SizedBox(width: 4),
-                                    Icon(
-                                      Icons.arrow_forward_rounded,
-                                      color: Colors.black,
-                                      size: 12,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  // Plain image only — no gradient scrim, tag, title, subtitle
+                  // or "Explore Now" button overlaid on top of it. The banner
+                  // stays tappable so it still navigates like before.
+                  child: GestureDetector(
+                    onTap: () => _handleBannerTap(item['target']!),
+                    child: CachedNetworkImage(
+                      imageUrl: AppConfig.resolveImageUrl(item['image']!),
+                      fit: BoxFit.cover,
+                      alignment: Alignment.centerRight,
+                      errorWidget: (_, __, ___) =>
+                          Container(color: AppColors.card),
+                    ),
                   ),
                 ),
               );
@@ -1338,6 +1244,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   // placement (Landing.tsx `categoryBanners`).
   static const _afterCategoryPrefix = 'after_category:';
   Map<String, List<Map<String, dynamic>>> _categoryBannersMap = {};
+  Map<String, List<Map<String, dynamic>>> _categorySectionsMap = {};
 
   // Admin-managed shapes (each with its own uploaded image) — powers the
   // shape-selection bottom sheet, matching the web app (Landing.tsx dbShapes).
@@ -1365,6 +1272,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     super.initState();
     _loadCategories();
     _loadCategoryBanners();
+    _loadCategorySections();
     _loadShapes();
 
     // Connect socket listeners
@@ -1373,6 +1281,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
         final socketService = context.read<SocketService>();
         socketService.socket?.on('category_changed', _onCategoryChanged);
         socketService.socket?.on('banner_changed', _onBannerChanged);
+        socketService.socket?.on('homepage_section_changed', _onHomepageSectionChanged);
       }
     });
   }
@@ -1383,6 +1292,7 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       final socketService = context.read<SocketService>();
       socketService.socket?.off('category_changed', _onCategoryChanged);
       socketService.socket?.off('banner_changed', _onBannerChanged);
+      socketService.socket?.off('homepage_section_changed', _onHomepageSectionChanged);
     } catch (_) {}
     super.dispose();
   }
@@ -1401,6 +1311,12 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   void _onBannerChanged(dynamic data) {
     if (mounted) {
       _loadCategoryBanners();
+    }
+  }
+
+  void _onHomepageSectionChanged(dynamic data) {
+    if (mounted) {
+      _loadCategorySections();
     }
   }
 
@@ -1437,11 +1353,33 @@ class _CategoryGridsState extends State<_CategoryGrids> {
         final showOnMobile = b['showOnMobile'];
         if (showOnMobile == false) continue;
         if (!position.startsWith(_afterCategoryPrefix)) continue;
-        final slug = position.substring(_afterCategoryPrefix.length);
+        final slug = position.substring(_afterCategoryPrefix.length).toLowerCase();
         if (slug.isEmpty) continue;
         map.putIfAbsent(slug, () => []).add((b as Map).cast<String, dynamic>());
       }
       if (mounted) setState(() => _categoryBannersMap = map);
+    } catch (_) {}
+  }
+
+  Future<void> _loadCategorySections() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getHomepageSections();
+      final map = <String, List<Map<String, dynamic>>>{};
+      for (final section in list) {
+        final raw = Map<String, dynamic>.from(section as Map);
+        if (raw['showOnMobile'] == false) continue;
+        final position = (raw['position'] ?? '').toString();
+        if (!position.startsWith(_afterCategoryPrefix)) continue;
+        final slug = position.substring(_afterCategoryPrefix.length).toLowerCase();
+        if (slug.isEmpty) continue;
+        map.putIfAbsent(slug, () => []).add(raw);
+      }
+      for (final list in map.values) {
+        list.sort((a, b) => ((a['displayOrder'] as num?) ?? 0).compareTo((b['displayOrder'] as num?) ?? 0));
+      }
+      if (mounted) setState(() => _categorySectionsMap = map);
     } catch (_) {}
   }
 
@@ -1747,15 +1685,34 @@ class _CategoryGridsState extends State<_CategoryGrids> {
 
     // Group the categories to replicate standard layout
     final eyeglassesCat = _categoriesList.firstWhere(
-      (c) => c['slug'] == 'prescription' || c['slug'] == 'eyeglasses',
+      (c) {
+        final slug = (c['slug'] ?? '').toString().toLowerCase();
+        return slug == 'prescription' || slug == 'eyeglasses';
+      },
       orElse: () => null,
     );
     final sunglassesCat = _categoriesList.firstWhere(
-      (c) => c['slug'] == 'sunglasses',
+      (c) => (c['slug'] ?? '').toString().toLowerCase() == 'sunglasses',
       orElse: () => null,
     );
     final readingCat = _categoriesList.firstWhere(
-      (c) => c['slug'] == 'reading-glasses' || c['slug'] == 'special-power',
+      (c) {
+        final slug = (c['slug'] ?? '').toString().toLowerCase();
+        return slug == 'reading-glasses' || slug == 'special-power';
+      },
+      orElse: () => null,
+    );
+
+    final contactCat = _categoriesList.firstWhere(
+      (c) => (c['slug'] ?? '').toString().toLowerCase() == 'contact-lenses',
+      orElse: () => null,
+    );
+    final accessoriesCat = _categoriesList.firstWhere(
+      (c) => (c['slug'] ?? '').toString().toLowerCase() == 'accessories',
+      orElse: () => null,
+    );
+    final kidsCat = _categoriesList.firstWhere(
+      (c) => (c['slug'] ?? '').toString().toLowerCase() == 'kids',
       orElse: () => null,
     );
 
@@ -1777,17 +1734,47 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     // 'after_category:<slug>' banner(s) right below it, matching the web
     // app's placement and spacing exactly (Landing.tsx `categoryBanners`
     // uses `mt-2 mb-1` around the banner, i.e. 8px above / 4px below).
+    List<Map<String, dynamic>> lookupBySlug(
+      Map<String, List<Map<String, dynamic>>> map,
+      String slug,
+    ) {
+      final keys = (slug == 'eyeglasses' || slug == 'prescription')
+          ? ['eyeglasses', 'prescription']
+          : [slug];
+      final seen = <String>{};
+      final out = <Map<String, dynamic>>[];
+      for (final key in keys) {
+        for (final item in map[key] ?? const <Map<String, dynamic>>[]) {
+          final id = (item['_id'] ?? '').toString();
+          if (id.isNotEmpty && !seen.add(id)) continue;
+          out.add(item);
+        }
+      }
+      return out;
+    }
+
     void addCategorySection(dynamic cat) {
-      sections.add(_buildSection(cat));
-      final slug = (cat['slug'] ?? '').toString();
-      final banners = _categoryBannersMap[slug];
-      if (banners != null && banners.isNotEmpty) {
+      sections.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _buildSection(cat),
+      ));
+      final slug = (cat['slug'] ?? '').toString().toLowerCase();
+      final banners = lookupBySlug(_categoryBannersMap, slug);
+      if (banners.isNotEmpty) {
         for (final banner in banners) {
           sections.add(const SizedBox(height: 8));
-          sections.add(_CmsBannerCard(banner: banner, width: double.infinity));
+          sections.add(Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _CmsBannerCard(banner: banner, width: double.infinity),
+          ));
         }
         sections.add(const SizedBox(height: 4));
-      } else {
+      }
+      final homeSections = lookupBySlug(_categorySectionsMap, slug);
+      if (homeSections.isNotEmpty) {
+        sections.add(HomepageSectionsGroup(sections: homeSections, padded: false));
+      }
+      if (banners.isEmpty && homeSections.isEmpty) {
         sections.add(const SizedBox(height: 16));
       }
     }
@@ -1795,6 +1782,9 @@ class _CategoryGridsState extends State<_CategoryGrids> {
     if (eyeglassesCat != null) addCategorySection(eyeglassesCat);
     if (sunglassesCat != null) addCategorySection(sunglassesCat);
     if (readingCat != null) addCategorySection(readingCat);
+    if (contactCat != null) addCategorySection(contactCat);
+    if (accessoriesCat != null) addCategorySection(accessoriesCat);
+    if (kidsCat != null) addCategorySection(kidsCat);
 
     for (final dynamicCat in dynamicCats) {
       addCategorySection(dynamicCat);
@@ -1804,10 +1794,12 @@ class _CategoryGridsState extends State<_CategoryGrids> {
       return const SizedBox.shrink();
     }
 
-    sections.removeLast();
+    if (sections.last is SizedBox) {
+      sections.removeLast();
+    }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: sections,
@@ -1946,7 +1938,14 @@ class _CategoryGridsState extends State<_CategoryGrids> {
 class _CmsBannerCard extends StatelessWidget {
   final Map<String, dynamic> banner;
   final double width;
-  const _CmsBannerCard({required this.banner, this.width = 260});
+  final double height;
+  final BoxFit fit;
+  const _CmsBannerCard({
+    required this.banner,
+    this.width = 260,
+    this.height = 140,
+    this.fit = BoxFit.cover,
+  });
 
   void _handleTap(BuildContext context) {
     final linkUrl = (banner['linkUrl'] ?? '').toString();
@@ -1965,91 +1964,23 @@ class _CmsBannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = (banner['imageUrl'] ?? '').toString();
-    final title = (banner['title'] ?? '').toString();
-    final subtitle = (banner['subtitle'] ?? banner['description'] ?? '')
-        .toString();
-    final btn = (banner['buttonText'] ?? 'SHOP NOW').toString().toUpperCase();
 
+    // Plain image only — no gradient scrim, title, subtitle or button
+    // overlaid on top of it, matching the hero banner (still tappable).
     return GestureDetector(
       onTap: () => _handleTap(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
           width: width,
-          height: 140,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (imageUrl.isNotEmpty)
-                CachedNetworkImage(
+          height: height,
+          child: imageUrl.isNotEmpty
+              ? CachedNetworkImage(
                   imageUrl: AppConfig.resolveImageUrl(imageUrl),
-                  fit: BoxFit.cover,
+                  fit: fit,
+                  alignment: Alignment.center,
                 )
-              else
-                Container(color: AppColors.card),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0xCC000000)],
-                    stops: [0.3, 1.0],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (title.isNotEmpty)
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (subtitle.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2, bottom: 6),
-                        child: Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 11,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.gold,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        btn,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+              : Container(color: AppColors.card),
         ),
       ),
     );
@@ -2069,11 +2000,32 @@ class _PromoBannersState extends State<_PromoBanners> {
   // are rendered inline by `_CategoryGrids`, right after their category.
   // Mirrors the web app's footerBanners placement (Landing.tsx).
   List<Map<String, dynamic>> _cmsBanners = [];
+  List<Map<String, dynamic>> _footerSections = [];
 
   @override
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final socketService = context.read<SocketService>();
+      socketService.socket?.on('banner_changed', _onChanged);
+      socketService.socket?.on('homepage_section_changed', _onChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('banner_changed', _onChanged);
+      socketService.socket?.off('homepage_section_changed', _onChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onChanged(dynamic _) {
+    if (mounted) _load();
   }
 
   Future<void> _load() async {
@@ -2081,15 +2033,18 @@ class _PromoBannersState extends State<_PromoBanners> {
       final auth = context.read<AuthService>();
       final api = ApiService(auth);
       final list = await api.getBanners();
+      final sections = await api.getHomepageSections();
       final promos = list.where((b) {
         final position = (b['position'] ?? '').toString();
         final showOnMobile = b['showOnMobile'];
         if (showOnMobile == false) return false;
         return position == 'footer';
       }).toList();
-      if (mounted && promos.isNotEmpty) {
+      final footerSections = filterHomepageSections(sections, 'footer');
+      if (mounted) {
         setState(() {
           _cmsBanners = promos.cast<Map<String, dynamic>>();
+          _footerSections = footerSections;
         });
       }
     } catch (_) {}
@@ -2097,156 +2052,49 @@ class _PromoBannersState extends State<_PromoBanners> {
 
   @override
   Widget build(BuildContext context) {
-    if (_cmsBanners.isNotEmpty) {
-      return SizedBox(
-        height: 140,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: _cmsBanners.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, i) => _CmsBannerCard(banner: _cmsBanners[i]),
-        ),
-      );
+    if (_cmsBanners.isEmpty && _footerSections.isEmpty) {
+      return const SizedBox.shrink();
     }
-
-    // Fallback: static promo cards, shown until admin configures banners
-    // for this slot (or if the request fails).
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 140,
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'UP TO',
-                    style: TextStyle(color: AppColors.muted, fontSize: 11),
-                  ),
-                  const Text(
-                    '50% OFF',
-                    style: TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'On Selected\nSunglasses',
-                    style: TextStyle(color: AppColors.white, fontSize: 11),
-                    maxLines: 2,
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const ProductsScreen(category: 'Sunglasses'),
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.gold,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'SHOP NOW',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+    return Column(
+      children: [
+        if (_cmsBanners.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: AspectRatio(
+              aspectRatio: 3,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: _cmsBanners.length == 1
+                    ? _CmsBannerCard(
+                        banner: _cmsBanners.first,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.contain,
+                      )
+                    : PageView.builder(
+                        itemCount: _cmsBanners.length,
+                        itemBuilder: (context, i) => _CmsBannerCard(
+                          banner: _cmsBanners[i],
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
                         ),
                       ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              height: 140,
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.gold, width: 0.5),
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'NEW',
-                    style: TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Text(
-                    'ARRIVALS',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Just In! Latest\ntrends in eyewear',
-                    style: TextStyle(color: AppColors.muted, fontSize: 11),
-                    maxLines: 2,
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.gold),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'EXPLORE',
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ..._footerSections.isEmpty
+            ? const <Widget>[]
+            : [HomepageSectionsGroup(sections: _footerSections, padded: false)],
+      ],
     );
   }
 }
+
 
 class _FeaturedProducts extends StatefulWidget {
   const _FeaturedProducts();
@@ -2399,6 +2247,7 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
                   ),
                 ),
         ),
+        const SizedBox(height: 20),
       ],
     );
   }

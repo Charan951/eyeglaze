@@ -495,6 +495,15 @@ class ApiService {
     return data is List ? data : (data['banners'] ?? data['data'] ?? []);
   }
 
+  Future<List<dynamic>> getHomepageSections() async {
+    final res = await _client.get(
+      Uri.parse(_url('/homepage-sections')),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(res.body);
+    return data is List ? data : (data['sections'] ?? data['data'] ?? []);
+  }
+
   // Homepage Videos CMS
   Future<List<dynamic>> getHomepageVideos() async {
     final res = await _client.get(

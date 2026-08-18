@@ -3,30 +3,44 @@ import { HomepageVideo } from '../../models/HomepageVideo';
 import { clearCachePattern } from '../../middleware/cache';
 import { getIO } from '../../lib/socket';
 
+function toAdminVideo(req: Request, vid: { toObject: () => any }) {
+  const vidObj = vid.toObject();
+  const url = vidObj.videoUrl;
+  const isS3 = url.includes('amazonaws.com') && url.includes('eyeglaze_videos');
+  if (isS3) {
+    const host = req.get('host') || 'localhost:5000';
+    let protocol = req.protocol || 'http';
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    if (forwardedProto) {
+      protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    } else if (host.includes('.in') || host.includes('.com')) {
+      protocol = 'https';
+    }
+    vidObj.videoUrl = `${protocol}://${host}/api/homepage-videos/stream/${vidObj._id}`;
+  }
+  return vidObj;
+}
+
 export async function getAdminHomepageVideos(req: Request, res: Response) {
   try {
     const videos = await HomepageVideo.find().sort({ displayOrder: 1 });
-    const proxiedVideos = videos.map(vid => {
-      const vidObj = vid.toObject();
-      const url = vidObj.videoUrl;
-      const isS3 = url.includes('amazonaws.com') && url.includes('eyeglaze_videos');
-      if (isS3) {
-        const host = req.get('host') || 'localhost:5000';
-        let protocol = req.protocol || 'http';
-        const forwardedProto = req.headers['x-forwarded-proto'];
-        if (forwardedProto) {
-          protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
-        } else if (host.includes('.in') || host.includes('.com')) {
-          protocol = 'https';
-        }
-        vidObj.videoUrl = `${protocol}://${host}/api/homepage-videos/stream/${vid._id}`;
-      }
-      return vidObj;
-    });
-    return res.status(200).json(proxiedVideos);
+    return res.status(200).json(videos.map((vid) => toAdminVideo(req, vid)));
   } catch (error) {
     console.error('Error fetching admin homepage videos:', error);
     return res.status(500).json({ error: 'Failed to fetch homepage videos' });
+  }
+}
+
+export async function getAdminHomepageVideo(req: Request, res: Response) {
+  try {
+    const video = await HomepageVideo.findById(req.params.id);
+    if (!video) {
+      return res.status(404).json({ error: 'Homepage video not found' });
+    }
+    return res.status(200).json(toAdminVideo(req, video));
+  } catch (error) {
+    console.error('Error fetching admin homepage video:', error);
+    return res.status(500).json({ error: 'Failed to fetch homepage video' });
   }
 }
 

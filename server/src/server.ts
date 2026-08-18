@@ -48,7 +48,11 @@ async function main() {
     }
     
     await connectDB();
-    await seedDatabase();
+    try {
+      await seedDatabase();
+    } catch (err) {
+      console.error('Seed failed (server will still start):', err);
+    }
 
     const server = http.createServer(app);
     initSocket(server);

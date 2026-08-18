@@ -1121,7 +1121,7 @@ export default function UserLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-clip">
+    <div className="min-h-screen bg-[#0B0B0C] w-full">
       {!hideHeader && (
         <header className={`bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${isProductDetailPage ? 'hidden xl:block' : ''}`}>
           {/* Brand Name bar above nav bar in Mobile View on Home Page only */}
@@ -1612,8 +1612,8 @@ export default function UserLayout() {
           : isFullWidthPage
             ? `w-full min-h-screen ${isProductDetailPage ? 'xl:pt-28' : 'pt-16 xl:pt-28'} pb-8`
             : isHomePage
-              ? "w-full mt-25 xl:mt-23"
-              : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28"
+              ? "w-full mt-25 xl:mt-23 overflow-x-clip"
+              : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28 overflow-x-clip"
       }>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -1785,35 +1785,32 @@ export default function UserLayout() {
         )}
       </AnimatePresence>
 
-      {/* Global AI Chatbot Floating Button */}
-      <AnimatePresence>
-        {!isAiDrawerOpen && !hideAiChat && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: 1,
-              opacity: 1,
-              bottom: (isBottomBarVisible && showBottomNav) || (isProductDetailPage && isBottomBarVisible) ? 112 : 24
-            }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={() => setIsAiDrawerOpen(true)}
-            className="fixed right-4 z-40 w-14 h-14 bg-gradient-to-br from-[#1C1C1E] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-full flex items-center justify-center text-white shadow-2xl active:scale-95 hover:border-[#D4A04D] group cursor-pointer focus:outline-none"
-          >
-            {/* Pulsing ring */}
-            <span className="absolute inset-0 rounded-full border border-[#D4A04D]/40 animate-ping opacity-25 group-hover:opacity-40" />
-
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#D4A04D] group-hover:scale-110 transition-transform">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* Global AI Chatbot Floating Button — viewport-fixed */}
+      {!isAiDrawerOpen && !hideAiChat && (
+        <button
+          type="button"
+          onClick={() => setIsAiDrawerOpen(true)}
+          style={{
+            position: 'fixed',
+            right: 16,
+            bottom: isProductDetailPage && isBottomBarVisible
+              ? 112
+              : 'max(24px, env(safe-area-inset-bottom, 0px))',
+            zIndex: 40,
+          }}
+          className="relative w-14 h-14 bg-gradient-to-br from-[#1C1C1E] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-full flex items-center justify-center text-white shadow-2xl active:scale-95 hover:border-[#D4A04D] group cursor-pointer focus:outline-none"
+        >
+          <span className="absolute inset-0 rounded-full border border-[#D4A04D]/40 animate-ping opacity-25 group-hover:opacity-40" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#D4A04D] group-hover:scale-110 transition-transform">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        </button>
+      )}
 
       {/* Global AI Assistant Chat Drawer */}
       <AnimatePresence>
         {isAiDrawerOpen && !hideAiChat && (
-          <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${isBottomBarVisible && showBottomNav ? 'pb-28' :
+          <div className={`fixed inset-0 z-50 flex items-end justify-end p-4 md:p-6 pointer-events-none transition-all duration-300 ${
               isProductDetailPage && isBottomBarVisible ? 'pb-[104px]' : 'pb-4 md:pb-6'
             }`}>
             {/* Overlay */}

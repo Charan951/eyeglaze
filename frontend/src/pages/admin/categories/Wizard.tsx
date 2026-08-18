@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../../../lib/api';
+import { CATEGORY_LEVEL, categoryLevelLabel, catalogListPath } from './levelLabels';
 
 const categoryFormSchema = z.object({
   type: z.enum(['Category', 'SubCategory', 'SubSubCategory', 'SubSubSubCategory']),
@@ -71,7 +72,7 @@ const categoryFormSchema = z.object({
 }).refine((data) => {
   if (data.type === 'SubCategory' && !data.categoryId) return false;
   if (data.type === 'SubSubCategory' && (!data.categoryId || !data.subCategoryId)) return false;
-  if (data.type === 'SubSubSubCategory' && (!data.categoryId || !data.subCategoryId || !data.subSubCategoryId)) return false;
+  if (data.type === 'SubSubSubCategory' && (!data.categoryId || !data.subCategoryId)) return false;
   return true;
 }, {
   message: "Parent selection is required",
@@ -100,6 +101,7 @@ export default function CategoryWizard() {
     formState: { errors }
   } = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema) as any,
+    shouldUnregister: false,
     defaultValues: {
       type: 'Category',
       name: '',
@@ -403,11 +405,11 @@ export default function CategoryWizard() {
   // Field names -> human-readable labels, so the "missing required field" toast
   // actually tells the admin what to fix instead of silently doing nothing.
   const fieldLabels: Record<string, string> = {
-    name: 'Category Name',
+    name: `${categoryLevelLabel(formValues.type)} Name`,
     slug: 'Slug',
     categoryId: 'Parent Category',
-    subCategoryId: 'Parent Sub-Category',
-    subSubCategoryId: 'Parent Sub-Sub-Category',
+    subCategoryId: `Parent ${CATEGORY_LEVEL.SubCategory}`,
+    subSubCategoryId: `Parent ${CATEGORY_LEVEL.SubSubCategory}`,
   };
 
   const onInvalid = (formErrors: typeof errors) => {
@@ -420,6 +422,14 @@ export default function CategoryWizard() {
         : 'Please fill in all required fields before publishing.',
       'error'
     );
+  };
+
+  const goToList = () => {
+    navigate(catalogListPath({
+      categoryId: formValues.categoryId || qCatId,
+      subCategoryId: formValues.subCategoryId || qSubCatId,
+      tab: (formValues.type === 'SubSubSubCategory' || qType === 'SubSubSubCategory') ? 'variants' : undefined,
+    }));
   };
 
   const onSubmit = async (data: CategoryFormData) => {
@@ -451,9 +461,8 @@ export default function CategoryWizard() {
           subCategoryColumns: (data.type === 'Category' || paramType === 'Category') ? data.subCategoryColumns : undefined,
         },
         hierarchy: {
-          categoryId: (data.type === 'SubCategory' || data.type === 'SubSubCategory' || data.type === 'SubSubSubCategory' || paramType === 'SubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') ? data.categoryId : undefined,
-          subCategoryId: (data.type === 'SubSubCategory' || data.type === 'SubSubSubCategory' || paramType === 'SubSubCategory' || paramType === 'SubSubSubCategory') ? data.subCategoryId : undefined,
-          subSubCategoryId: (data.type === 'SubSubSubCategory' || paramType === 'SubSubSubCategory') ? data.subSubCategoryId : undefined,
+          categoryId: data.categoryId || qCatId || undefined,
+          subCategoryId: data.subCategoryId || qSubCatId || undefined,
         },
         attributes: {
           genders: data.genders,
@@ -491,7 +500,7 @@ export default function CategoryWizard() {
         await api.post('/admin/categories', payload);
         showToast('Category created successfully!', 'success');
       }
-      setTimeout(() => navigate('/admin/categories'), 1500);
+      setTimeout(() => goToList(), 1500);
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to save Category configurations';
       showToast(msg, 'error');
@@ -521,7 +530,7 @@ export default function CategoryWizard() {
       {/* Header Bar */}
       <header className="sticky top-0 z-30 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#2A2A2D] px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/admin/categories')} className="text-[#A7A7A7] hover:text-white transition-colors text-xs font-bold uppercase tracking-wider bg-transparent border-none cursor-pointer">
+          <button onClick={goToList} className="text-[#A7A7A7] hover:text-white transition-colors text-xs font-bold uppercase tracking-wider bg-transparent border-none cursor-pointer">
             ← Categories
           </button>
           <div className="h-4 w-px bg-[#2A2A2D]" />
@@ -532,7 +541,7 @@ export default function CategoryWizard() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => navigate('/admin/categories')}
+            onClick={goToList}
             className="bg-[#2A2A2D] hover:bg-zinc-800 text-white font-bold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-colors border-none cursor-pointer"
           >
             Cancel
@@ -569,10 +578,10 @@ export default function CategoryWizard() {
                   disabled={!!id}
                   className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none disabled:opacity-50"
                 >
-                  <option value="Category">Main Category</option>
-                  <option value="SubCategory">Sub-Category</option>
-                  <option value="SubSubCategory">Sub-Sub-Category</option>
-                  <option value="SubSubSubCategory">Sub-Sub-Sub-Category</option>
+                  <option value="Category">{CATEGORY_LEVEL.Category}</option>
+                  <option value="SubCategory">{CATEGORY_LEVEL.SubCategory}</option>
+                  <option value="SubSubCategory">{CATEGORY_LEVEL.SubSubCategory}</option>
+                  <option value="SubSubSubCategory">{CATEGORY_LEVEL.SubSubSubCategory}</option>
                 </select>
               </div>
 
@@ -581,7 +590,8 @@ export default function CategoryWizard() {
                 <div>
                   <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Category *</label>
                   <select
-                    {...register('categoryId')}
+                    value={formValues.categoryId || qCatId || ''}
+                    onChange={(e) => setValue('categoryId', e.target.value, { shouldValidate: true })}
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   >
                     <option value="">-- Select Parent Category --</option>
@@ -598,12 +608,13 @@ export default function CategoryWizard() {
               {/* Parent Sub-Category selection (Shown for SubSubCategory and SubSubSubCategory) */}
               {isSubSubCategory && (
                 <div>
-                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Sub-Category *</label>
+                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent {CATEGORY_LEVEL.SubCategory} *</label>
                   <select
-                    {...register('subCategoryId')}
+                    value={formValues.subCategoryId || qSubCatId || ''}
+                    onChange={(e) => setValue('subCategoryId', e.target.value, { shouldValidate: true })}
                     className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
                   >
-                    <option value="">-- Select Parent Sub-Category --</option>
+                    <option value="">-- Select Parent {CATEGORY_LEVEL.SubCategory} --</option>
                     {subCategoriesForParent.map((sub) => (
                       <option key={sub._id || sub.id} value={sub._id || sub.id}>
                         {sub.name}
@@ -614,30 +625,13 @@ export default function CategoryWizard() {
                 </div>
               )}
 
-              {/* Parent Sub-Sub-Category selection (Shown for SubSubSubCategory) */}
-              {isSubSubSubCategory && (
-                <div>
-                  <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Parent Sub-Sub-Category *</label>
-                  <select
-                    {...register('subSubCategoryId')}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                  >
-                    <option value="">-- Select Parent Sub-Sub-Category --</option>
-                    {subSubCategoriesForParent.map((ss) => (
-                      <option key={ss._id || ss.id} value={ss._id || ss.id}>
-                        {ss.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.subSubCategoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.subSubCategoryId.message}</p>}
-                </div>
-              )}
+              {/* Parent Type is not used for Variants — they hang off the Collection. */}
 
 
 
               {/* Name */}
               <div>
-                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Category Name *</label>
+                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">{categoryLevelLabel(formValues.type)} Name *</label>
                 <input
                   type="text"
                   {...register('name')}
@@ -794,7 +788,7 @@ export default function CategoryWizard() {
               {/* Sub-Category Specific Fields */}
               {isSubCategory && (
                 <div className="border-t border-[#2A2A2D] pt-6 space-y-6">
-                  <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">Sub-Category Navigation Settings</h3>
+                  <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">{CATEGORY_LEVEL.SubCategory} Navigation Settings</h3>
                   
                   {/* LinkTo */}
                   <div>
@@ -929,15 +923,15 @@ export default function CategoryWizard() {
                     {formValues.subSubCategoryModal && (
                       <div className="space-y-2 pt-3 col-span-1 md:col-span-2 border-t border-[#2A2A2D]">
                         <label className="text-[#D4A04D] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                          <span>📂</span> SUB-CATEGORIES TO DISPLAY IN BOTTOM SHEET
+                          <span>📂</span> {CATEGORY_LEVEL.SubSubCategory.toUpperCase()}S TO DISPLAY IN BOTTOM SHEET
                         </label>
                         {!id ? (
                           <p className="text-[10px] text-gray-500 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
-                            Save this sub-category first, then come back here to choose which of its own sub-categories appear in the bottom sheet.
+                            Save this {CATEGORY_LEVEL.SubCategory.toLowerCase()} first, then come back here to choose which of its own {CATEGORY_LEVEL.SubSubCategory.toLowerCase()}s appear in the bottom sheet.
                           </p>
                         ) : ownSubSubCategories.length === 0 ? (
                           <p className="text-[10px] text-gray-500 bg-[#0B0B0C] border border-[#2A2A2D] p-4 rounded-xl">
-                            This sub-category has no sub-categories of its own yet. Add some, then return here to pick which ones to show.
+                            This {CATEGORY_LEVEL.SubCategory.toLowerCase()} has no {CATEGORY_LEVEL.SubSubCategory.toLowerCase()}s of its own yet. Add some, then return here to pick which ones to show.
                           </p>
                         ) : (
                           <>
@@ -994,7 +988,7 @@ export default function CategoryWizard() {
               {/* Main Category Display Layout Settings */}
               {!isSubCategory && (
                 <div className="border-t border-[#2A2A2D] pt-6 space-y-6">
-                  <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider">Sub-Category Layout Design</h3>
+                  <h3 className="text-[#D4A04D] text-xs font-black uppercase tracking-wider">{CATEGORY_LEVEL.SubCategory} Layout Design</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {/* Display Shape */}
@@ -1046,7 +1040,7 @@ export default function CategoryWizard() {
             <div className="flex justify-end gap-3 border-t border-[#2A2A2D] pt-6">
               <button
                 type="button"
-                onClick={() => navigate('/admin/categories')}
+                onClick={goToList}
                 className="bg-[#2A2A2D] hover:bg-zinc-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-colors border-none cursor-pointer"
               >
                 Cancel
@@ -1128,7 +1122,7 @@ export default function CategoryWizard() {
             {/* Live Subcategory Layout Preview */}
             {!isSubCategory && (
               <div className="p-5 border-t border-[#2A2A2D] space-y-4">
-                <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest block">Sub-Category Layout Preview</span>
+                <span className="text-[#D4A04D] text-[9px] font-black uppercase tracking-widest block">{CATEGORY_LEVEL.SubCategory} Layout Preview</span>
                 <div 
                   className="grid gap-3 w-full"
                   style={{

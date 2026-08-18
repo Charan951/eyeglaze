@@ -16,15 +16,16 @@ export async function userLayoutLoader() {
 
 // Loader for Landing Page
 export async function landingLoader() {
-  const [banners, videos, reels, categories, featuredProducts, shapes] = await Promise.all([
+  const [banners, videos, reels, categories, featuredProducts, shapes, homepageSections] = await Promise.all([
     api.get('/banners').then(res => res.data).catch(() => []),
     api.get('/homepage-videos').then(res => res.data).catch(() => []),
     api.get('/reels').then(res => res.data).catch(() => []),
     api.get('/categories').then(res => res.data).catch(() => []),
     api.get('/products?limit=12').then(res => res.data.products || res.data || []).catch(() => []),
     api.get('/shapes').then(res => res.data).catch(() => []),
+    api.get('/homepage-sections').then(res => res.data).catch(() => []),
   ]);
-  return { banners, videos, reels, categories, featuredProducts, shapes };
+  return { banners, videos, reels, categories, featuredProducts, shapes, homepageSections };
 }
 
 // Loader for Products Page

@@ -158,7 +158,7 @@ export default function AdminBlogsPage() {
       <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden shadow-lg">
         {blogs.length === 0 ? (
           <div className="text-center py-20 text-gray-500 text-xs">
-            No articles yet. Click "New Article" to publish your first blog post.
+            No data is added
           </div>
         ) : (
           <div className="overflow-x-auto">

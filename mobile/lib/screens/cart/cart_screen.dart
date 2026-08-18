@@ -84,7 +84,7 @@ class _CartScreenState extends State<CartScreen> {
     final user = auth.currentUser;
 
     final List<Map<String, dynamic>> flattenedItems = [];
-    final freeKey = cart.freeItemUniqueKey;
+    final freeKeys = cart.freeItemUniqueKeys;
 
     for (final pricing in cart.itemsWithPricing) {
       final CartItem item = pricing['item'] as CartItem;
@@ -97,7 +97,7 @@ class _CartScreenState extends State<CartScreen> {
           'qty': 1,
           'framePriceCalculated': framePriceCalculated,
           'uniqueKey': uniqueKey,
-          'isFree': uniqueKey == freeKey,
+          'isFree': freeKeys.contains(uniqueKey),
           'isPseudo': false,
         });
       }
@@ -120,8 +120,11 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     final showPromoMembership = user?.membershipActive != true;
-    final totalListItems =
-        flattenedItems.length + (showPromoMembership ? 1 : 0) + 1;
+    final showBogoVoucher = cart.showBogoVoucher;
+    final totalListItems = flattenedItems.length +
+        (showPromoMembership ? 1 : 0) +
+        (showBogoVoucher ? 1 : 0) +
+        1;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -209,6 +212,11 @@ class _CartScreenState extends State<CartScreen> {
                       } else if (showPromoMembership &&
                           index == flattenedItems.length) {
                         return _buildMembershipPromoCard(context, cart);
+                      } else if (showBogoVoucher &&
+                          index ==
+                              flattenedItems.length +
+                                  (showPromoMembership ? 1 : 0)) {
+                        return _buildBogoVoucherCard(context, cart);
                       } else {
                         return _buildCouponPromoCard(context, cart);
                       }
@@ -596,6 +604,71 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBogoVoucherCard(BuildContext context, CartProvider cart) {
+    final applied = cart.applyBogo;
+    final eligibleQty = cart.bogoEligibleQty;
+    final appliedCopy = eligibleQty == 2
+        ? 'BOGO Voucher applied! The cheapest pair in your cart is free.'
+        : eligibleQty == 3
+            ? 'BOGO Voucher applied! The medium-priced pair in your cart is free.'
+            : 'BOGO Voucher applied! ${eligibleQty ~/ 2} cheapest pairs in your cart are free.';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1911),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'APPLY BOGO VOUCHER',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            applied
+                ? appliedCopy
+                : 'You have multiple products in your cart! Since your membership is active, you can apply your Buy 1 Get 1 Free voucher.',
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 11,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => cart.setApplyBogo(!applied),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: applied ? AppColors.error : AppColors.gold,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                applied ? 'REMOVE BOGO VOUCHER' : 'APPLY BOGO VOUCHER',
+                style: TextStyle(
+                  color: applied ? Colors.white : Colors.black,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1402,7 +1475,8 @@ class _CartItemCard extends StatelessWidget {
     }
 
     final cartItem = item!;
-    final lensText = _getLensText(cartItem);
+    final isContactItem = cartItem.product?.isContactLens ?? false;
+    final lensText = isContactItem ? '' : _getLensText(cartItem);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1439,6 +1513,8 @@ class _CartItemCard extends StatelessWidget {
                                   ? cartItem.product!.thumbnail!
                                   : cartItem.product!.images.first,
                             ),
+                            width: 90,
+                            height: 90,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => const Center(
                               child: SizedBox(
@@ -1628,24 +1704,39 @@ class _CartItemCard extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Frame: ₹${framePriceCalculated.toInt()}',
-                    style: TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 11,
-                      decoration: isFree ? TextDecoration.lineThrough : null,
+                  if (!isFree && !isContactItem && framePriceCalculated <= 1)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Text(
+                        '₹1 FRAME OFFER',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
                     ),
-                  ),
-                  if (cartItem.lensPrice != null && cartItem.lensPrice! > 0)
+                  if (!isContactItem) ...[
+                    const SizedBox(height: 4),
                     Text(
-                      'Lens: ₹${cartItem.lensPrice!.toInt()}',
+                      'Frame: ₹${framePriceCalculated.toInt()}',
                       style: TextStyle(
                         color: AppColors.muted,
                         fontSize: 11,
                         decoration: isFree ? TextDecoration.lineThrough : null,
                       ),
                     ),
+                    if (cartItem.lensPrice != null && cartItem.lensPrice! > 0)
+                      Text(
+                        'Lens: ₹${cartItem.lensPrice!.toInt()}',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11,
+                          decoration: isFree ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ],

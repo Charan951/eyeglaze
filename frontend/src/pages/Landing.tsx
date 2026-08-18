@@ -6,6 +6,7 @@ import { useMembershipPrice } from '../context/MembershipPriceContext';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
+import { HomepageSectionsAtPosition, sectionsForPosition, type HomepageSection } from '../components/HomepageSections';
 
 function BannerSlider({ items, objectFit = 'object-cover' }: { items: any[], objectFit?: string }) {
   const [current, setCurrent] = useState(0);
@@ -113,8 +114,6 @@ export default function LandingPage() {
     }
   };
 
-  const iconsCarouselRef = useRef<HTMLDivElement>(null);
-
   const showcaseCarouselRef = useRef<HTMLDivElement>(null);
 
   const scrollShowcaseLeft = () => {
@@ -126,18 +125,6 @@ export default function LandingPage() {
   const scrollShowcaseRight = () => {
     if (showcaseCarouselRef.current) {
       showcaseCarouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
-    }
-  };
-
-  const scrollIconsLeft = () => {
-    if (iconsCarouselRef.current) {
-      iconsCarouselRef.current.scrollBy({ left: -320, behavior: 'smooth' });
-    }
-  };
-
-  const scrollIconsRight = () => {
-    if (iconsCarouselRef.current) {
-      iconsCarouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
     }
   };
 
@@ -155,15 +142,20 @@ export default function LandingPage() {
     }
   };
 
-  const { banners: initialBanners, videos: initialVideos, reels: initialReels, categories: initialCategories, featuredProducts: initialFeaturedProducts, shapes: initialShapes } = useLoaderData() as any;
+  const { banners: initialBanners, videos: initialVideos, reels: initialReels, categories: initialCategories, featuredProducts: initialFeaturedProducts, shapes: initialShapes, homepageSections: initialHomepageSections } = useLoaderData() as any;
 
   const [banners, setBanners] = useState<any[]>(initialBanners || []);
+  const [homepageSections, setHomepageSections] = useState<HomepageSection[]>(initialHomepageSections || []);
   const [dbShapes, setDbShapes] = useState<any[]>(initialShapes || []);
   const [dbKidsAgeGroups, setDbKidsAgeGroups] = useState<any[]>([]);
 
   useEffect(() => {
     if (initialBanners) setBanners(initialBanners);
   }, [initialBanners]);
+
+  useEffect(() => {
+    if (initialHomepageSections) setHomepageSections(initialHomepageSections);
+  }, [initialHomepageSections]);
 
   useEffect(() => {
     if (initialShapes) setDbShapes(initialShapes);
@@ -259,6 +251,16 @@ export default function LandingPage() {
       });
   };
 
+  const fetchHomepageSections = () => {
+    api.get('/homepage-sections')
+      .then((res) => {
+        setHomepageSections(res.data || []);
+      })
+      .catch((err) => {
+        console.error('Error fetching homepage sections:', err);
+      });
+  };
+
   const fetchShapes = () => {
     api.get('/shapes')
       .then((res) => {
@@ -285,10 +287,24 @@ export default function LandingPage() {
     };
   }, []);
 
+  useEffect(() => {
+    socket.on('homepage_section_changed', fetchHomepageSections);
+    return () => {
+      socket.off('homepage_section_changed', fetchHomepageSections);
+    };
+  }, []);
+
   const topBanners = banners.filter((b: any) => b.position === 'top' || b.position === 'eyeglasses_landing' || b.position === 'both' || !b.position);
   const footerBanners = banners.filter((b: any) => b.position === 'footer' || b.position === 'both');
   const mobileTopBanners = topBanners.filter((b: any) => b.showOnMobile !== false);
   const mobileFooterBanners = footerBanners.filter((b: any) => b.showOnMobile !== false);
+  const landingSections = sectionsForPosition(homepageSections, 'eyeglasses_landing');
+  const mobileLandingSections = sectionsForPosition(homepageSections, 'eyeglasses_landing', { mobile: true });
+  const afterFeaturedSections = sectionsForPosition(homepageSections, 'after_featured');
+  const afterOffersSections = sectionsForPosition(homepageSections, 'after_offers');
+  const footerSections = sectionsForPosition(homepageSections, 'footer');
+  const mobileFooterSections = sectionsForPosition(homepageSections, 'footer', { mobile: true });
+  const heroSections = sectionsForPosition(homepageSections, 'hero');
 
   // Setup video socket listener
   useEffect(() => {
@@ -595,53 +611,6 @@ export default function LandingPage() {
     }
   };
 
-  // New States for Lenskart Enhancements
-  const [activeOfferSlide, setActiveOfferSlide] = useState(0);
-  const offerSlides = [
-    {
-      title: 'BUY 1 GET 1 FREE',
-      subtitle: 'ON GOLD MEMBERSHIP FRAMES',
-      desc: 'Get your second pair absolutely free. Upgrade to premium styling.',
-      code: 'GLAZEBOGO',
-      bgGradient: 'from-[#6E4E1C]/40 via-[#1C150E] to-[#0B0B0C]',
-      borderColor: 'border-[#D4A04D]/30',
-      badge: 'Buy One Get One Offer'
-    },
-    {
-      title: 'GET FIRST FRAME FREE',
-      subtitle: 'FOR NEW EYEGLAZE MEMBERS',
-      desc: 'Select from our signature new arrivals. Pay only for the prescription lenses.',
-      code: 'FIRSTFREE',
-      bgGradient: 'from-[#1B365D]/30 via-[#0E1524] to-[#0B0B0C]',
-      borderColor: 'border-blue-500/30',
-      badge: 'New User Exclusive'
-    },
-    {
-      title: 'EXTRA 15% OFF + FREE SHIPPING',
-      subtitle: 'ON EXCLUSIVE SUNGLASSES',
-      desc: 'Step into summer with polaroid lenses. Limited time discount.',
-      code: 'SUN15OFF',
-      bgGradient: 'from-[#143D28]/30 via-[#0B1A12] to-[#0B0B0C]',
-      borderColor: 'border-emerald-500/30',
-      badge: 'Summer Collection'
-    }
-  ];
-
-  // Auto-slide offer carousel
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveOfferSlide((prev) => (prev + 1) % offerSlides.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const [copiedCoupon, setCopiedCoupon] = useState('');
-  const handleCopyCoupon = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCoupon(code);
-    setTimeout(() => setCopiedCoupon(''), 2000);
-  };
-
   // Home Eye Test Booking States
   const [bookingDate, setBookingDate] = useState('');
   const [bookingTime, setBookingTime] = useState('');
@@ -919,6 +888,12 @@ export default function LandingPage() {
           </section>
         </div>
 
+        {heroSections.length > 0 && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
+            <HomepageSectionsAtPosition sections={heroSections} />
+          </div>
+        )}
+
         {/* Shop by Category - Desktop View */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
           <section className="flex flex-col gap-8 w-full mt-2">
@@ -952,6 +927,9 @@ export default function LandingPage() {
                     <div className="w-full relative overflow-hidden rounded-2xl border border-[#2A2A2D] bg-black aspect-[5/1] mb-2">
                       <BannerSlider items={topBanners} objectFit="object-contain bg-black" />
                     </div>
+                  )}
+                  {cat.slug.toLowerCase() === 'eyeglasses' && (
+                    <HomepageSectionsAtPosition sections={landingSections} />
                   )}
                   <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
                   <div 
@@ -1111,27 +1089,9 @@ export default function LandingPage() {
                   </div>
                 )}
 
-                {catSlug === 'sunglasses' && (
-                  <div className="my-4 w-full">
-                    {/* Card 1 - Special Promo Full Width */}
-                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 sm:p-6 flex items-center justify-between min-h-[110px] sm:min-h-[160px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
-                      <div className="flex flex-col gap-1 sm:gap-2 max-w-[60%] sm:max-w-[55%] z-10">
-                        <span className="text-white text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">Special Promo</span>
-                        <h3 className="text-[#D4A04D] text-xs sm:text-2xl font-extrabold leading-none sm:leading-tight">UP TO 50% OFF</h3>
-                        <p className="text-gray-400 text-[8px] sm:text-xs font-semibold leading-tight line-clamp-1 sm:line-clamp-none">On Selected Sunglasses</p>
-                        <button 
-                          onClick={() => navigate('/products?category=sunglasses')}
-                          className="mt-1.5 sm:mt-3 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] sm:text-[10px] font-bold uppercase py-1 px-2.5 sm:py-2 sm:px-4 rounded transition-all duration-300 cursor-pointer"
-                        >
-                          SHOP NOW
-                        </button>
-                      </div>
-                      <div className="w-2/5 md:w-1/2 h-full absolute right-0 top-0 bottom-0">
-                        <img src="/images/promo_sunglasses.png" alt="Promo Sunglasses" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <HomepageSectionsAtPosition
+                  sections={sectionsForPosition(homepageSections, `after_category:${cat.slug}`)}
+                />
               </Fragment>
             );
           })}
@@ -1252,6 +1212,9 @@ export default function LandingPage() {
                       <BannerSlider items={mobileTopBanners} objectFit="object-cover" />
                     </div>
                   )}
+                  {cat.slug.toLowerCase() === 'eyeglasses' && (
+                    <HomepageSectionsAtPosition sections={mobileLandingSections} compact />
+                  )}
                   <h3 className="text-xs font-black text-white tracking-widest uppercase">{cat.name}</h3>
                   <div
                     className="grid gap-2.5 mx-auto w-full justify-center"
@@ -1293,27 +1256,10 @@ export default function LandingPage() {
                   </div>
                 )}
 
-                {catSlug === 'sunglasses' && (
-                  <div className="my-2 w-full">
-                    {/* Card 1 - Special Promo Full Width */}
-                    <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 flex items-center justify-between min-h-[110px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
-                      <div className="flex flex-col gap-1 max-w-[60%] z-10">
-                        <span className="text-white text-[9px] font-bold tracking-widest uppercase">Special Promo</span>
-                        <h3 className="text-[#D4A04D] text-sm font-extrabold leading-none">UP TO 50% OFF</h3>
-                        <p className="text-gray-400 text-[10px] font-semibold leading-tight line-clamp-1">On Selected Sunglasses</p>
-                        <button
-                          onClick={() => navigate('/products?category=sunglasses')}
-                          className="mt-1.5 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[9px] font-bold uppercase py-1 px-2.5 rounded transition-all duration-300 cursor-pointer"
-                        >
-                          SHOP NOW
-                        </button>
-                      </div>
-                      <div className="w-2/5 h-full absolute right-0 top-0 bottom-0">
-                        <img src="/images/promo_sunglasses.png" alt="Promo Sunglasses" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <HomepageSectionsAtPosition
+                  sections={sectionsForPosition(homepageSections, `after_category:${cat.slug}`, { mobile: true })}
+                  compact
+                />
               </Fragment>
             );
           })}
@@ -1565,204 +1511,10 @@ export default function LandingPage() {
           </div>
         </motion.section>
 
-        {/* New Arrivals Section */}
-        <section className="w-full pt-8 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-3 sm:p-6 flex items-center justify-between min-h-[110px] sm:min-h-[160px] relative overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 w-full">
-            <div className="flex flex-col gap-1 sm:gap-2 max-w-[60%] sm:max-w-[55%] z-10">
-              <span className="text-[#D4A04D] text-[7px] sm:text-[10px] font-bold tracking-widest uppercase">NEW ARRIVALS</span>
-              <h3 className="text-white text-xs sm:text-2xl font-extrabold leading-none sm:leading-tight">Just In!</h3>
-              <p className="text-gray-400 text-[8px] sm:text-xs font-semibold leading-tight line-clamp-1 sm:line-clamp-none">Explore latest trends.</p>
-              <button 
-                onClick={() => navigate('/products')}
-                className="mt-1.5 sm:mt-3 w-fit border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black text-[7px] sm:text-[10px] font-bold uppercase py-1 px-2.5 sm:py-2 sm:px-4 rounded transition-all duration-300 cursor-pointer"
-              >
-                EXPLORE
-              </button>
-            </div>
-            <div className="w-2/5 md:w-1/2 h-full absolute right-0 top-0 bottom-0">
-              <img src="/images/promo_new_arrivals.png" alt="New Arrivals" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-          </div>
-        </section>
+        {/* New Arrivals / CMS after featured */}
+        <HomepageSectionsAtPosition sections={afterFeaturedSections} />
 
-
-        {/* Lenskart-Style Advanced Offers Carousel */}
-        <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white">Exclusive Offers & Promotions</h2>
-            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Get the best value on premium eyewear</span>
-          </div>
-
-          <div className="relative w-full min-h-[220px] rounded-2xl border border-[#2A2A2D] overflow-hidden group bg-[#111]">
-            {/* Background transition wrapper */}
-            <div className={`absolute inset-0 bg-gradient-to-r ${offerSlides[activeOfferSlide].bgGradient} transition-all duration-700 ease-in-out`} />
-            
-            {/* Overlay Grid */}
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={activeOfferSlide}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.35, ease: "easeInOut" }}
-                className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 h-full min-h-[220px]"
-              >
-                <div className="flex flex-col items-start gap-3 max-w-xl">
-                  <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold py-1 px-3 rounded-full uppercase tracking-wider">
-                    {offerSlides[activeOfferSlide].badge}
-                  </span>
-                  <h3 className="text-xl md:text-3xl font-extrabold text-white leading-tight uppercase tracking-wide">
-                    {offerSlides[activeOfferSlide].title}
-                  </h3>
-                  <span className="text-[#D4A04D] text-[10px] md:text-xs font-bold tracking-widest uppercase">
-                    {offerSlides[activeOfferSlide].subtitle}
-                  </span>
-                  <p className="text-gray-400 text-xs md:text-sm leading-relaxed max-w-md">
-                    {offerSlides[activeOfferSlide].desc}
-                  </p>
-                </div>
-
-                {/* Coupon Card & Action */}
-                <div className="flex flex-col items-start md:items-end gap-3 justify-center">
-                  <div className="bg-[#0B0B0C]/80 backdrop-blur-md border border-[#2A2A2D] rounded-xl p-4 flex flex-col gap-2 w-full sm:w-[240px] items-center justify-center text-center shadow-lg">
-                    <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">COPY COUPON CODE</span>
-                    <div className="border border-dashed border-[#D4A04D]/50 rounded-lg px-4 py-2 bg-[#131314] font-mono text-sm text-[#D4A04D] font-bold tracking-wider w-full select-all">
-                      {offerSlides[activeOfferSlide].code}
-                    </div>
-                    <button
-                      onClick={() => handleCopyCoupon(offerSlides[activeOfferSlide].code)}
-                      className="w-full mt-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold text-[10px] uppercase py-2 rounded-lg tracking-wider transition-colors cursor-pointer"
-                    >
-                      {copiedCoupon === offerSlides[activeOfferSlide].code ? '✓ COPIED!' : 'COPY CODE'}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Left/Right Controls */}
-            <button
-              onClick={() => setActiveOfferSlide((prev) => (prev - 1 + offerSlides.length) % offerSlides.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#0A0A0A]/80 text-white flex items-center justify-center hover:border-[#D4A04D] transition-all z-25 opacity-0 group-hover:opacity-100 cursor-pointer"
-            >
-              &larr;
-            </button>
-            <button
-              onClick={() => setActiveOfferSlide((prev) => (prev + 1) % offerSlides.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-[#2A2A2D] bg-[#0A0A0A]/80 text-white flex items-center justify-center hover:border-[#D4A04D] transition-all z-25 opacity-0 group-hover:opacity-100 cursor-pointer"
-            >
-              &rarr;
-            </button>
-
-            {/* Bullets */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-25">
-              {offerSlides.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveOfferSlide(idx)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeOfferSlide === idx ? 'bg-[#D4A04D] w-4' : 'bg-gray-600'}`}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
-
-
-        {/* As Seen On / Trendsetter Showcase */}
-        <section className="w-full py-4 border-t border-[#1C1C1E] flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">The EyeGlaze Edit: Styled by Icons</h2>
-              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">High-fashion trends inspired by global runways</span>
-            </div>
-          </div>
-
-          {/* Icons Carousel */}
-          <div className="relative w-full group/icons-carousel">
-            {/* Left navigation arrow */}
-            <button 
-              onClick={scrollIconsLeft}
-              className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/icons-carousel:opacity-100 hidden md:flex"
-              aria-label="Previous Trend"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-
-            {/* Carousel Container */}
-            <div 
-              ref={iconsCarouselRef}
-              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full pb-4"
-            >
-              {[
-                {
-                  title: 'The Minimalist',
-                  style: 'Thin Gold Wireframes',
-                  img: '/images/cat_prescription.png',
-                  desc: 'A subtle statement. Lightweight frames engineered from aerospace titanium.'
-                },
-                {
-                  title: 'The Maverick',
-                  style: 'Chunky Acetate Square',
-                  img: '/images/cat_sunglasses.png',
-                  desc: 'Bold contours and thick temples for an unapologetically smart profile.'
-                },
-                {
-                  title: 'The Creator',
-                  style: 'Round Transparent Rim',
-                  img: '/images/cat_blue_light.png',
-                  desc: 'Intellectual styling utilizing clear bio-acetates and textured temples.'
-                },
-                {
-                  title: 'The Explorer',
-                  style: 'Classic Double-Bar Aviators',
-                  img: '/images/promo_sunglasses.png',
-                  desc: 'An outdoor vintage classic re-imagined with high-contrast polaroid lenses.'
-                }
-              ].map((trend, idx) => (
-                <div
-                  key={idx}
-                  className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group hover:border-[#D4A04D]/50 transition-all duration-300 flex flex-col justify-between"
-                >
-                  <div className="aspect-[4/3] w-full overflow-hidden bg-[#131314] relative flex items-center justify-center p-6 border-b border-[#2A2A2D]/40">
-                    <img
-                      src={trend.img}
-                      alt={trend.title}
-                      className="max-h-[85%] max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                  </div>
-                  <div className="p-4 flex flex-col gap-1.5 flex-1 justify-between">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[#D4A04D] text-[10px] font-bold uppercase tracking-wider">{trend.style}</span>
-                      <h3 className="text-white text-xs font-bold">{trend.title}</h3>
-                      <p className="text-gray-400 text-[10px] leading-relaxed mt-1 font-semibold">{trend.desc}</p>
-                    </div>
-                    <button
-                      onClick={() => navigate('/products')}
-                      className="w-full mt-3 border border-[#2A2A2D] group-hover:border-[#D4A04D] text-white group-hover:text-black group-hover:bg-[#D4A04D] text-[10px] font-bold py-2 rounded-lg transition-all"
-                    >
-                      SHOP THE LOOK
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Right navigation arrow */}
-            <button 
-              onClick={scrollIconsRight}
-              className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-[#121212]/90 border border-[#2A2A2D] text-white rounded-full flex items-center justify-center hover:border-[#D4A04D] hover:text-[#D4A04D] transition-all cursor-pointer shadow-lg opacity-0 group-hover/icons-carousel:opacity-100 hidden md:flex"
-              aria-label="Next Trend"
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </section>
+        <HomepageSectionsAtPosition sections={afterOffersSections} />
 
         {/* EyeGlaze Showcase Section */}
         {videos && videos.length > 0 ? (
@@ -1868,44 +1620,7 @@ export default function LandingPage() {
           </section>
         )}
 
-        {/* Frequently Asked Questions */}
-        <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6 max-w-3xl mx-auto items-stretch">
-          <div className="flex flex-col gap-6 w-full">
-            <div className="flex flex-col gap-1 text-center">
-              <h2 className="text-lg font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h2>
-              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Everything you need to know about buying glasses online</span>
-            </div>
-
-            <div className="flex flex-col gap-3 w-full">
-              {faqData.map((faq, idx) => {
-                const isOpen = expandedFaq === idx;
-                return (
-                  <div
-                    key={idx}
-                    className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden transition-all duration-300"
-                  >
-                    <button
-                      onClick={() => setExpandedFaq(isOpen ? null : idx)}
-                      className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-[#131314] transition-colors cursor-pointer"
-                    >
-                      <span className="text-white text-xs md:text-sm font-bold uppercase tracking-wide">{faq.q}</span>
-                      <span className={`text-[#D4A04D] font-bold text-xs transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                        ▼
-                      </span>
-                    </button>
-                    {isOpen && (
-                      <div className="px-5 pb-4 text-xs md:text-sm text-gray-400 leading-relaxed border-t border-[#2A2A2D]/40 pt-3 animate-fade-in font-medium">
-                        {faq.a}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Mobile-Only Vertical Reels Section (after EYEGLAZE CLINIC @ HOME / FAQ) */}
+        {/* Mobile-Only Vertical Reels Section */}
         {reels && reels.length > 0 && (
           <section className="block md:hidden w-full py-6 border-t border-[#1C1C1E] space-y-4">
             <div className="flex flex-col gap-0.5">
@@ -2003,6 +1718,50 @@ export default function LandingPage() {
             <BannerSlider items={mobileFooterBanners} objectFit="object-cover" />
           </div>
         )}
+
+        <div className="hidden md:block">
+          <HomepageSectionsAtPosition sections={footerSections} />
+        </div>
+        <div className="block md:hidden">
+          <HomepageSectionsAtPosition sections={mobileFooterSections} compact />
+        </div>
+
+        {/* Frequently Asked Questions — last block, just above site footer */}
+        <section className="w-full py-8 border-t border-[#1C1C1E] flex flex-col gap-6 max-w-3xl mx-auto items-stretch">
+          <div className="flex flex-col gap-6 w-full">
+            <div className="flex flex-col gap-1 text-center">
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h2>
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Everything you need to know about buying glasses online</span>
+            </div>
+
+            <div className="flex flex-col gap-3 w-full">
+              {faqData.map((faq, idx) => {
+                const isOpen = expandedFaq === idx;
+                return (
+                  <div
+                    key={idx}
+                    className="bg-[#121212] border border-[#2A2A2D] rounded-xl overflow-hidden transition-all duration-300"
+                  >
+                    <button
+                      onClick={() => setExpandedFaq(isOpen ? null : idx)}
+                      className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-[#131314] transition-colors cursor-pointer"
+                    >
+                      <span className="text-white text-xs md:text-sm font-bold uppercase tracking-wide">{faq.q}</span>
+                      <span className={`text-[#D4A04D] font-bold text-xs transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                        ▼
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-4 text-xs md:text-sm text-gray-400 leading-relaxed border-t border-[#2A2A2D]/40 pt-3 animate-fade-in font-medium">
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
       </div> {/* END SHARED PAGE CONTENT */}
 
@@ -2595,7 +2354,7 @@ export default function LandingPage() {
               {[
                 { title: 'Order Shipped!', desc: 'Your order #EG-9901 has been dispatched via BlueDart.', time: '2 hours ago', icon: '📦' },
                 { title: 'Home Eye Test Booked', desc: 'Optometrist visit scheduled for tomorrow at 2:00 PM.', time: '1 day ago', icon: '🩺' },
-                { title: 'Gold Coupon Active', desc: 'Use code {offerSlides[0]?.code || "GLAZEBOGO"} to buy 1 get 1 free paired frames.', time: '2 days ago', icon: '🎫' }
+                { title: 'Gold Coupon Active', desc: 'Use your Gold membership coupon to buy 1 get 1 free paired frames.', time: '2 days ago', icon: '🎫' }
               ].map((n, idx) => (
                 <div key={idx} className="bg-zinc-900/60 border border-zinc-800/40 rounded-xl p-3 flex gap-3 items-start">
                   <span className="text-lg shrink-0 mt-0.5">{n.icon}</span>

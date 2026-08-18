@@ -34,6 +34,7 @@ interface ProductCardProps {
     category?: string;
     subCategory?: string;
     subSubCategory?: string;
+    packName?: string;
   };
   layout?: 'grid' | 'horizontal';
 }

@@ -230,6 +230,9 @@ export interface IProduct extends Document {
   readingPowers?: string[];
   contactPowers?: Array<{ power: string; price: number }>;
   contactPackOptions?: Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>;
+  contactPackGroupId?: string;
+  packName?: string;
+  lensesPerBox?: number;
   contactDisposableType?: string;
   lensMaterial?: string;
   waterContent?: string;
@@ -530,6 +533,9 @@ const ProductSchema = new Schema<IProduct>(
         lensesPerBox: { type: Number }
       }
     ],
+    contactPackGroupId: { type: String, index: true },
+    packName: { type: String },
+    lensesPerBox: { type: Number },
     contactDisposableType: { type: String },
     lensMaterial: { type: String },
     waterContent: { type: String },
@@ -566,6 +572,35 @@ ProductSchema.index({ category: 1 });
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ brandId: 1 });
 ProductSchema.index({ categoryId: 1 });
+
+function syncActiveFromStatus(doc: { status?: string; isActive?: boolean }) {
+  if (doc.status) {
+    doc.isActive = doc.status === 'Active';
+  } else if (typeof doc.isActive === 'boolean') {
+    doc.status = doc.isActive ? 'Active' : 'Inactive';
+  }
+}
+
+ProductSchema.pre('save', function () {
+  syncActiveFromStatus(this as any);
+});
+
+ProductSchema.pre('findOneAndUpdate', function () {
+  const update = this.getUpdate() as Record<string, any> | null;
+  if (!update) return;
+  const set = update.$set ? update.$set : update;
+  if (set.status) {
+    set.isActive = set.status === 'Active';
+  } else if (typeof set.isActive === 'boolean') {
+    set.status = set.isActive ? 'Active' : 'Inactive';
+  }
+});
+
+/** Storefront / sitemap: live products only. Missing `status` still counts as live. */
+export const STOREFRONT_PRODUCT_FILTER = {
+  isActive: true,
+  status: { $nin: ['Draft', 'Inactive', 'Scheduled'] },
+};
 
 if (mongoose.models.Product) {
   delete mongoose.models.Product;

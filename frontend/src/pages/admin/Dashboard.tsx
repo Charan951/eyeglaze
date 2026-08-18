@@ -129,7 +129,7 @@ export default function DashboardPage() {
             <tbody>
               {recentOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-[#A7A7A7] py-16 italic">No recent orders found</td>
+                  <td colSpan={5} className="text-center text-[#A7A7A7] py-16">No data is added</td>
                 </tr>
               ) : (
                 recentOrders.map(order => (

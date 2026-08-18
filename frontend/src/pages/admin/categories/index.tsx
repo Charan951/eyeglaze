@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../../lib/api';
+import { ADD_CHILD_LABEL, ADD_VARIANT_LABEL, catalogListPath } from './levelLabels';
 
 interface CategoryItem {
   _id: string;
@@ -17,10 +18,10 @@ interface CategoryItem {
 }
 
 // Drill-down depth: 0 = root grid of Categories (no sidebar).
-// 1 = a Category is selected — sidebar lists Categories, cards show its Sub-Categories.
-// 2 = a Sub-Category is selected — sidebar lists Sub-Categories, cards show its Sub-Sub-Categories.
-// 3 = a Sub-Sub-Category is selected — sidebar lists Sub-Sub-Categories, cards show its Sub-Sub-Sub-Categories.
-type Level = 0 | 1 | 2 | 3;
+// 1 = a Category is selected — sidebar lists Categories, cards show its Collections.
+// 2 = a Collection is selected — sidebar lists Collections, tabs show Types | Variants.
+type Level = 0 | 1 | 2;
+type CollectionTab = 'types' | 'variants';
 
 function statusPillClasses(status: CategoryItem['status']) {
   if (status === 'Active') return 'bg-green-500/10 text-green-400 border-green-500/20';
@@ -30,6 +31,7 @@ function statusPillClasses(status: CategoryItem['status']) {
 
 export default function CategoriesList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [level, setLevel] = useState<Level>(0);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -39,7 +41,7 @@ export default function CategoriesList() {
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<CategoryItem | null>(null);
-  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState<CategoryItem | null>(null);
+  const [collectionTab, setCollectionTab] = useState<CollectionTab>('types');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,65 +62,121 @@ export default function CategoriesList() {
     setSubSubCategories(res.data.items || []);
   }, []);
 
-  const fetchSubSubSubCategories = useCallback(async (subSubCategoryId: string) => {
-    const res = await api.get(`/admin/categories?type=SubSubSubCategory&subSubCategoryId=${subSubCategoryId}&isDeleted=false&limit=1000`);
+  const fetchSubSubSubCategories = useCallback(async (subCategoryId: string) => {
+    const res = await api.get(`/admin/categories?type=SubSubSubCategory&subCategoryId=${subCategoryId}&isDeleted=false&limit=1000`);
     setSubSubSubCategories(res.data.items || []);
   }, []);
 
+  const syncDrillUrl = useCallback((catId?: string | null, subId?: string | null, tab?: CollectionTab | null) => {
+    const next = catalogListPath({
+      categoryId: catId,
+      subCategoryId: subId,
+      tab: tab && tab !== 'types' ? tab : undefined,
+    });
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== next) {
+      const qs = next.includes('?') ? next.split('?')[1] : '';
+      setSearchParams(qs ? Object.fromEntries(new URLSearchParams(qs)) : {}, { replace: true });
+    }
+  }, [setSearchParams]);
+
   useEffect(() => {
-    setLoading(true);
-    fetchCategories()
-      .catch(() => setError('Failed to fetch category catalog.'))
-      .finally(() => setLoading(false));
-  }, [fetchCategories]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const catRes = await api.get('/admin/categories?type=Category&isDeleted=false&limit=1000');
+        const cats: CategoryItem[] = catRes.data.items || [];
+        if (cancelled) return;
+        setCategories(cats);
+
+        const catId = searchParams.get('categoryId');
+        const subId = searchParams.get('subCategoryId');
+        const tab = searchParams.get('tab') === 'variants' ? 'variants' : 'types';
+        if (!catId) return;
+
+        const cat = cats.find((c) => c._id === catId);
+        if (!cat) return;
+        setSelectedCategory(cat);
+
+        const subRes = await api.get(`/admin/categories?type=SubCategory&categoryId=${cat._id}&isDeleted=false&limit=1000`);
+        const subs: CategoryItem[] = subRes.data.items || [];
+        if (cancelled) return;
+        setSubCategories(subs);
+        setLevel(1);
+
+        if (!subId) return;
+        const sub = subs.find((s) => s._id === subId);
+        if (!sub) return;
+        setSelectedSubCategory(sub);
+        setCollectionTab(tab);
+
+        const [typeRes, varRes] = await Promise.all([
+          api.get(`/admin/categories?type=SubSubCategory&subCategoryId=${sub._id}&isDeleted=false&limit=1000`),
+          api.get(`/admin/categories?type=SubSubSubCategory&subCategoryId=${sub._id}&isDeleted=false&limit=1000`),
+        ]);
+        if (cancelled) return;
+        setSubSubCategories(typeRes.data.items || []);
+        setSubSubSubCategories(varRes.data.items || []);
+        setLevel(2);
+      } catch {
+        if (!cancelled) setError('Failed to fetch category catalog.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Restore drill-down once from the URL (e.g. returning from Add Variant).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Re-fetch whichever list is currently on screen, e.g. after an edit/delete/duplicate.
   const refreshCurrentLevel = useCallback(() => {
     if (level === 0) {
       fetchCategories().catch(() => setError('Failed to fetch category catalog.'));
     } else if (level === 1 && selectedCategory) {
-      fetchSubCategories(selectedCategory._id).catch(() => setError('Failed to fetch sub-categories.'));
+      fetchSubCategories(selectedCategory._id).catch(() => setError('Failed to fetch collections.'));
     } else if (level === 2 && selectedSubCategory) {
-      fetchSubSubCategories(selectedSubCategory._id).catch(() => setError('Failed to fetch sub-sub-categories.'));
-    } else if (level === 3 && selectedSubSubCategory) {
-      fetchSubSubSubCategories(selectedSubSubCategory._id).catch(() => setError('Failed to fetch sub-sub-sub-categories.'));
+      fetchSubSubCategories(selectedSubCategory._id).catch(() => setError('Failed to fetch types.'));
+      fetchSubSubSubCategories(selectedSubCategory._id).catch(() => setError('Failed to fetch variants.'));
     }
-    // Also keep the sidebar list (one level up) fresh.
     if (level === 1) fetchCategories().catch(() => {});
     if (level === 2 && selectedCategory) fetchSubCategories(selectedCategory._id).catch(() => {});
-    if (level === 3 && selectedSubCategory) fetchSubSubCategories(selectedSubCategory._id).catch(() => {});
-  }, [level, selectedCategory, selectedSubCategory, selectedSubSubCategory, fetchCategories, fetchSubCategories, fetchSubSubCategories, fetchSubSubSubCategories]);
+  }, [level, selectedCategory, selectedSubCategory, fetchCategories, fetchSubCategories, fetchSubSubCategories, fetchSubSubSubCategories]);
 
   const openCategory = (cat: CategoryItem) => {
     setSelectedCategory(cat);
     setSelectedSubCategory(null);
-    setSelectedSubSubCategory(null);
+    setCollectionTab('types');
     setLevel(1);
     setSearch('');
-    fetchSubCategories(cat._id).catch(() => setError('Failed to fetch sub-categories.'));
+    syncDrillUrl(cat._id);
+    fetchSubCategories(cat._id).catch(() => setError('Failed to fetch collections.'));
   };
 
   const openSubCategory = (sub: CategoryItem) => {
     setSelectedSubCategory(sub);
-    setSelectedSubSubCategory(null);
+    setCollectionTab('types');
     setLevel(2);
     setSearch('');
-    fetchSubSubCategories(sub._id).catch(() => setError('Failed to fetch sub-sub-categories.'));
+    syncDrillUrl(selectedCategory?._id, sub._id);
+    fetchSubSubCategories(sub._id).catch(() => setError('Failed to fetch types.'));
+    fetchSubSubSubCategories(sub._id).catch(() => setError('Failed to fetch variants.'));
   };
 
-  const openSubSubCategory = (ss: CategoryItem) => {
-    setSelectedSubSubCategory(ss);
-    setLevel(3);
+  const switchCollectionTab = (tab: CollectionTab) => {
+    setCollectionTab(tab);
     setSearch('');
-    fetchSubSubSubCategories(ss._id).catch(() => setError('Failed to fetch sub-sub-sub-categories.'));
+    syncDrillUrl(selectedCategory?._id, selectedSubCategory?._id, tab);
   };
 
   const backToRoot = () => {
     setLevel(0);
     setSelectedCategory(null);
     setSelectedSubCategory(null);
-    setSelectedSubSubCategory(null);
+    setCollectionTab('types');
     setSearch('');
+    syncDrillUrl();
   };
 
   // Actions
@@ -157,8 +215,8 @@ export default function CategoriesList() {
   const mainItems: CategoryItem[] =
     level === 0 ? categories :
     level === 1 ? subCategories :
-    level === 2 ? subSubCategories :
-    subSubSubCategories;
+    collectionTab === 'variants' ? subSubSubCategories :
+    subSubCategories;
 
   const filteredMainItems = search
     ? mainItems.filter(it => it.name.toLowerCase().includes(search.toLowerCase()))
@@ -167,8 +225,6 @@ export default function CategoriesList() {
   const openMainItem = (item: CategoryItem) => {
     if (level === 0) openCategory(item);
     else if (level === 1) openSubCategory(item);
-    else if (level === 2) openSubSubCategory(item);
-    // level 3 items (Sub-Sub-Sub-Category) are leaves — nothing further to drill into.
   };
 
   const addChildFor = (item: CategoryItem) => {
@@ -176,45 +232,43 @@ export default function CategoriesList() {
       navigate(`/admin/categories/add?type=SubCategory&categoryId=${item._id}`);
     } else if (item.type === 'SubCategory') {
       const catId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId || '';
-      navigate(`/admin/categories/add?type=SubSubCategory&categoryId=${catId}&subCategoryId=${item._id}`);
-    } else if (item.type === 'SubSubCategory') {
-      const catId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId || '';
-      const subId = typeof item.subCategoryId === 'object' ? item.subCategoryId?._id : item.subCategoryId || '';
-      navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${catId}&subCategoryId=${subId}&subSubCategoryId=${item._id}`);
+      if (collectionTab === 'variants' && level === 2) {
+        navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${catId}&subCategoryId=${item._id}`);
+      } else {
+        navigate(`/admin/categories/add?type=SubSubCategory&categoryId=${catId}&subCategoryId=${item._id}`);
+      }
     }
   };
 
-  const addChildLabel = (item: CategoryItem): string | null => {
-    if (item.type === 'Category') return '+ Add Sub-Category';
-    if (item.type === 'SubCategory') return '+ Add Sub-Sub';
-    if (item.type === 'SubSubCategory' && !/solution/i.test(item.name || '')) return '+ Add Sub-Sub-Sub';
-    return null;
+  const addVariantForCollection = (item: CategoryItem) => {
+    const catId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId || selectedCategory?._id || '';
+    navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${catId}&subCategoryId=${item._id}`);
   };
 
-  const canOpen = level < 3;
+  const addChildLabel = (item: CategoryItem): string | null => {
+    return ADD_CHILD_LABEL[item.type] || null;
+  };
 
-  // Sidebar list: one level up from the main grid — Categories at level 1,
-  // Sub-Categories at level 2, Sub-Sub-Categories at level 3.
+  const canOpen = level < 2;
+
   const sidebarItems: CategoryItem[] =
     level === 1 ? categories :
     level === 2 ? subCategories :
-    level === 3 ? subSubCategories :
     [];
-  const sidebarTitle = level === 1 ? 'Categories' : level === 2 ? 'Sub-Categories' : 'Sub-Sub-Categories';
+  const sidebarTitle = level === 1 ? 'Categories' : 'Collections';
   const sidebarActiveId =
     level === 1 ? selectedCategory?._id :
-    level === 2 ? selectedSubCategory?._id :
-    selectedSubSubCategory?._id;
+    selectedSubCategory?._id;
   const sidebarOnClick =
     level === 1 ? openCategory :
-    level === 2 ? openSubCategory :
-    openSubSubCategory;
+    openSubCategory;
 
   const gridLabel =
     level === 0 ? 'Categories' :
-    level === 1 ? `Sub-Categories of "${selectedCategory?.name}"` :
-    level === 2 ? `Sub-Sub-Categories of "${selectedSubCategory?.name}"` :
-    `Sub-Sub-Sub-Categories of "${selectedSubSubCategory?.name}"`;
+    level === 1 ? `Collections in "${selectedCategory?.name}"` :
+    collectionTab === 'variants'
+      ? `Variants in "${selectedSubCategory?.name}"`
+      : `Types in "${selectedSubCategory?.name}"`;
 
   return (
     <div className="space-y-6 select-none text-white">
@@ -237,8 +291,16 @@ export default function CategoriesList() {
           >
             <span>🌳</span> Tree View
           </button>
-          <button onClick={() => navigate('/admin/categories/add')} className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 px-5 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md border-none cursor-pointer">
-            + Create Segment
+          <button
+            onClick={() => {
+              if (level === 2 && selectedSubCategory && collectionTab === 'variants') addVariantForCollection(selectedSubCategory);
+              else if (level === 2 && selectedSubCategory) addChildFor(selectedSubCategory);
+              else if (level === 1 && selectedCategory) addChildFor(selectedCategory);
+              else navigate('/admin/categories/add');
+            }}
+            className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold py-2.5 px-5 rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md border-none cursor-pointer"
+          >
+            {level === 2 && collectionTab === 'variants' ? ADD_VARIANT_LABEL : level === 2 ? ADD_CHILD_LABEL.SubCategory : level === 1 ? ADD_CHILD_LABEL.Category : '+ Create Segment'}
           </button>
         </div>
       </div>
@@ -275,22 +337,7 @@ export default function CategoriesList() {
             {selectedSubCategory && (
               <>
                 <span className="text-gray-600">➔</span>
-                {level === 2 ? (
-                  <span className="text-[#D4A04D] font-bold">{selectedSubCategory.name}</span>
-                ) : (
-                  <button
-                    onClick={() => openSubCategory(selectedSubCategory)}
-                    className="bg-transparent border-none cursor-pointer p-0 text-gray-300 hover:text-white hover:underline transition-colors"
-                  >
-                    {selectedSubCategory.name}
-                  </button>
-                )}
-              </>
-            )}
-            {selectedSubSubCategory && (
-              <>
-                <span className="text-gray-600">➔</span>
-                <span className="text-[#D4A04D] font-bold">{selectedSubSubCategory.name}</span>
+                <span className="text-[#D4A04D] font-bold">{selectedSubCategory.name}</span>
               </>
             )}
           </div>
@@ -327,18 +374,44 @@ export default function CategoriesList() {
               </button>
             ))}
             {sidebarItems.length === 0 && (
-              <div className="text-[10px] text-gray-600 italic px-2 py-2">None yet</div>
+              <div className="text-[10px] text-gray-600 italic px-2 py-2">No data is added</div>
             )}
           </div>
         )}
 
         <div className="flex-1 min-w-0 space-y-4">
+          {level === 2 && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => switchCollectionTab('types')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-colors ${
+                  collectionTab === 'types'
+                    ? 'bg-[#D4A04D] text-black border-[#D4A04D]'
+                    : 'bg-[#131314] text-gray-400 border-[#2A2A2D] hover:text-white'
+                }`}
+              >
+                Types
+              </button>
+              <button
+                type="button"
+                onClick={() => switchCollectionTab('variants')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-colors ${
+                  collectionTab === 'variants'
+                    ? 'bg-[#D4A04D] text-black border-[#D4A04D]'
+                    : 'bg-[#131314] text-gray-400 border-[#2A2A2D] hover:text-white'
+                }`}
+              >
+                Variants
+              </button>
+            </div>
+          )}
           <h2 className="text-sm font-black uppercase tracking-wider text-gray-400">{gridLabel}</h2>
 
           {loading ? (
             <div className="text-center text-gray-400 py-16 animate-pulse text-xs">Loading categories catalog...</div>
           ) : filteredMainItems.length === 0 ? (
-            <div className="text-center text-gray-500 py-16 italic text-xs bg-[#131314] border border-[#2A2A2D] rounded-2xl">No elements found</div>
+            <div className="text-center text-gray-500 py-16 italic text-xs bg-[#131314] border border-[#2A2A2D] rounded-2xl">No data is added</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredMainItems.map(item => {
@@ -379,6 +452,14 @@ export default function CategoriesList() {
                           className="ml-auto bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2.5 py-1 rounded-lg text-[10px] uppercase font-black tracking-wider transition-colors cursor-pointer"
                         >
                           {childLabel}
+                        </button>
+                      )}
+                      {item.type === 'SubCategory' && (
+                        <button
+                          onClick={() => addVariantForCollection(item)}
+                          className={`${childLabel ? '' : 'ml-auto '}bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2.5 py-1 rounded-lg text-[10px] uppercase font-black tracking-wider transition-colors cursor-pointer`}
+                        >
+                          {ADD_VARIANT_LABEL}
                         </button>
                       )}
                     </div>

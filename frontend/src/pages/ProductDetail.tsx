@@ -69,6 +69,19 @@ interface Product {
   readingPowers?: string[];
   contactPowers?: Array<{ power: string; price: number }>;
   contactPackOptions?: Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>;
+  contactPackGroupId?: string;
+  packName?: string;
+  lensesPerBox?: number;
+  contactPackSiblings?: Array<{
+    _id: string;
+    name: string;
+    sku?: string;
+    packName: string;
+    lensesPerBox?: number;
+    price: number;
+    originalPrice?: number;
+    thumbnail?: string;
+  }>;
   contactDisposableType?: string;
   subCategory?: string;
   sellAsFrame?: boolean;
@@ -607,13 +620,13 @@ export default function ProductDetailPage() {
   }, [selectedColor]);
   const [similarProducts, setSimilarProducts] = useState<Product[]>(
     initialSimilarProducts 
-      ? initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id).slice(0, 4)
+      ? initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id && (!initialProduct?.contactPackGroupId || p.contactPackGroupId !== initialProduct.contactPackGroupId)).slice(0, 4)
       : []
   );
 
   useEffect(() => {
     if (initialSimilarProducts) {
-      const filtered = initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id).slice(0, 4);
+        const filtered = initialSimilarProducts.filter((p: any) => p._id !== initialProduct?._id && (!initialProduct?.contactPackGroupId || p.contactPackGroupId !== initialProduct.contactPackGroupId)).slice(0, 4);
       setSimilarProducts(filtered);
     }
   }, [initialSimilarProducts, initialProduct?._id]);
@@ -628,7 +641,7 @@ export default function ProductDetailPage() {
         if (!active) return;
         const fetched = res.data.products || res.data || [];
         // Filter out the current product and slice to 4 items
-        const filtered = fetched.filter((p: any) => p._id !== product._id).slice(0, 4);
+        const filtered = fetched.filter((p: any) => p._id !== product._id && (!product.contactPackGroupId || p.contactPackGroupId !== product.contactPackGroupId)).slice(0, 4);
         setSimilarProducts(filtered);
       })
       .catch(() => {
@@ -638,7 +651,7 @@ export default function ProductDetailPage() {
           .then(res => {
             if (!active) return;
             const fetched = res.data.products || res.data || [];
-            const filtered = fetched.filter((p: any) => p._id !== product._id).slice(0, 4);
+            const filtered = fetched.filter((p: any) => p._id !== product._id && (!product.contactPackGroupId || p.contactPackGroupId !== product.contactPackGroupId)).slice(0, 4);
             setSimilarProducts(filtered);
           })
           .catch(() => {
@@ -737,16 +750,13 @@ export default function ProductDetailPage() {
 
   const isContactLensProduct = (prod: any) => {
     if (!prod) return false;
-    const cat = (prod.category || '').toLowerCase();
-    const sub = (prod.subCategory || '').toLowerCase();
-    const name = (prod.name || '').toLowerCase();
-    return (
-      cat.includes('contact') ||
-      (cat.includes('lens') && !cat.includes('frame')) ||
-      sub.includes('contact') ||
-      name.includes('contact') ||
-      (name.includes('lens') && !name.includes('glass') && !name.includes('frame'))
-    );
+    const values = [
+      prod.category,
+      typeof prod.categoryId === 'object' ? prod.categoryId?.slug : '',
+      typeof prod.categoryId === 'object' ? prod.categoryId?.name : '',
+      ...(Array.isArray(prod.categories) ? prod.categories : []),
+    ];
+    return values.some((v) => String(v || '').toLowerCase().includes('contact'));
   };
 
   const isSolutionProductPage = (prod: any) => {
@@ -811,14 +821,17 @@ export default function ProductDetailPage() {
           setCustomPriceOverride(null);
         }
       } else if (isContactLensProduct(product)) {
-        const packs = (product.contactPackOptions && product.contactPackOptions.length > 0)
-          ? product.contactPackOptions
-          : [
-              { packName: '1 lens/box', price: product.sellingPrice || product.price?.selling || 369 },
-              { packName: '3 lens/box', price: Math.round((product.sellingPrice || product.price?.selling || 369) * 2.5) }
-            ];
-        setSelectedPackOption(packs[0].packName);
-        setCustomPriceOverride(packs[0].price);
+        const siblings = product.contactPackSiblings || [];
+        if (siblings.length > 0) {
+          setSelectedPackOption(product.packName || '');
+          setCustomPriceOverride(null);
+        } else if (product.contactPackOptions && product.contactPackOptions.length > 0) {
+          setSelectedPackOption(product.contactPackOptions[0].packName);
+          setCustomPriceOverride(product.contactPackOptions[0].price);
+        } else {
+          setSelectedPackOption(product.packName || '');
+          setCustomPriceOverride(null);
+        }
       } else {
         setCustomPriceOverride(null);
       }
@@ -917,7 +930,7 @@ export default function ProductDetailPage() {
         lensPrice: unitPrice * (totalBoxes > 0 ? totalBoxes : 1),
         framePrice: 0,
         fittingCharge: 0,
-        packSize: `${totalBoxes > 0 ? totalBoxes : 1} Box(es) (${product.contactDisposableType || 'Standard Pack'})`,
+        packSize: `${totalBoxes > 0 ? totalBoxes : 1} Box(es) (${product.packName || product.contactDisposableType || 'Standard Pack'})`,
         prescriptionUrl: contactPowerType === 'upload' ? (contactPrescriptionUrl || undefined) : undefined,
         powerMode: contactPowerType,
         power: {
@@ -999,7 +1012,7 @@ export default function ProductDetailPage() {
           name: targetProduct.name,
           sku: targetProduct.sku || '',
           framePrice: priceOverride ?? targetProduct.price?.selling ?? targetProduct.sellingPrice ?? 1,
-          priceLocked: priceOverride != null || !!lensPayload,
+          priceLocked: priceOverride != null,
           originalPrice: priceOverride != null ? (originalPrice ?? targetProduct.price?.selling ?? targetProduct.sellingPrice) : undefined,
           lensPrice: lensPayload?.lensPrice || 0,
           fittingCharge: lensPayload ? 99 : 0,
@@ -1051,7 +1064,7 @@ export default function ProductDetailPage() {
             name: product.name,
             sku: product.sku,
             framePrice: lensPayload && typeof lensPayload.framePrice === 'number' ? lensPayload.framePrice : (product.price?.selling ?? 1),
-            priceLocked: !!lensPayload,
+            priceLocked: !!lensPayload && typeof lensPayload.framePrice === 'number' && lensPayload.framePrice === 0,
             lensPrice: lensPayload?.lensPrice || 0,
             fittingCharge: lensPayload ? 99 : 0,
             image: product.images?.[0] || '',
@@ -2037,8 +2050,6 @@ export default function ProductDetailPage() {
                 <span className="text-white font-bold">{product.rating}</span>
                 <span>({product.reviewCount} reviews)</span>
               </div>
-              <span className="text-gray-700">|</span>
-              <span className="text-[#D4A04D] font-bold">500+ bought this week</span>
             </div>
             {product.shortDescription && (
               <p className="text-[#A7A7A7] text-xs font-semibold leading-relaxed mt-2">
@@ -2050,23 +2061,22 @@ export default function ProductDetailPage() {
             {/* Pricing Info */}
             <div className="flex flex-col gap-1 py-1">
               <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                {isContactLensProduct(product) ? 'Contact Lens Price' : 'Frame Starting'}
+                {isContactLensProduct(product) ? 'Contact Lens Price' : 'Frame Price'}
               </span>
               <div className="flex items-baseline gap-2.5 flex-wrap">
-                {/* Member / Non-Member Prices */}
-                {!isContactLensProduct(product) && product.memberPrice && (
+                {!isContactLensProduct(product) && product.memberPrice && user && (
                   <span className="text-3xl font-black text-[#D4A04D]">
                     ₹{product.memberPrice} <span className="text-gray-500 text-sm font-bold">(Member)</span>
                   </span>
                 )}
                 {!isContactLensProduct(product) && product.nonMemberPrice && (
-                  <span className="text-2xl font-black text-white">
-                    ₹{product.nonMemberPrice} <span className="text-gray-500 text-sm font-bold">(Non-Member)</span>
+                  <span className={`${user && product.memberPrice ? 'text-2xl' : 'text-3xl'} font-black text-white`}>
+                    ₹{product.nonMemberPrice}
+                    {user && <span className="text-gray-500 text-sm font-bold"> (Non-Member)</span>}
                   </span>
                 )}
                 
-                {/* Fallback/Main price for contact lenses or when member prices are not available */}
-                {(isContactLensProduct(product) || !product.memberPrice || !product.nonMemberPrice) && (
+                {(isContactLensProduct(product) || !product.nonMemberPrice) && (!product.memberPrice || !user || isContactLensProduct(product)) && (
                   <span className="text-3xl font-black text-white">
                     ₹{sellingPrice}
                   </span>
@@ -2661,48 +2671,78 @@ export default function ProductDetailPage() {
                   Lenses per Pack
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {(product.contactPackOptions && product.contactPackOptions.length > 0
-                    ? product.contactPackOptions
-                    : [
-                        {
-                          packName: '1 lens/box',
+                  {(() => {
+                    const siblings = product.contactPackSiblings || [];
+                    if (siblings.length > 0) {
+                      return siblings.map((sib) => {
+                        const isSelected = String(sib._id) === String(product._id);
+                        return (
+                          <button
+                            type="button"
+                            key={String(sib._id)}
+                            onClick={() => {
+                              if (!isSelected) {
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                navigate(`/products/${sib._id}`);
+                              }
+                            }}
+                            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] flex flex-col justify-between ${
+                              isSelected
+                                ? 'bg-[#1A1A2E] border-2 border-[#D4A04D] text-white shadow-lg scale-[1.02]'
+                                : 'bg-[#18181A] border border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/50'
+                            }`}
+                          >
+                            <div className="text-xs font-extrabold text-white">{sib.packName || sib.name}</div>
+                            <div className="mt-2 flex items-baseline gap-2">
+                              {sib.originalPrice && sib.originalPrice > sib.price ? (
+                                <span className="text-[10px] text-gray-500 line-through">₹{sib.originalPrice}</span>
+                              ) : null}
+                              <span className={`text-xs font-black ${isSelected ? 'text-[#D4A04D]' : 'text-white'}`}>
+                                ₹{sib.price}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      });
+                    }
+
+                    const legacyPacks = product.contactPackOptions && product.contactPackOptions.length > 0
+                      ? product.contactPackOptions
+                      : [{
+                          packName: product.packName || '1 lens/box',
                           price: sellingPrice,
-                          originalPrice: product.mrp || product.price?.original || Math.round(sellingPrice * 1.2)
-                        },
-                        {
-                          packName: '3 lens/box',
-                          price: Math.round(sellingPrice * 2.5),
-                          originalPrice: Math.round((product.mrp || product.price?.original || Math.round(sellingPrice * 1.2)) * 3)
-                        }
-                      ]
-                  ).map((pack, idx) => {
-                    const isSelected = selectedPackOption ? selectedPackOption === pack.packName : idx === 0;
-                    return (
-                      <button
-                        type="button"
-                        key={idx}
-                        onClick={() => {
-                          setSelectedPackOption(pack.packName);
-                          setCustomPriceOverride(pack.price);
-                        }}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-[#1A1A2E] border-2 border-[#D4A04D] text-white shadow-lg scale-[1.02]'
-                            : 'bg-[#18181A] border border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/50'
-                        }`}
-                      >
-                        <div className="text-xs font-extrabold text-white">{pack.packName}</div>
-                        <div className="mt-2 flex items-baseline gap-2">
-                          {pack.originalPrice && (
-                            <span className="text-[10px] text-gray-500 line-through">₹{pack.originalPrice}</span>
-                          )}
-                          <span className={`text-xs font-black ${isSelected ? 'text-[#D4A04D]' : 'text-white'}`}>
-                            ₹{pack.price}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                          originalPrice: product.mrp || product.price?.original,
+                        }];
+
+                    return legacyPacks.map((pack, idx) => {
+                      const isSelected = selectedPackOption ? selectedPackOption === pack.packName : idx === 0;
+                      return (
+                        <button
+                          type="button"
+                          key={`${pack.packName}-${idx}`}
+                          onClick={() => {
+                            setSelectedPackOption(pack.packName);
+                            setCustomPriceOverride(pack.price);
+                          }}
+                          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-[#1A1A2E] border-2 border-[#D4A04D] text-white shadow-lg scale-[1.02]'
+                              : 'bg-[#18181A] border border-zinc-800 text-gray-400 hover:text-white hover:border-[#D4A04D]/50'
+                          }`}
+                        >
+                          <div className="text-xs font-extrabold text-white">{pack.packName}</div>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            {pack.originalPrice ? (
+                              <span className="text-[10px] text-gray-500 line-through">₹{pack.originalPrice}</span>
+                            ) : null}
+                            <span className={`text-xs font-black ${isSelected ? 'text-[#D4A04D]' : 'text-white'}`}>
+                              ₹{pack.price}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>

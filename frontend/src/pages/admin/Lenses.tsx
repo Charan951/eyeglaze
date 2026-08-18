@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
 import { socket } from '../../lib/socket';
@@ -45,30 +45,38 @@ export default function AdminLensesPage() {
   const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchCategories = async () => {
       setLoadingCategories(true);
       try {
         const res = await api.get('/admin/categories?type=Category&limit=1000');
+        if (!active) return;
         const items = res.data.items || [];
-        const filtered = items.filter((item: any) => 
-          item.slug !== 'contact-lenses' && 
-          item.slug !== 'contact_lenses' && 
+        const filtered = items.filter((item: any) =>
+          item.slug !== 'contact-lenses' &&
+          item.slug !== 'contact_lenses' &&
           item.slug !== 'accessories'
         );
         setCategories(filtered);
-        
-        const currentCategory = searchParams.get('category');
-        if (filtered.length > 0 && (!currentCategory || !filtered.some((c: any) => c.slug === currentCategory))) {
-          setSearchParams({ category: filtered[0].slug });
-        }
       } catch (err) {
         console.error('Failed to fetch categories for lenses:', err);
       } finally {
-        setLoadingCategories(false);
+        if (active) setLoadingCategories(false);
       }
     };
     fetchCategories();
-  }, [searchParams, setSearchParams]);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loadingCategories || categories.length === 0) return;
+    const currentCategory = searchParams.get('category');
+    if (!currentCategory || !categories.some((c: any) => c.slug === currentCategory)) {
+      setSearchParams({ category: categories[0].slug }, { replace: true });
+    }
+  }, [loadingCategories, categories, searchParams, setSearchParams]);
 
   const [lensTypes, setLensTypes] = useState<LensType[]>([]);
   const [lenses, setLenses] = useState<Lens[]>([]);
@@ -81,24 +89,10 @@ export default function AdminLensesPage() {
 
   const selectedType = lensTypes.find(t => t._id === selectedTypeId);
 
-  useEffect(() => {
-    setSelectedTypeId(null);
-  }, [categoryParam]);
-
-  useEffect(() => {
-    if (lensTypes.length > 0 && !selectedTypeId) {
-      setSelectedTypeId(lensTypes[0]._id);
-    }
-  }, [lensTypes, selectedTypeId]);
-
-  // Modals
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<LensType | null>(null);
-
   const [isLensDrawerOpen, setIsLensDrawerOpen] = useState(false);
   const [editingLens, setEditingLens] = useState<Lens | null>(null);
-
-  // Notifications
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -106,42 +100,63 @@ export default function AdminLensesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchLensTypes = useCallback(async () => {
+  const categoryRef = useRef(categoryParam);
+  categoryRef.current = categoryParam;
+  const selectedTypeIdRef = useRef(selectedTypeId);
+  selectedTypeIdRef.current = selectedTypeId;
+
+  const fetchLensTypes = useCallback(async (category = categoryRef.current) => {
     setLoadingTypes(true);
     try {
-      const res = await api.get(`/admin/lens-types?category=${categoryParam}`);
-      setLensTypes(res.data.lensTypes || []);
+      const res = await api.get(`/admin/lens-types?category=${category}`);
+      if (category !== categoryRef.current) return;
+      const types: LensType[] = res.data.lensTypes || [];
+      setLensTypes(types);
+      setSelectedTypeId((current) => {
+        if (current && types.some((t) => t._id === current)) return current;
+        return types[0]?._id || null;
+      });
     } catch (err: any) {
+      if (category !== categoryRef.current) return;
       showToast(err.response?.data?.message || 'Failed to fetch lens types', 'error');
+      setLensTypes([]);
+      setSelectedTypeId(null);
     } finally {
-      setLoadingTypes(false);
+      if (category === categoryRef.current) setLoadingTypes(false);
     }
-  }, [categoryParam]);
+  }, []);
 
-  const fetchLenses = useCallback(async () => {
-    if (!selectedTypeId) {
+  const fetchLenses = useCallback(async (typeId = selectedTypeIdRef.current) => {
+    if (!typeId) {
       setLenses([]);
       setLoadingLenses(false);
       return;
     }
     setLoadingLenses(true);
     try {
-      const res = await api.get(`/admin/lenses?typeId=${selectedTypeId}`);
+      const res = await api.get(`/admin/lenses?typeId=${typeId}`);
+      if (typeId !== selectedTypeIdRef.current) return;
       setLenses(res.data.lenses || []);
     } catch (err: any) {
+      if (typeId !== selectedTypeIdRef.current) return;
       showToast(err.response?.data?.message || 'Failed to fetch lenses', 'error');
+      setLenses([]);
     } finally {
-      setLoadingLenses(false);
+      if (typeId === selectedTypeIdRef.current) setLoadingLenses(false);
     }
-  }, [selectedTypeId]);
+  }, []);
 
   useEffect(() => {
-    fetchLensTypes();
-  }, [fetchLensTypes]);
+    setSelectedTypeId(null);
+    setLensTypes([]);
+    setLenses([]);
+    setLoadingLenses(false);
+    fetchLensTypes(categoryParam);
+  }, [categoryParam, fetchLensTypes]);
 
   useEffect(() => {
-    fetchLenses();
-  }, [fetchLenses]);
+    fetchLenses(selectedTypeId);
+  }, [selectedTypeId, fetchLenses]);
 
   // Real-time socket synchronization
   useEffect(() => {
@@ -150,7 +165,7 @@ export default function AdminLensesPage() {
     };
     const handleLensChange = () => {
       fetchLenses();
-      fetchLensTypes(); // Also update lens counts in types list
+      fetchLensTypes();
     };
 
     socket.on('lens_type_changed', handleTypeChange);
@@ -567,7 +582,7 @@ export default function AdminLensesPage() {
               ))
             )}
             {!loadingTypes && lensTypes.length === 0 && (
-              <div className="text-center text-sm text-[#A7A7A7] py-8">No lens types found</div>
+              <div className="text-center text-sm text-[#A7A7A7] py-8">No data is added</div>
             )}
           </div>
         </div>
@@ -613,7 +628,7 @@ export default function AdminLensesPage() {
                   ))}
                   {filteredLenses.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center text-[#A7A7A7] py-16 italic">No lenses found matching criteria</td>
+                      <td colSpan={6} className="text-center text-[#A7A7A7] py-16">No data is added</td>
                     </tr>
                   )}
                 </tbody>

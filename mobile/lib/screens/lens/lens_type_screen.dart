@@ -289,9 +289,7 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                                   border: Border.all(color: isSelected ? AppColors.gold : AppColors.border, width: isSelected ? 2 : 1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Stack(
-                                  children: [
-                                    Row(
+                                child: Row(
                                       children: [
                                         // Left Diagram
                                         _LensDiagramWidget(type: typeStr),
@@ -362,19 +360,6 @@ class _LensTypeScreenState extends State<LensTypeScreen> {
                                         ),
                                       ],
                                     ),
-                                    if (isSelected)
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
-                                          child: const Center(child: Icon(Icons.check, color: Colors.black, size: 10)),
-                                        ),
-                                      ),
-                                  ],
-                                ),
                               ),
                             );
                           },

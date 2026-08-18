@@ -80,7 +80,9 @@ export default function ProductsPage() {
   const selectedSubSubSubCategorySlug = (searchParams.get('subSubSubCategory') || '').toLowerCase();
   const selectedSubCategoryObj = selectedCategory?.children?.find((s: any) => (s.slug || '').toLowerCase() === selectedSubCategorySlug);
   const selectedSubSubCategoryObj = selectedSubCategoryObj?.children?.find((ss: any) => (ss.slug || '').toLowerCase() === selectedSubSubCategorySlug);
-  const selectedSubSubSubCategoryObj = selectedSubSubCategoryObj?.children?.find((sss: any) => (sss.slug || '').toLowerCase() === selectedSubSubSubCategorySlug);
+  const selectedSubSubSubCategoryObj =
+    selectedSubCategoryObj?.variants?.find((sss: any) => (sss.slug || '').toLowerCase() === selectedSubSubSubCategorySlug) ||
+    selectedSubSubCategoryObj?.children?.find((sss: any) => (sss.slug || '').toLowerCase() === selectedSubSubSubCategorySlug);
   const displayTitle = selectedSubSubSubCategoryObj?.name || selectedSubSubCategoryObj?.name || selectedSubCategoryObj?.name || selectedCategory?.name || 'All Products';
 
   // Mobile app-bar title — set on UserLayout via Outlet context so it shows
@@ -361,21 +363,35 @@ export default function ProductsPage() {
 
             if (isContactLensCat) {
               tabParam = currentSubSubCat ? 'subSubSubCategory' : 'subSubCategory';
-              children = currentSubSubCat ? (activeSubSubCatObj?.children || []) : (activeSubCatObj?.children || []);
+              children = currentSubSubCat
+                ? (activeSubCatObj?.variants?.length
+                    ? activeSubCatObj.variants
+                    : (activeSubSubCatObj?.children || []))
+                : (activeSubCatObj?.children || []);
               activeTabValue = currentSubSubCat ? currentSubSubSubCat : currentSubSubCat;
             } else {
               tabParam = 'subSubSubCategory';
+              const fromCollection = activeSubCatObj?.variants || [];
               const seenSlugs = new Set<string>();
               children = [];
-              (activeSubCatObj?.children || []).forEach((brand: any) => {
-                (brand.children || []).forEach((tag: any) => {
-                  const slug = (tag.slug || '').toLowerCase();
-                  if (slug && !seenSlugs.has(slug)) {
-                    seenSlugs.add(slug);
-                    children.push(tag);
-                  }
-                });
+              fromCollection.forEach((tag: any) => {
+                const slug = (tag.slug || '').toLowerCase();
+                if (slug && !seenSlugs.has(slug)) {
+                  seenSlugs.add(slug);
+                  children.push(tag);
+                }
               });
+              if (children.length === 0) {
+                (activeSubCatObj?.children || []).forEach((brand: any) => {
+                  (brand.children || []).forEach((tag: any) => {
+                    const slug = (tag.slug || '').toLowerCase();
+                    if (slug && !seenSlugs.has(slug)) {
+                      seenSlugs.add(slug);
+                      children.push(tag);
+                    }
+                  });
+                });
+              }
               activeTabValue = currentSubSubSubCat;
             }
 

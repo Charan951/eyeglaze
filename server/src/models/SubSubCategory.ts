@@ -25,7 +25,7 @@ export interface ISubSubCategory extends Document {
 const SubSubCategorySchema = new Schema<ISubSubCategory>(
   {
     name: { type: String, required: true },
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, required: true },
     code: { type: String, required: true, unique: true },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     subCategoryId: { type: Schema.Types.ObjectId, ref: 'SubCategory', required: true },
@@ -50,7 +50,7 @@ const SubSubCategorySchema = new Schema<ISubSubCategory>(
 );
 
 SubSubCategorySchema.index({ categoryId: 1 });
-SubSubCategorySchema.index({ subCategoryId: 1 });
+SubSubCategorySchema.index({ subCategoryId: 1, slug: 1 }, { unique: true });
 SubSubCategorySchema.index({ status: 1 });
 SubSubCategorySchema.index({ isDeleted: 1 });
 

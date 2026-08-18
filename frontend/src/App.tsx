@@ -56,10 +56,15 @@ const AdminCategoryWizard = lazy(() => import('./pages/admin/categories/Wizard')
 const AdminCategoryTreeView = lazy(() => import('./pages/admin/categories/tree'));
 const AdminNavigationMenuBuilder = lazy(() => import('./pages/admin/categories/menu-builder'));
 const AdminHomepageVideos = lazy(() => import('./pages/admin/HomepageVideos'));
+const AdminHomepageVideoEdit = lazy(() => import('./pages/admin/HomepageVideoEdit'));
 const AdminReels = lazy(() => import('./pages/admin/Reels'));
+const AdminReelEdit = lazy(() => import('./pages/admin/ReelEdit'));
 const AdminCoupons = lazy(() => import('./pages/admin/Coupons'));
 const AdminMembershipPrice = lazy(() => import('./pages/admin/MembershipPrice'));
 const AdminBanners = lazy(() => import('./pages/admin/Banners'));
+const AdminBannerEdit = lazy(() => import('./pages/admin/BannerEdit'));
+const AdminHomepageSections = lazy(() => import('./pages/admin/HomepageSections'));
+const AdminHomepageSectionEdit = lazy(() => import('./pages/admin/HomepageSectionEdit'));
 const AdminShapesList = lazy(() => import('./pages/admin/shapes/index'));
 const AdminShapeWizard = lazy(() => import('./pages/admin/shapes/Wizard'));
 
@@ -384,10 +389,42 @@ const router = createBrowserRouter(
           }
         />
         <Route
+          path="/admin/homepage-videos/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminHomepageVideoEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/homepage-videos/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminHomepageVideoEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/reels"
           element={
             <ProtectedRoute adminOnly>
               <AdminReels />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reels/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminReelEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reels/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminReelEdit />
             </ProtectedRoute>
           }
         />
@@ -412,6 +449,54 @@ const router = createBrowserRouter(
           element={
             <ProtectedRoute adminOnly>
               <AdminBanners />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/banners/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminBannerEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/banners/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminBannerEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/homepage-sections"
+          element={
+            <ProtectedRoute adminOnly>
+              <Navigate to="/admin/homepage-sections/special-promo" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/homepage-sections/:type"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminHomepageSections />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/homepage-sections/:type/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminHomepageSectionEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/homepage-sections/:type/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminHomepageSectionEdit />
             </ProtectedRoute>
           }
         />

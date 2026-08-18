@@ -62,7 +62,7 @@ export default function AddToCartButton({
             name: product?.name || 'Frame',
             sku: product?.sku || '',
             framePrice: lensPayload && typeof lensPayload.framePrice === 'number' ? lensPayload.framePrice : (product?.price?.selling ?? 1),
-            priceLocked: !!lensPayload,
+            priceLocked: !!lensPayload && typeof lensPayload.framePrice === 'number' && lensPayload.framePrice === 0,
             lensPrice: lensPayload?.lensPrice || 0,
             fittingCharge: lensPayload ? 99 : 0,
             image: product?.images?.[0] || '',

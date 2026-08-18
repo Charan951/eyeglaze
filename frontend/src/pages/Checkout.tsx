@@ -5,6 +5,7 @@ import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
 import { useMembershipPrice } from '../context/MembershipPriceContext';
 import { socket } from '../lib/socket';
+import { isContactLensProduct, isMembershipBogoEligible, pickMembershipFreeUnits, saleUnitTotal } from '../lib/membershipBogo';
 
 interface CartItem {
   id: string;
@@ -79,6 +80,7 @@ export default function CheckoutPage() {
 
   // Lenskart Interactive Checkout states
   const [addGoldMembership, setAddGoldMembership] = useState(checkoutState.addGoldMembership || false);
+  const [applyBogo, setApplyBogo] = useState(!!checkoutState.applyBogo);
   const [hasUsedBogoThisMonth, setHasUsedBogoThisMonth] = useState(false);
   const [showDiscountDropdown, setShowDiscountDropdown] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
@@ -88,50 +90,44 @@ export default function CheckoutPage() {
 
   const isMember = user?.membershipActive || addGoldMembership;
 
-  // Recalculate frame prices and BOGO
   let oneRupeeFramesCount = 0;
   const maxOneRupeeFramesThisOrder = Math.min(1, Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0)));
 
-  // Calculate if BOGO is active (has >= 2 BOGO-eligible items)
-  const totalBogoQty = items.reduce((sum, item) => 
-    (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) ? sum + item.qty : sum, 
-    0
-  );
-  const isBogoActive = totalBogoQty >= 2;
-
-  const isOneRupeeFrameActive = 
-    items.length === 1 && 
-    items[0]?.product?.oneRupeeFrameOffer && 
-    isMember && 
-    !user?.oneRupeeOfferUsed && 
-    ((user as any)?.oneRupeeOfferCount ?? 0) < 2;
-
-  const buy1Get1Items: { uniqueKey: string; framePrice: number; lensPrice: number }[] = [];
+  const bogoEligibleQty = items.reduce((n, item) => (
+    isMembershipBogoEligible(item.product) ? n + (item.qty || 1) : n
+  ), 0);
+  const cartUnitCount = items.reduce((n, item) => n + (item.qty || 1), 0);
+  const isSingleProductCart = cartUnitCount === 1;
+  const isBogoActive = !!(applyBogo && isMember && !hasUsedBogoThisMonth && bogoEligibleQty >= 2);
 
   const itemsWithPricing = items.map(item => {
+    const isContactItem = isContactLensProduct(item.product);
+    const hasLens = !!(item.lensType || item.lens);
+    const memberPriceVal = item.product?.memberPrice !== undefined
+      ? item.product.memberPrice
+      : item.product?.memberPrices?.goldMemberPrice;
     let framePrice = item.framePrice;
     
-    // Member Price / ₹1 Frame check
-    if (items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
+    if (
+      !isSingleProductCart &&
+      !isBogoActive &&
+      !isContactItem &&
+      hasLens &&
+      item.product?.oneRupeeFrameOffer &&
+      isMember &&
+      !user?.oneRupeeOfferUsed &&
+      ((user as any)?.oneRupeeOfferCount ?? 0) < 2 &&
+      oneRupeeFramesCount < maxOneRupeeFramesThisOrder
+    ) {
       const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
-      const regularPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.framePrice;
+      const regularPrice = memberPriceVal !== undefined ? memberPriceVal : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
       oneRupeeFramesCount += allowed;
-    } else if (item.product?.memberPrice !== undefined && isMember) {
-      framePrice = item.product.memberPrice;
-    } else if (item.product?.nonMemberPrice !== undefined && !isMember) {
-      framePrice = item.product.nonMemberPrice;
-    }
-
-    if (!hasUsedBogoThisMonth && isMember && item.product?.buy1Get1) {
-      for (let index = 0; index < item.qty; index++) {
-        buy1Get1Items.push({
-          uniqueKey: `${item._id || item.id}_${index}`,
-          framePrice,
-          lensPrice: item.lensPrice || 0
-        });
-      }
+    } else if (!isContactItem && isSingleProductCart && memberPriceVal !== undefined && isMember) {
+      framePrice = memberPriceVal;
+    } else if (!isContactItem) {
+      framePrice = item.product?.nonMemberPrice ?? item.product?.price?.selling ?? item.framePrice;
     }
 
     return {
@@ -140,18 +136,27 @@ export default function CheckoutPage() {
     };
   });
 
-  // Calculate BOGO discount
+  const isOneRupeeFrameActive = oneRupeeFramesCount > 0;
+
   let bogoDiscount = 0;
-  let freeItemUniqueKey = '';
-  if (buy1Get1Items.length >= 2) {
-    buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
-    const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
-      const currentTotal = current.framePrice + current.lensPrice;
-      const lowestTotal = lowest.framePrice + lowest.lensPrice;
-      return currentTotal < lowestTotal ? current : lowest;
+  const freeItemUniqueKeys = new Set<string>();
+  if (isBogoActive) {
+    const units = itemsWithPricing.flatMap((item, idx) => {
+      if (!isMembershipBogoEligible(item.product)) return [];
+      const rankPrice = saleUnitTotal(item);
+      const chargePrice = item.framePriceCalculated + (item.lensPrice || 0);
+      return Array.from({ length: item.qty }, (_, unitIndex) => ({
+        id: `${item._id || item.id}_${unitIndex}`,
+        price: rankPrice,
+        discount: chargePrice,
+        idx,
+        unitIndex,
+      }));
     });
-    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
-    freeItemUniqueKey = lowestPriceItem.uniqueKey;
+    for (const freeUnit of pickMembershipFreeUnits(units)) {
+      freeItemUniqueKeys.add(freeUnit.id);
+      bogoDiscount += freeUnit.discount ?? freeUnit.price;
+    }
   }
 
   // 1. Total Item Price (undiscounted)
@@ -1052,7 +1057,7 @@ export default function CheckoutPage() {
             {/* Cart Items Details */}
             <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
               {renderedItems.map(item => {
-                const isFreeThisItem = item.uniqueKey === freeItemUniqueKey;
+                const isFreeThisItem = freeItemUniqueKeys.has(item.uniqueKey);
 
                 return (
                   <div key={item.uniqueKey || item.id} className="flex gap-3 text-xs border-b border-[#2A2A2D]/50 pb-3 last:border-b-0 last:pb-0 relative">

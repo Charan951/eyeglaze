@@ -2193,13 +2193,6 @@ export default function LensSelection() {
                         </span>
                       </div>
                     </div>
-
-                    {/* Selection checkmark badge */}
-                    {isSelected && (
-                      <div className="absolute top-3 right-3 z-10 w-5 h-5 rounded-full bg-[#D4A04D] flex items-center justify-center shadow-lg border border-[#0E0E0F]">
-                        <span className="text-black text-[10px] font-extrabold">✓</span>
-                      </div>
-                    )}
                   </div>
                 );
               })}

@@ -728,6 +728,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         },
         'paymentMethod': _finalTotal == 0 ? 'wallet' : _paymentMethod,
         'paymentStatus': 'paid',
+        'activateMembership': cartProvider.addGoldMembership,
+        'applyBogo': cartProvider.applyBogo,
         if (_appliedCouponCode.isNotEmpty) 'couponCode': _appliedCouponCode,
         if (_useWallet && _walletDeduction > 0) 'walletUsed': _walletDeduction,
       };
@@ -794,7 +796,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.watch<CartProvider>();
 
     final List<Map<String, dynamic>> flattenedItems = [];
-    final freeKey = cart.freeItemUniqueKey;
+    final freeKeys = cart.freeItemUniqueKeys;
 
     for (final pricing in cart.itemsWithPricing) {
       final CartItem item = pricing['item'] as CartItem;
@@ -809,7 +811,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'color': item.selectedColor ?? '',
           'qty': 1,
           'totalPrice': framePriceCalculated + (item.lensPrice ?? 0.0),
-          'isFree': uniqueKey == freeKey,
+          'isFree': freeKeys.contains(uniqueKey),
           'image':
               item.product != null &&
                   ((item.product!.thumbnail != null &&
@@ -1551,6 +1553,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     AppConfig.resolveImageUrl(
                                                       image,
                                                     ),
+                                                width: 44,
+                                                height: 44,
                                                 fit: BoxFit.cover,
                                                 placeholder: (context, url) =>
                                                     const Center(

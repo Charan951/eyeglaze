@@ -6,6 +6,7 @@ import { useMembershipPrice } from '../context/MembershipPriceContext';
 import SEO from '../components/SEO';
 import { socket } from '../lib/socket';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isContactLensProduct, isMembershipBogoEligible, pickMembershipFreeUnits, saleUnitTotal } from '../lib/membershipBogo';
 
 interface CartItem {
   id: string;
@@ -209,6 +210,9 @@ export default function CartPage() {
       .then(res => {
         if (!active) return;
         setHasUsedBogoThisMonth(!!res.data?.cart?.hasUsedBogoThisMonth);
+        if (res.data?.cart?.addGoldMembership) {
+          setAddGoldMembership(true);
+        }
         const cartItems = res.data?.items || res.data?.cart?.items || [];
         const mapped = cartItems.map((item: any) => ({
           id: item._id || item.id,
@@ -249,24 +253,34 @@ export default function CartPage() {
     return () => { active = false; };
   }, [user, refreshKey]);
 
+  useEffect(() => {
+    if (!user || loading) return;
+    api.put('/cart/membership', { addGoldMembership }).catch(() => {});
+  }, [addGoldMembership, user, loading]);
+
+  useEffect(() => {
+    if (!addGoldMembership && !user?.membershipActive) {
+      setApplyBogo(false);
+    }
+  }, [addGoldMembership, user]);
+
   const isMember = user?.membershipActive || addGoldMembership;
 
-  // Recalculate frame prices and BOGO
+  const isContactCartItem = (item: CartItem) => isContactLensProduct(item.product);
+
+  const bogoEligibleQty = items.reduce((n, item) => (
+    isMembershipBogoEligible(item.product) ? n + (item.qty || 1) : n
+  ), 0);
+  const cartUnitCount = items.reduce((n, item) => n + (item.qty || 1), 0);
+  const isSingleProductCart = cartUnitCount === 1;
+  const isBogoActive = !!(applyBogo && isMember && !hasUsedBogoThisMonth && bogoEligibleQty >= 2);
+  const showBogoVoucher = !!(isMember && !hasUsedBogoThisMonth && bogoEligibleQty >= 2);
+
   let oneRupeeFramesCount = 0;
   const maxOneRupeeFramesThisOrder = Math.min(1, Math.max(0, 2 - ((user as any)?.oneRupeeOfferCount ?? 0)));
 
-  const isBogoActive = false;
-
-  const isOneRupeeFrameActive = 
-    items.length === 1 && 
-    items[0]?.product?.oneRupeeFrameOffer && 
-    isMember && 
-    !user?.oneRupeeOfferUsed && 
-    ((user as any)?.oneRupeeOfferCount ?? 0) < 2;
-
-  const buy1Get1Items: { id: string; framePrice: number; lensPrice: number }[] = [];
-
   const itemsWithPricing = items.map(item => {
+    const isContactItem = isContactCartItem(item);
     let framePrice = item.framePrice;
     const memberPriceVal = item.product?.memberPrice !== undefined 
       ? Number(item.product.memberPrice) 
@@ -276,22 +290,32 @@ export default function CartPage() {
       ? Number((item as any).memberFramePrice) 
       : undefined;
     const nonMemberPriceVal = item.product?.nonMemberPrice !== undefined ? Number(item.product.nonMemberPrice) : undefined;
+    const hasLens = !!(item.lensType || item.lens);
+    const membershipRequired = item.product?.oneRupeeOfferConditions?.membershipRequired !== false;
+    const membershipOk = membershipRequired ? isMember : true;
 
-    // Member Price / ₹1 Frame check
-    if (!item.priceLocked && items.length === 1 && !isBogoActive && item.product?.oneRupeeFrameOffer && isMember && !user?.oneRupeeOfferUsed && ((user as any)?.oneRupeeOfferCount ?? 0) < 2 && oneRupeeFramesCount < maxOneRupeeFramesThisOrder) {
+    // Single-product cart: member price if Gold is selected, otherwise sale price.
+    // ₹1 Frame only when the cart has 2+ items and 1+1 is not applying.
+    if (
+      !isSingleProductCart &&
+      !isBogoActive &&
+      !isContactItem &&
+      hasLens &&
+      item.product?.oneRupeeFrameOffer &&
+      membershipOk &&
+      !user?.oneRupeeOfferUsed &&
+      ((user as any)?.oneRupeeOfferCount ?? 0) < 2 &&
+      oneRupeeFramesCount < maxOneRupeeFramesThisOrder
+    ) {
       const allowed = Math.min(item.qty, maxOneRupeeFramesThisOrder - oneRupeeFramesCount);
       const regularPrice = memberPriceVal !== undefined ? memberPriceVal : item.framePrice;
       const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
       framePrice = totalFramePriceForQty / item.qty;
       oneRupeeFramesCount += allowed;
-    } else if (memberPriceVal !== undefined && isMember && !item.priceLocked) {
+    } else if (!isContactItem && isSingleProductCart && isMember && memberPriceVal !== undefined) {
       framePrice = memberPriceVal;
-    } else if (nonMemberPriceVal !== undefined && !isMember && !item.priceLocked) {
-      framePrice = nonMemberPriceVal;
-    } else if (item.product?.price?.selling !== undefined && !isMember && !item.priceLocked) {
-      // Skip this live-price re-sync for contact lens items: their box price is
-      // carried entirely in lensPrice, with framePrice deliberately stored as 0.
-      framePrice = item.product.price.selling;
+    } else if (!isContactItem) {
+      framePrice = nonMemberPriceVal ?? item.product?.price?.selling ?? item.framePrice;
     }
 
     return {
@@ -301,60 +325,45 @@ export default function CartPage() {
     };
   });
 
-  // Server is authoritative for 1+1 (buy1Get1) — it's applied automatically, once per
-  // calendar month, and computed in cart.controller.ts getCart(). Trust its per-item
-  // discountApplied/isFreeItem/offerType instead of re-deriving pairing client-side.
-  const serverOnePlusOneDiscount = itemsWithPricing.reduce(
-    (sum, item) => sum + (item.offerType === 'buy1Get1' ? (item.discountApplied || 0) : 0),
-    0
-  );
-  const serverOnePlusOneApplied = serverOnePlusOneDiscount > 0;
-
-  // Auto-apply BOGO when user is a member and total item quantity is at least 2
-  useEffect(() => {
-    const totalQty = items.reduce((sum, i) => sum + (i.qty || 1), 0);
-    if (isMember && totalQty >= 2 && !hasUsedBogoThisMonth && !userRemovedCoupon && !applyBogo) {
-      setApplyBogo(true);
-    }
-  }, [isMember, items, hasUsedBogoThisMonth, userRemovedCoupon, applyBogo]);
+  const isOneRupeeFrameActive = oneRupeeFramesCount > 0;
 
   const appliedCouponObj = activeCoupons.find(c => c.code === appliedCoupon);
-  const isBogoCouponApplied = appliedCouponObj?.discountType === 'bogo' || appliedCoupon === 'BOGO' || applyBogo;
+  const isBogoCouponApplied = !isBogoActive && (appliedCouponObj?.discountType === 'bogo' || appliedCoupon === 'BOGO' || applyBogo);
 
-  // Populate BOGO items with unique key per quantity index (coupon-driven BOGO path,
-  // separate from the automatic server-side 1+1 handled below via serverOnePlusOneDiscount).
-  itemsWithPricing.forEach(item => {
-    if (isBogoCouponApplied && item.product?.buy1Get1 !== false) {
-      for (let index = 0; index < item.qty; index++) {
-        buy1Get1Items.push({
-          id: `${item._id || item.id}_${index}`,
-          framePrice: item.framePriceCalculated,
-          lensPrice: item.lensPrice || 0
-        });
-      }
-    }
-  });
-
-  // Calculate BOGO discount (coupon-driven path)
   let bogoDiscount = 0;
-  let freeItemUniqueKey = '';
+  const freeItemUniqueKeys = new Set<string>();
 
-  if (isBogoCouponApplied && buy1Get1Items.length >= 2) {
-    buy1Get1Items.sort((a, b) => (b.framePrice + b.lensPrice) - (a.framePrice + a.lensPrice));
-    const lowestPriceItem = buy1Get1Items.reduce((lowest, current) => {
-      const currentTotal = current.framePrice + current.lensPrice;
-      const lowestTotal = lowest.framePrice + lowest.lensPrice;
-      return currentTotal < lowestTotal ? current : lowest;
+  if (isBogoActive) {
+    const units = itemsWithPricing.flatMap((item, idx) => {
+      if (!isMembershipBogoEligible(item.product)) return [];
+      const rankPrice = saleUnitTotal(item);
+      const chargePrice = item.framePriceCalculated + (item.lensPrice || 0);
+      return Array.from({ length: item.qty }, (_, unitIndex) => ({
+        id: `${item._id || item.id}_${unitIndex}`,
+        price: rankPrice,
+        discount: chargePrice,
+        idx,
+        unitIndex,
+      }));
     });
-    freeItemUniqueKey = lowestPriceItem.id;
-    bogoDiscount = lowestPriceItem.framePrice + lowestPriceItem.lensPrice;
-  } else if (serverOnePlusOneApplied) {
-    // Automatic server-side 1+1 (no coupon needed): trust the server's per-item
-    // discountApplied/isFreeItem instead of re-deriving pairing client-side.
-    bogoDiscount = serverOnePlusOneDiscount;
-    const freeLine = itemsWithPricing.find(item => item.offerType === 'buy1Get1' && (item.discountApplied || 0) > 0);
-    if (freeLine) {
-      freeItemUniqueKey = `${freeLine._id || freeLine.id}_${freeLine.qty - 1}`;
+    for (const freeUnit of pickMembershipFreeUnits(units)) {
+      freeItemUniqueKeys.add(freeUnit.id);
+      bogoDiscount += freeUnit.discount ?? freeUnit.price;
+    }
+  } else if (isBogoCouponApplied) {
+    const couponUnits = itemsWithPricing.flatMap((item, idx) => {
+      if (item.product?.buy1Get1 === false) return [];
+      return Array.from({ length: item.qty }, (_, unitIndex) => ({
+        id: `${item._id || item.id}_${unitIndex}`,
+        price: item.framePriceCalculated + (item.lensPrice || 0),
+        discount: item.framePriceCalculated + (item.lensPrice || 0),
+        idx,
+        unitIndex,
+      }));
+    });
+    for (const freeUnit of pickMembershipFreeUnits(couponUnits)) {
+      freeItemUniqueKeys.add(freeUnit.id);
+      bogoDiscount += freeUnit.discount ?? freeUnit.price;
     }
   }
 
@@ -698,7 +707,7 @@ export default function CartPage() {
               );
             }
 
-            const isFreeThisItem = item.uniqueKey === freeItemUniqueKey;
+            const isFreeThisItem = freeItemUniqueKeys.has(item.uniqueKey);
 
             const isContactLensItem = Boolean(
               (item.category || '').toLowerCase().includes('contact') ||
@@ -804,7 +813,7 @@ export default function CartPage() {
                       </div>
                     )}
                     {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" />
+                      <img src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <span className="text-4xl">👓</span>
                     )}
@@ -944,12 +953,6 @@ export default function CartPage() {
                           🔍 Change Lens
                         </Link>
                       )}
-                      <Link
-                        to={`/lens?product=${item.productId || item.product?._id || item.product}&color=${encodeURIComponent(item.color || '')}&step=3&cartItemId=${item.id || item._id}`}
-                        className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer flex items-center gap-1"
-                      >
-                        ✏️ Edit Power
-                      </Link>
                       <button
                         onClick={() => handleRepeat(item)}
                         className="text-[#D4A04D] text-xs font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
@@ -972,7 +975,7 @@ export default function CartPage() {
                           <span className="line-through text-xs font-normal text-gray-500 mr-1.5">₹{item.framePriceCalculated + item.lensPrice}</span>
                           <span className="text-green-400">Free</span>
                         </>
-                      ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                      ) : item.framePriceCalculated <= 1 || (isSingleProductCart && isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice)) ? (
                         <div className="flex flex-col sm:items-end">
                           <div className="flex items-baseline gap-1.5 justify-start sm:justify-end">
                             <span className="line-through text-xs font-normal text-gray-500">
@@ -983,7 +986,7 @@ export default function CartPage() {
                             </span>
                           </div>
                           <span className="text-[#D4A04D] text-[9.5px] font-black uppercase tracking-wider mt-0.5">
-                            ✦ Gold Member Price
+                            {item.framePriceCalculated <= 1 ? '₹1 Frame Offer' : '✦ Gold Member Price'}
                           </span>
                         </div>
                       ) : (
@@ -998,7 +1001,7 @@ export default function CartPage() {
                               <span className="line-through text-gray-500">₹{item.framePriceCalculated}</span>
                               <span className="text-green-400 font-semibold ml-1">Free</span>
                             </>
-                          ) : isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice) ? (
+                          ) : item.framePriceCalculated <= 1 || (isSingleProductCart && isMember && item.memberPriceVal !== undefined && item.memberPriceVal < (item.product?.price?.selling || item.framePrice)) ? (
                             <>
                               <span className="line-through text-gray-500 mr-1">₹{item.product?.price?.selling || item.framePrice}</span>
                               <span className="text-[#D4A04D] font-bold">₹{item.framePriceCalculated}</span>
@@ -1108,7 +1111,7 @@ export default function CartPage() {
                     <div className="pl-4 pr-2 mt-1.5 py-1.5 space-y-1.5 text-xs text-green-400/70 border-l border-green-500/20 ml-1">
                       {productDiscounts > 0 && (
                         <div className="flex justify-between">
-                          <span>{isOneRupeeFrameActive ? '1 Rupee Frame Offer' : 'Gold Member Price Discount'}</span>
+                          <span>{isOneRupeeFrameActive ? '1 Rupee Frame Offer' : isSingleProductCart ? 'Gold Member Price Discount' : 'Membership Discount'}</span>
                           <span>-₹{productDiscounts}</span>
                         </div>
                       )}
@@ -1220,16 +1223,19 @@ export default function CartPage() {
             </div>
           )}
 
-          {isMember && items.length > 1 && !hasUsedBogoThisMonth && (
+          {showBogoVoucher && (
             <div className="bg-[#D4A04D]/10 border border-[#D4A04D]/35 rounded-xl p-4 flex items-start gap-3 text-left animate-fade-in">
               <div className="text-lg">💡</div>
               <div className="flex-1 space-y-1">
                 <span className="text-[#D4A04D] font-extrabold text-[10px] uppercase tracking-wider block">Apply BOGO Voucher</span>
                 <p className="text-[#A7A7A7] text-[10px] leading-normal font-medium">
                   {applyBogo
-                    ? "BOGO Voucher applied! The cheapest frame + lens combination in your cart is free."
-                    : "You have multiple products in your cart! Since your membership is active, you can apply your Buy 1 Get 1 Free voucher."
-                  }
+                    ? (bogoEligibleQty === 2
+                      ? 'BOGO Voucher applied! The cheapest pair in your cart is free.'
+                      : bogoEligibleQty === 3
+                        ? 'BOGO Voucher applied! The medium-priced pair in your cart is free.'
+                        : `BOGO Voucher applied! ${Math.floor(bogoEligibleQty / 2)} cheapest pairs in your cart are free.`)
+                    : 'You have multiple products in your cart! Since your membership is active, you can apply your Buy 1 Get 1 Free voucher.'}
                 </p>
                 <button
                   type="button"

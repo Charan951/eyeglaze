@@ -204,7 +204,7 @@ export default function NavigationMenuBuilder() {
               </div>
             ))}
             {menuItems.length === 0 && (
-              <p className="text-center text-gray-500 py-10 italic text-xs">No navigation links added. Click 'Add Menu Section' to start.</p>
+              <p className="text-center text-gray-500 py-10 italic text-xs">No data is added</p>
             )}
           </div>
         )}

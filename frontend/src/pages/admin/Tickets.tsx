@@ -172,7 +172,7 @@ export default function AdminTicketsPage() {
       <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden shadow-lg">
         {filteredTickets.length === 0 ? (
           <div className="text-center py-20 text-gray-500 text-xs">
-            No support tickets match the current filters.
+            {tickets.length === 0 ? 'No data is added' : 'No matching results'}
           </div>
         ) : (
           <div className="overflow-x-auto">

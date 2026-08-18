@@ -33,34 +33,32 @@ export async function getPublicCategories(req: Request, res: Response) {
         .map((sub: any) => {
           const subsubchildren = subSubCategories
             .filter((subsub: any) => String(subsub.subCategoryId) === String(sub._id))
-            .map((subsub: any) => {
-              const subsubsubchildren = subSubSubCategories
-                .filter((subsubsub: any) => String(subsubsub.subSubCategoryId) === String(subsub._id))
-                .map((subsubsub: any) => ({
-                  id: subsubsub._id,
-                  _id: subsubsub._id,
-                  name: subsubsub.name,
-                  code: subsubsub.code,
-                  slug: subsubsub.slug,
-                  type: 'SubSubSubCategory',
-                  displayOrder: subsubsub.displayOrder,
-                }));
+            .map((subsub: any) => ({
+              id: subsub._id,
+              _id: subsub._id,
+              name: subsub.name,
+              code: subsub.code,
+              slug: subsub.slug,
+              type: 'SubSubCategory',
+              icon: subsub.icon,
+              bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
+              linkTo: subsub.linkTo,
+              gender: subsub.gender,
+              displayOrder: subsub.displayOrder,
+              children: [],
+            }));
 
-              return {
-                id: subsub._id,
-                _id: subsub._id,
-                name: subsub.name,
-                code: subsub.code,
-                slug: subsub.slug,
-                type: 'SubSubCategory',
-                icon: subsub.icon,
-                bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
-                linkTo: subsub.linkTo,
-                gender: subsub.gender,
-                displayOrder: subsub.displayOrder,
-                children: subsubsubchildren,
-              };
-            });
+          const variants = subSubSubCategories
+            .filter((v: any) => String(v.subCategoryId) === String(sub._id))
+            .map((v: any) => ({
+              id: v._id,
+              _id: v._id,
+              name: v.name,
+              code: v.code,
+              slug: v.slug,
+              type: 'SubSubSubCategory',
+              displayOrder: v.displayOrder,
+            }));
 
           return {
             id: sub._id,
@@ -80,6 +78,7 @@ export async function getPublicCategories(req: Request, res: Response) {
             showInNavbar: sub.showInNavbar !== false,
             displayOrder: sub.displayOrder,
             children: subsubchildren,
+            variants,
           };
         });
 
@@ -117,42 +116,40 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
         .map((sub: any) => {
           const subsubcats = subSubCategories
             .filter((subsub: any) => String(subsub.subCategoryId) === String(sub._id))
-            .map((subsub: any) => {
-              const subsubsubcats = subSubSubCategories
-                .filter((subsubsub: any) => String(subsubsub.subSubCategoryId) === String(subsub._id))
-                .map((subsubsub: any) => ({
-                  id: subsubsub._id,
-                  _id: subsubsub._id,
-                  name: subsubsub.name,
-                  code: subsubsub.code,
-                  slug: subsubsub.slug,
-                  type: 'SubSubSubCategory',
-                  icon: subsubsub.icon,
-                  bannerImage: isBannerEnabled(subsubsub) ? subsubsub.bannerImage : '',
-                  bannerImageEnabled: isBannerEnabled(subsubsub),
-                  startingPrice: isPriceEnabled(subsubsub) ? subsubsub.startingPrice : undefined,
-                  startingPriceEnabled: isPriceEnabled(subsubsub),
-                  displayOrder: subsubsub.displayOrder,
-                }));
+            .map((subsub: any) => ({
+              id: subsub._id,
+              _id: subsub._id,
+              name: subsub.name,
+              code: subsub.code,
+              slug: subsub.slug,
+              type: 'SubSubCategory',
+              icon: subsub.icon,
+              bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
+              bannerImageEnabled: isBannerEnabled(subsub),
+              startingPrice: isPriceEnabled(subsub) ? subsub.startingPrice : undefined,
+              startingPriceEnabled: isPriceEnabled(subsub),
+              linkTo: subsub.linkTo,
+              gender: subsub.gender,
+              displayOrder: subsub.displayOrder,
+              children: [],
+            }));
 
-              return {
-                id: subsub._id,
-                _id: subsub._id,
-                name: subsub.name,
-                code: subsub.code,
-                slug: subsub.slug,
-                type: 'SubSubCategory',
-                icon: subsub.icon,
-                bannerImage: isBannerEnabled(subsub) ? subsub.bannerImage : '',
-                bannerImageEnabled: isBannerEnabled(subsub),
-                startingPrice: isPriceEnabled(subsub) ? subsub.startingPrice : undefined,
-                startingPriceEnabled: isPriceEnabled(subsub),
-                linkTo: subsub.linkTo,
-                gender: subsub.gender,
-                displayOrder: subsub.displayOrder,
-                children: subsubsubcats,
-              };
-            });
+          const variants = subSubSubCategories
+            .filter((v: any) => String(v.subCategoryId) === String(sub._id))
+            .map((v: any) => ({
+              id: v._id,
+              _id: v._id,
+              name: v.name,
+              code: v.code,
+              slug: v.slug,
+              type: 'SubSubSubCategory',
+              icon: v.icon,
+              bannerImage: isBannerEnabled(v) ? v.bannerImage : '',
+              bannerImageEnabled: isBannerEnabled(v),
+              startingPrice: isPriceEnabled(v) ? v.startingPrice : undefined,
+              startingPriceEnabled: isPriceEnabled(v),
+              displayOrder: v.displayOrder,
+            }));
 
           return {
             id: sub._id,
@@ -175,6 +172,7 @@ export async function getPublicCategoryTree(req: Request, res: Response) {
             showInNavbar: sub.showInNavbar !== false,
             displayOrder: sub.displayOrder,
             children: subsubcats,
+            variants,
           };
         });
 

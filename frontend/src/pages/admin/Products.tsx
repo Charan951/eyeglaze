@@ -11,6 +11,7 @@ interface Product {
   mrp?: number;
   price: { original: number; selling: number };
   isActive: boolean;
+  status?: 'Draft' | 'Active' | 'Inactive' | 'Scheduled';
   isBestseller: boolean;
   frameType?: string;
   material?: string;
@@ -21,7 +22,21 @@ interface Product {
   weight?: string;
   faceShapes?: string[];
   isPremium?: boolean;
-  description?: string;
+  packName?: string;
+  contactPackCount?: number;
+  contactPackLabels?: string[];
+}
+
+function productStatus(p: Product): 'Draft' | 'Active' | 'Inactive' | 'Scheduled' {
+  if (p.status) return p.status;
+  return p.isActive ? 'Active' : 'Inactive';
+}
+
+function statusPillClasses(status: string) {
+  if (status === 'Active') return 'bg-green-500/10 text-green-400 border-green-500/20';
+  if (status === 'Draft') return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+  if (status === 'Scheduled') return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+  return 'bg-red-500/10 text-red-400 border-red-500/20';
 }
 
 export default function AdminProductsPage() {
@@ -76,10 +91,12 @@ export default function AdminProductsPage() {
     navigate(`/admin/products/edit/${p._id}`);
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
+  const deleteProduct = async (p: Product) => {
+    if (!confirm(p.contactPackCount && p.contactPackCount > 1
+      ? 'Delete this product and all linked lens pack sizes?'
+      : 'Delete this product?')) return;
     try {
-      await api.delete(`/admin/products/${id}`);
+      await api.delete(`/admin/products/${p._id}`);
       fetchProducts();
     } catch {
       setError('Failed to delete product');
@@ -87,8 +104,15 @@ export default function AdminProductsPage() {
   };
 
   const toggleActive = async (p: Product) => {
+    const current = productStatus(p);
+    if (current === 'Draft' || current === 'Scheduled') return;
     try {
-      await api.put(`/admin/products/${p._id}`, { isActive: !p.isActive });
+      const nextStatus = current === 'Active' ? 'Inactive' : 'Active';
+      await api.put(`/admin/products/${p._id}`, {
+        status: nextStatus,
+        isActive: nextStatus === 'Active',
+        syncContactPackFamilyStatus: true,
+      });
       fetchProducts();
     } catch {
       setError('Failed to toggle product status');
@@ -142,9 +166,17 @@ export default function AdminProductsPage() {
                   <tr key={p._id} className="hover:bg-[#1C1C1E] transition-colors cursor-pointer" onClick={() => openEdit(p)}>
                     <td className="px-5 py-4">
                       <div className="text-white font-semibold hover:text-[#D4A04D] transition-colors">{p.name}</div>
-                      <div className="flex gap-2 mt-1">
+                      <div className="flex gap-2 mt-1 flex-wrap">
                         {p.isBestseller && <span className="text-[9px] bg-[#D4A04D]/10 text-[#D4A04D] border border-[#D4A04D]/20 px-1.5 py-0.5 rounded font-extrabold uppercase">★ Bestseller</span>}
-                        {p.frameType && <span className="text-[9px] bg-[#222] text-gray-400 px-1.5 py-0.5 rounded border border-[#2A2A2D]">{p.frameType}</span>}
+                        {p.contactPackLabels && p.contactPackLabels.filter(Boolean).length > 0 ? (
+                          <span className="text-[9px] bg-[#222] text-gray-400 px-1.5 py-0.5 rounded border border-[#2A2A2D]">
+                            {p.contactPackLabels.filter(Boolean).join(' · ')}
+                          </span>
+                        ) : (
+                          p.frameType && !String(p.category || '').toLowerCase().includes('contact') ? (
+                            <span className="text-[9px] bg-[#222] text-gray-400 px-1.5 py-0.5 rounded border border-[#2A2A2D]">{p.frameType}</span>
+                          ) : null
+                        )}
                       </div>
                     </td>
                     <td className="px-5 py-4 text-[#A7A7A7] font-semibold uppercase text-xs">{p.category.replace('_', ' ')}</td>
@@ -153,27 +185,33 @@ export default function AdminProductsPage() {
                       <span className="text-[#A7A7A7] text-xs ml-2 line-through font-medium">₹{p.price.original}</span>
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleActive(p);
-                        }}
-                        className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${p.isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
-                      >
-                        {p.isActive ? 'Active' : 'Inactive'}
-                      </button>
+                      {(() => {
+                        const status = productStatus(p);
+                        const canToggle = status === 'Active' || status === 'Inactive';
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canToggle) toggleActive(p);
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${statusPillClasses(status)} ${canToggle ? 'cursor-pointer' : 'cursor-default'}`}
+                          >
+                            {status}
+                          </button>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex gap-3 font-bold text-xs">
                         <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer">Edit</button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteProduct(p._id); }} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteProduct(p); }} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center text-[#A7A7A7] py-16 italic">No products found</td>
+                    <td colSpan={5} className="text-center text-[#A7A7A7] py-16">No data is added</td>
                   </tr>
                 )}
               </tbody>

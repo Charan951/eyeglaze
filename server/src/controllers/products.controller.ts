@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/mongodb';
-import { Product } from '../models/Product';
+import { Product, STOREFRONT_PRODUCT_FILTER } from '../models/Product';
 import { ProductVariant } from '../models/ProductVariant';
 import { AuditLog } from '../models/AuditLog';
 import { Review } from '../models/Review';
@@ -10,6 +10,7 @@ import { LensType } from '../models/LensType';
 import { clearCachePattern } from '../middleware/cache';
 import { escapeRegExp } from '../lib/regex';
 import { getIO } from '../lib/socket';
+import { findCollapsedPackProducts, findContactPackSiblings } from '../lib/contactPackSiblings';
 
 const parseCommaParam = (param: any): string[] | undefined => {
   if (typeof param === 'string' && param.trim() !== '') {
@@ -33,7 +34,7 @@ export async function getProducts(req: Request, res: Response) {
     const maxPrice = req.query.maxPrice as string | undefined;
     const compatible = req.query.compatible as string | undefined;
 
-    const query: Record<string, any> = { isActive: true };
+    const query: Record<string, any> = { ...STOREFRONT_PRODUCT_FILTER };
     const andConditions: any[] = [];
 
     if (category) {
@@ -313,10 +314,7 @@ export async function getProducts(req: Request, res: Response) {
     const sortOption = sortMap[sort] || { createdAt: -1 };
 
     const skip = (page - 1) * limit;
-    const [products, total] = await Promise.all([
-      Product.find(query).sort(sortOption).skip(skip).limit(limit),
-      Product.countDocuments(query),
-    ]);
+    const { products, total } = await findCollapsedPackProducts(query, sortOption, skip, limit);
 
     return res.status(200).json({
       products,
@@ -390,6 +388,9 @@ export async function getProductById(req: Request, res: Response) {
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
+    if (product.status === 'Draft' || product.status === 'Inactive' || product.status === 'Scheduled' || product.isActive === false) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
 
     const reviews = await Review.find({ product: product._id })
       .sort({ createdAt: -1 })
@@ -459,10 +460,15 @@ export async function getProductById(req: Request, res: Response) {
       });
     }
 
-    return res.status(200).json({ 
-      product, 
-      reviews, 
-      lenses: [...overriddenLenses, ...customLenses] 
+    const productObj = product.toObject();
+    productObj.contactPackSiblings = productObj.contactPackGroupId
+      ? await findContactPackSiblings(productObj.contactPackGroupId)
+      : [];
+
+    return res.status(200).json({
+      product: productObj,
+      reviews,
+      lenses: [...overriddenLenses, ...customLenses]
     });
   } catch (error) {
     console.error('GET product error:', error);

@@ -1,0 +1,970 @@
+[
+  {
+    "name": "Eyeglasses",
+    "slug": "eyeglasses",
+    "code": "CAT-EYEGLASSES",
+    "icon": "👓",
+    "bannerImage": "/images/men_eyeglasses.png",
+    "bannerImageEnabled": true,
+    "description": "Premium designer eyeglasses frames with free lenses",
+    "displayOrder": 1,
+    "status": "Active",
+    "showInNavbar": true,
+    "subCategoryShape": "circle",
+    "subCategorySize": "large",
+    "subCategoryColumns": 4,
+    "collections": [
+      {
+        "name": "MEN EYEGLASSES",
+        "slug": "men-eyeglasses",
+        "code": "SUBCAT-EYE-MEN",
+        "bannerImage": "/images/men_eyeglasses.png",
+        "bannerImageEnabled": true,
+        "displayOrder": 1,
+        "status": "Active",
+        "gender": "men",
+        "startingPrice": 999,
+        "startingPriceEnabled": true,
+        "shapeModal": true,
+        "modalShapes": [
+          "Round",
+          "Aviator",
+          "Square",
+          "Geometric"
+        ],
+        "subSubCategoryModal": false,
+        "modalSubSubCategories": [
+          "john-jacobs-owndays-le-petit-men",
+          "vincent-chase-lenskart-air-men",
+          "hustlr-men"
+        ],
+        "showInNavbar": true,
+        "types": [
+          {
+            "name": "JOHN JACOBS | OWNDAYS | LE PETIT",
+            "slug": "john-jacobs-owndays-le-petit-men",
+            "code": "SUBSUB-JOHN-JACOBS-OWNDAYS-LE-PETIT-MEN",
+            "icon": "/images/men_eyeglasses.png",
+            "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785882726045-216456742.jpg",
+            "bannerImageEnabled": true,
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 1800,
+            "startingPriceEnabled": true,
+            "variants": [
+              {
+                "name": "Best Sellers",
+                "slug": "best-sellers",
+                "code": "CAT-BEST-541",
+                "icon": "👓",
+                "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785883229314-537262565.jpg",
+                "displayOrder": 0,
+                "status": "Active",
+                "startingPrice": 1000,
+                "bannerImageEnabled": true
+              }
+            ]
+          },
+          {
+            "name": "VINCENT CHASE | LENSKART AIR",
+            "slug": "vincent-chase-lenskart-air-men",
+            "code": "SUBSUB-VINCENT-CHASE-LENSKART-AIR-MEN",
+            "icon": "/images/men_eyeglasses.png",
+            "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785883066450-537049012.jpg",
+            "bannerImageEnabled": true,
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 1500,
+            "startingPriceEnabled": true,
+            "variants": [
+              {
+                "name": "Best Seller",
+                "slug": "best-seller",
+                "code": "CAT-BEST-186",
+                "icon": "👓",
+                "bannerImageEnabled": false,
+                "displayOrder": 0,
+                "status": "Active",
+                "startingPriceEnabled": false
+              },
+              {
+                "name": "Premium",
+                "slug": "premium",
+                "code": "CAT-PREM-845",
+                "icon": "👓",
+                "bannerImageEnabled": false,
+                "displayOrder": 0,
+                "status": "Active",
+                "startingPriceEnabled": false
+              }
+            ]
+          },
+          {
+            "name": "HUSTLR",
+            "slug": "hustlr-men",
+            "code": "SUBSUB-HUSTLR-MEN",
+            "icon": "/images/men_eyeglasses.png",
+            "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785883091064-49275429.jpg",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 1000,
+            "variants": [],
+            "bannerImageEnabled": true
+          }
+        ]
+      },
+      {
+        "name": "WOMEN EYEGLASSES",
+        "slug": "women-eyeglasses",
+        "code": "SUBCAT-EYE-WOMEN",
+        "bannerImage": "/images/women_eyeglasses.png",
+        "displayOrder": 2,
+        "status": "Active",
+        "gender": "women",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "JOHN JACOBS | OWNDAYS | LE PETIT",
+            "slug": "john-jacobs-owndays-le-petit-women",
+            "code": "SUBSUB-JOHN-JACOBS-OWNDAYS-LE-PETIT-WOMEN",
+            "icon": "/images/women_eyeglasses.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 3000,
+            "variants": []
+          },
+          {
+            "name": "VINCENT CHASE | LENSKART AIR",
+            "slug": "vincent-chase-lenskart-air-women",
+            "code": "SUBSUB-VINCENT-CHASE-LENSKART-AIR-WOMEN",
+            "icon": "/images/women_eyeglasses.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 1500,
+            "variants": []
+          },
+          {
+            "name": "HUSTLR",
+            "slug": "hustlr-women",
+            "code": "SUBSUB-HUSTLR-WOMEN",
+            "icon": "/images/women_eyeglasses.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 500,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "KIDS EYEGLASSES",
+        "slug": "kids-eyeglasses",
+        "code": "SUBCAT-EYE-KIDS",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785890276260-114502654.jpg",
+        "displayOrder": 3,
+        "status": "Active",
+        "gender": "kids",
+        "startingPrice": 999,
+        "shapeModal": true,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "JUNIORS | 6 TO 8 YEARS",
+            "slug": "juniors-6-to-8-years",
+            "code": "SUBSUB-JUNIORS-6-TO-8-YEARS",
+            "icon": "/images/kids_eyeglasses.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 800,
+            "variants": []
+          },
+          {
+            "name": "TWEENS | 8 TO 10 YEARS",
+            "slug": "tweens-8-to-10-years",
+            "code": "SUBSUB-TWEENS-8-TO-10-YEARS",
+            "icon": "/images/kids_eyeglasses.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 500,
+            "variants": []
+          },
+          {
+            "name": "TEENS | 10 TO 16 YEARS",
+            "slug": "teens-10-to-16-years",
+            "code": "SUBSUB-TEENS-10-TO-16-YEARS",
+            "icon": "/images/kids_eyeglasses.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 1500,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "Sunglasses",
+    "slug": "sunglasses",
+    "code": "CAT-SUNGLASSES",
+    "icon": "🕶️",
+    "bannerImage": "/images/men_sunglasses.png",
+    "description": "Polarized UV protection luxury sunglasses",
+    "displayOrder": 2,
+    "status": "Active",
+    "showInNavbar": true,
+    "subCategoryShape": "square",
+    "subCategorySize": "medium",
+    "subCategoryColumns": 4,
+    "collections": [
+      {
+        "name": "MEN SUNGLASSES",
+        "slug": "men-sunglasses",
+        "code": "SUBCAT-SUN-MEN",
+        "bannerImage": "/images/men_sunglasses.png",
+        "displayOrder": 1,
+        "status": "Active",
+        "gender": "men",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "JOHN JACOBS | OWNDAYS | LE PETIT",
+            "slug": "john-jacobs-owndays-le-petit-men-sun",
+            "code": "SUBSUB-JOHN-JACOBS-OWNDAYS-LE-PETIT-MEN-SUN",
+            "icon": "/images/men_sunglasses.png",
+            "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785995863140-592061142.jpg",
+            "bannerImageEnabled": true,
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 1500,
+            "startingPriceEnabled": true,
+            "variants": []
+          },
+          {
+            "name": "VINCENT CHASE | LENSKART AIR",
+            "slug": "vincent-chase-lenskart-air-men-sun",
+            "code": "SUBSUB-VINCENT-CHASE-LENSKART-AIR-MEN-SUN",
+            "icon": "/images/men_sunglasses.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 1500,
+            "variants": []
+          },
+          {
+            "name": "HUSTLR",
+            "slug": "hustlr-men-sun",
+            "code": "SUBSUB-HUSTLR-MEN-SUN",
+            "icon": "/images/men_sunglasses.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 500,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "WOMEN SUNGLASSES",
+        "slug": "women-sunglasses",
+        "code": "SUBCAT-SUN-WOMEN",
+        "bannerImage": "/images/women_sunglasses.png",
+        "displayOrder": 2,
+        "status": "Active",
+        "gender": "women",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "JOHN JACOBS | OWNDAYS | LE PETIT",
+            "slug": "john-jacobs-owndays-le-petit-women-sun",
+            "code": "SUBSUB-JOHN-JACOBS-OWNDAYS-LE-PETIT-WOMEN-SUN",
+            "icon": "/images/women_sunglasses.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 3000,
+            "variants": []
+          },
+          {
+            "name": "VINCENT CHASE | LENSKART AIR",
+            "slug": "vincent-chase-lenskart-air-women-sun",
+            "code": "SUBSUB-VINCENT-CHASE-LENSKART-AIR-WOMEN-SUN",
+            "icon": "/images/women_sunglasses.png",
+            "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785996495931-117391334.jpg",
+            "bannerImageEnabled": true,
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 1500,
+            "startingPriceEnabled": true,
+            "variants": []
+          },
+          {
+            "name": "HUSTLR",
+            "slug": "hustlr-women-sun",
+            "code": "SUBSUB-HUSTLR-WOMEN-SUN",
+            "icon": "/images/women_sunglasses.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 500,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "KIDS SUNGLASSES",
+        "slug": "kids-sunglasses",
+        "code": "SUBCAT-SUN-KIDS",
+        "bannerImage": "/images/kids_sunglasses.png",
+        "displayOrder": 3,
+        "status": "Active",
+        "gender": "kids",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "JUNIORS | 6 TO 8 YEARS",
+            "slug": "juniors-6-to-8-years-sun",
+            "code": "SUBSUB-JUNIORS-6-TO-8-YEARS-SUN",
+            "icon": "/images/kids_sunglasses.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 800,
+            "variants": []
+          },
+          {
+            "name": "TWEENS | 8 TO 10 YEARS",
+            "slug": "tweens-8-to-10-years-sun",
+            "code": "SUBSUB-TWEENS-8-TO-10-YEARS-SUN",
+            "icon": "/images/kids_sunglasses.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 500,
+            "variants": []
+          },
+          {
+            "name": "TEENS | 10 TO 16 YEARS",
+            "slug": "teens-10-to-16-years-sun",
+            "code": "SUBSUB-TEENS-10-TO-16-YEARS-SUN",
+            "icon": "/images/kids_sunglasses.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 1500,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      }
+    ],
+    "bannerImageEnabled": true
+  },
+  {
+    "name": "Special Power",
+    "slug": "special-power",
+    "code": "CAT-SPECIALPOWER",
+    "icon": "⚡",
+    "bannerImage": "/images/cat_blue_light.png",
+    "description": "Zero power blue-light, reading, and prescription sunglasses",
+    "displayOrder": 3,
+    "status": "Active",
+    "showInNavbar": true,
+    "subCategoryShape": "square",
+    "subCategorySize": "medium",
+    "subCategoryColumns": 4,
+    "collections": [
+      {
+        "name": "PRE-FIT ZERO POWER",
+        "slug": "zeropower",
+        "code": "SUBCAT-SP-ZERO",
+        "bannerImage": "/images/cat_blue_light.png",
+        "displayOrder": 1,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "EyeGlaze BLU",
+            "slug": "eyeglaze-blu",
+            "code": "SUBSUB-EYEGLAZE-BLU",
+            "icon": "/images/cat_blue_light.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 999,
+            "variants": []
+          },
+          {
+            "name": "Computer Glasses",
+            "slug": "computer-glasses-sp",
+            "code": "SUBSUB-COMPUTER-GLASSES-SP",
+            "icon": "/images/cat_blue_light.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 999,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "POWER SUNGLASSES",
+        "slug": "powersun",
+        "code": "SUBCAT-SP-SUN",
+        "bannerImage": "/images/cat_sunglasses.png",
+        "displayOrder": 2,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "Men Power Sun",
+            "slug": "men-power-sun",
+            "code": "SUBSUB-MEN-POWER-SUN",
+            "icon": "/images/men_sunglasses.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 999,
+            "variants": []
+          },
+          {
+            "name": "Women Power Sun",
+            "slug": "women-power-sun",
+            "code": "SUBSUB-WOMEN-POWER-SUN",
+            "icon": "/images/women_sunglasses.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 999,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "READING",
+        "slug": "reading",
+        "code": "SUBCAT-SP-READING",
+        "bannerImage": "/images/reading_book.png",
+        "displayOrder": 3,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": " +1.0",
+            "slug": "ready-power-1-0",
+            "code": "SUBSUB-READY-POWER-1-0",
+            "icon": "/images/reading_book.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPriceEnabled": false,
+            "variants": []
+          },
+          {
+            "name": "+1.25",
+            "slug": "ready-power-1-25",
+            "code": "SUBSUB-READY-POWER-1-25",
+            "icon": "/images/reading_book.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPriceEnabled": false,
+            "variants": []
+          },
+          {
+            "name": "+1.5",
+            "slug": "ready-power-1-5",
+            "code": "SUBSUB-READY-POWER-1-5",
+            "icon": "/images/reading_book.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPriceEnabled": false,
+            "variants": []
+          },
+          {
+            "name": " +1.75",
+            "slug": "ready-power-1-75",
+            "code": "SUBSUB-READY-POWER-1-75",
+            "icon": "/images/reading_book.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 4,
+            "status": "Active",
+            "startingPriceEnabled": false,
+            "variants": []
+          },
+          {
+            "name": " +2.0",
+            "slug": "ready-power-2-0",
+            "code": "SUBSUB-READY-POWER-2-0",
+            "icon": "/images/reading_book.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 5,
+            "status": "Active",
+            "startingPriceEnabled": false,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      }
+    ],
+    "bannerImageEnabled": true
+  },
+  {
+    "name": "Contact Lens",
+    "slug": "contact-lens",
+    "code": "CAT-CONTACTLENSES",
+    "icon": "👁️",
+    "bannerImage": "/images/cat_contacts.png",
+    "description": "Clear, color, and disposable contact lenses",
+    "displayOrder": 4,
+    "status": "Active",
+    "showInNavbar": true,
+    "subCategoryShape": "square",
+    "subCategorySize": "large",
+    "subCategoryColumns": 4,
+    "collections": [
+      {
+        "name": "CLEAR CONTACTS",
+        "slug": "clear",
+        "code": "SUBCAT-CONTACT-CLEAR",
+        "bannerImage": "/images/cat_contacts.png",
+        "bannerImageEnabled": true,
+        "displayOrder": 1,
+        "status": "Active",
+        "startingPrice": 999,
+        "startingPriceEnabled": true,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "subSubCategoryModal": true,
+        "modalSubSubCategories": [
+          "distance-power-ve",
+          "toric-cylindrical",
+          "multi-focal"
+        ],
+        "showInNavbar": true,
+        "types": [
+          {
+            "name": "DISTANCE POWER(-VE)",
+            "slug": "distance-power-ve",
+            "code": "SUBSUB-DISTANCE-POWER-VE",
+            "icon": "/images/cat_contacts.png",
+            "bannerImageEnabled": false,
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 249,
+            "startingPriceEnabled": true,
+            "variants": [
+              {
+                "name": "Monthly",
+                "slug": "monthly-clear-distance",
+                "code": "SUBSUBSUB-MONTHLY-CLEAR-DISTANCE",
+                "displayOrder": 1,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Dailies",
+                "slug": "dailies-clear-distance",
+                "code": "SUBSUBSUB-DAILIES-CLEAR-DISTANCE",
+                "displayOrder": 2,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Bi-Weekly",
+                "slug": "bi-weekly-clear-distance",
+                "code": "SUBSUBSUB-BI-WEEKLY-CLEAR-DISTANCE",
+                "displayOrder": 3,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Yearly",
+                "slug": "yearly-clear-distance",
+                "code": "SUBSUBSUB-YEARLY-CLEAR-DISTANCE",
+                "displayOrder": 4,
+                "status": "Active",
+                "startingPrice": 999
+              }
+            ]
+          },
+          {
+            "name": "TORIC/CYLINDERICAL",
+            "slug": "toric-cylindrical",
+            "code": "SUBSUB-TORIC-CYLINDRICAL",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 349,
+            "variants": [
+              {
+                "name": "Monthly",
+                "slug": "monthly-clear-toric",
+                "code": "SUBSUBSUB-MONTHLY-CLEAR-TORIC",
+                "displayOrder": 1,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Dailies",
+                "slug": "dailies-clear-toric",
+                "code": "SUBSUBSUB-DAILIES-CLEAR-TORIC",
+                "displayOrder": 2,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Bi-Weekly",
+                "slug": "bi-weekly-clear-toric",
+                "code": "SUBSUBSUB-BI-WEEKLY-CLEAR-TORIC",
+                "displayOrder": 3,
+                "status": "Active",
+                "startingPrice": 999
+              },
+              {
+                "name": "Yearly",
+                "slug": "yearly-clear-toric",
+                "code": "SUBSUBSUB-YEARLY-CLEAR-TORIC",
+                "displayOrder": 4,
+                "status": "Active",
+                "startingPrice": 999
+              }
+            ]
+          },
+          {
+            "name": "MULTI-FOCAL",
+            "slug": "multi-focal",
+            "code": "SUBSUB-MULTI-FOCAL",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 2000,
+            "variants": []
+          },
+          {
+            "name": "ALL POWERS",
+            "slug": "all-powers",
+            "code": "SUBSUB-ALL-POWERS",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 4,
+            "status": "Active",
+            "startingPrice": 249,
+            "variants": []
+          }
+        ]
+      },
+      {
+        "name": "COLOR CONTACTS",
+        "slug": "color",
+        "code": "SUBCAT-CONTACT-COLOR",
+        "bannerImage": "/images/cat_contacts.png",
+        "displayOrder": 2,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [
+          {
+            "name": "ZERO POWER",
+            "slug": "zero-power",
+            "code": "SUBSUB-ZERO-POWER",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 179,
+            "variants": []
+          },
+          {
+            "name": "WITH POWER",
+            "slug": "with-power",
+            "code": "SUBSUB-WITH-POWER",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 199,
+            "variants": []
+          },
+          {
+            "name": "COLOR COMBOS",
+            "slug": "color-combos",
+            "code": "SUBSUB-COLOR-COMBOS",
+            "icon": "/images/cat_contacts.png",
+            "displayOrder": 3,
+            "status": "Active",
+            "startingPrice": 399,
+            "variants": []
+          }
+        ],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "SOLUTION & ACCESSORIES",
+        "slug": "solutions-accessories",
+        "code": "SUBCAT-CONTACT-SOLUTIONS",
+        "bannerImage": "/images/accessories.png",
+        "bannerImageEnabled": true,
+        "displayOrder": 3,
+        "status": "Active",
+        "startingPrice": 999,
+        "startingPriceEnabled": true,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "subSubCategoryModal": true,
+        "modalSubSubCategories": [
+          "solution",
+          "accessories"
+        ],
+        "showInNavbar": true,
+        "types": [
+          {
+            "name": "SOLUTION",
+            "slug": "solution",
+            "code": "SUBSUB-SOLUTION",
+            "icon": "/images/accessories.png",
+            "displayOrder": 1,
+            "status": "Active",
+            "startingPrice": 149,
+            "variants": []
+          },
+          {
+            "name": "ACCESSORIES",
+            "slug": "accessories",
+            "code": "SUBSUB-ACCESSORIES",
+            "icon": "/images/accessories.png",
+            "displayOrder": 2,
+            "status": "Active",
+            "startingPrice": 159,
+            "variants": []
+          }
+        ]
+      }
+    ],
+    "bannerImageEnabled": true
+  },
+  {
+    "name": "Exclusively at EyeGlaze",
+    "slug": "exclusively-at-eyeglaze",
+    "code": "CAT-EXCL-293",
+    "icon": "👓",
+    "bannerImageEnabled": false,
+    "displayOrder": 5,
+    "status": "Active",
+    "showInNavbar": true,
+    "subCategoryShape": "rectangle",
+    "subCategorySize": "medium",
+    "subCategoryColumns": 3,
+    "collections": [
+      {
+        "name": "1+1 offers",
+        "slug": "1-1-offers",
+        "code": "CAT-11OF-122",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785926120063-798768621.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "2 in 1 eye+sun image",
+        "slug": "2-in-1-eye-sun-image",
+        "code": "CAT-2IN1-962",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785925500353-70980085.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "Best Sellers",
+        "slug": "best-sellers",
+        "code": "CAT-BEST-253",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785924744672-350436346.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "Bold Signature",
+        "slug": "bold-signature",
+        "code": "CAT-BOLD-644",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785925557519-722901700.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "Crystal Clear",
+        "slug": "crystal-clear",
+        "code": "CAT-CRYS-354",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785924580011-506274449.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      },
+      {
+        "name": "Fighter Light",
+        "slug": "fighter-light",
+        "code": "CAT-FIGH-931",
+        "icon": "👓",
+        "bannerImage": "https://eyeglaze-bucket.s3.ap-south-1.amazonaws.com/eyeglaze_products/1785925722556-632924799.jpg",
+        "displayOrder": 0,
+        "status": "Active",
+        "startingPrice": 999,
+        "shapeModal": false,
+        "modalShapes": [
+          "Round",
+          "Rectangle",
+          "Aviator",
+          "Square",
+          "Cat Eye",
+          "Geometric"
+        ],
+        "types": [],
+        "bannerImageEnabled": true
+      }
+    ]
+  }
+]

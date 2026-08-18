@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../../lib/api';
+import { CATEGORY_LEVEL } from './categories/levelLabels';
 
 
 
@@ -222,6 +223,12 @@ const wizardSchema = z.object({
     originalPrice: z.number().optional(),
     lensesPerBox: z.number().optional()
   })).default([]),
+  contactPackGroupId: z.string().optional(),
+  packName: z.string().optional(),
+  lensesPerBox: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined || Number.isNaN(Number(val)) ? undefined : Number(val)),
+    z.number().optional()
+  ),
   solutionVariants: z.array(z.object({
     volume: z.string(),
     price: z.number(),
@@ -229,7 +236,18 @@ const wizardSchema = z.object({
   })).default([])
 });
 
-type WizardFormData = z.infer<typeof wizardSchema>;
+type ContactPackDraft = {
+  packName: string;
+  price: number;
+  originalPrice?: number;
+  lensesPerBox?: number;
+};
+
+type LinkedContactPack = ContactPackDraft & {
+  _id: string;
+  sku?: string;
+  status?: string;
+};
 
 interface MultiSelectDropdownProps {
   label: string;
@@ -465,6 +483,8 @@ const defaultValues: WizardFormData = {
   readingPowers: [],
   contactPowers: [],
   contactPackOptions: [],
+  contactPackGroupId: '',
+  packName: '',
   solutionVariants: [],
   contactDisposableType: '',
   sellAsFrame: true,
@@ -504,7 +524,11 @@ export default function AddProductWizard() {
   const [customLensMaxSph, setCustomLensMaxSph] = useState('20');
   const [customLensMinCyl, setCustomLensMinCyl] = useState('-6');
   const [customLensMaxCyl, setCustomLensMaxCyl] = useState('6');
-  const [contactPackConfigs, setContactPackConfigs] = useState<Array<{ packName: string; price: number; originalPrice?: number; lensesPerBox?: number }>>([]);
+  const [linkedPackProducts, setLinkedPackProducts] = useState<LinkedContactPack[]>([]);
+  const [pendingPackProducts, setPendingPackProducts] = useState<ContactPackDraft[]>([]);
+  const [packLinkQuery, setPackLinkQuery] = useState('');
+  const [packLinkBusy, setPackLinkBusy] = useState(false);
+  const originalLinkedPackIds = useRef<string[]>([]);
   const [solutionVariantConfigs, setSolutionVariantConfigs] = useState<Array<{ volume: string; price: number; originalPrice?: number }>>([]);
   const [availableSolutions, setAvailableSolutions] = useState<Array<{ _id: string; name: string; sku: string; thumbnail?: string; sellingPrice?: number; mrp?: number; price?: { selling?: number; original?: number } }>>([]);
 
@@ -536,10 +560,6 @@ export default function AddProductWizard() {
   });
 
   useEffect(() => {
-    setValue('contactPackOptions', contactPackConfigs);
-  }, [contactPackConfigs, setValue]);
-
-  useEffect(() => {
     setValue('solutionVariants', solutionVariantConfigs);
   }, [solutionVariantConfigs, setValue]);
 
@@ -557,6 +577,9 @@ export default function AddProductWizard() {
     register('readingPowers');
     register('contactPowers');
     register('contactPackOptions');
+    register('contactPackGroupId');
+    register('packName');
+    register('lensesPerBox');
     register('solutionVariants');
     register('linkedSolutions');
     register('contactDisposableType');
@@ -595,6 +618,33 @@ export default function AddProductWizard() {
     isContactLenses && /accessor/i.test(String(formValues.subSubCategory || ''))
   );
   const isNonPowerContactProduct = isSolutionProduct || isAccessoryProduct;
+  const hideProductLevelPricing = isContactLenses && !isAccessoryProduct;
+
+  useEffect(() => {
+    if (!hideProductLevelPricing) return;
+    if (!isSolutionProduct) return;
+
+    const volumes = solutionVariantConfigs;
+    if (volumes.length === 0) return;
+
+    const cheapest = [...volumes].sort((a, b) => a.price - b.price)[0];
+    const selling = Number(cheapest.price) || 0;
+    const mrp = Number(cheapest.originalPrice) || selling;
+    if (selling <= 0) return;
+    if (getValues('sellingPrice') !== selling) {
+      setValue('sellingPrice', selling, { shouldValidate: false });
+    }
+    if (getValues('mrp') !== mrp) {
+      setValue('mrp', mrp, { shouldValidate: false });
+    }
+  }, [
+    hideProductLevelPricing,
+    isSolutionProduct,
+    solutionVariantConfigs,
+    getValues,
+    setValue,
+  ]);
+
   const isPowerSunglasses = currentCategory === 'power-sunglasses';
   const isReading = String(currentSubCategory || '').toLowerCase().includes('reading');
   const subCatNameOrSlug = currentSubCategory || formValues.subCategoryId || '';
@@ -829,6 +879,9 @@ export default function AddProductWizard() {
             readingPowers: p.readingPowers || [],
             contactPowers: p.contactPowers || [],
             contactPackOptions: p.contactPackOptions || [],
+            contactPackGroupId: p.contactPackGroupId || '',
+            packName: p.packName || p.contactPackOptions?.[0]?.packName || '',
+            lensesPerBox: p.lensesPerBox || p.contactPackOptions?.[0]?.lensesPerBox,
             contactDisposableType: p.contactDisposableType || '',
 
             lensTypes: (p.lensTypes || []).map((t: any) => typeof t === 'object' && t ? t._id : t),
@@ -881,10 +934,6 @@ export default function AddProductWizard() {
             sellWithLens: p.sellWithLens ?? true
           });
 
-          if (p.contactPackOptions && Array.isArray(p.contactPackOptions)) {
-            setContactPackConfigs(p.contactPackOptions);
-            setValue('contactPackOptions', p.contactPackOptions, { shouldValidate: true });
-          }
           if (p.solutionVariants && Array.isArray(p.solutionVariants)) {
             setSolutionVariantConfigs(p.solutionVariants);
             setValue('solutionVariants', p.solutionVariants, { shouldValidate: true });
@@ -894,6 +943,31 @@ export default function AddProductWizard() {
           }
           if (p.readingPowers && Array.isArray(p.readingPowers)) {
             setValue('readingPowers', p.readingPowers, { shouldValidate: true });
+          }
+
+          const thisPackName = String(p.packName || p.contactPackOptions?.[0]?.packName || '').toLowerCase();
+          const siblings = (prodRes.data.contactPackSiblings || []).filter(
+            (s: any) => String(s._id) !== String(p._id)
+          );
+          setLinkedPackProducts(siblings.map((s: any) => ({
+            _id: String(s._id),
+            sku: s.sku,
+            status: s.status,
+            packName: s.packName || '',
+            price: Number(s.price) || 0,
+            originalPrice: s.originalPrice,
+            lensesPerBox: s.lensesPerBox,
+          })));
+          originalLinkedPackIds.current = siblings.map((s: any) => String(s._id));
+
+          const extraOptions = (Array.isArray(p.contactPackOptions) ? p.contactPackOptions : []).filter((opt: any) => {
+            const name = String(opt.packName || '').toLowerCase();
+            if (!name || name === thisPackName) return false;
+            return !siblings.some((s: any) => String(s.packName || '').toLowerCase() === name);
+          });
+          setPendingPackProducts(extraOptions);
+          if (!p.contactPackGroupId) {
+            setValue('contactPackGroupId', crypto.randomUUID(), { shouldValidate: false });
           }
 
           setAuditLogs(prodRes.data.auditLogs || []);
@@ -1362,6 +1436,8 @@ export default function AddProductWizard() {
       const payload = {
         ...data,
         sku,
+        status: data.status,
+        isActive: data.status === 'Active',
         isBestseller: data.isBestseller,
         isPremium: data.isPremium,
         offerBadges: data.offerBadgesText ? data.offerBadgesText.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
@@ -1397,9 +1473,26 @@ export default function AddProductWizard() {
         }
       };
 
-      const cleanPayload = {
+      const originalLinked = new Set(originalLinkedPackIds.current);
+      const linkedIds = linkedPackProducts.map((p) => p._id);
+      const contactPackSiblingIdsToLink = linkedIds.filter((sibId) => !originalLinked.has(sibId));
+      const contactPackSiblingIdsToUnlink = [...originalLinked].filter((sibId) => !linkedIds.includes(sibId));
+
+      let packName = (getValues('packName') || data.packName || '').trim();
+      let lensesPerBox = Number(getValues('lensesPerBox') || data.lensesPerBox) || undefined;
+      let sellingPrice = data.sellingPrice;
+      let mrp = data.mrp;
+      const extraPacks = [...pendingPackProducts];
+      if (isContactLenses && !isNonPowerContactProduct && !packName && extraPacks.length > 0) {
+        const first = extraPacks.shift()!;
+        packName = first.packName;
+        lensesPerBox = first.lensesPerBox;
+        sellingPrice = first.price;
+        mrp = first.originalPrice || first.price;
+      }
+
+      const cleanPayload: Record<string, unknown> = {
         ...payload,
-        contactPackOptions: contactPackConfigs,
         contactPowers: getValues('contactPowers') || data.contactPowers || [],
         readingPowers: getValues('readingPowers') || data.readingPowers || [],
         categoryId: payload.categoryId || null,
@@ -1407,13 +1500,41 @@ export default function AddProductWizard() {
         brandId: payload.brandId || null,
       };
 
+      if (isContactLenses && !isNonPowerContactProduct) {
+        Object.assign(cleanPayload, {
+          packName,
+          lensesPerBox,
+          sellingPrice,
+          mrp,
+          price: {
+            original: mrp,
+            selling: sellingPrice,
+          },
+          contactPackGroupId: getValues('contactPackGroupId') || data.contactPackGroupId || crypto.randomUUID(),
+          contactPackOptions: [],
+          contactPackSiblingsToCreate: extraPacks,
+          contactPackSiblingIdsToLink,
+          contactPackSiblingIdsToUnlink,
+        });
+      }
+
       if (isEditMode) {
         await api.put(`/admin/products/${id}`, cleanPayload);
-        showToast('Product updated successfully!', 'success');
+        showToast(
+          extraPacks.length > 0 && isContactLenses && !isNonPowerContactProduct
+            ? `Product updated. ${extraPacks.length} other pack size(s) saved as separate products.`
+            : 'Product updated successfully!',
+          'success'
+        );
       } else {
         await api.post('/admin/products', cleanPayload);
         localStorage.removeItem('eyeglaze_add_product_draft');
-        showToast('Product created successfully!', 'success');
+        showToast(
+          extraPacks.length > 0 && isContactLenses && !isNonPowerContactProduct
+            ? `Product created. ${extraPacks.length} other pack size(s) saved as separate products.`
+            : 'Product created successfully!',
+          'success'
+        );
       }
       setTimeout(() => navigate('/admin/products'), 1500);
     } catch (err: any) {
@@ -1483,6 +1604,9 @@ export default function AddProductWizard() {
       setValue('sku', generatedSku);
       setValue('slug', generatedSlug);
       setValue('status', 'Draft');
+      if (!getValues('contactPackGroupId')) {
+        setValue('contactPackGroupId', crypto.randomUUID());
+      }
       setIsEditMode(false);
       showToast('Duplicated to draft! Save to commit changes.', 'success');
       setShowConfirm(null);
@@ -1834,6 +1958,9 @@ export default function AddProductWizard() {
                 );
 
                 const subSubCategoriesList = matchedSub?.children || [];
+                const collectionVariants = matchedSub?.variants || [];
+                const nestedTypeVariants = (subSubCategoriesList as any[]).flatMap((ss: any) => ss.children || []);
+                const subSubSubCategoriesList = collectionVariants.length > 0 ? collectionVariants : nestedTypeVariants;
 
                 const currentSubSubVal = watch('subSubCategory');
                 const currentSubSubIdVal = watch('subSubCategoryId');
@@ -1846,8 +1973,6 @@ export default function AddProductWizard() {
                     ss.id === currentSubSubIdVal ||
                     ss._id === currentSubSubIdVal
                 );
-
-                const subSubSubCategoriesList = matchedSubSub?.children || [];
 
                 const matchedSubSubSubItem = subSubSubCategoriesList.find(
                   (sss: any) =>
@@ -1897,7 +2022,7 @@ export default function AddProductWizard() {
                       {/* Subcategory Dropdown (Shown if parent has subcategories) */}
                       {subCategoriesList.length > 0 && (
                         <div>
-                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Subcategory</label>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">{CATEGORY_LEVEL.SubCategory}</label>
                           <select
                             {...register('subCategory')}
                             onChange={(e) => {
@@ -1919,9 +2044,9 @@ export default function AddProductWizard() {
                               }
                             }}
                             className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
-                            title={matchedSub?.name || 'Select Subcategory'}
+                            title={matchedSub?.name || `Select ${CATEGORY_LEVEL.SubCategory}`}
                           >
-                            <option value="">-- Choose Subcategory --</option>
+                            <option value="">-- Choose {CATEGORY_LEVEL.SubCategory} --</option>
                             {subCategoriesList.map((sub: any) => (
                               <option key={sub.id || sub._id} value={sub.slug || sub.id || sub._id}>
                                 {sub.name}
@@ -1934,7 +2059,7 @@ export default function AddProductWizard() {
                       {/* Sub-Sub-Category Dropdown (Shown if subcategory has sub-sub categories) */}
                       {currentSubVal && subSubCategoriesList.length > 0 && (
                         <div>
-                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Category</label>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">{CATEGORY_LEVEL.SubSubCategory}</label>
                           <select
                             {...register('subSubCategory')}
                             onChange={(e) => {
@@ -1948,9 +2073,9 @@ export default function AddProductWizard() {
                               setValue('subSubCategoryId', matchedSubSubItem ? matchedSubSubItem.id || matchedSubSubItem._id : '');
                             }}
                             className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
-                            title={matchedSubSub?.name || 'Select Sub-Sub-Category'}
+                            title={matchedSubSub?.name || `Select ${CATEGORY_LEVEL.SubSubCategory}`}
                           >
-                            <option value="">-- Choose Sub-Sub-Category --</option>
+                            <option value="">-- Choose {CATEGORY_LEVEL.SubSubCategory} --</option>
                             {subSubCategoriesList.map((ss: any) => (
                               <option key={ss.id || ss._id} value={ss.slug || ss.id || ss._id}>
                                 {ss.name}
@@ -1960,10 +2085,10 @@ export default function AddProductWizard() {
                         </div>
                       )}
 
-                      {/* Sub-Sub-Sub-Category Dropdown (Shown if sub-sub category has sub-sub-sub categories) */}
-                      {currentSubSubVal && subSubSubCategoriesList.length > 0 && (
+                      {/* Variant dropdown — belongs to the Collection, not the Type */}
+                      {currentSubVal && subSubSubCategoriesList.length > 0 && (
                         <div>
-                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Sub-Sub-Sub-Category</label>
+                          <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">{CATEGORY_LEVEL.SubSubSubCategory}</label>
                           <select
                             {...register('subSubSubCategory')}
                             onChange={(e) => {
@@ -1975,9 +2100,9 @@ export default function AddProductWizard() {
                               setValue('subSubSubCategoryId', matchedItem ? matchedItem.id || matchedItem._id : '');
                             }}
                             className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs md:text-sm focus:border-[#D4A04D] focus:outline-none font-bold transition-colors"
-                            title={matchedSubSubSubItem?.name || 'Select Sub-Sub-Sub-Category'}
+                            title={matchedSubSubSubItem?.name || `Select ${CATEGORY_LEVEL.SubSubSubCategory}`}
                           >
-                            <option value="">-- Choose Sub-Sub-Sub-Category --</option>
+                            <option value="">-- Choose {CATEGORY_LEVEL.SubSubSubCategory} --</option>
                             {subSubSubCategoriesList.map((sss: any) => (
                               <option key={sss.id || sss._id} value={sss.slug || sss.id || sss._id}>
                                 {sss.name}
@@ -2444,30 +2569,53 @@ export default function AddProductWizard() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2A2A2D]/60 pb-3">
                     <div>
                       <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D]">Contact Lenses Configuration</h3>
-                      <p className="text-[10px] text-gray-400">Select lenses pack size / duration and configure power options for customers.</p>
+                      <p className="text-[10px] text-gray-400">Each pack size is its own product. Linked packs appear together on the customer page.</p>
                     </div>
                   </div>
 
-                  {/* Lenses per Pack Options Section */}
+                  {/* This product is one pack; other sizes become sibling products. */}
                   <div className="space-y-4 pt-4 border-t border-[#2A2A2D]/40">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <h4 className="text-white text-xs font-bold uppercase tracking-wider text-[#D4A04D]">Lenses per Pack Options</h4>
-                        <p className="text-[10px] text-gray-500">Configure pack options for customers (e.g. 1 lens/box @ ₹369, 3 lens/box @ ₹949).</p>
+                        <h4 className="text-white text-xs font-bold uppercase tracking-wider text-[#D4A04D]">Lenses per Pack</h4>
+                        <p className="text-[10px] text-gray-500">This product is one pack size. Other sizes are saved as separate products and shown together on the customer page.</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             const currentSelling = Number(watch('sellingPrice')) || 369;
-                            const currentMrp = Number(watch('mrp')) || 432;
-                            const presets = [
+                            const currentMrp = Number(watch('mrp')) || currentSelling;
+                            const existingNames = new Set([
+                              String(watch('packName') || '').toLowerCase(),
+                              ...linkedPackProducts.map((p) => p.packName.toLowerCase()),
+                              ...pendingPackProducts.map((p) => p.packName.toLowerCase()),
+                            ].filter(Boolean));
+                            const presets: ContactPackDraft[] = [
                               { packName: '1 lens/box', price: currentSelling, originalPrice: currentMrp, lensesPerBox: 1 },
                               { packName: '3 lens/box', price: Math.round(currentSelling * 2.5), originalPrice: Math.round(currentMrp * 3), lensesPerBox: 3 },
-                              { packName: '6 lens/box', price: Math.round(currentSelling * 4.8), originalPrice: Math.round(currentMrp * 6), lensesPerBox: 6 }
+                              { packName: '6 lens/box', price: Math.round(currentSelling * 4.8), originalPrice: Math.round(currentMrp * 6), lensesPerBox: 6 },
                             ];
-                            setContactPackConfigs(presets);
-                            showToast('Added standard pack options (1, 3, 6 lens/box)', 'success');
+                            let nextPending = [...pendingPackProducts];
+                            if (!watch('packName')) {
+                              const first = presets[0];
+                              setValue('packName', first.packName);
+                              setValue('lensesPerBox', first.lensesPerBox);
+                              if (!watch('sellingPrice')) setValue('sellingPrice', first.price);
+                              if (!watch('mrp')) setValue('mrp', first.originalPrice || first.price);
+                              existingNames.add(first.packName.toLowerCase());
+                            }
+                            presets.forEach((preset) => {
+                              if (!existingNames.has(preset.packName.toLowerCase())) {
+                                nextPending.push(preset);
+                                existingNames.add(preset.packName.toLowerCase());
+                              }
+                            });
+                            setPendingPackProducts(nextPending);
+                            if (!getValues('contactPackGroupId')) {
+                              setValue('contactPackGroupId', crypto.randomUUID());
+                            }
+                            showToast('Added 1 / 3 / 6 lens packs as separate products (created on save)', 'success');
                           }}
                           className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-[#D4A04D] font-extrabold text-[9px] uppercase tracking-wider rounded-lg px-3 py-1.5 transition-colors cursor-pointer border border-[#D4A04D]/30"
                         >
@@ -2476,24 +2624,62 @@ export default function AddProductWizard() {
                         <button
                           type="button"
                           onClick={() => {
-                            setContactPackConfigs([]);
-                            showToast('Cleared pack options', 'error');
+                            setPendingPackProducts([]);
+                            showToast('Cleared packs waiting to be created', 'error');
                           }}
                           className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-extrabold text-[9px] uppercase tracking-wider rounded-lg px-3 py-1.5 transition-colors cursor-pointer border border-red-500/20"
                         >
-                          Clear Packs
+                          Clear New Packs
                         </button>
                       </div>
                     </div>
 
-                    {/* Pack Option Manual Input Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#0B0B0C] p-4 rounded-xl border border-zinc-800/80">
+                      <div>
+                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">This pack name *</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 1 lens/box"
+                          {...register('packName')}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Lenses per box</label>
+                        <input
+                          type="number"
+                          placeholder="1"
+                          {...register('lensesPerBox')}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Selling price (₹) *</label>
+                        <input
+                          type="number"
+                          placeholder="999"
+                          {...register('sellingPrice', { valueAsNumber: true })}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">MRP (₹) *</label>
+                        <input
+                          type="number"
+                          placeholder="999"
+                          {...register('mrp', { valueAsNumber: true })}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap items-end gap-3 bg-[#0B0B0C] p-4 rounded-xl border border-zinc-800/80">
                       <div className="flex-1 min-w-[140px]">
-                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Pack Name / Title</label>
+                        <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Another pack name</label>
                         <input
                           type="text"
                           id="new-pack-name"
-                          placeholder="e.g. 1 lens/box or 3 lens/box"
+                          placeholder="e.g. 3 lens/box"
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
                         />
                       </div>
@@ -2502,7 +2688,7 @@ export default function AddProductWizard() {
                         <input
                           type="number"
                           id="new-pack-price"
-                          placeholder="e.g. 369"
+                          placeholder="e.g. 2498"
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
                         />
                       </div>
@@ -2511,7 +2697,7 @@ export default function AddProductWizard() {
                         <input
                           type="number"
                           id="new-pack-original-price"
-                          placeholder="e.g. 432"
+                          placeholder="e.g. 2997"
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
                         />
                       </div>
@@ -2521,13 +2707,14 @@ export default function AddProductWizard() {
                           const nameInput = document.getElementById('new-pack-name') as HTMLInputElement;
                           const priceInput = document.getElementById('new-pack-price') as HTMLInputElement;
                           const origInput = document.getElementById('new-pack-original-price') as HTMLInputElement;
-                          
                           const pName = nameInput?.value?.trim();
                           const price = parseFloat(priceInput?.value);
                           const origPrice = parseFloat(origInput?.value);
+                          const lensesMatch = pName?.match(/(\d+)/);
+                          const lensesPerBox = lensesMatch ? parseInt(lensesMatch[1], 10) : undefined;
 
                           if (!pName) {
-                            showToast('Pack name is required (e.g. 1 lens/box)', 'error');
+                            showToast('Pack name is required (e.g. 3 lens/box)', 'error');
                             return;
                           }
                           if (isNaN(price) || price < 0) {
@@ -2535,57 +2722,96 @@ export default function AddProductWizard() {
                             return;
                           }
 
-                          if (contactPackConfigs.some(p => p.packName.toLowerCase() === pName.toLowerCase())) {
-                            showToast('This pack option already exists', 'error');
+                          const names = [
+                            String(watch('packName') || '').toLowerCase(),
+                            ...linkedPackProducts.map((p) => p.packName.toLowerCase()),
+                            ...pendingPackProducts.map((p) => p.packName.toLowerCase()),
+                          ];
+                          if (names.includes(pName.toLowerCase())) {
+                            showToast('This pack size already exists', 'error');
                             return;
                           }
 
-                          const nextPacks = [
-                            ...contactPackConfigs,
-                            {
-                              packName: pName,
-                              price,
-                              originalPrice: !isNaN(origPrice) ? origPrice : undefined
-                            }
-                          ];
-                          setContactPackConfigs(nextPacks);
-
+                          if (!watch('packName')) {
+                            setValue('packName', pName);
+                            setValue('lensesPerBox', lensesPerBox);
+                            setValue('sellingPrice', price);
+                            setValue('mrp', !isNaN(origPrice) ? origPrice : price);
+                          } else {
+                            setPendingPackProducts([
+                              ...pendingPackProducts,
+                              {
+                                packName: pName,
+                                price,
+                                originalPrice: !isNaN(origPrice) ? origPrice : undefined,
+                                lensesPerBox,
+                              },
+                            ]);
+                          }
+                          if (!getValues('contactPackGroupId')) {
+                            setValue('contactPackGroupId', crypto.randomUUID());
+                          }
                           if (nameInput) nameInput.value = '';
                           if (priceInput) priceInput.value = '';
                           if (origInput) origInput.value = '';
-                          showToast(`Added pack option ${pName}`, 'success');
+                          showToast(`${pName} will be saved as its own product`, 'success');
                         }}
                         className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase tracking-wider rounded-lg px-4 py-2.5 transition-colors cursor-pointer border-none"
                       >
-                        Add Pack Option
+                        Add Pack Product
                       </button>
                     </div>
 
-                    {/* Pack Options Table */}
-                    {contactPackConfigs.length > 0 ? (
+                    {(linkedPackProducts.length > 0 || pendingPackProducts.length > 0) && (
                       <div className="overflow-hidden border border-zinc-800/80 rounded-xl bg-[#0B0B0C]">
                         <table className="w-full text-xs text-left">
                           <thead>
                             <tr className="bg-zinc-900/40 text-gray-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#2A2A2D]/40">
-                              <th className="py-2.5 px-4">Pack Option</th>
+                              <th className="py-2.5 px-4">Pack product</th>
                               <th className="py-2.5 px-4">Selling Price</th>
-                              <th className="py-2.5 px-4">MRP (Original)</th>
+                              <th className="py-2.5 px-4">MRP</th>
+                              <th className="py-2.5 px-4">Status</th>
                               <th className="py-2.5 px-4 text-right">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#2A2A2D]/30 text-gray-300 font-semibold">
-                            {contactPackConfigs.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-zinc-900/10">
+                            {linkedPackProducts.map((item) => (
+                              <tr key={item._id} className="hover:bg-zinc-900/10">
+                                <td className="py-2.5 px-4 text-white font-bold">
+                                  {item.packName}
+                                  {item.sku ? <span className="block text-[9px] text-gray-500 font-semibold">{item.sku}</span> : null}
+                                </td>
+                                <td className="py-2.5 px-4 text-[#D4A04D] font-extrabold">₹{item.price}</td>
+                                <td className="py-2.5 px-4 text-gray-500 line-through">{item.originalPrice ? `₹${item.originalPrice}` : '-'}</td>
+                                <td className="py-2.5 px-4 text-[#D4A04D] text-[10px] uppercase">{item.status || 'Linked'}</td>
+                                <td className="py-2.5 px-4 text-right space-x-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/admin/products/edit/${item._id}`)}
+                                    className="text-[#D4A04D] hover:text-white text-xs font-bold bg-[#D4A04D]/10 px-2 py-1 rounded"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLinkedPackProducts(linkedPackProducts.filter((p) => p._id !== item._id))}
+                                    className="text-red-400 hover:text-red-300 text-xs font-bold bg-red-500/10 px-2 py-1 rounded"
+                                  >
+                                    Unlink
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            {pendingPackProducts.map((item, idx) => (
+                              <tr key={`pending-${item.packName}-${idx}`} className="hover:bg-zinc-900/10">
                                 <td className="py-2.5 px-4 text-white font-bold">{item.packName}</td>
                                 <td className="py-2.5 px-4 text-[#D4A04D] font-extrabold">₹{item.price}</td>
                                 <td className="py-2.5 px-4 text-gray-500 line-through">{item.originalPrice ? `₹${item.originalPrice}` : '-'}</td>
+                                <td className="py-2.5 px-4 text-amber-400 text-[10px] uppercase">Creates on save</td>
                                 <td className="py-2.5 px-4 text-right">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      const next = contactPackConfigs.filter((_, i) => i !== idx);
-                                      setContactPackConfigs(next);
-                                    }}
+                                    onClick={() => setPendingPackProducts(pendingPackProducts.filter((_, i) => i !== idx))}
                                     className="text-red-400 hover:text-red-300 text-xs font-bold bg-red-500/10 px-2 py-1 rounded"
                                   >
                                     Delete
@@ -2596,9 +2822,69 @@ export default function AddProductWizard() {
                           </tbody>
                         </table>
                       </div>
-                    ) : (
-                      <div className="text-center py-4 bg-[#0B0B0C] border border-dashed border-zinc-800 rounded-xl text-gray-500 text-xs italic">
-                        No lenses per pack options added yet. Click "+ Quick Add Presets" above or enter pack details manually.
+                    )}
+
+                    {isEditMode && (
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="flex-1 min-w-[180px]">
+                          <label className="text-gray-400 text-[9px] font-bold uppercase tracking-wider block mb-1">Link existing pack product</label>
+                          <input
+                            type="text"
+                            value={packLinkQuery}
+                            onChange={(e) => setPackLinkQuery(e.target.value)}
+                            placeholder="Search by name or SKU"
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#D4A04D]"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={packLinkBusy}
+                          onClick={async () => {
+                            const q = packLinkQuery.trim();
+                            if (!q) {
+                              showToast('Enter a product name or SKU to link', 'error');
+                              return;
+                            }
+                            setPackLinkBusy(true);
+                            try {
+                              const res = await api.get('/admin/products', { params: { search: q, limit: 8, ungroupPacks: true } });
+                              const match = (res.data.products || []).find((prod: any) => {
+                                if (String(prod._id) === String(id)) return false;
+                                if (linkedPackProducts.some((p) => p._id === String(prod._id))) return false;
+                                const blob = `${prod.category || ''} ${(prod.categories || []).join(' ')}`.toLowerCase();
+                                return blob.includes('contact');
+                              });
+                              if (!match) {
+                                showToast('No matching contact-lens product found', 'error');
+                                return;
+                              }
+                              setLinkedPackProducts([
+                                ...linkedPackProducts,
+                                {
+                                  _id: String(match._id),
+                                  sku: match.sku,
+                                  status: match.status,
+                                  packName: match.packName || match.name,
+                                  price: Number(match.sellingPrice ?? match.price?.selling ?? 0),
+                                  originalPrice: match.mrp ?? match.price?.original,
+                                  lensesPerBox: match.lensesPerBox,
+                                },
+                              ]);
+                              if (!getValues('contactPackGroupId')) {
+                                setValue('contactPackGroupId', crypto.randomUUID());
+                              }
+                              setPackLinkQuery('');
+                              showToast(`Linked ${match.packName || match.name}. Save to apply.`, 'success');
+                            } catch {
+                              showToast('Failed to search products', 'error');
+                            } finally {
+                              setPackLinkBusy(false);
+                            }
+                          }}
+                          className="bg-[#2A2A2D] hover:bg-[#3A3A3D] text-white font-extrabold text-[10px] uppercase tracking-wider rounded-lg px-4 py-2.5 transition-colors cursor-pointer border border-zinc-700"
+                        >
+                          {packLinkBusy ? 'Linking…' : 'Link Product'}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2861,7 +3147,9 @@ export default function AddProductWizard() {
               {/* Tags removed */}
             </div>
 
-          {/* SECTION 2: PRICING ENGINE & MEMBERSHIP PRICING */}
+          {/* SECTION 2: PRICING ENGINE & MEMBERSHIP PRICING
+              Hidden for contact lenses / solutions — those use pack, power, or volume prices. */}
+          {!hideProductLevelPricing && (
           <div className="space-y-6 mb-12">
               <h2 className="text-white text-base font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] pb-3 text-[#D4A04D]">Step 2: Pricing Configuration</h2>
               
@@ -2923,6 +3211,7 @@ export default function AddProductWizard() {
                 )}
               </div>
             </div>
+          )}
 
           {/* SECTION 3: FRAME SPECIFICATIONS */}
           {!isContactLenses && (
@@ -4377,6 +4666,9 @@ export default function AddProductWizard() {
                   <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase tracking-wide block">{formValues.brand || 'Brand'}</span>
                   <span className="text-white font-extrabold text-sm block truncate max-w-[150px]">{formValues.name || 'Unnamed Product'}</span>
                   <span className="text-[10px] text-gray-500 block font-mono mt-0.5">{formValues.sku || 'SKU'}</span>
+                  {formValues.packName ? (
+                    <span className="text-[10px] text-[#D4A04D] block mt-0.5 font-bold">{formValues.packName}</span>
+                  ) : null}
                 </div>
                 <div className="text-right">
                   <span className="text-white font-black text-sm block">₹{calculatedPayable}</span>

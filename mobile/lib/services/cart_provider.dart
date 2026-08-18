@@ -34,7 +34,10 @@ class CartProvider extends ChangeNotifier {
   String? _couponError;
   String? _couponSuccessMessage;
 
+  bool _applyBogo = false;
+
   bool get addGoldMembership => _addGoldMembership;
+  bool get applyBogo => _applyBogo;
   double get membershipPrice => _membershipPrice;
 
   void setMembershipPrice(double price) {
@@ -51,6 +54,7 @@ class CartProvider extends ChangeNotifier {
 
   void setAddGoldMembership(bool val) async {
     _addGoldMembership = val;
+    if (!val) _applyBogo = false;
     _couponError = null;
     _couponSuccessMessage = null;
     notifyListeners();
@@ -84,45 +88,78 @@ class CartProvider extends ChangeNotifier {
     return (2 - usedCount).clamp(0, 2);
   }
 
+  void setApplyBogo(bool val) {
+    _applyBogo = val;
+    if (val) {
+      _appliedCouponCode = null;
+      _couponDiscount = 0.0;
+      _userRemovedCoupon = false;
+    } else {
+      _userRemovedCoupon = true;
+    }
+    notifyListeners();
+  }
+
+  int get bogoEligibleQty => _items.fold<int>(0, (sum, item) {
+        if (item.product?.isMembershipBogoEligible == true) {
+          return sum + item.qty;
+        }
+        return sum;
+      });
+
+  bool get showBogoVoucher =>
+      isMember && !_hasUsedBogoThisMonth && bogoEligibleQty >= 2;
+
   bool get isBogoActive {
+    if (!_applyBogo) return false;
     if (_hasUsedBogoThisMonth) return false;
     if (!isMember) return false;
-    final totalBogoQty = _items.fold<int>(0, (sum, item) {
-      if (item.product?.buy1Get1 == true) {
-        return sum + item.qty;
-      }
-      return sum;
-    });
-    return totalBogoQty >= 2;
+    return bogoEligibleQty >= 2;
   }
+
+  int get cartUnitCount => _items.fold<int>(0, (sum, item) => sum + item.qty);
+
+  bool get isSingleProductCart => cartUnitCount == 1;
 
   List<Map<String, dynamic>> get itemsWithPricing {
     int oneRupeeFramesCount = 0;
     final remaining = remainingOneRupeeFrames;
     final bogoActive = isBogoActive;
+    final singleProduct = isSingleProductCart;
     final member = isMember;
     final user = _authService.currentUser;
 
     return _items.map((item) {
       double framePrice = item.framePrice;
+      final isContact = item.product?.isContactLens ?? false;
+      final hasLens = item.lensType != null && item.lensType!.isNotEmpty;
+      final maxThisOrder = remaining.clamp(0, 1);
+      final salePrice = item.product?.nonMemberPrice ??
+          item.product?.sellingPrice ??
+          item.framePrice;
 
-      if (!bogoActive &&
+      // Single-product cart: member price if Gold is selected, otherwise sale price.
+      // ₹1 Frame only when the cart has 2+ items and 1+1 is not applying.
+      if (!singleProduct &&
+          !isContact &&
+          hasLens &&
+          !bogoActive &&
           item.product?.oneRupeeFrameOffer == true &&
           member &&
-          user?.oneRupeeOfferUsed == false &&
+          user?.oneRupeeOfferUsed != true &&
           (user?.oneRupeeOfferCount ?? 0) < 2 &&
-          oneRupeeFramesCount < remaining) {
-        final int allowed = (item.qty < (remaining - oneRupeeFramesCount))
+          oneRupeeFramesCount < maxThisOrder) {
+        final int allowed = (item.qty < (maxThisOrder - oneRupeeFramesCount))
             ? item.qty
-            : (remaining - oneRupeeFramesCount);
+            : (maxThisOrder - oneRupeeFramesCount);
         final double regularPrice = item.product?.memberPrice ?? item.framePrice;
         final double totalFramePriceForQty = (allowed * 1.0) + ((item.qty - allowed) * regularPrice);
         framePrice = totalFramePriceForQty / item.qty;
         oneRupeeFramesCount += allowed;
-      } else if (item.product?.memberPrice != null && member) {
+      } else if (!isContact && singleProduct && item.product?.memberPrice != null && member) {
         framePrice = item.product!.memberPrice!;
-      } else if (item.product?.nonMemberPrice != null && !member) {
-        framePrice = item.product!.nonMemberPrice!;
+      } else if (!isContact) {
+        framePrice = salePrice;
       }
 
       return {
@@ -136,65 +173,70 @@ class CartProvider extends ChangeNotifier {
     final list = <Map<String, dynamic>>[];
     if (_hasUsedBogoThisMonth || !isMember) return list;
 
-    for (final pricing in itemsWithPricing) {
+    for (int idx = 0; idx < itemsWithPricing.length; idx++) {
+      final pricing = itemsWithPricing[idx];
       final CartItem item = pricing['item'] as CartItem;
       final double framePriceCalculated = pricing['framePriceCalculated'] as double;
-      if (item.product?.buy1Get1 == true) {
-        for (int index = 0; index < item.qty; index++) {
-          list.add({
-            'id': '${item.id}_$index',
-            'framePrice': framePriceCalculated,
-            'lensPrice': item.lensPrice ?? 0.0,
-          });
-        }
+      if (item.product?.isMembershipBogoEligible != true) continue;
+      final saleFrame = item.product?.nonMemberPrice ??
+          item.product?.sellingPrice ??
+          item.framePrice;
+      final rankPrice = saleFrame + (item.lensPrice ?? 0.0);
+      final chargePrice = framePriceCalculated + (item.lensPrice ?? 0.0);
+      for (int index = 0; index < item.qty; index++) {
+        list.add({
+          'id': '${item.id}_$index',
+          'rankPrice': rankPrice,
+          'chargePrice': chargePrice,
+          'idx': idx,
+          'unitIndex': index,
+        });
       }
     }
     return list;
   }
 
+  List<Map<String, dynamic>> _pickMembershipFreeUnits(
+    List<Map<String, dynamic>> units,
+  ) {
+    final n = units.length;
+    if (n < 2) return [];
+    final sorted = [...units]..sort((a, b) {
+      final aTotal = a['rankPrice'] as double;
+      final bTotal = b['rankPrice'] as double;
+      if (aTotal != bTotal) return aTotal.compareTo(bTotal);
+      final ai = a['idx'] as int;
+      final bi = b['idx'] as int;
+      if (ai != bi) return ai.compareTo(bi);
+      return (a['unitIndex'] as int).compareTo(b['unitIndex'] as int);
+    });
+    if (n == 2) return [sorted[0]];
+    if (n == 3) return [sorted[1]];
+    return sorted.sublist(0, n ~/ 2);
+  }
+
   Map<String, dynamic> get bogoDetails {
-    // Server is authoritative for the automatic 1+1 offer (once per calendar month,
-    // computed in cart.controller.ts getCart()) — trust its per-item discountApplied
-    // instead of re-deriving pairing client-side, which had no server validation.
-    final serverBogoItem = _items.where((i) => i.offerType == 'buy1Get1' && i.discountApplied > 0).toList();
-    if (serverBogoItem.isNotEmpty) {
-      final total = serverBogoItem.fold<double>(0.0, (s, i) => s + i.discountApplied);
-      final last = serverBogoItem.last;
+    double bogoDiscount = 0.0;
+    final freeItemUniqueKeys = <String>[];
+    if (!isBogoActive) {
       return {
-        'bogoDiscount': total,
-        'freeItemUniqueKey': '${last.id}_${last.qty - 1}',
+        'bogoDiscount': 0.0,
+        'freeItemUniqueKeys': freeItemUniqueKeys,
       };
     }
-
-    double bogoDiscount = 0.0;
-    String freeItemUniqueKey = '';
-    final bogoItems = buy1Get1Items;
-    if (bogoItems.length >= 2) {
-      // Sort descending by total price (framePrice + lensPrice)
-      bogoItems.sort((a, b) {
-        final aTotal = (a['framePrice'] as double) + (a['lensPrice'] as double);
-        final bTotal = (b['framePrice'] as double) + (b['lensPrice'] as double);
-        return bTotal.compareTo(aTotal);
-      });
-
-      // Find the lowest price item (which will be free)
-      final lowest = bogoItems.reduce((curr, next) {
-        final currTotal = (curr['framePrice'] as double) + (curr['lensPrice'] as double);
-        final nextTotal = (next['framePrice'] as double) + (next['lensPrice'] as double);
-        return currTotal < nextTotal ? curr : next;
-      });
-
-      bogoDiscount = (lowest['framePrice'] as double) + (lowest['lensPrice'] as double);
-      freeItemUniqueKey = lowest['id'] as String;
+    for (final free in _pickMembershipFreeUnits(buy1Get1Items)) {
+      freeItemUniqueKeys.add(free['id'] as String);
+      bogoDiscount += free['chargePrice'] as double;
     }
     return {
       'bogoDiscount': bogoDiscount,
-      'freeItemUniqueKey': freeItemUniqueKey,
+      'freeItemUniqueKeys': freeItemUniqueKeys,
     };
   }
 
   double get bogoDiscount => bogoDetails['bogoDiscount'] as double;
-  String get freeItemUniqueKey => bogoDetails['freeItemUniqueKey'] as String;
+  List<String> get freeItemUniqueKeys =>
+      List<String>.from(bogoDetails['freeItemUniqueKeys'] as List);
 
   double get itemsSubtotal => itemsWithPricing.fold(0.0, (s, pricing) {
         final item = pricing['item'] as CartItem;

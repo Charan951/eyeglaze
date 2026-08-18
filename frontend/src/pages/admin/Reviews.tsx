@@ -124,7 +124,7 @@ export default function AdminReviewsPage() {
       <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden shadow-lg">
         {filteredReviews.length === 0 ? (
           <div className="text-center py-20 text-gray-500 text-xs">
-            No reviews match the current filters.
+            {reviews.length === 0 ? 'No data is added' : 'No matching results'}
           </div>
         ) : (
           <div className="overflow-x-auto">

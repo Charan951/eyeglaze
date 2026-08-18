@@ -55,58 +55,32 @@ export async function getCart(req: Request, res: Response) {
     let oneRupeeFramesApplied = 0;
     const remainingOneRupeeFrames = Math.max(0, 2 - (user?.oneRupeeOfferCount ?? 0));
     const now = new Date();
+    const cartUnitCount = cart.items.reduce((n: number, i: any) => n + (i.qty || 1), 0);
+    const applyMemberPrice = !!(isMemberNow && cartUnitCount === 1);
 
     const processedItems = cart.items.map((item: any) => {
       // Items with a lensType (contact lenses, or a frame's lens payload) store their own
       // authoritative framePrice at add-time (0 for contact lenses, since the box price is
       // carried entirely in lensPrice). Only plain frame items re-sync to the live product
       // price here, so eyeglass pricing always reflects the current catalog price.
-      let framePrice = (item.priceLocked || item.lensType) ? (item.framePrice ?? 0) : (item.product?.price?.selling ?? item.framePrice ?? 0);
+      const isContactItem = isContactLensProduct(item.product);
+      // priceLocked is only for contact-lens box / explicit overrides. Frame + lens
+      // lines must still receive member pricing and the ₹1 frame offer.
+      let framePrice = isContactItem
+        ? (item.framePrice ?? 0)
+        : (item.product?.price?.selling ?? item.framePrice ?? 0);
       let appliedOffers: string[] = [];
-      let isOneRupeeFrame = false;
       let offerType: 'oneRupeeFrame' | 'buy1Get1' | 'freeGift' | 'none' = 'none';
       let discountApplied = 0;
 
       const effectiveMemberPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.product?.memberPrices?.goldMemberPrice;
 
-      // ₹1 Frame offer conditions (Product.oneRupeeOfferConditions, admin-configured):
-      const conditions = item.product?.oneRupeeOfferConditions;
-      const conditionsOk = !conditions || (
-        (!conditions.premiumLensRequired || !!item.lensType) &&
-        (!conditions.campaignStartDate || new Date(conditions.campaignStartDate) <= now) &&
-        (!conditions.campaignEndDate || new Date(conditions.campaignEndDate) >= now)
-      );
-      // Compulsory condition (client rule): a lens must be added to the frame for the
-      // ₹1 price to apply — a bare frame with no lens does not qualify.
-      const hasLens = !!item.lensType;
-      const maxUsageAllowed = conditions?.maxUsage ?? 2;
-
-      // Check ₹1 Frame eligibility
-      if (
-        !item.priceLocked &&
-        !hasCouponApplied &&
-        hasLens &&
-        conditionsOk &&
-        item.product?.oneRupeeFrameOffer &&
-        isMemberNow &&
-        !user?.oneRupeeOfferUsed &&
-        (user?.oneRupeeOfferCount ?? 0) < maxUsageAllowed &&
-        oneRupeeFramesApplied < remainingOneRupeeFrames
-      ) {
-        const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
-        const regularPrice = effectiveMemberPrice !== undefined ? effectiveMemberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
-        const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
-        discountApplied = (regularPrice - 1) * allowed;
-        framePrice = totalFramePriceForQty / item.qty;
-        oneRupeeFramesApplied += allowed;
-        isOneRupeeFrame = true;
-        offerType = 'oneRupeeFrame';
-        appliedOffers.push('₹1 Frame');
-      } else if (!item.priceLocked && effectiveMemberPrice !== undefined && isMemberNow) {
+      // Gold member frame price only when the cart has a single product.
+      if (!isContactItem && applyMemberPrice && effectiveMemberPrice !== undefined) {
         framePrice = effectiveMemberPrice;
         appliedOffers.push('Member Price');
-      } else if (!item.priceLocked && item.product?.nonMemberPrice !== undefined && !isMemberNow) {
-        framePrice = item.product.nonMemberPrice;
+      } else if (!isContactItem) {
+        framePrice = item.product?.nonMemberPrice ?? item.product?.price?.selling ?? item.framePrice ?? 0;
       }
 
       return {
@@ -114,46 +88,55 @@ export async function getCart(req: Request, res: Response) {
         framePrice,
         memberFramePrice: effectiveMemberPrice,
         appliedOffers,
-        isOneRupeeFrame,
+        isOneRupeeFrame: false,
         offerType,
         discountApplied,
         isFreeItem: false
       };
     });
 
-    // Real 1+1 (Buy-1-Get-1) engine: applies automatically (no coupon code needed) to
-    // frame products flagged Product.buy1Get1, excluding contact lenses and anything
-    // already on the ₹1 frame offer. Once per calendar month (bogoAllowedForMember).
-    // NOTE: the client's minimum-order-value condition for this offer is deliberately
-    // left UNENFORCED pending separate clarification from the client.
+    // 1+1 is applied when the customer taps Apply BOGO Voucher (see orders.controller).
     let onePlusOneDiscount = 0;
     let onePlusOneApplied = false;
-    if (bogoAllowedForMember) {
-      type Unit = { idx: number; price: number };
-      const units: Unit[] = [];
-      processedItems.forEach((item: any, idx: number) => {
-        if (item.isOneRupeeFrame || item.priceLocked) return;
-        if (!item.product?.buy1Get1) return;
-        if (!isFrameProduct(item.product) || isContactLensProduct(item.product)) return;
-        for (let i = 0; i < item.qty; i++) {
-          units.push({ idx, price: item.framePrice });
+
+    if (!onePlusOneApplied && cartUnitCount > 1) {
+      processedItems.forEach((item: any) => {
+        const isContactItem = isContactLensProduct(item.product);
+        const conditions = item.product?.oneRupeeOfferConditions;
+        const startOk = !conditions?.campaignStartDate || !Number.isNaN(new Date(conditions.campaignStartDate).getTime()) && new Date(conditions.campaignStartDate) <= now;
+        const endOk = !conditions?.campaignEndDate || !Number.isNaN(new Date(conditions.campaignEndDate).getTime()) && new Date(conditions.campaignEndDate) >= now;
+        const conditionsOk = !conditions || (
+          (!conditions.premiumLensRequired || !!item.lensType) &&
+          startOk &&
+          endOk
+        );
+        const hasLens = !!item.lensType;
+        const maxUsageAllowed = conditions?.maxUsage ?? 2;
+        const membershipOk = conditions?.membershipRequired === false ? true : isMemberNow;
+        const effectiveMemberPrice = item.product?.memberPrice !== undefined ? item.product.memberPrice : item.product?.memberPrices?.goldMemberPrice;
+
+        if (
+          !isContactItem &&
+          !hasCouponApplied &&
+          hasLens &&
+          conditionsOk &&
+          item.product?.oneRupeeFrameOffer &&
+          membershipOk &&
+          !user?.oneRupeeOfferUsed &&
+          (user?.oneRupeeOfferCount ?? 0) < maxUsageAllowed &&
+          oneRupeeFramesApplied < remainingOneRupeeFrames
+        ) {
+          const allowed = Math.min(item.qty, remainingOneRupeeFrames - oneRupeeFramesApplied);
+          const regularPrice = effectiveMemberPrice !== undefined ? effectiveMemberPrice : (item.product?.price?.selling ?? item.framePrice ?? 0);
+          const totalFramePriceForQty = (allowed * 1) + ((item.qty - allowed) * regularPrice);
+          item.discountApplied = (regularPrice - 1) * allowed;
+          item.framePrice = totalFramePriceForQty / item.qty;
+          oneRupeeFramesApplied += allowed;
+          item.isOneRupeeFrame = true;
+          item.offerType = 'oneRupeeFrame';
+          if (!item.appliedOffers.includes('₹1 Frame')) item.appliedOffers.push('₹1 Frame');
         }
       });
-
-      if (units.length >= 2) {
-        // Cheaper unit in each pair is free, standard BOGO convention.
-        units.sort((a, b) => a.price - b.price);
-        const freeUnitsCount = Math.floor(units.length / 2);
-        const freeUnits = units.slice(0, freeUnitsCount);
-        freeUnits.forEach((u) => {
-          onePlusOneDiscount += u.price;
-          const item: any = processedItems[u.idx];
-          item.discountApplied = (item.discountApplied || 0) + u.price;
-          item.offerType = 'buy1Get1';
-          if (!item.appliedOffers.includes('1+1 Offer')) item.appliedOffers.push('1+1 Offer');
-        });
-        onePlusOneApplied = freeUnitsCount > 0;
-      }
     }
 
     // Free contact-lens solution bundle: a monthly contact lens purchased together with
@@ -284,7 +267,7 @@ export async function addToCart(req: Request, res: Response) {
         qty,
         color,
         framePrice: hasPriceOverride ? priceOverride : (product.price?.selling || 1),
-        priceLocked: hasPriceOverride || !!lens,
+        priceLocked: hasPriceOverride,
         originalPrice: hasPriceOverride ? (originalPrice ?? product.price?.selling) : undefined,
         memberFramePrice: product.memberPrice,
         fittingCharge,

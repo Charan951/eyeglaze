@@ -7,13 +7,19 @@ export async function getInventory(req: Request, res: Response) {
     await connectDB();
     const lowStockOnly = req.query.lowStock === 'true';
 
-    const products = await Product.find({ isActive: true }).select('sku name colors isBestseller');
+    const products = await Product.find({})
+      .select('sku name colors isBestseller soldCount isActive thumbnail images')
+      .sort({ name: 1 });
 
     const inventory = products.map((p) => ({
       id: p._id,
       sku: p.sku,
       name: p.name,
       isBestseller: p.isBestseller,
+      soldCount: p.soldCount || 0,
+      isActive: p.isActive !== false,
+      thumbnail: p.thumbnail || '',
+      images: p.images || [],
       colors: p.colors.map((c: any) => ({
         name: c.name,
         hex: c.hex,

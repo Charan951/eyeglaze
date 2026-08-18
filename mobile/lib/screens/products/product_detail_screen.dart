@@ -85,12 +85,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Product? _detailedProduct;
   Product get p => _detailedProduct ?? widget.product;
 
-  bool get isContactLenses {
-    final catLower = p.categories.map((c) => c.toLowerCase()).toList();
-    return catLower.contains('contact-lenses') ||
-        catLower.contains('contact_lenses') ||
-        catLower.contains('contact');
-  }
+  bool get isContactLenses => p.isContactLens;
 
   bool get isReadingGlasses {
     final catLower = p.categories.map((c) => c.toLowerCase()).toList();
@@ -120,6 +115,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _selectedContactPower;
   double? _customPriceOverride;
   String? _selectedReadingPower;
+  String? _selectedPackName;
+
+  Future<void> _openContactPackProduct(String productId) async {
+    if (productId == p.id) return;
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final res = await api.getProduct(productId);
+      final dynamic prodData = res['product'] ?? res;
+      if (!mounted || prodData is! Map) return;
+      final next = Product.fromJson(Map<String, dynamic>.from(prodData));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => ProductDetailScreen(product: next)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open that pack')),
+      );
+    }
+  }
 
   List<String> get imagesList {
     final colors = p.colors;
@@ -335,7 +352,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           setState(() {
             _similarProducts = similarList
                 .map((x) => Product.fromJson(x as Map<String, dynamic>))
-                .where((x) => x.id != p.id)
+                .where((x) =>
+                    x.id != p.id &&
+                    (p.contactPackGroupId == null ||
+                        p.contactPackGroupId!.isEmpty ||
+                        x.contactPackGroupId != p.contactPackGroupId))
                 .take(4)
                 .toList();
             _similarLoading = false;
@@ -468,6 +489,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cartCount = context.watch<CartProvider>().itemCount;
+    final isLoggedIn = context.watch<AuthService>().isLoggedIn;
     try {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -780,7 +802,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                         ),
                         Text(
-                          '($_reviewCount reviews) | ${p.soldCount > 0 ? p.soldCount : 500}+ bought this week',
+                          '($_reviewCount reviews)',
                           style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 9.5,
@@ -805,7 +827,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           Text(
                             isContactLenses
                                 ? 'CONTACT LENS PRICE'
-                                : 'FRAME STARTING',
+                                : 'FRAME PRICE',
                             style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 9,
@@ -815,52 +837,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                           const SizedBox(height: 6),
                           if (!isContactLenses &&
-                              p.memberPrice != null &&
                               p.nonMemberPrice != null) ...[
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      '₹${p.memberPrice!.toInt()}',
-                                      style: const TextStyle(
-                                        color: AppColors.gold,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
+                                if (isLoggedIn && p.memberPrice != null) ...[
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '₹${p.memberPrice!.toInt()}',
+                                        style: const TextStyle(
+                                          color: AppColors.gold,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      '(Member)',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        '(Member)',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
                                 Row(
                                   children: [
                                     Text(
                                       '₹${p.nonMemberPrice!.toInt()}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: AppColors.white,
-                                        fontSize: 16,
+                                        fontSize: isLoggedIn && p.memberPrice != null ? 16 : 22,
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      '(Non-Member)',
-                                      style: TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 10,
+                                    if (isLoggedIn) ...[
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        '(Non-Member)',
+                                        style: TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 10,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ],
@@ -1176,6 +1201,100 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             },
                           );
                         }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    if (isContactLenses && !p.isSolutionOrAccessory) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'LENSES PER PACK',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (p.contactPackSiblings.isNotEmpty)
+                            ...p.contactPackSiblings.map((sib) {
+                              final isSelected = sib.id == p.id;
+                              return ChoiceChip(
+                                label: Text(
+                                  '${sib.packName.isNotEmpty ? sib.packName : sib.name}  ₹${sib.price.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.black : Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedColor: AppColors.gold,
+                                backgroundColor: AppColors.card,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: isSelected ? AppColors.gold : AppColors.border,
+                                    width: 1,
+                                  ),
+                                ),
+                                onSelected: (_) => _openContactPackProduct(sib.id),
+                              );
+                            })
+                          else
+                            ...(p.contactPackOptions.isNotEmpty
+                                    ? p.contactPackOptions
+                                    : [
+                                        ContactPackOption(
+                                          packName: p.packName ?? '1 lens/box',
+                                          price: p.sellingPrice,
+                                          originalPrice: p.originalPrice,
+                                        ),
+                                      ])
+                                .map((pack) {
+                              final packs = p.contactPackOptions.isNotEmpty
+                                  ? p.contactPackOptions
+                                  : [
+                                      ContactPackOption(
+                                        packName: p.packName ?? '1 lens/box',
+                                        price: p.sellingPrice,
+                                        originalPrice: p.originalPrice,
+                                      ),
+                                    ];
+                              final isSelected =
+                                  (_selectedPackName ?? packs.first.packName) == pack.packName;
+                              return ChoiceChip(
+                                label: Text(
+                                  '${pack.packName}  ₹${pack.price.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.black : Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedColor: AppColors.gold,
+                                backgroundColor: AppColors.card,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: isSelected ? AppColors.gold : AppColors.border,
+                                    width: 1,
+                                  ),
+                                ),
+                                onSelected: (_) {
+                                  setState(() {
+                                    _selectedPackName = pack.packName;
+                                    _customPriceOverride = pack.price;
+                                  });
+                                },
+                              );
+                            }),
+                        ],
                       ),
                       const SizedBox(height: 20),
                     ],
@@ -1798,48 +1917,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         children: [
                           if (_customPriceOverride == null &&
                               !isContactLenses &&
-                              p.memberPrice != null &&
                               p.nonMemberPrice != null) ...[
-                            Row(
-                              children: [
-                                Text(
-                                  '₹${p.memberPrice!.toInt()}',
-                                  style: const TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
+                            if (isLoggedIn && p.memberPrice != null) ...[
+                              Row(
+                                children: [
+                                  Text(
+                                    '₹${p.memberPrice!.toInt()}',
+                                    style: const TextStyle(
+                                      color: AppColors.gold,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '(Member)',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    '(Member)',
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                            ],
                             Row(
                               children: [
                                 Text(
                                   '₹${p.nonMemberPrice!.toInt()}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.white,
-                                    fontSize: 14,
+                                    fontSize: isLoggedIn && p.memberPrice != null ? 14 : 18,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '(Non-Member)',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 9,
+                                if (isLoggedIn) ...[
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    '(Non-Member)',
+                                    style: TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 9,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ] else ...[

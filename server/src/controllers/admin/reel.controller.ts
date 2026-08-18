@@ -13,6 +13,19 @@ export async function getAdminReels(req: Request, res: Response) {
   }
 }
 
+export async function getAdminReel(req: Request, res: Response) {
+  try {
+    const reel = await Reel.findById(req.params.id);
+    if (!reel) {
+      return res.status(404).json({ error: 'Reel not found' });
+    }
+    return res.status(200).json(reel);
+  } catch (error) {
+    console.error('Error fetching admin reel:', error);
+    return res.status(500).json({ error: 'Failed to fetch reel' });
+  }
+}
+
 export async function createReel(req: Request, res: Response) {
   try {
     const { title, videoUrl, description, displayOrder, isActive } = req.body;

@@ -298,7 +298,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
       if (hasSubSub) {
         final activeSubSub =
             _findChild(activeSub['children'], _selectedSubSubCategory!);
-        final children = _asMapList(activeSubSub?['children']);
+        final children = _asMapList(activeSub['variants']).isNotEmpty
+            ? _asMapList(activeSub['variants'])
+            : _asMapList(activeSubSub?['children']);
         if (children.isEmpty) return null;
         return [
           const _NestedChip(slug: '', name: 'All', param: 'subSubSubCategory'),
@@ -327,11 +329,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     final seen = <String>{};
     final children = <Map<String, dynamic>>[];
-    for (final brand in _asMapList(activeSub['children'])) {
-      for (final tag in _asMapList(brand['children'])) {
-        final tagSlug = (tag['slug'] ?? '').toString().toLowerCase();
-        if (tagSlug.isNotEmpty && seen.add(tagSlug)) {
-          children.add(tag);
+    for (final tag in _asMapList(activeSub['variants'])) {
+      final tagSlug = (tag['slug'] ?? '').toString().toLowerCase();
+      if (tagSlug.isNotEmpty && seen.add(tagSlug)) {
+        children.add(tag);
+      }
+    }
+    if (children.isEmpty) {
+      for (final brand in _asMapList(activeSub['children'])) {
+        for (final tag in _asMapList(brand['children'])) {
+          final tagSlug = (tag['slug'] ?? '').toString().toLowerCase();
+          if (tagSlug.isNotEmpty && seen.add(tagSlug)) {
+            children.add(tag);
+          }
         }
       }
     }
@@ -636,6 +646,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
             // category chips only when no subcategory is in play.
             Builder(
               builder: (context) {
+                final openedFromShape = (widget.shape ?? '').trim().isNotEmpty;
+                if (openedFromShape) {
+                  return const SizedBox.shrink();
+                }
                 final nested = _nestedChips();
                 final hasSubCategory = _selectedSubCategory != null &&
                     _selectedSubCategory!.isNotEmpty;

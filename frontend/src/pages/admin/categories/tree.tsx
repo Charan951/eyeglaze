@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../lib/api';
+import { ADD_CHILD_LABEL, ADD_VARIANT_LABEL, categoryLevelLabel } from './levelLabels';
 
 interface TreeNode {
   id: string;
@@ -12,6 +13,7 @@ interface TreeNode {
   subCategoryId?: string;
   subSubCategoryId?: string;
   children?: TreeNode[];
+  variants?: TreeNode[];
 }
 
 export default function CategoryTreeView() {
@@ -20,12 +22,18 @@ export default function CategoryTreeView() {
   const [loading, setLoading] = useState(true);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
+  const nestedNodes = (node: TreeNode): TreeNode[] => [
+    ...(node.children || []),
+    ...(node.variants || []),
+  ];
+
   const getAllNodeIds = (nodes: TreeNode[]): Record<string, boolean> => {
     let result: Record<string, boolean> = {};
     nodes.forEach(node => {
       result[node.id] = true;
-      if (node.children && node.children.length > 0) {
-        result = { ...result, ...getAllNodeIds(node.children) };
+      const nested = nestedNodes(node);
+      if (nested.length > 0) {
+        result = { ...result, ...getAllNodeIds(nested) };
       }
     });
     return result;
@@ -62,14 +70,14 @@ export default function CategoryTreeView() {
   };
 
   const renderNode = (node: TreeNode, depth = 0, parentCatId?: string, parentSubCatId?: string) => {
-    const hasChildren = node.children && node.children.length > 0;
+    const nested = nestedNodes(node);
+    const hasChildren = nested.length > 0;
     const nodeId = getObjId(node.id || (node as any)._id);
     const isExpanded = !!expandedNodes[nodeId];
 
     // Determine current chain for child creation
     const currentCatId = node.type === 'Category' ? nodeId : parentCatId || getObjId(node.categoryId);
     const currentSubCatId = node.type === 'SubCategory' ? nodeId : parentSubCatId || getObjId(node.subCategoryId);
-    const currentSubSubCatId = node.type === 'SubSubCategory' ? nodeId : getObjId(node.subSubCategoryId);
 
     return (
       <div key={node.id} className="space-y-1">
@@ -94,7 +102,7 @@ export default function CategoryTreeView() {
             node.type === 'SubSubCategory' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
             'bg-amber-500/15 text-amber-400 border border-amber-500/30'
           }`}>
-            {node.type}
+            {categoryLevelLabel(node.type)}
           </span>
 
           <span className="text-white text-xs font-bold">{node.name}</span>
@@ -110,26 +118,26 @@ export default function CategoryTreeView() {
                 onClick={() => navigate(`/admin/categories/add?type=SubCategory&categoryId=${nodeId}`)}
                 className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
               >
-                + Sub-Category
+                {ADD_CHILD_LABEL.Category}
               </button>
             )}
             {node.type === 'SubCategory' && (
-              <button
-                type="button"
-                onClick={() => navigate(`/admin/categories/add?type=SubSubCategory&categoryId=${currentCatId}&subCategoryId=${nodeId}`)}
-                className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                + Sub-Sub
-              </button>
-            )}
-            {node.type === 'SubSubCategory' && (
-              <button
-                type="button"
-                onClick={() => navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${currentCatId}&subCategoryId=${currentSubCatId}&subSubCategoryId=${nodeId}`)}
-                className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                + Sub-Sub-Sub
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/categories/add?type=SubSubCategory&categoryId=${currentCatId}&subCategoryId=${nodeId}`)}
+                  className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  {ADD_CHILD_LABEL.SubCategory}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/categories/add?type=SubSubSubCategory&categoryId=${currentCatId}&subCategoryId=${nodeId}`)}
+                  className="bg-[#D4A04D]/15 hover:bg-[#D4A04D]/25 border border-[#D4A04D]/30 text-[#D4A04D] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  {ADD_VARIANT_LABEL}
+                </button>
+              </>
             )}
 
             {/* Action button to edit directly */}
@@ -145,7 +153,7 @@ export default function CategoryTreeView() {
 
         {hasChildren && isExpanded && (
           <div className="space-y-1">
-            {node.children!.map(child => renderNode(child, depth + 1, currentCatId, currentSubCatId))}
+            {nested.map(child => renderNode(child, depth + 1, currentCatId, currentSubCatId))}
           </div>
         )}
       </div>
@@ -188,7 +196,7 @@ export default function CategoryTreeView() {
           <div className="space-y-2">
             {treeData.map(node => renderNode(node))}
             {treeData.length === 0 && (
-              <div className="text-center text-gray-500 py-12 italic text-xs">No catalog hierarchy nodes exist.</div>
+              <div className="text-center text-gray-500 py-12 italic text-xs">No data is added</div>
             )}
           </div>
         )}

@@ -559,7 +559,7 @@ export default function AdminCouponsPage() {
             <div className="text-center text-gray-500 py-12 text-sm">Loading promotions...</div>
           ) : coupons.length === 0 ? (
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-12 text-center text-gray-400">
-              No promotions matched search criteria.
+              No data is added
             </div>
           ) : (
             <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden shadow-xl">
@@ -667,7 +667,7 @@ export default function AdminCouponsPage() {
             <div className="lg:col-span-2 bg-[#131314] border border-[#2A2A2D] p-6 rounded-2xl shadow-xl">
               <h2 className="text-white font-bold text-sm uppercase tracking-wider mb-4">🏆 Top Performing Coupon Codes</h2>
               {analytics.length === 0 ? (
-                <div className="text-center text-gray-500 text-xs py-12">No usage analytics recorded yet</div>
+                <div className="text-center text-gray-500 text-xs py-12">No data is added</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
@@ -770,7 +770,7 @@ export default function AdminCouponsPage() {
           <div className="bg-[#131314] border border-[#2A2A2D] p-6 rounded-2xl shadow-xl space-y-4">
             <h2 className="text-white font-bold text-sm uppercase tracking-wider">🛒 Live Coupon Usage Ledger</h2>
             {usageLogs.length === 0 ? (
-              <div className="text-center text-gray-500 text-xs py-12">No transactions recorded yet</div>
+              <div className="text-center text-gray-500 text-xs py-12">No data is added</div>
             ) : (
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {usageLogs.map((log) => (
@@ -796,7 +796,7 @@ export default function AdminCouponsPage() {
           <div className="bg-[#131314] border border-[#2A2A2D] p-6 rounded-2xl shadow-xl space-y-4">
             <h2 className="text-white font-bold text-sm uppercase tracking-wider">🔒 Admin Modifications Audit Trail</h2>
             {auditLogs.length === 0 ? (
-              <div className="text-center text-gray-500 text-xs py-12">No administrative modifications recorded yet</div>
+              <div className="text-center text-gray-500 text-xs py-12">No data is added</div>
             ) : (
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {auditLogs.map((log) => (

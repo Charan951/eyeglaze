@@ -28,7 +28,10 @@ import {
   PanelLeftOpen,
   Star,
   FileText,
-  Settings
+  Settings,
+  LayoutGrid,
+  Percent,
+  Gem
 } from 'lucide-react';
 
 interface NavLinkItem {
@@ -38,19 +41,41 @@ interface NavLinkItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+interface NavLinkChild {
+  type?: 'link';
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavNestedAccordion {
+  type: 'nested-accordion';
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: NavLinkChild[];
+}
+
+type NavChild = NavLinkChild | NavNestedAccordion;
+
 interface NavAccordionGroup {
   type: 'accordion';
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  children: {
-    href: string;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }[];
+  children: NavChild[];
 }
 
 type NavItem = NavLinkItem | NavAccordionGroup;
+
+function childIsActive(child: NavChild, currentPath: string): boolean {
+  if (child.type === 'nested-accordion') {
+    return child.children.some(
+      (nested) => currentPath === nested.href || currentPath.startsWith(nested.href + '/')
+    );
+  }
+  return currentPath === child.href || currentPath.startsWith(child.href + '/');
+}
 
 const navItems: NavItem[] = [
   {
@@ -101,6 +126,17 @@ const navItems: NavItem[] = [
       { href: '/admin/homepage-videos', label: 'Home Videos', icon: Video },
       { href: '/admin/reels', label: 'Home Reels', icon: Smartphone },
       { href: '/admin/banners', label: 'Home Banners', icon: Image },
+      {
+        type: 'nested-accordion',
+        id: 'home-sections',
+        label: 'Home Sections',
+        icon: LayoutGrid,
+        children: [
+          { href: '/admin/homepage-sections/special-promo', label: 'Special Promo', icon: Percent },
+          { href: '/admin/homepage-sections/new-arrivals', label: 'New Arrivals', icon: Sparkles },
+          { href: '/admin/homepage-sections/eyeglaze-edit', label: 'EyeGlaze Edit', icon: Gem },
+        ],
+      },
       { href: '/admin/blogs', label: 'Blogs', icon: FileText },
       { href: '/admin/settings', label: 'Site Settings', icon: Settings },
     ],
@@ -130,6 +166,7 @@ export default function AdminLayout() {
     customers: false,
     storefront: false,
     marketing: false,
+    'home-sections': false,
   });
 
   // Auto expand the accordion section that contains the current active route
@@ -137,11 +174,16 @@ export default function AdminLayout() {
     const currentPath = location.pathname;
     navItems.forEach((item) => {
       if (item.type === 'accordion') {
-        const isChildActive = item.children.some(
-          (child) => currentPath === child.href || currentPath.startsWith(child.href + '/')
-        );
+        const nestedOpen: Record<string, boolean> = {};
+        const isChildActive = item.children.some((child) => {
+          if (child.type === 'nested-accordion' && childIsActive(child, currentPath)) {
+            nestedOpen[child.id] = true;
+            return true;
+          }
+          return childIsActive(child, currentPath);
+        });
         if (isChildActive) {
-          setOpenSections((prev) => ({ ...prev, [item.id]: true }));
+          setOpenSections((prev) => ({ ...prev, [item.id]: true, ...nestedOpen }));
         }
       }
     });
@@ -222,9 +264,7 @@ export default function AdminLayout() {
             if (item.type === 'accordion') {
               const Icon = item.icon;
               const isOpen = !!openSections[item.id];
-              const hasActiveChild = item.children.some(
-                (child) => location.pathname === child.href || location.pathname.startsWith(child.href + '/')
-              );
+              const hasActiveChild = item.children.some((child) => childIsActive(child, location.pathname));
 
               return (
                 <div key={item.id} className="flex flex-col">
@@ -259,7 +299,64 @@ export default function AdminLayout() {
                   >
                     <div className="overflow-hidden flex flex-col gap-1 pl-3.5 border-l border-[#2A2A2D] ml-5">
                       {item.children.map((child) => {
-                        const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
+                        if (child.type === 'nested-accordion') {
+                          const nestedOpen = !!openSections[child.id];
+                          const nestedActive = childIsActive(child, location.pathname);
+                          const NestedIcon = child.icon;
+                          return (
+                            <div key={child.id} className="flex flex-col">
+                              <button
+                                type="button"
+                                onClick={() => toggleSection(child.id)}
+                                className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs transition-all duration-150 group cursor-pointer outline-none ${
+                                  nestedActive
+                                    ? 'text-white font-medium bg-[#18181A]/80'
+                                    : 'text-[#A7A7A7] hover:bg-[#131314] hover:text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <NestedIcon className={`w-3.5 h-3.5 shrink-0 ${nestedActive ? 'text-[#D4A04D]' : 'text-[#71717A] group-hover:text-[#D4A04D]'}`} />
+                                  <span className="truncate">{child.label}</span>
+                                </div>
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 text-[#8E8E93] shrink-0 transition-transform duration-200 ${
+                                    nestedOpen ? 'rotate-180 text-white' : ''
+                                  }`}
+                                />
+                              </button>
+                              <div
+                                className={`grid transition-all duration-200 ease-in-out ${
+                                  nestedOpen ? 'grid-rows-[1fr] opacity-100 mt-1' : 'grid-rows-[0fr] opacity-0 overflow-hidden'
+                                }`}
+                              >
+                                <div className="overflow-hidden flex flex-col gap-1 pl-3 border-l border-[#2A2A2D] ml-4">
+                                  {child.children.map((nested) => {
+                                    const isNestedActive =
+                                      location.pathname === nested.href || location.pathname.startsWith(nested.href + '/');
+                                    const NestedChildIcon = nested.icon;
+                                    return (
+                                      <Link
+                                        key={nested.href}
+                                        to={nested.href}
+                                        onClick={handleNavClick}
+                                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all duration-150 group ${
+                                          isNestedActive
+                                            ? 'bg-[#18181A] text-white font-medium border border-[#2A2A2D]'
+                                            : 'text-[#A7A7A7] hover:bg-[#131314] hover:text-white'
+                                        }`}
+                                      >
+                                        <NestedChildIcon className={`w-3.5 h-3.5 ${isNestedActive ? 'text-[#D4A04D]' : 'text-[#71717A] group-hover:text-[#D4A04D]'}`} />
+                                        <span>{nested.label}</span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const isChildActive = childIsActive(child, location.pathname);
                         const ChildIcon = child.icon;
                         return (
                           <Link
@@ -301,7 +398,7 @@ export default function AdminLayout() {
       {/* Main Container */}
       <main className="flex-1 overflow-y-auto scrollbar-none flex flex-col min-w-0 transition-all duration-300 ease-in-out">
         {/* Floating Top Navbar with Hamburger Toggle */}
-        <header className="sticky top-0 z-20 bg-[#0B0B0C]/80 backdrop-blur-md border-b border-[#2A2A2D] px-6 py-3.5 flex items-center justify-between">
+        <header className="sticky top-0 z-20 bg-[#0B0B0C]/80 backdrop-blur-md border-b border-[#2A2A2D] px-6 py-3.5 flex items-center">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen((prev) => !prev)}
@@ -313,14 +410,6 @@ export default function AdminLayout() {
             <div className="text-white text-xs font-bold uppercase tracking-wider hidden sm:block">
               Eyeglaze Admin Portal
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {!isSidebarOpen && (
-              <span className="bg-[#D4A04D]/15 border border-[#D4A04D]/30 text-[#D4A04D] text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider">
-                Full Width View (100%)
-              </span>
-            )}
           </div>
         </header>
 

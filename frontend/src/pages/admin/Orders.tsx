@@ -286,7 +286,10 @@ export default function AdminOrdersPage() {
                 Items Details
               </h3>
               <div className="space-y-4">
-                {selectedOrder.items && selectedOrder.items.map((item: any, idx: number) => (
+                {!selectedOrder.items || selectedOrder.items.length === 0 ? (
+                  <div className="text-center text-[#A7A7A7] text-xs py-10">No data is added</div>
+                ) : (
+                  selectedOrder.items.map((item: any, idx: number) => (
                   <div key={idx} className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 space-y-4 shadow-2xl">
                     
                     {/* Item header */}
@@ -367,7 +370,8 @@ export default function AdminOrdersPage() {
                     )}
 
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </div>
 
@@ -616,7 +620,7 @@ export default function AdminOrdersPage() {
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-[#A7A7A7] py-10">No orders found</td>
+                    <td colSpan={7} className="text-center text-[#A7A7A7] py-16">No data is added</td>
                   </tr>
                 )}
               </tbody>

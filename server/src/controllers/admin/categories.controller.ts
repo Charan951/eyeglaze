@@ -18,6 +18,77 @@ import { escapeRegExp } from '../../lib/regex';
 
 const ADMIN_ROLES = ['admin', 'store_manager'];
 
+const LEVEL_LABEL: Record<string, string> = {
+  Category: 'Category',
+  SubCategory: 'Collection',
+  SubSubCategory: 'Type',
+  SubSubSubCategory: 'Variant',
+};
+
+const PARENT_LABEL: Record<string, string> = {
+  SubCategory: 'Category',
+  SubSubCategory: 'Collection',
+  SubSubSubCategory: 'Collection',
+};
+
+function idStr(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'object' && value._id) return String(value._id);
+  return String(value);
+}
+
+/** Slug uniqueness is global for Categories, per-parent for nested levels. */
+function slugScopeFilter(type: string, slug: string, hierarchy: any) {
+  const filter: Record<string, any> = { slug };
+  if (type === 'SubCategory' && hierarchy?.categoryId) {
+    filter.categoryId = hierarchy.categoryId;
+  } else if (type === 'SubSubCategory' && hierarchy?.subCategoryId) {
+    filter.subCategoryId = hierarchy.subCategoryId;
+  } else if (type === 'SubSubSubCategory' && hierarchy?.subCategoryId) {
+    filter.subCategoryId = hierarchy.subCategoryId;
+  }
+  return filter;
+}
+
+function codeScopeFilter(type: string, code: string, hierarchy: any) {
+  const filter: Record<string, any> = { code };
+  if (type === 'SubSubSubCategory' && hierarchy?.subCategoryId) {
+    filter.subCategoryId = hierarchy.subCategoryId;
+  }
+  return filter;
+}
+
+function sameParent(type: string, doc: any, hierarchy: any): boolean {
+  if (type === 'Category') return true;
+  if (type === 'SubCategory') return idStr(doc.categoryId) === idStr(hierarchy?.categoryId);
+  if (type === 'SubSubCategory') return idStr(doc.subCategoryId) === idStr(hierarchy?.subCategoryId);
+  if (type === 'SubSubSubCategory') return idStr(doc.subCategoryId) === idStr(hierarchy?.subCategoryId);
+  return false;
+}
+
+function asObjectId(value: any): mongoose.Types.ObjectId | null {
+  if (!value) return null;
+  const raw = typeof value === 'object' && value._id ? String(value._id) : String(value);
+  if (!mongoose.isValidObjectId(raw)) return null;
+  return new mongoose.Types.ObjectId(raw);
+}
+
+function hierarchyError(type: string, hierarchy: any): string | null {
+  if (type === 'SubCategory' && !asObjectId(hierarchy?.categoryId)) {
+    return 'Parent Category is required for Collection';
+  }
+  if (type === 'SubSubCategory' && (!asObjectId(hierarchy?.categoryId) || !asObjectId(hierarchy?.subCategoryId))) {
+    return 'Parent Category and Collection are required for Type';
+  }
+  if (
+    type === 'SubSubSubCategory' &&
+    (!asObjectId(hierarchy?.categoryId) || !asObjectId(hierarchy?.subCategoryId))
+  ) {
+    return 'Parent Category and Collection are required for Variant';
+  }
+  return null;
+}
+
 // Utility to resolve target model based on type
 function getModelByType(type: string): mongoose.Model<any> {
   switch (type) {
@@ -46,7 +117,9 @@ export async function getCategories(req: Request, res: Response) {
     const limit = parseInt((req.query.limit as string) || '20');
     const skip = (page - 1) * limit;
 
-    const query: Record<string, any> = { isDeleted };
+    const query: Record<string, any> = isDeleted
+      ? { isDeleted: true }
+      : { isDeleted: { $ne: true } };
 
     if (search) {
       query.name = { $regex: escapeRegExp(search), $options: 'i' };
@@ -59,14 +132,14 @@ export async function getCategories(req: Request, res: Response) {
     const subCategoryId = req.query.subCategoryId as string | undefined;
     const subSubCategoryId = req.query.subSubCategoryId as string | undefined;
 
-    if (subSubCategoryId && type === 'SubSubSubCategory') {
-      query.subSubCategoryId = subSubCategoryId;
+    if (subSubCategoryId && type === 'SubSubSubCategory' && mongoose.isValidObjectId(subSubCategoryId)) {
+      query.subSubCategoryId = new mongoose.Types.ObjectId(subSubCategoryId);
     }
-    if (subCategoryId && (type === 'SubSubCategory' || type === 'SubSubSubCategory')) {
-      query.subCategoryId = subCategoryId;
+    if (subCategoryId && (type === 'SubSubCategory' || type === 'SubSubSubCategory') && mongoose.isValidObjectId(subCategoryId)) {
+      query.subCategoryId = new mongoose.Types.ObjectId(subCategoryId);
     }
-    if (categoryId && (type === 'SubCategory' || type === 'SubSubCategory' || type === 'SubSubSubCategory')) {
-      query.categoryId = categoryId;
+    if (categoryId && (type === 'SubCategory' || type === 'SubSubCategory' || type === 'SubSubSubCategory') && mongoose.isValidObjectId(categoryId)) {
+      query.categoryId = new mongoose.Types.ObjectId(categoryId);
     }
 
     let items: any[] = [];
@@ -134,27 +207,25 @@ export async function getCategoryTree(req: Request, res: Response) {
         .map((sub: any) => {
           const subsubcats = subSubCategories
             .filter((subsub: any) => String(subsub.subCategoryId) === String(sub._id))
-            .map((subsub: any) => {
-              const subsubsubcats = subSubSubCategories
-                .filter((subsubsub: any) => String(subsubsub.subSubCategoryId) === String(subsub._id))
-                .map((subsubsub: any) => ({
-                  id: subsubsub._id,
-                  name: subsubsub.name,
-                  code: subsubsub.code,
-                  slug: subsubsub.slug,
-                  type: 'SubSubSubCategory',
-                  children: [],
-                }));
+            .map((subsub: any) => ({
+              id: subsub._id,
+              name: subsub.name,
+              code: subsub.code,
+              slug: subsub.slug,
+              type: 'SubSubCategory',
+              children: [],
+            }));
 
-              return {
-                id: subsub._id,
-                name: subsub.name,
-                code: subsub.code,
-                slug: subsub.slug,
-                type: 'SubSubCategory',
-                children: subsubsubcats,
-              };
-            });
+          const variants = subSubSubCategories
+            .filter((v: any) => String(v.subCategoryId) === String(sub._id))
+            .map((v: any) => ({
+              id: v._id,
+              name: v.name,
+              code: v.code,
+              slug: v.slug,
+              type: 'SubSubSubCategory',
+              children: [],
+            }));
 
           return {
             id: sub._id,
@@ -165,6 +236,7 @@ export async function getCategoryTree(req: Request, res: Response) {
             shapeModal: sub.shapeModal,
             modalShapes: sub.modalShapes,
             children: subsubcats,
+            variants,
           };
         });
 
@@ -236,11 +308,19 @@ export async function createCategory(req: Request, res: Response) {
     await connectDB();
     const { type, basic, hierarchy, attributes, filters, seo } = req.body;
 
-    if (!type || !basic?.name || !basic?.code) {
-      return res.status(400).json({ error: 'Type, Name, and Code are required' });
+    if (!type || !basic?.name) {
+      return res.status(400).json({ error: 'Type and Name are required' });
+    }
+    if (!basic.code) {
+      basic.code = `CAT-${String(basic.name).replace(/[^A-Za-z0-9]+/g, '').slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
     }
 
     const model = getModelByType(type);
+
+    const missingParents = hierarchyError(type, hierarchy);
+    if (missingParents) {
+      return res.status(400).json({ error: missingParents });
+    }
 
     // Auto slug generation if empty
     const slug =
@@ -250,17 +330,24 @@ export async function createCategory(req: Request, res: Response) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-    // Check slug and code uniqueness
-    const existingSlug = await model.findOne({ slug });
+    const label = LEVEL_LABEL[type] || type;
+    const parentLabel = PARENT_LABEL[type] || 'parent';
+
+    // Nested slugs are unique per parent so "Best Seller" can exist under each Type.
+    const existingSlug = await model.findOne(slugScopeFilter(type, slug, hierarchy));
     if (existingSlug && !existingSlug.isDeleted) {
-      return res.status(400).json({ error: `Slug '${slug}' already exists for type ${type}` });
+      return res.status(400).json({
+        error: `${label} "${basic.name}" already exists in this ${parentLabel}.`,
+      });
     }
-    const existingCode = await model.findOne({ code: basic.code });
+    const existingCode = await model.findOne(codeScopeFilter(type, basic.code, hierarchy));
     if (existingCode && !existingCode.isDeleted) {
-      return res.status(400).json({ error: `Code '${basic.code}' already exists for type ${type}` });
+      return res.status(400).json({ error: `Code '${basic.code}' already exists for this ${label}` });
     }
 
-    const deletedDoc = (existingSlug?.isDeleted ? existingSlug : null) || (existingCode?.isDeleted ? existingCode : null);
+    const deletedDoc =
+      (existingSlug?.isDeleted ? existingSlug : null) ||
+      (existingCode?.isDeleted && sameParent(type, existingCode, hierarchy) ? existingCode : null);
 
     if (deletedDoc) {
       const targetId = deletedDoc._id;
@@ -291,10 +378,7 @@ export async function createCategory(req: Request, res: Response) {
         docData.subCategoryColumns = basic.subCategoryColumns ?? 4;
         docData.showInNavbar = basic.showInNavbar ?? true;
       } else if (type === 'SubCategory') {
-        if (!hierarchy?.categoryId) {
-          return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
-        }
-        docData.categoryId = hierarchy.categoryId;
+        docData.categoryId = asObjectId(hierarchy.categoryId);
         docData.icon = basic.icon;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
@@ -304,21 +388,14 @@ export async function createCategory(req: Request, res: Response) {
         docData.modalSubSubCategories = basic.modalSubSubCategories ?? [];
         docData.showInNavbar = basic.showInNavbar ?? true;
       } else if (type === 'SubSubCategory') {
-        if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
-          return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
-        }
-        docData.categoryId = hierarchy.categoryId;
-        docData.subCategoryId = hierarchy.subCategoryId;
+        docData.categoryId = asObjectId(hierarchy.categoryId);
+        docData.subCategoryId = asObjectId(hierarchy.subCategoryId);
         docData.icon = basic.icon;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
       } else if (type === 'SubSubSubCategory') {
-        if (!hierarchy?.categoryId || !hierarchy?.subCategoryId || !hierarchy?.subSubCategoryId) {
-          return res.status(400).json({ error: 'categoryId, subCategoryId, and subSubCategoryId references are required for SubSubSubCategory' });
-        }
-        docData.categoryId = hierarchy.categoryId;
-        docData.subCategoryId = hierarchy.subCategoryId;
-        docData.subSubCategoryId = hierarchy.subSubCategoryId;
+        docData.categoryId = asObjectId(hierarchy.categoryId);
+        docData.subCategoryId = asObjectId(hierarchy.subCategoryId);
         docData.icon = basic.icon;
         docData.linkTo = basic.linkTo;
         docData.gender = basic.gender;
@@ -431,10 +508,7 @@ export async function createCategory(req: Request, res: Response) {
       docData.subCategoryColumns = basic.subCategoryColumns ?? 4;
       docData.showInNavbar = basic.showInNavbar ?? true;
     } else if (type === 'SubCategory') {
-      if (!hierarchy?.categoryId) {
-        return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
-      }
-      docData.categoryId = hierarchy.categoryId;
+      docData.categoryId = asObjectId(hierarchy.categoryId);
       docData.icon = basic.icon;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
@@ -444,21 +518,14 @@ export async function createCategory(req: Request, res: Response) {
       docData.modalSubSubCategories = basic.modalSubSubCategories ?? [];
       docData.showInNavbar = basic.showInNavbar ?? true;
     } else if (type === 'SubSubCategory') {
-      if (!hierarchy?.categoryId || !hierarchy?.subCategoryId) {
-        return res.status(400).json({ error: 'categoryId and subCategoryId hierarchy references are required for SubSubCategory' });
-      }
-      docData.categoryId = hierarchy.categoryId;
-      docData.subCategoryId = hierarchy.subCategoryId;
+      docData.categoryId = asObjectId(hierarchy.categoryId);
+      docData.subCategoryId = asObjectId(hierarchy.subCategoryId);
       docData.icon = basic.icon;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
     } else if (type === 'SubSubSubCategory') {
-      if (!hierarchy?.categoryId || !hierarchy?.subCategoryId || !hierarchy?.subSubCategoryId) {
-        return res.status(400).json({ error: 'categoryId, subCategoryId, and subSubCategoryId references are required for SubSubSubCategory' });
-      }
-      docData.categoryId = hierarchy.categoryId;
-      docData.subCategoryId = hierarchy.subCategoryId;
-      docData.subSubCategoryId = hierarchy.subSubCategoryId;
+      docData.categoryId = asObjectId(hierarchy.categoryId);
+      docData.subCategoryId = asObjectId(hierarchy.subCategoryId);
       docData.icon = basic.icon;
       docData.linkTo = basic.linkTo;
       docData.gender = basic.gender;
@@ -530,6 +597,13 @@ export async function createCategory(req: Request, res: Response) {
     return res.status(201).json({ category: newDoc, attributes: attrDoc, filters: filterDoc, seo: seoDoc });
   } catch (error: any) {
     console.error('CREATE category error:', error);
+    if (error?.code === 11000) {
+      const t = req.body?.type as string;
+      const name = req.body?.basic?.name || req.body?.basic?.slug;
+      return res.status(400).json({
+        error: `${LEVEL_LABEL[t] || 'Segment'}${name ? ` "${name}"` : ''} already exists in this ${PARENT_LABEL[t] || 'parent'}.`,
+      });
+    }
     return res.status(500).json({ error: error.message || 'Failed to create category structure' });
   }
 }
@@ -551,13 +625,25 @@ export async function updateCategory(req: Request, res: Response) {
       return res.status(404).json({ error: 'Category element not found' });
     }
 
-    // Slug / code unique checks
+    const nextHierarchy = {
+      categoryId: hierarchy?.categoryId || existingDoc.categoryId,
+      subCategoryId: hierarchy?.subCategoryId || existingDoc.subCategoryId,
+      subSubCategoryId: hierarchy?.subSubCategoryId || existingDoc.subSubCategoryId,
+    };
+
+    // Slug / code unique checks (nested slugs are unique per parent)
     if (basic?.slug && basic.slug !== existingDoc.slug) {
-      const exSlug = await model.findOne({ slug: basic.slug });
+      const exSlug = await model.findOne({
+        ...slugScopeFilter(type as string, basic.slug, nextHierarchy),
+        _id: { $ne: existingDoc._id },
+      });
       if (exSlug) return res.status(400).json({ error: `Slug '${basic.slug}' already in use` });
     }
     if (basic?.code && basic.code !== existingDoc.code) {
-      const exCode = await model.findOne({ code: basic.code });
+      const exCode = await model.findOne({
+        ...codeScopeFilter(type as string, basic.code, nextHierarchy),
+        _id: { $ne: existingDoc._id },
+      });
       if (exCode) return res.status(400).json({ error: `Code '${basic.code}' already in use` });
     }
 
@@ -611,7 +697,12 @@ export async function updateCategory(req: Request, res: Response) {
       if (type === 'SubCategory' && basic?.showInNavbar !== undefined) updateObj.showInNavbar = basic.showInNavbar;
     }
 
-    const updatedDoc = await model.findByIdAndUpdate(id, { $set: updateObj }, { returnDocument: 'after' });
+    const updateOps: Record<string, any> = { $set: updateObj };
+    if (type === 'SubSubSubCategory' && !hierarchy?.subSubCategoryId) {
+      updateOps.$unset = { subSubCategoryId: 1 };
+    }
+
+    const updatedDoc = await model.findByIdAndUpdate(id, updateOps, { returnDocument: 'after' });
 
     // Update metadata
     await Promise.all([

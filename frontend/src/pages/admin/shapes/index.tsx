@@ -352,7 +352,7 @@ export default function ShapesList() {
             </div>
           ) : items.length === 0 ? (
             <div className="py-20 text-center text-gray-500 text-sm">
-              No shapes found matching the criteria.
+              No data is added
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -435,7 +435,7 @@ export default function ShapesList() {
             </div>
           ) : kidsItems.length === 0 ? (
             <div className="py-20 text-center text-gray-500 text-sm">
-              No kids age groups found. Click "+ Add Kids Age Group" to create one.
+              No data is added
             </div>
           ) : (
             <div className="overflow-x-auto">

@@ -58,6 +58,60 @@ class ProductFrame {
       );
 }
 
+class ContactPackSibling {
+  final String id;
+  final String name;
+  final String sku;
+  final String packName;
+  final int? lensesPerBox;
+  final double price;
+  final double? originalPrice;
+  final String? thumbnail;
+
+  ContactPackSibling({
+    required this.id,
+    required this.name,
+    this.sku = '',
+    required this.packName,
+    this.lensesPerBox,
+    required this.price,
+    this.originalPrice,
+    this.thumbnail,
+  });
+
+  factory ContactPackSibling.fromJson(Map<dynamic, dynamic> json) => ContactPackSibling(
+        id: (json['_id'] ?? json['id'] ?? '').toString(),
+        name: json['name']?.toString() ?? '',
+        sku: json['sku']?.toString() ?? '',
+        packName: json['packName']?.toString() ?? json['name']?.toString() ?? '',
+        lensesPerBox: (json['lensesPerBox'] as num?)?.toInt(),
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        originalPrice: (json['originalPrice'] as num?)?.toDouble(),
+        thumbnail: json['thumbnail']?.toString(),
+      );
+}
+
+class ContactPackOption {
+  final String packName;
+  final double price;
+  final double? originalPrice;
+  final int? lensesPerBox;
+
+  ContactPackOption({
+    required this.packName,
+    required this.price,
+    this.originalPrice,
+    this.lensesPerBox,
+  });
+
+  factory ContactPackOption.fromJson(Map<dynamic, dynamic> json) => ContactPackOption(
+        packName: json['packName']?.toString() ?? '',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        originalPrice: (json['originalPrice'] as num?)?.toDouble(),
+        lensesPerBox: (json['lensesPerBox'] as num?)?.toInt(),
+      );
+}
+
 class ContactPower {
   final String power;
   final double price;
@@ -112,6 +166,10 @@ class Product {
   final String? subCategory;
   final List<String> readingPowers;
   final List<ContactPower> contactPowers;
+  final List<ContactPackSibling> contactPackSiblings;
+  final List<ContactPackOption> contactPackOptions;
+  final String? packName;
+  final String? contactPackGroupId;
   final String? contactDisposableType;
   final bool sellAsFrame;
   final bool sellWithLens;
@@ -157,6 +215,10 @@ class Product {
     this.subCategory,
     this.readingPowers = const [],
     this.contactPowers = const [],
+    this.contactPackSiblings = const [],
+    this.contactPackOptions = const [],
+    this.packName,
+    this.contactPackGroupId,
     this.contactDisposableType,
     this.sellAsFrame = true,
     this.sellWithLens = true,
@@ -179,6 +241,19 @@ class Product {
     this.thumbnail,
     this.brand,
   });
+
+  /// Category-only, matching web `isContactLensProduct`. Product names like
+  /// "Lenskart" must not be treated as contact lenses.
+  bool get isContactLens =>
+      categories.any((c) => c.toLowerCase().contains('contact'));
+
+  bool get isSolutionOrAccessory {
+    final blob = [...categories, subCategory ?? ''].join(' ').toLowerCase();
+    return blob.contains('solution') || blob.contains('accessor');
+  }
+
+  bool get isMembershipBogoEligible =>
+      !isContactLens && !isSolutionOrAccessory;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final priceObj = json['price'];
@@ -213,15 +288,26 @@ class Product {
       reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
       soldCount: (json['soldCount'] as num?)?.toInt() ?? 0,
       categories: (() {
+        final values = <String>[];
+        void add(dynamic v) {
+          if (v == null) return;
+          if (v is Map) {
+            add(v['slug']);
+            add(v['name']);
+            return;
+          }
+          final s = v.toString();
+          if (s.isNotEmpty && s != 'null') values.add(s);
+        }
         final list = json['categories'] as List<dynamic>?;
-        if (list != null && list.isNotEmpty) {
-          return list.map((c) => c.toString()).toList();
+        if (list != null) {
+          for (final c in list) {
+            add(c);
+          }
         }
-        final single = json['category'];
-        if (single != null && single.toString().isNotEmpty) {
-          return [single.toString()];
-        }
-        return <String>[];
+        add(json['category']);
+        add(json['categoryId']);
+        return values;
       })(),
       isBestseller: json['isBestseller'] == true,
       isActive: json['isActive'] != false,
@@ -245,6 +331,16 @@ class Product {
               ?.map((c) => ContactPower.fromJson(c as Map))
               .toList() ??
           const [],
+      contactPackSiblings: (json['contactPackSiblings'] as List<dynamic>?)
+              ?.map((c) => ContactPackSibling.fromJson(c as Map))
+              .toList() ??
+          const [],
+      contactPackOptions: (json['contactPackOptions'] as List<dynamic>?)
+              ?.map((c) => ContactPackOption.fromJson(c as Map))
+              .toList() ??
+          const [],
+      packName: json['packName']?.toString(),
+      contactPackGroupId: json['contactPackGroupId']?.toString(),
       contactDisposableType: json['contactDisposableType']?.toString(),
       sellAsFrame: json['sellAsFrame'] != false,
       sellWithLens: json['sellWithLens'] != false,
@@ -260,7 +356,10 @@ class Product {
       shortDescription: json['shortDescription']?.toString(),
       longDescription: json['longDescription']?.toString() ?? json['description']?.toString(),
       warranty: json['warranty']?.toString(),
-      memberPrice: (json['memberPrice'] as num?)?.toDouble(),
+      memberPrice: (json['memberPrice'] as num?)?.toDouble() ??
+          (json['memberPrices'] is Map
+              ? (json['memberPrices']['goldMemberPrice'] as num?)?.toDouble()
+              : null),
       nonMemberPrice: (json['nonMemberPrice'] as num?)?.toDouble(),
       frameType: json['frameType']?.toString() ?? json['frame']?['type']?.toString(),
       frameShape: json['frameShape']?.toString() ?? json['shape']?.toString(),

@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { connectDB } from './config/mongodb';
-import { Product } from './models/Product';
+import { Product, STOREFRONT_PRODUCT_FILTER } from './models/Product';
 
 import { requireAuth, optionalAuth } from './middleware/requireAuth';
 import { requireAdmin } from './middleware/requireAdmin';
@@ -40,6 +40,8 @@ import homepageVideosRoutes from './routes/homepageVideos.routes';
 import adminHomepageVideosRoutes from './routes/admin/homepageVideos.routes';
 import bannersRoutes from './routes/banners.routes';
 import adminBannersRoutes from './routes/admin/banners.routes';
+import homepageSectionsRoutes from './routes/homepageSections.routes';
+import adminHomepageSectionsRoutes from './routes/admin/homepageSections.routes';
 import adminLensTypesRoutes from './routes/admin/lensTypes.routes';
 import adminLensesRoutes from './routes/admin/lenses.routes';
 import adminCouponsRoutes from './routes/admin/coupons.routes';
@@ -105,7 +107,7 @@ app.use('/images', express.static(path.join(process.cwd(), 'public/images')));
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
     await connectDB();
-    const products = await Product.find({ isActive: true }).select('_id updatedAt').lean();
+    const products = await Product.find(STOREFRONT_PRODUCT_FILTER).select('_id updatedAt').lean();
     const allowedOrigins = process.env.CLIENT_URL
       ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
       : ['http://localhost:5173', 'https://web.eyeglaze.in'];
@@ -162,6 +164,7 @@ app.use('/api/lens-options', lensOptionsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/homepage-videos', homepageVideosRoutes);
 app.use('/api/banners', bannersRoutes);
+app.use('/api/homepage-sections', homepageSectionsRoutes);
 app.use('/api/reels', reelsRoutes);
 app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
 app.use('/api/categories', categoriesRoutes);
@@ -205,6 +208,7 @@ adminRouter.use('/tickets', adminTicketsRoutes);
 adminRouter.use('/categories', adminCategoriesRoutes);
 adminRouter.use('/homepage-videos', adminHomepageVideosRoutes);
 adminRouter.use('/banners', adminBannersRoutes);
+adminRouter.use('/homepage-sections', adminHomepageSectionsRoutes);
 adminRouter.use('/reels', adminReelsRoutes);
 adminRouter.use('/lens-types', adminLensTypesRoutes);
 adminRouter.use('/lenses', adminLensesRoutes);

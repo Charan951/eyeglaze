@@ -11,6 +11,14 @@ import { AuditLog } from '../../models/AuditLog';
 import { User } from '../../models/User';
 import { getIO } from '../../lib/socket';
 import { escapeRegExp } from '../../lib/regex';
+import {
+  findContactPackSiblings,
+  inferLensesPerBox,
+  newContactPackGroupId,
+  stripContactPackSiblingPayload,
+  syncContactPackFamily,
+  findCollapsedPackProducts,
+} from '../../lib/contactPackSiblings';
 
 const ADMIN_ROLES = ['admin', 'store_manager'];
 
@@ -58,10 +66,13 @@ export async function getAdminProducts(req: Request, res: Response) {
     if (req.query.isLensSolution !== undefined) query.isLensSolution = req.query.isLensSolution === 'true';
 
     const skip = (page - 1) * limit;
-    const [products, total] = await Promise.all([
-      Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Product.countDocuments(query),
-    ]);
+    const ungroupPacks = req.query.ungroupPacks === 'true';
+    const { products, total } = ungroupPacks
+      ? {
+          products: await Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+          total: await Product.countDocuments(query),
+        }
+      : await findCollapsedPackProducts(query, { createdAt: -1 }, skip, limit);
 
     return res.status(200).json({ products, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
@@ -97,7 +108,15 @@ export async function createAdminProduct(req: Request, res: Response) {
 
     await connectDB();
     const body = req.body || {};
+    const packFamily = stripContactPackSiblingPayload(body);
     cleanObjectIdFields(body);
+
+    if (body.packName && !body.lensesPerBox) {
+      body.lensesPerBox = inferLensesPerBox(body.packName);
+    }
+    if (body.packName && !body.contactPackGroupId) {
+      body.contactPackGroupId = newContactPackGroupId();
+    }
 
     // SKU Generation & Validation
     if (!body.sku) {
@@ -160,8 +179,16 @@ export async function createAdminProduct(req: Request, res: Response) {
       }
     }
 
+    // Keep isActive in sync with wizard status (Draft/Inactive stay off the storefront).
+    if (body.status) {
+      body.isActive = body.status === 'Active';
+    } else if (typeof body.isActive === 'boolean') {
+      body.status = body.isActive ? 'Active' : 'Inactive';
+    }
+
     const product = new Product(body);
     await product.save();
+    await syncContactPackFamily(product, packFamily.pending, packFamily.toLink, packFamily.toUnlink);
 
     // 1. Sync Variants to ProductVariant collection
     if (body.variants && Array.isArray(body.variants)) {
@@ -225,7 +252,11 @@ export async function getAdminProductById(req: Request, res: Response) {
     // Fetch associated audit logs
     const auditLogs = await AuditLog.find({ productId: id }).sort({ createdAt: -1 });
 
-    return res.status(200).json({ product, variants, auditLogs });
+    const contactPackSiblings = product.contactPackGroupId
+      ? await findContactPackSiblings(product.contactPackGroupId, { includeInactive: true })
+      : [];
+
+    return res.status(200).json({ product, variants, auditLogs, contactPackSiblings });
   } catch (error) {
     console.error('GET admin product error:', error);
     return res.status(500).json({ error: 'Failed to fetch product' });
@@ -241,7 +272,17 @@ export async function updateAdminProduct(req: Request, res: Response) {
     await connectDB();
     const { id } = req.params;
     const body = req.body || {};
+    const packFamily = stripContactPackSiblingPayload(body);
+    const syncFamilyStatus = body.syncContactPackFamilyStatus === true;
+    delete body.syncContactPackFamilyStatus;
     cleanObjectIdFields(body);
+
+    if (body.packName && !body.lensesPerBox) {
+      body.lensesPerBox = inferLensesPerBox(body.packName);
+    }
+    if (body.packName && !body.contactPackGroupId) {
+      body.contactPackGroupId = newContactPackGroupId();
+    }
 
     const existingProduct = await Product.findById(id);
     if (!existingProduct) return res.status(404).json({ error: 'Product not found' });
@@ -292,8 +333,22 @@ export async function updateAdminProduct(req: Request, res: Response) {
       }
     }
 
+    // Keep isActive in sync with wizard status (Draft/Inactive stay off the storefront).
+    if (body.status) {
+      body.isActive = body.status === 'Active';
+    } else if (typeof body.isActive === 'boolean') {
+      body.status = body.isActive ? 'Active' : 'Inactive';
+    }
+
     const product = await Product.findByIdAndUpdate(id, { $set: body }, { returnDocument: 'after' });
     if (!product) return res.status(404).json({ error: 'Product not found' });
+    if (syncFamilyStatus && product.contactPackGroupId && product.status) {
+      await Product.updateMany(
+        { contactPackGroupId: product.contactPackGroupId },
+        { $set: { status: product.status, isActive: product.status === 'Active' } }
+      );
+    }
+    await syncContactPackFamily(product, packFamily.pending, packFamily.toLink, packFamily.toUnlink);
 
     // Sync Variants to ProductVariant collection
     if (body.variants && Array.isArray(body.variants)) {
@@ -354,6 +409,16 @@ export async function deleteAdminProduct(req: Request, res: Response) {
     const deletedProduct = await Product.findByIdAndDelete(id);
     if (!deletedProduct) {
       return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const siblingIds = deletedProduct.contactPackGroupId
+      ? (await Product.find({ contactPackGroupId: deletedProduct.contactPackGroupId }).select('_id'))
+          .map((p) => String(p._id))
+      : [];
+    if (siblingIds.length > 0) {
+      await Product.deleteMany({ _id: { $in: siblingIds } });
+      await ProductVariant.deleteMany({ productId: { $in: siblingIds } });
+      await AuditLog.deleteMany({ productId: { $in: siblingIds } });
     }
 
     await ProductVariant.deleteMany({ productId: id });

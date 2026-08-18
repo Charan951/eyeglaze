@@ -290,7 +290,7 @@ export default function AdminUsersPage() {
             {orders.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-[#A7A7A7] text-xs">
                 <div className="text-3xl mb-2 animate-bounce">📦</div>
-                <span>No orders placed by this user yet.</span>
+                <span>No data is added</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -388,7 +388,14 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center text-[#A7A7A7] py-16">
+                    {searchQuery.trim() ? 'No matching results' : 'No data is added'}
+                  </td>
+                </tr>
+              ) : (
+                users.map(user => (
                 <tr 
                   key={user._id} 
                   onClick={() => handleUserClick(user._id)}
@@ -430,7 +437,8 @@ export default function AdminUsersPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

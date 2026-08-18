@@ -8,6 +8,8 @@
 
 export interface ProductTypeFields {
   category?: string;
+  categoryId?: { slug?: string; name?: string } | string;
+  categories?: string[];
   subCategory?: string;
   subSubCategory?: string;
   subSubSubCategory?: string;
@@ -15,33 +17,39 @@ export interface ProductTypeFields {
   solutionVariants?: unknown[];
 }
 
+function categoryLooksLikeContactLens(value: unknown): boolean {
+  if (!value) return false;
+  if (typeof value === 'object') {
+    const o = value as { slug?: string; name?: string };
+    return categoryLooksLikeContactLens(o.slug) || categoryLooksLikeContactLens(o.name);
+  }
+  return String(value).toLowerCase().includes('contact');
+}
+
 export function isContactLensProduct(product?: ProductTypeFields | null): boolean {
   if (!product) return false;
-  const cat = (product.category || '').toLowerCase();
-  const sub = (product.subCategory || '').toLowerCase();
-  const name = (product.name || '').toLowerCase();
-  return (
-    cat.includes('contact') ||
-    (cat.includes('lens') && !cat.includes('frame')) ||
-    sub.includes('contact') ||
-    name.includes('contact') ||
-    (name.includes('lens') && !name.includes('glass') && !name.includes('frame'))
-  );
+  if (categoryLooksLikeContactLens(product.category) || categoryLooksLikeContactLens(product.categoryId)) {
+    return true;
+  }
+  return (product.categories || []).some((c) => categoryLooksLikeContactLens(c));
 }
 
 export function isSolutionProduct(product?: ProductTypeFields | null): boolean {
   if (!product) return false;
+  const sub = (product.subCategory || '').toLowerCase();
   const subsub = (product.subSubCategory || '').toLowerCase();
   return (
     (Array.isArray(product.solutionVariants) && product.solutionVariants.length > 0) ||
+    sub.includes('solution') ||
     (subsub.includes('solution') && !subsub.includes('accessor'))
   );
 }
 
 export function isAccessoryProduct(product?: ProductTypeFields | null): boolean {
   if (!product) return false;
+  const sub = (product.subCategory || '').toLowerCase();
   const subsub = (product.subSubCategory || '').toLowerCase();
-  return subsub.includes('accessor');
+  return sub.includes('accessor') || subsub.includes('accessor');
 }
 
 // "Monthly" contact lenses specifically — wear-duration is stored as free

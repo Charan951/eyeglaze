@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAdminHomepageVideos,
+  getAdminHomepageVideo,
   createHomepageVideo,
   updateHomepageVideo,
   deleteHomepageVideo,
@@ -9,6 +10,7 @@ import {
 const router = Router();
 
 router.get('/', getAdminHomepageVideos);
+router.get('/:id', getAdminHomepageVideo);
 router.post('/', createHomepageVideo);
 router.put('/:id', updateHomepageVideo);
 router.delete('/:id', deleteHomepageVideo);
